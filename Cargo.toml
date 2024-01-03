@@ -7,8 +7,11 @@ edition = "2021"
 
 [dependencies]
 ash = { version = "0.37.3", features = ["linked"]}
+chrono = "0.4.31"
+crossbeam = "0.8.3"
 glfw = { version = "0.54.0", features = ["vulkan"]}
-log = "0.4.20"
+log = { version = "0.4.20", features = ["std"]}
+rayon = "1.8.0"
 strum = {version = "0.25.0", features = ["strum_macros"]}
 strum_macros =  "0.25.3"
 vma = {version = "0.3.1", features = ["linked"]}

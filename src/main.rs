@@ -1,52 +1,47 @@
+#![feature(stmt_expr_attributes)]
+
+use std::collections::HashMap;
+use std::sync::OnceLock;
+
 mod gfx;
 mod util;
 
-const SHADER: &str = r#"
-// declaration of functions
-#pragma ps pixelShader
-#pragma vs vertexShader
-
-// data structure : before vertex shader (mesh info)
-struct vertexInfo
-{
-    float3 position : POSITION;
-    float2 uv: TEXCOORD0;
-    float3 color : COLOR;
-}
-
-// data structure : vertex shader to pixel shader
-// also called interpolants because values interpolates through the triangle
-// from one vertex to another
-struct v2p
-{
-    float4 position : SV_POSITION;
-    float3 uv : TEXCOORD0;
-    float3 color : TEXCOORD1;
-}
-
-// uniforms : external parameters
-sampler2D MyTexture;
-float2 UVTile;
-matrix4x4 worldViewProjection;
-
-// vertex shader function
-v2p vertexShader(vertexInfo input)
-{
-    v2p output;
-    output.position = mul(worldViewProjection, float4(input.position,1.0));
-    output.uv = input.uv * UVTile;
-    output.color = input.color;
-    return output;
-}
-
-// pixel shader function
-float4 pixelShader(v2p input) : SV_TARGET
-{
-    float4 color = tex2D(MyTexture, input.uv);
-    return color * input.color;
-}"#;
+static LOGGER: OnceLock<util::AsyncLogger> = OnceLock::new();
 
 fn main()
 {
-    println!("Hello, world!");
+    // Initialize logger
+    LOGGER.set(util::AsyncLogger::new()).unwrap();
+    log::set_logger(LOGGER.get().unwrap()).unwrap();
+    log::set_max_level(log::LevelFilter::Trace);
+
+    log::trace!("Hello, world!");
+    log::debug!("Hello, world!");
+    log::info!("Hello, world!");
+    log::warn!("Hello, world!");
+    log::error!("Hello, world!");
+
+    let mut keybinds: HashMap<gfx::Interaction, (gfx::InteractionMethod, glfw::Key)> =
+        HashMap::new();
+    #[rustfmt::skip]
+    {
+        keybinds.insert(gfx::Interaction::PlayerMoveForward,      (gfx::InteractionMethod::EveryFrame, glfw::Key::W));
+        keybinds.insert(gfx::Interaction::PlayerMoveBackward,     (gfx::InteractionMethod::EveryFrame, glfw::Key::S));
+        keybinds.insert(gfx::Interaction::PlayerMoveLeft,         (gfx::InteractionMethod::EveryFrame, glfw::Key::A));
+        keybinds.insert(gfx::Interaction::PlayerMoveRight,        (gfx::InteractionMethod::EveryFrame, glfw::Key::D));
+        keybinds.insert(gfx::Interaction::PlayerMoveUp,           (gfx::InteractionMethod::EveryFrame, glfw::Key::Space));
+        keybinds.insert(gfx::Interaction::PlayerMoveDown,         (gfx::InteractionMethod::EveryFrame, glfw::Key::LeftControl));
+        keybinds.insert(gfx::Interaction::PlayerSprint,           (gfx::InteractionMethod::EveryFrame, glfw::Key::LeftShift));
+        keybinds.insert(gfx::Interaction::ToggleConsole,          (gfx::InteractionMethod::SinglePress, glfw::Key::GraveAccent));
+        keybinds.insert(gfx::Interaction::ToggleCursorAttachment, (gfx::InteractionMethod::SinglePress, glfw::Key::Backslash));
+    }
+
+    let window = gfx::Window::new(keybinds);
+
+    while !window.should_close()
+    {
+        unsafe { window.end_frame() };
+    }
+
+    unsafe { LOGGER.get().unwrap().join_worker_thread() }
 }
