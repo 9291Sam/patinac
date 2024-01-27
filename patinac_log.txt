@@ -1,5 +1,1 @@
-[Jan 01/02/2024 20:41:41:370:145] [src/main.rs:18] [TRACE] Hello, world!
-[Jan 01/02/2024 20:41:41:370:291] [src/main.rs:19] [DEBUG] Hello, world!
-[Jan 01/02/2024 20:41:41:370:300] [src/main.rs:20] [INFO] Hello, world!
-[Jan 01/02/2024 20:41:41:370:307] [src/main.rs:21] [WARN] Hello, world!
-[Jan 01/02/2024 20:41:41:370:312] [src/main.rs:22] [ERROR] Hello, world!
+[Jan 01/27/2024 09:34:20:045:763] [src/gfx/renderer.rs:69] [INFO] event loop returned

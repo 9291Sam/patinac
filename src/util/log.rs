@@ -45,13 +45,9 @@ impl AsyncLogger
                 match receiver.try_recv()
                 {
                     Ok(message) => write_fn(message),
-                    Err(e) =>
-                    {
-                        if let TryRecvError::Disconnected = e
-                        {
-                            break;
-                        }
-                    }
+                    Err(TryRecvError::Disconnected) => break,
+                    Err(_) =>
+                    {}
                 }
             }
 
@@ -69,8 +65,7 @@ impl AsyncLogger
         }
     }
 
-    /// any messages put in after this are not guaranteed to be received!
-    pub unsafe fn join_worker_thread(&self)
+    pub fn stop_worker(&self)
     {
         self.should_stop.store(true, Ordering::Release);
 
@@ -97,22 +92,17 @@ impl log::Log for AsyncLogger
         working_time_string.replace_range(23..24, ":");
         working_time_string.insert(27, ':');
 
-        let _ = self
-            .thread_sender
-            .send(format!(
-                "[{}] [{}:{}] [{}] {}",
-                working_time_string,
-                record.file().unwrap_or_default().replace('\\', "/"),
-                record.line().unwrap_or_default(),
-                record.level(),
-                format_args!("{}", record.args())
-            ))
-            .map_err(|unsent_message| {
-                eprintln!(
-                    "Failed to send message to worker thread! {}",
-                    unsent_message
-                );
-            });
+        if let Err(unsent_string) = self.thread_sender.send(format!(
+            "[{}] [{}:{}] [{}] {}",
+            working_time_string,
+            record.file().unwrap_or_default().replace('\\', "/"),
+            record.line().unwrap_or_default(),
+            record.level(),
+            format_args!("{}", record.args())
+        ))
+        {
+            eprintln!("Send After async shutdown! {}", unsent_string.0);
+        }
     }
 
     fn flush(&self) {}

@@ -1,3 +1,3 @@
-mod window;
+mod renderer;
 
-pub use window::*;
+pub use renderer::*;
