@@ -25,7 +25,7 @@ fn main()
 
     std::thread::scope(|s| {
         // s.spawn(|| game.enter_tick_loop(&should_stop));
-        renderer.enter_tick_loop(&should_stop);
+        renderer.enter_gfx_loop(&should_stop);
     });
 
     LOGGER.get().unwrap().stop_worker();
