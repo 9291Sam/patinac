@@ -12,3 +12,4 @@ winit = "0.29"
 wgpu = "0.19"
 bevy_ecs = { version = "0.12.1", features = ["multi-threaded"]}
 pollster = "0.3.0"
+scopeguard = "1.2.0"

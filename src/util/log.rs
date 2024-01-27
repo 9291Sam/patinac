@@ -78,13 +78,22 @@ impl AsyncLogger
 impl log::Log for AsyncLogger
 {
     /// Doing this means that the log crate manages the level itself
-    fn enabled(&self, _metadata: &log::Metadata) -> bool
+    fn enabled(&self, metadata: &log::Metadata) -> bool
     {
         true
     }
 
     fn log(&self, record: &log::Record)
     {
+        // Silencing useless messages in 3rd party libs
+        if let Some(true) = record.file().map(|f| f.contains(".cargo"))
+        {
+            if record.level() >= log::Level::Info
+            {
+                return;
+            }
+        }
+
         let mut working_time_string = chrono::Local::now()
             .format("%b %m/%d/%Y %T%.6f")
             .to_string();
@@ -92,11 +101,38 @@ impl log::Log for AsyncLogger
         working_time_string.replace_range(23..24, ":");
         working_time_string.insert(27, ':');
 
+        let file_path: String;
+
+        if let (Some(file), Some(line), true) = (
+            record.file().map(|s| s.replace('\\', "/")),
+            record.line(),
+            cfg!(debug_assertions)
+        )
+        {
+            let prettified_filepath: &str;
+
+            if let Some(idx) = file.find("index.crates.io-")
+            {
+                let idx_of_next_slash = file[idx..].find('/').unwrap();
+
+                prettified_filepath = &file[idx_of_next_slash + idx + 1..];
+            }
+            else
+            {
+                prettified_filepath = &file;
+            }
+
+            file_path = format!("[{prettified_filepath}:{line}] ");
+        }
+        else
+        {
+            file_path = "".into();
+        }
+
         if let Err(unsent_string) = self.thread_sender.send(format!(
-            "[{}] [{}:{}] [{}] {}",
+            "[{}] {}[{}] {}",
             working_time_string,
-            record.file().unwrap_or_default().replace('\\', "/"),
-            record.line().unwrap_or_default(),
+            file_path,
             record.level(),
             format_args!("{}", record.args())
         ))
