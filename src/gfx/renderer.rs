@@ -1,11 +1,9 @@
-use std::ops::Deref;
+use std::default;
+use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering::*;
-use std::sync::atomic::{AtomicBool, AtomicPtr};
-use std::sync::{Mutex, RwLock, RwLockReadGuard};
+use std::sync::Mutex;
 
 use pollster::FutureExt;
-use scopeguard::defer;
-use wgpu::core::device;
 use winit::dpi::PhysicalSize;
 use winit::event::*;
 use winit::event_loop::EventLoop;
@@ -23,8 +21,7 @@ pub struct Renderer
     window:     Window,
     event_loop: Mutex<EventLoop<()>>
 }
-
-unsafe impl Send for Renderer {}
+// This is fine as long as you cant  touch the event loop
 unsafe impl Sync for Renderer {}
 
 impl Renderer
@@ -299,7 +296,7 @@ impl Renderer
                     _ => ()
                 }
 
-                if (control_flow.exiting())
+                if control_flow.exiting()
                 {
                     should_stop.store(true, Release);
                 }

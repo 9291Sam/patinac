@@ -1270,7 +1270,6 @@ dependencies = [
  "chrono",
  "log",
  "pollster",
- "scopeguard",
  "wgpu",
  "winit",
 ]
