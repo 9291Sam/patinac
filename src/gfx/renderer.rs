@@ -1,4 +1,5 @@
 use std::ops::Deref;
+use std::sync::atomic::Ordering::*;
 use std::sync::atomic::{AtomicBool, AtomicPtr};
 use std::sync::{Mutex, RwLock, RwLockReadGuard};
 
@@ -23,14 +24,17 @@ pub struct Renderer
     event_loop: Mutex<EventLoop<()>>
 }
 
+unsafe impl Send for Renderer {}
+unsafe impl Sync for Renderer {}
+
 impl Renderer
 {
     pub fn new() -> Self
     {
-        let mut event_loop = EventLoop::new().unwrap();
+        let event_loop = EventLoop::new().unwrap();
         let window = WindowBuilder::new().build(&event_loop).unwrap();
 
-        let mut size = window.inner_size();
+        let size = window.inner_size();
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: wgpu::Backends::all(),
             #[cfg(debug_assertions)]
@@ -249,6 +253,11 @@ impl Renderer
             .lock()
             .unwrap()
             .run_on_demand(move |event, control_flow| {
+                if should_stop.load(Acquire)
+                {
+                    control_flow.exit();
+                }
+
                 match event
                 {
                     Event::WindowEvent {
@@ -288,6 +297,11 @@ impl Renderer
                         }
                     }
                     _ => ()
+                }
+
+                if (control_flow.exiting())
+                {
+                    should_stop.store(true, Release);
                 }
             });
 

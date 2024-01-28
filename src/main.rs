@@ -1,10 +1,10 @@
 #![feature(stmt_expr_attributes)]
 #![feature(if_let_guard)]
 
-use std::ptr::{addr_of, addr_of_mut};
-use std::sync::atomic::{AtomicBool, AtomicPtr};
+use std::sync::atomic::AtomicBool;
 use std::sync::OnceLock;
 
+mod game;
 mod gfx;
 mod util;
 
@@ -18,23 +18,13 @@ fn main()
     log::set_max_level(log::LevelFilter::Trace);
 
     let should_stop = AtomicBool::new(false);
+    let renderer = gfx::Renderer::new();
+    let game = game::Game::new(&renderer);
 
     std::thread::scope(|s| {
-        let renderer = gfx::Renderer::new();
-        // let game = game::Game::new();
-
-        // s.spawn(|| game.enter_tick_loop(&should_stop))
+        s.spawn(|| game.enter_tick_loop(&should_stop));
 
         renderer.enter_gfx_loop(&should_stop);
-
-        renderer
-            .get_device()
-            .create_buffer(&wgpu::BufferDescriptor {
-                label:              Some("label"),
-                size:               4096,
-                usage:              wgpu::BufferUsages::INDEX,
-                mapped_at_creation: false
-            });
     });
 
     LOGGER.get().unwrap().stop_worker();
