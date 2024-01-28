@@ -1,5 +1,7 @@
 use std::sync::atomic::AtomicBool;
 
+use bevy_ecs::prelude::*;
+
 use crate::gfx;
 pub struct Game<'r>
 {

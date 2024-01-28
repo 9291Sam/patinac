@@ -2,6 +2,7 @@ use std::default;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering::*;
 use std::sync::Mutex;
+use std::thread::ThreadId;
 
 use pollster::FutureExt;
 use winit::dpi::PhysicalSize;
@@ -13,6 +14,7 @@ use winit::window::{Window, WindowBuilder};
 
 pub struct Renderer
 {
+    thread_id:  ThreadId,
     queue:      wgpu::Queue,
     device:     wgpu::Device,
     adapter:    wgpu::Adapter,
@@ -21,7 +23,9 @@ pub struct Renderer
     window:     Window,
     event_loop: Mutex<EventLoop<()>>
 }
-// This is fine as long as you cant  touch the event loop
+// SAFETY: You must not receive any EventLoop events outside of the thread that
+// created it, you can't even do this as its behind a mutex!
+// We also verify this with a threadID
 unsafe impl Sync for Renderer {}
 
 impl Renderer
@@ -41,6 +45,8 @@ impl Renderer
             ..Default::default()
         });
 
+        // SAFETY: The window must outlive the surface, this is guarantee by Renderer's
+        // Drop order
         let surface = unsafe {
             instance
                 .create_surface_unsafe(wgpu::SurfaceTargetUnsafe::from_window(&window).unwrap())
@@ -69,6 +75,7 @@ impl Renderer
             .unwrap();
 
         Renderer {
+            thread_id: std::thread::current().id(),
             queue,
             device,
             adapter,
@@ -86,6 +93,12 @@ impl Renderer
 
     pub fn enter_gfx_loop(&self, should_stop: &AtomicBool)
     {
+        assert!(
+            self.thread_id == std::thread::current().id(),
+            "Renderer::enter_gfx_loop() must be called on the same thread that Renderer::new() \
+             was called from!"
+        );
+
         let mut size_guard = self.size.lock().unwrap();
         let size: &mut PhysicalSize<u32> = &mut *size_guard;
 
@@ -305,38 +318,3 @@ impl Renderer
         log::info!("event loop returned");
     }
 }
-
-// pub struct DeviceAccessGuard<'a>
-// {
-//     stored_guard: RwLockReadGuard<'a, AtomicPtr<wgpu::Device>>
-// }
-
-// use std::sync::atomic::Ordering::*;
-
-// impl<'a> DeviceAccessGuard<'a>
-// {
-//     pub fn new(adopted_lock: &'a RwLock<AtomicPtr<wgpu::Device>>) ->
-// DeviceAccessGuard<'a>     {
-//         let stored_guard = adopted_lock.read().unwrap();
-
-//         assert!(!stored_guard.load(Acquire).is_null());
-
-//         DeviceAccessGuard {
-//             stored_guard
-//         }
-//     }
-// }
-
-// impl<'a> Deref for DeviceAccessGuard<'a>
-// {
-//     type Target = wgpu::Device;
-
-//     fn deref(&self) -> &Self::Target
-//     {
-//         let loaded_ptr = self.stored_guard.load(Acquire);
-
-//         debug_assert!(!loaded_ptr.is_null());
-
-//         unsafe { &*(loaded_ptr as *const wgpu::Device) }
-//     }
-// }
