@@ -1,4 +1,3 @@
-use std::default;
 use std::ops::Deref;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering::*;
@@ -133,6 +132,8 @@ impl Renderer
             })
             .map(|m| m.to_owned());
 
+        log::info!("Selected present mode {selected_mode:?}");
+
         let mut config = wgpu::SurfaceConfiguration {
             usage:                         wgpu::TextureUsages::RENDER_ATTACHMENT,
             format:                        surface_format,
@@ -226,18 +227,13 @@ impl Renderer
         let mut is_first_resize = false;
 
         let mut resize_func = |maybe_new_size: Option<PhysicalSize<u32>>| {
-            log::info!("resize!");
-            #[cfg(target_os = "windows")]
             if is_first_resize
             {
                 is_first_resize = false;
                 return;
             }
 
-
-
             let new_size = maybe_new_size.unwrap_or(*size);
-            log::info!("resize2! {new_size:?}");
 
             if new_size.width > 0 && new_size.height > 0
             {
@@ -315,9 +311,9 @@ impl Renderer
                         {
                             WindowEvent::Resized(new_size) => resize_func(Some(*new_size)),
                             WindowEvent::KeyboardInput {
-                                device_id,
+                                device_id: _,
                                 ref event,
-                                is_synthetic
+                                is_synthetic: _
                             } =>
                             {
                                 if let Key::Named(NamedKey::Escape) = event.logical_key
@@ -338,10 +334,13 @@ impl Renderer
                                     Err(Lost) => resize_func(None),
                                     Err(OutOfMemory) => todo!()
                                 }
+
+                                self.window.request_redraw();
                             }
                             _ => ()
                         }
                     }
+
                     _ => ()
                 }
 

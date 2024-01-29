@@ -1,0 +1,1 @@
+[Jan 01/29/2024 10:57:25:915:725] [src/gfx/renderer.rs:135] [INFO] Selected present mode Some(Fifo)
