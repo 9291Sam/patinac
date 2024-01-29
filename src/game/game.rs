@@ -20,7 +20,7 @@ impl<'r> Game<'r>
     pub fn enter_tick_loop(&self, should_stop: &AtomicBool)
     {
         let all_u8s_rev: [u8; u8::MAX as usize + 1] =
-            std::array::from_fn(|i| u8::wrapping_sub(1, i as u8).wrapping_sub(2));
+            std::array::from_fn(|i| u8::wrapping_add(255, i as u8));
 
         self.renderer.create_buffer_init(&BufferInitDescriptor {
             label:    Some("wgpu test buffer"),

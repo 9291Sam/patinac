@@ -14,3 +14,4 @@ bevy_ecs = { version = "0.12.1", features = ["multi-threaded"]}
 pollster = "0.3.0"
 bytemuck = { version = "1.14.1", features = [ "derive" ] }
 cgmath = "0.18.0"
+image = { version = "0.24", default-features = false, features = ["png", "jpeg"] }
