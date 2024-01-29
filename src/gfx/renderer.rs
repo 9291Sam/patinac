@@ -196,6 +196,7 @@ impl Renderer
         let mut is_first_resize = false;
 
         let mut resize_func = |maybe_new_size: Option<PhysicalSize<u32>>| {
+            log::info!("resize!");
             #[cfg(target_os = "windows")]
             if is_first_resize
             {
@@ -203,7 +204,10 @@ impl Renderer
                 return;
             }
 
+
+
             let new_size = maybe_new_size.unwrap_or(*size);
+            log::info!("resize2! {new_size:?}");
 
             if new_size.width > 0 && new_size.height > 0
             {

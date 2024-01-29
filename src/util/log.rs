@@ -86,13 +86,13 @@ impl log::Log for AsyncLogger
     fn log(&self, record: &log::Record)
     {
         // Silencing useless messages in 3rd party libs
-        if let Some(true) = record.file().map(|f| f.contains(".cargo"))
-        {
-            if record.level() >= log::Level::Info
-            {
-                return;
-            }
-        }
+        // if let Some(true) = record.file().map(|f| f.contains(".cargo"))
+        // {
+        //     if record.level() >= log::Level::Info
+        //     {
+        //         return;
+        //     }
+        // }
 
         let mut working_time_string = chrono::Local::now()
             .format("%b %m/%d/%Y %T%.6f")
