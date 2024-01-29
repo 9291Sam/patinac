@@ -12,6 +12,9 @@ static LOGGER: OnceLock<util::AsyncLogger> = OnceLock::new();
 
 fn main()
 {
+    #[cfg(debug_assertions)]
+    std::env::set_var("RUST_BACKTRACE", "1");
+
     // Initialize logger
     LOGGER.set(util::AsyncLogger::new()).unwrap();
     log::set_logger(LOGGER.get().unwrap()).unwrap();
