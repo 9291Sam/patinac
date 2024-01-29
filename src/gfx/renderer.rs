@@ -1,10 +1,12 @@
 use std::default;
+use std::ops::Deref;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering::*;
 use std::sync::Mutex;
 use std::thread::ThreadId;
 
 use pollster::FutureExt;
+use wgpu::util::DeviceExt;
 use winit::dpi::PhysicalSize;
 use winit::event::*;
 use winit::event_loop::EventLoop;
@@ -27,6 +29,16 @@ pub struct Renderer
 // created it, you can't even do this as its behind a mutex!
 // We also verify this with a threadID
 unsafe impl Sync for Renderer {}
+
+impl Deref for Renderer
+{
+    type Target = wgpu::Device;
+
+    fn deref(&self) -> &Self::Target
+    {
+        &self.device
+    }
+}
 
 impl Renderer
 {
@@ -84,11 +96,6 @@ impl Renderer
             window,
             event_loop: Mutex::new(event_loop)
         }
-    }
-
-    pub fn get_device(&self) -> &wgpu::Device
-    {
-        &self.device
     }
 
     pub fn enter_gfx_loop(&self, should_stop: &AtomicBool)
@@ -157,7 +164,7 @@ impl Renderer
                 vertex:        wgpu::VertexState {
                     module:      &shader,
                     entry_point: "vs_main",
-                    buffers:     &[]
+                    buffers:     &[Vertex::desc()]
                 },
                 fragment:      Some(wgpu::FragmentState {
                     // 3.
@@ -186,6 +193,29 @@ impl Renderer
                     alpha_to_coverage_enabled: false
                 },
                 multiview:     None
+            });
+
+        const VERTICES: &[Vertex] = &[
+            Vertex {
+                position: [0.0, 0.5, 0.0],
+                color:    [1.0, 0.0, 0.0]
+            },
+            Vertex {
+                position: [-0.5, -0.5, 0.0],
+                color:    [0.0, 1.0, 0.0]
+            },
+            Vertex {
+                position: [0.5, -0.5, 0.0],
+                color:    [0.0, 0.0, 1.0]
+            }
+        ];
+
+        let vertex_buffer = self
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label:    Some("Vertex Buffer"),
+                contents: bytemuck::cast_slice(VERTICES),
+                usage:    wgpu::BufferUsages::VERTEX
             });
 
         // Because of a bug in winit, the first resize command that comes in is borked
@@ -252,7 +282,9 @@ impl Renderer
                 });
 
                 render_pass.set_pipeline(&render_pipeline);
-                render_pass.draw(0..3, 0..1)
+
+                render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
+                render_pass.draw(0..VERTICES.len() as u32, 0..1)
             }
 
             // submit will accept anything that implements IntoIter
@@ -320,5 +352,30 @@ impl Renderer
             });
 
         log::info!("event loop returned");
+    }
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+struct Vertex
+{
+    position: [f32; 3],
+    color:    [f32; 3]
+}
+
+impl Vertex
+{
+    const ATTRIBS: [wgpu::VertexAttribute; 2] =
+        wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3];
+
+    fn desc() -> wgpu::VertexBufferLayout<'static>
+    {
+        use std::mem;
+
+        wgpu::VertexBufferLayout {
+            array_stride: mem::size_of::<Self>() as wgpu::BufferAddress,
+            step_mode:    wgpu::VertexStepMode::Vertex,
+            attributes:   &Self::ATTRIBS
+        }
     }
 }

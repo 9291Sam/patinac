@@ -1,6 +1,7 @@
 use std::sync::atomic::AtomicBool;
 
 use bevy_ecs::prelude::*;
+use wgpu::util::{BufferInitDescriptor, DeviceExt};
 
 use crate::gfx;
 pub struct Game<'r>
