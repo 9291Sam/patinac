@@ -1,5 +1,3 @@
-#![feature(stmt_expr_attributes)]
-#![feature(if_let_guard)]
 #![feature(map_try_insert)]
 
 use std::sync::atomic::AtomicBool;
