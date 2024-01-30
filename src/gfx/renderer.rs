@@ -16,14 +16,10 @@ use winit::window::{Window, WindowBuilder};
 
 pub struct Renderer
 {
-    queue:            wgpu::Queue,
+    pub queue:        wgpu::Queue,
     device:           wgpu::Device,
     critical_section: Mutex<CriticalSection>
 }
-// SAFETY: You must not receive any EventLoop events outside of the thread that
-// created it, you can't even do this as its behind a mutex!
-// We also verify this with a threadID
-unsafe impl Sync for Renderer {}
 
 impl Deref for Renderer
 {
@@ -34,6 +30,11 @@ impl Deref for Renderer
         &self.device
     }
 }
+
+// SAFETY: You must not receive any EventLoop events outside of the thread that
+// created it, you can't even do this as its behind a mutex!
+// We also verify this with a threadID
+unsafe impl Sync for Renderer {}
 
 impl Renderer
 {
