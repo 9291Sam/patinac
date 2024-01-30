@@ -1,1 +1,11 @@
-[Jan 01/29/2024 16:49:58:187:028] [src/gfx/renderer.rs:136] [INFO] Selected present mode Some(Fifo)
+[Jan 01/29/2024 20:17:33:922:222] [wgpu-hal-0.19.1/src/vulkan/instance.rs:86] [ERROR] GENERAL [Loader Message (0x0)]
+	loader_get_json: Failed to open JSON file C:\Program Files\NVIDIA Corporation\Nsight Systems 2023.4.1\target-windows-x64\vulkan-layers\VkLayer_nsight-sys_windows.json
+[Jan 01/29/2024 20:17:33:922:558] [wgpu-hal-0.19.1/src/vulkan/instance.rs:145] [ERROR] 	objects: (type: INSTANCE, hndl: 0x23cb215d1b0, name: ?)
+[Jan 01/29/2024 20:17:33:925:269] [wgpu-hal-0.19.1/src/vulkan/instance.rs:86] [WARN] GENERAL [Loader Message (0x0)]
+	Layer VK_LAYER_OW_OVERLAY uses API version 1.2 which is older than the application specified API version of 1.3. May cause issues.
+[Jan 01/29/2024 20:17:33:925:293] [wgpu-hal-0.19.1/src/vulkan/instance.rs:145] [WARN] 	objects: (type: INSTANCE, hndl: 0x23cb215d1b0, name: ?)
+[Jan 01/29/2024 20:17:33:925:305] [wgpu-hal-0.19.1/src/vulkan/instance.rs:86] [WARN] GENERAL [Loader Message (0x0)]
+	Layer VK_LAYER_OW_OBS_HOOK uses API version 1.2 which is older than the application specified API version of 1.3. May cause issues.
+[Jan 01/29/2024 20:17:33:925:315] [wgpu-hal-0.19.1/src/vulkan/instance.rs:145] [WARN] 	objects: (type: INSTANCE, hndl: 0x23cb215d1b0, name: ?)
+[Jan 01/29/2024 20:17:34:325:230] [src/gfx/renderer.rs:136] [INFO] Selected present mode Mailbox
+[Jan 01/29/2024 20:17:36:797:582] [src/gfx/renderer.rs:454] [INFO] event loop returned

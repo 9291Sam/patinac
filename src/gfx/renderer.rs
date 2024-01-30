@@ -107,7 +107,7 @@ impl Renderer
         );
 
         let mut size_guard = self.size.lock().unwrap();
-        let size: &mut PhysicalSize<u32> = &mut *size_guard;
+        let size: &mut PhysicalSize<u32> = &mut size_guard;
 
         let surface_caps = self.surface.get_capabilities(&self.adapter);
 
@@ -133,7 +133,7 @@ impl Renderer
             })
             .map(|m| m.to_owned());
 
-        log::info!("Selected present mode {selected_mode:?}");
+        log::info!("Selected present mode {:?}", selected_mode.unwrap());
 
         let mut config = wgpu::SurfaceConfiguration {
             usage:                         wgpu::TextureUsages::RENDER_ATTACHMENT,
