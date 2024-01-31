@@ -1,3 +1,4 @@
+#![feature(associated_type_defaults)]
 #![feature(stmt_expr_attributes)]
 #![feature(if_let_guard)]
 

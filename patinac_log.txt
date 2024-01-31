@@ -1,1 +1,1 @@
-[Jan 01/29/2024 16:49:58:187:028] [src/gfx/renderer.rs:136] [INFO] Selected present mode Some(Fifo)
+[Jan 01/31/2024 09:58:32:335:902] [src/gfx/renderer.rs:136] [INFO] Selected present mode Some(Fifo)

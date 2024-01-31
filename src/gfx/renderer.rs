@@ -384,7 +384,8 @@ impl Renderer
                 render_pass.draw_indexed(0..INDICES.len() as u32, 0, 0..1);
             }
 
-            // submit will accept anything that implements IntoIter
+            self.window.pre_present_notify();
+
             self.queue.submit(std::iter::once(encoder.finish()));
             output.present();
 
