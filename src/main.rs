@@ -1,6 +1,7 @@
-#![feature(associated_type_defaults)]
 #![feature(stmt_expr_attributes)]
 #![feature(if_let_guard)]
+#![feature(map_try_insert)]
+#![feature(associated_type_defaults)]
 
 use std::sync::atomic::AtomicBool;
 use std::sync::OnceLock;

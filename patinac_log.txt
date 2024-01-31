@@ -1,1 +1,2 @@
-[Jan 01/31/2024 09:58:32:335:902] [src/gfx/renderer.rs:136] [INFO] Selected present mode Some(Fifo)
+[Jan 01/31/2024 10:00:17:788:594] [src/gfx/renderer.rs:77] [INFO] Selected Device Apple M1 Pro with driver  using backend Metal
+[Jan 01/31/2024 10:00:17:790:883] [src/gfx/renderer.rs:121] [INFO] Selected present mode Fifo

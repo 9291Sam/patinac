@@ -16,19 +16,10 @@ use winit::window::{Window, WindowBuilder};
 
 pub struct Renderer
 {
-    thread_id:  ThreadId,
-    queue:      wgpu::Queue,
-    device:     wgpu::Device,
-    adapter:    wgpu::Adapter,
-    surface:    wgpu::Surface<'static>,
-    size:       Mutex<PhysicalSize<u32>>,
-    window:     Window,
-    event_loop: Mutex<EventLoop<()>>
+    pub queue:        wgpu::Queue,
+    device:           wgpu::Device,
+    critical_section: Mutex<CriticalSection>
 }
-// SAFETY: You must not receive any EventLoop events outside of the thread that
-// created it, you can't even do this as its behind a mutex!
-// We also verify this with a threadID
-unsafe impl Sync for Renderer {}
 
 impl Deref for Renderer
 {
@@ -40,6 +31,11 @@ impl Deref for Renderer
     }
 }
 
+// SAFETY: You must not receive any EventLoop events outside of the thread that
+// created it, you can't even do this as its behind a mutex!
+// We also verify this with a threadID
+unsafe impl Sync for Renderer {}
+
 impl Renderer
 {
     pub fn new() -> Self
@@ -47,7 +43,6 @@ impl Renderer
         let event_loop = EventLoop::new().unwrap();
         let window = WindowBuilder::new().build(&event_loop).unwrap();
 
-        let size = window.inner_size();
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: wgpu::Backends::all(),
             #[cfg(debug_assertions)]
@@ -74,6 +69,18 @@ impl Renderer
             .block_on()
             .expect("Failed to find a wgpu Adapter!");
 
+        if !adapter.get_downlevel_capabilities().is_webgpu_compliant()
+        {
+            log::warn!("Device is not fully supported!");
+        }
+
+        log::info!(
+            "Selected Device {} with driver {} using backend {:?}",
+            adapter.get_info().name,
+            adapter.get_info().driver_info,
+            adapter.get_info().backend
+        );
+
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
@@ -86,30 +93,8 @@ impl Renderer
             .block_on()
             .unwrap();
 
-        Renderer {
-            thread_id: std::thread::current().id(),
-            queue,
-            device,
-            adapter,
-            surface,
-            size: Mutex::new(size),
-            window,
-            event_loop: Mutex::new(event_loop)
-        }
-    }
-
-    pub fn enter_gfx_loop(&self, should_stop: &AtomicBool)
-    {
-        assert!(
-            self.thread_id == std::thread::current().id(),
-            "Renderer::enter_gfx_loop() must be called on the same thread that Renderer::new() \
-             was called from!"
-        );
-
-        let mut size_guard = self.size.lock().unwrap();
-        let size: &mut PhysicalSize<u32> = &mut *size_guard;
-
-        let surface_caps = self.surface.get_capabilities(&self.adapter);
+        let size = window.inner_size();
+        let surface_caps = surface.get_capabilities(&adapter);
 
         let surface_format = surface_caps
             .formats
@@ -133,9 +118,9 @@ impl Renderer
             })
             .map(|m| m.to_owned());
 
-        log::info!("Selected present mode {selected_mode:?}");
+        log::info!("Selected present mode {:?}", selected_mode.unwrap());
 
-        let mut config = wgpu::SurfaceConfiguration {
+        let config = wgpu::SurfaceConfiguration {
             usage:                         wgpu::TextureUsages::RENDER_ATTACHMENT,
             format:                        surface_format,
             width:                         size.width,
@@ -145,7 +130,41 @@ impl Renderer
             view_formats:                  vec![],
             desired_maximum_frame_latency: 2
         };
-        self.surface.configure(&self.device, &config);
+        surface.configure(&device, &config);
+
+        let critical_section = CriticalSection {
+            thread_id: std::thread::current().id(),
+            surface,
+            config,
+            size,
+            window,
+            event_loop
+        };
+
+        Renderer {
+            queue,
+            device,
+            critical_section: Mutex::new(critical_section)
+        }
+    }
+
+    pub fn enter_gfx_loop(&self, should_stop: &AtomicBool)
+    {
+        let mut guard = self.critical_section.lock().unwrap();
+        let CriticalSection {
+            thread_id,
+            surface,
+            config,
+            size,
+            window,
+            event_loop
+        } = &mut *guard;
+
+        assert!(
+            *thread_id == std::thread::current().id(),
+            "Renderer::enter_gfx_loop() must be called on the same thread that Renderer::new() \
+             was called from!"
+        );
 
         const VERTICES: &[Vertex] = &[
             Vertex {
@@ -340,12 +359,12 @@ impl Renderer
                 *size = new_size;
                 config.width = new_size.width;
                 config.height = new_size.height;
-                self.surface.configure(&self.device, &config);
+                surface.configure(&self.device, config);
             }
         };
 
         let render_func = || -> Result<(), wgpu::SurfaceError> {
-            let output = self.surface.get_current_texture()?;
+            let output = surface.get_current_texture()?;
             let view = output
                 .texture
                 .create_view(&wgpu::TextureViewDescriptor::default());
@@ -384,7 +403,7 @@ impl Renderer
                 render_pass.draw_indexed(0..INDICES.len() as u32, 0, 0..1);
             }
 
-            self.window.pre_present_notify();
+            window.pre_present_notify();
 
             self.queue.submit(std::iter::once(encoder.finish()));
             output.present();
@@ -392,65 +411,61 @@ impl Renderer
             Ok(())
         };
 
-        let _ = self
-            .event_loop
-            .lock()
-            .unwrap()
-            .run_on_demand(move |event, control_flow| {
-                if should_stop.load(Acquire)
-                {
-                    control_flow.exit();
-                }
+        let _ = event_loop.run_on_demand(|event, control_flow| {
+            if should_stop.load(Acquire)
+            {
+                control_flow.exit();
+            }
 
-                match event
+            match event
+            {
+                Event::WindowEvent {
+                    window_id,
+                    ref event
+                } if window_id == window.id() =>
                 {
-                    Event::WindowEvent {
-                        window_id,
-                        ref event
-                    } if window_id == self.window.id() =>
+                    match event
                     {
-                        match event
+                        WindowEvent::Resized(new_size) => resize_func(Some(*new_size)),
+                        WindowEvent::KeyboardInput {
+                            device_id: _,
+                            ref event,
+                            is_synthetic: _
+                        } =>
                         {
-                            WindowEvent::Resized(new_size) => resize_func(Some(*new_size)),
-                            WindowEvent::KeyboardInput {
-                                device_id: _,
-                                ref event,
-                                is_synthetic: _
-                            } =>
+                            if let Key::Named(NamedKey::Escape) = event.logical_key
                             {
-                                if let Key::Named(NamedKey::Escape) = event.logical_key
-                                {
-                                    control_flow.exit()
-                                }
+                                control_flow.exit()
                             }
-                            WindowEvent::CloseRequested => control_flow.exit(),
-                            WindowEvent::RedrawRequested =>
-                            {
-                                use wgpu::SurfaceError::*;
-
-                                match render_func()
-                                {
-                                    Ok(_) => (),
-                                    Err(Timeout) => log::warn!("render timeout!"),
-                                    Err(Outdated) => (),
-                                    Err(Lost) => resize_func(None),
-                                    Err(OutOfMemory) => todo!()
-                                }
-
-                                self.window.request_redraw();
-                            }
-                            _ => ()
                         }
+                        WindowEvent::CloseRequested => control_flow.exit(),
+                        WindowEvent::RedrawRequested =>
+                        {
+                            use wgpu::SurfaceError::*;
+
+                            match render_func()
+                            {
+                                Ok(_) => (),
+                                Err(Timeout) => log::warn!("render timeout!"),
+                                Err(Outdated) => (),
+                                Err(Lost) => resize_func(None),
+                                Err(OutOfMemory) => todo!()
+                            }
+
+                            window.request_redraw();
+                        }
+                        _ => ()
                     }
-
-                    _ => ()
                 }
 
-                if control_flow.exiting()
-                {
-                    should_stop.store(true, Release);
-                }
-            });
+                _ => ()
+            }
+
+            if control_flow.exiting()
+            {
+                should_stop.store(true, Release);
+            }
+        });
 
         log::info!("event loop returned");
     }
@@ -479,4 +494,14 @@ impl Vertex
             attributes:   &Self::ATTRIBS
         }
     }
+}
+
+struct CriticalSection
+{
+    thread_id:  ThreadId,
+    surface:    wgpu::Surface<'static>,
+    config:     wgpu::SurfaceConfiguration,
+    size:       PhysicalSize<u32>,
+    window:     Window,
+    event_loop: EventLoop<()>
 }
