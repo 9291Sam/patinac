@@ -1,3 +1,0 @@
-[Jan 01/31/2024 16:46:26:785:290] [src/gfx/renderer.rs:77] [INFO] Selected Device Apple M1 Pro with driver  using backend Metal
-[Jan 01/31/2024 16:46:26:787:303] [src/gfx/renderer.rs:105] [TRACE] created with format Bgra8UnormSrgb
-[Jan 01/31/2024 16:46:26:787:333] [src/gfx/renderer.rs:123] [INFO] Selected present mode Fifo

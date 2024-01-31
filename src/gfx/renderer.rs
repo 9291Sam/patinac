@@ -14,6 +14,8 @@ use winit::keyboard::{Key, NamedKey};
 use winit::platform::run_on_demand::EventLoopExtRunOnDemand;
 use winit::window::{Window, WindowBuilder};
 
+pub const SURFACE_TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8UnormSrgb;
+
 pub struct Renderer
 {
     pub queue:        wgpu::Queue,
@@ -74,10 +76,21 @@ impl Renderer
             log::warn!("Device is not fully supported!");
         }
 
+        let maybe_driver_version = adapter.get_info().driver_info;
+
+        let version_string: String = if maybe_driver_version.is_empty()
+        {
+             "".into()
+        }
+        else
+        {
+             format!("with version {} ", maybe_driver_version)
+        };
+
         log::info!(
-            "Selected Device {} with driver {} using backend {:?}",
+            "Selected Device {} {}using backend {:?}",
             adapter.get_info().name,
-            adapter.get_info().driver_info,
+            version_string,
             adapter.get_info().backend
         );
 
@@ -99,10 +112,8 @@ impl Renderer
         let surface_format = surface_caps
             .formats
             .into_iter()
-            .find(|f| *f == wgpu::TextureFormat::Bgra8UnormSrgb)
+            .find(|f| *f == SURFACE_TEXTURE_FORMAT)
             .unwrap();
-
-        log::trace!("created with format {:?}", surface_format);
 
         let desired_present_modes = [
             wgpu::PresentMode::Mailbox,
@@ -292,9 +303,9 @@ impl Renderer
             label:   Some("diffuse_bind_group")
         });
 
-        let shader = self
-            .device
-            .create_shader_module(wgpu::include_wgsl!("shaders/foo.wgsl"));
+        // let shader = self
+        //     .device
+        //     .create_shader_module(wgpu::include_wgsl!("shaders/foo.wgsl"));
         // let render_pipeline_layout =
         //     self.device
         //         .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -401,7 +412,7 @@ impl Renderer
                     timestamp_writes:         None
                 });
 
-                render_pass.set_pipeline(&render_cache.lookup_render_pipeline(crate::gfx::PipelineType::TestSample));
+                render_pass.set_pipeline(render_cache.lookup_render_pipeline(crate::gfx::PipelineType::TestSample));
                 render_pass.set_bind_group(0, &diffuse_bind_group, &[]);
                 render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
                 render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint16);

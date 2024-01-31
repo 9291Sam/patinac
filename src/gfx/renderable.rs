@@ -159,7 +159,7 @@ impl RenderCache
                                     entry_point: "fs_main",
                                     targets:     &[Some(wgpu::ColorTargetState {
                                         // 4.
-                                        format:     wgpu::TextureFormat::Bgra8UnormSrgb,
+                                        format:     super::SURFACE_TEXTURE_FORMAT,
                                         blend:      Some(wgpu::BlendState::REPLACE),
                                         write_mask: wgpu::ColorWrites::ALL
                                     })]
