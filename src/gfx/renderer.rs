@@ -1,7 +1,9 @@
 use std::ops::Deref;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering::*;
+use std::sync::Arc;
 use std::sync::Mutex;
+use std::sync::Weak;
 use std::thread::ThreadId;
 
 use image::GenericImageView;
@@ -14,12 +16,16 @@ use winit::keyboard::{Key, NamedKey};
 use winit::platform::run_on_demand::EventLoopExtRunOnDemand;
 use winit::window::{Window, WindowBuilder};
 
+use crate::util;
+use crate::util::Registrar;
+
 pub const SURFACE_TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8UnormSrgb;
 
 pub struct Renderer
 {
     pub queue:        wgpu::Queue,
     device:           wgpu::Device,
+    renderables : util::Registrar<*const (), Weak<dyn super::Renderable>>,
     critical_section: Mutex<CriticalSection>
 }
 
@@ -155,10 +161,16 @@ impl Renderer
         };
 
         Renderer {
+            renderables: Registrar::new(),
             queue,
             device,
             critical_section: Mutex::new(critical_section)
         }
+    }
+
+    pub fn register(&self, renderable: Weak<dyn super::Renderable>)
+    {
+        self.renderables.insert(renderable.as_ptr() as *const (), renderable);
     }
 
     pub fn enter_gfx_loop(&self, should_stop: &AtomicBool)
@@ -385,11 +397,21 @@ impl Renderer
                 .texture
                 .create_view(&wgpu::TextureViewDescriptor::default());
 
+            let mut renderables = self.renderables.access().into_iter().filter_map(|(ptr, weak_renderable)| match weak_renderable.upgrade() {
+                Some(s) => Some(s),
+                None => {self.renderables.delete(ptr); None},
+            }).collect::<Vec<_>>();
+
+            renderables.sort_by(|l, r| l.ord(&**r));
+            
             let mut encoder = self
                 .device
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                     label: Some("Render Encoder")
                 });
+
+            let mut active_render_pass: Option<wgpu::RenderPass> = None;
+            // let mut active_pipeline: Option<wgpu::
 
             {
                 let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {

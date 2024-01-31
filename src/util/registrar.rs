@@ -5,6 +5,7 @@ use std::hash::Hash;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::Mutex;
 
+#[derive(Debug)]
 pub struct Registrar<K: Hash + Eq, V>
 {
     update_sender:   Sender<UpdateType<K, V>>,

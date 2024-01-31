@@ -1,0 +1,20 @@
+[profile.dev]
+panic = "abort"  # Enable panic=abort for better sanitizer support
+debug = true      # Ensure debug information is available for sanitizers
+lto = false       # Disable LTO for better sanitizer support
+
+[profile.dev.san]
+# Enable sanitizer flags for the development profile
+rustflags = [
+  "-Zsanitizer=address",
+  "-Clink-arg=-fuse-ld=lld",
+  "-Clink-arg=-flto=thin",
+]
+
+[profile.release.san]
+# Enable sanitizer flags for the release profile
+rustflags = [
+  "-Zsanitizer=address",
+  "-Clink-arg=-fuse-ld=lld",
+  "-Clink-arg=-flto=thin",
+]
