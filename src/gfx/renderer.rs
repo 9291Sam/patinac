@@ -99,8 +99,10 @@ impl Renderer
         let surface_format = surface_caps
             .formats
             .into_iter()
-            .find(|f| f.is_srgb())
+            .find(|f| *f == wgpu::TextureFormat::Bgra8UnormSrgb)
             .unwrap();
+
+        log::trace!("created with format {:?}", surface_format);
 
         let desired_present_modes = [
             wgpu::PresentMode::Mailbox,
@@ -160,32 +162,34 @@ impl Renderer
             event_loop
         } = &mut *guard;
 
+        let render_cache = super::RenderCache::new(&self.device);
+
         assert!(
             *thread_id == std::thread::current().id(),
             "Renderer::enter_gfx_loop() must be called on the same thread that Renderer::new() \
              was called from!"
         );
 
-        const VERTICES: &[Vertex] = &[
-            Vertex {
-                position:   [-0.0868241, 0.49240386, 0.0],
-                tex_coords: [0.4131759, 0.99240386]
+        const VERTICES: &[super::Vertex] = &[
+            super::Vertex {
+                position:   cgmath::Vector3::new(-0.0868241, 0.49240386, 0.0),
+                tex_coords: cgmath::Vector2::new(0.4131759, 0.99240386)
             }, // A
-            Vertex {
-                position:   [-0.49513406, 0.06958647, 0.0],
-                tex_coords: [0.0048659444, 0.56958647]
+            super::Vertex {
+                position:   cgmath::Vector3::new(-0.49513406, 0.06958647, 0.0),
+                tex_coords: cgmath::Vector2::new(0.0048659444, 0.56958647)
             }, // B
-            Vertex {
-                position:   [-0.21918549, -0.44939706, 0.0],
-                tex_coords: [0.28081453, 0.05060294]
+            super::Vertex {
+                position:   cgmath::Vector3::new(-0.21918549, -0.44939706, 0.0),
+                tex_coords: cgmath::Vector2::new(0.28081453, 0.05060294)
             }, // C
-            Vertex {
-                position:   [0.35966998, -0.3473291, 0.0],
-                tex_coords: [0.85967, 0.1526709]
+            super::Vertex {
+                position:   cgmath::Vector3::new(0.35966998, -0.3473291, 0.0),
+                tex_coords: cgmath::Vector2::new(0.85967, 0.1526709)
             }, // D
-            Vertex {
-                position:   [0.44147372, 0.2347359, 0.0],
-                tex_coords: [0.9414737, 0.7347359]
+            super::Vertex {
+                position:   cgmath::Vector3::new(0.44147372, 0.2347359, 0.0),
+                tex_coords: cgmath::Vector2::new(0.9414737, 0.7347359)
             } // E
         ];
 
@@ -245,36 +249,36 @@ impl Renderer
             ..Default::default()
         });
 
-        let texture_bind_group_layout =
-            self.device
-                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                    entries: &[
-                        wgpu::BindGroupLayoutEntry {
-                            binding:    0,
-                            visibility: wgpu::ShaderStages::FRAGMENT,
-                            ty:         wgpu::BindingType::Texture {
-                                multisampled:   false,
-                                view_dimension: wgpu::TextureViewDimension::D2,
-                                sample_type:    wgpu::TextureSampleType::Float {
-                                    filterable: true
-                                }
-                            },
-                            count:      None
-                        },
-                        wgpu::BindGroupLayoutEntry {
-                            binding:    1,
-                            visibility: wgpu::ShaderStages::FRAGMENT,
-                            ty:         wgpu::BindingType::Sampler(
-                                wgpu::SamplerBindingType::Filtering
-                            ),
-                            count:      None
-                        }
-                    ],
-                    label:   Some("texture_bind_group_layout")
-                });
+        // let texture_bind_group_layout =
+        //     self.device
+        //         .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        //             entries: &[
+        //                 wgpu::BindGroupLayoutEntry {
+        //                     binding:    0,
+        //                     visibility: wgpu::ShaderStages::FRAGMENT,
+        //                     ty:         wgpu::BindingType::Texture {
+        //                         multisampled:   false,
+        //                         view_dimension: wgpu::TextureViewDimension::D2,
+        //                         sample_type:    wgpu::TextureSampleType::Float {
+        //                             filterable: true
+        //                         }
+        //                     },
+        //                     count:      None
+        //                 },
+        //                 wgpu::BindGroupLayoutEntry {
+        //                     binding:    1,
+        //                     visibility: wgpu::ShaderStages::FRAGMENT,
+        //                     ty:         wgpu::BindingType::Sampler(
+        //                         wgpu::SamplerBindingType::Filtering
+        //                     ),
+        //                     count:      None
+        //                 }
+        //             ],
+        //             label:   Some("texture_bind_group_layout")
+        //         });
 
         let diffuse_bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout:  &texture_bind_group_layout,
+            layout:  render_cache.lookup_bind_group_layout(super::BindGroupType::TestSimpleTexture),
             entries: &[
                 wgpu::BindGroupEntry {
                     binding:  0,
@@ -291,52 +295,53 @@ impl Renderer
         let shader = self
             .device
             .create_shader_module(wgpu::include_wgsl!("shaders/foo.wgsl"));
-        let render_pipeline_layout =
-            self.device
-                .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                    label:                Some("Render Pipeline Layout"),
-                    bind_group_layouts:   &[&texture_bind_group_layout],
-                    push_constant_ranges: &[]
-                });
+        // let render_pipeline_layout =
+        //     self.device
+        //         .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        //             label:                Some("Render Pipeline Layout"),
+        //             bind_group_layouts:   &[render_cache
+        //                 .lookup_bind_group_layout(super::BindGroupType::TestSimpleTexture)],
+        //             push_constant_ranges: &[]
+        //         });
 
-        let render_pipeline = self
-            .device
-            .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-                label:         Some("Render Pipeline"),
-                layout:        Some(&render_pipeline_layout),
-                vertex:        wgpu::VertexState {
-                    module:      &shader,
-                    entry_point: "vs_main",
-                    buffers:     &[Vertex::desc()]
-                },
-                fragment:      Some(wgpu::FragmentState {
-                    // 3.
-                    module:      &shader,
-                    entry_point: "fs_main",
-                    targets:     &[Some(wgpu::ColorTargetState {
-                        // 4.
-                        format:     config.format,
-                        blend:      Some(wgpu::BlendState::REPLACE),
-                        write_mask: wgpu::ColorWrites::ALL
-                    })]
-                }),
-                primitive:     wgpu::PrimitiveState {
-                    topology:           wgpu::PrimitiveTopology::TriangleStrip,
-                    strip_index_format: None,
-                    front_face:         wgpu::FrontFace::Ccw,
-                    cull_mode:          Some(wgpu::Face::Back),
-                    polygon_mode:       wgpu::PolygonMode::Fill,
-                    unclipped_depth:    false,
-                    conservative:       false
-                },
-                depth_stencil: None,
-                multisample:   wgpu::MultisampleState {
-                    count:                     1,
-                    mask:                      !0,
-                    alpha_to_coverage_enabled: false
-                },
-                multiview:     None
-            });
+        // let render_pipeline = self
+        //     .device
+        //     .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        //         label:         Some("Render Pipeline"),
+        //         layout:        Some(&render_pipeline_layout),
+        //         vertex:        wgpu::VertexState {
+        //             module:      &shader,
+        //             entry_point: "vs_main",
+        //             buffers:     &[Vertex::desc()]
+        //         },
+        //         fragment:      Some(wgpu::FragmentState {
+        //             // 3.
+        //             module:      &shader,
+        //             entry_point: "fs_main",
+        //             targets:     &[Some(wgpu::ColorTargetState {
+        //                 // 4.
+        //                 format:     config.format,
+        //                 blend:      Some(wgpu::BlendState::REPLACE),
+        //                 write_mask: wgpu::ColorWrites::ALL
+        //             })]
+        //         }),
+        //         primitive:     wgpu::PrimitiveState {
+        //             topology:           wgpu::PrimitiveTopology::TriangleStrip,
+        //             strip_index_format: None,
+        //             front_face:         wgpu::FrontFace::Ccw,
+        //             cull_mode:          Some(wgpu::Face::Back),
+        //             polygon_mode:       wgpu::PolygonMode::Fill,
+        //             unclipped_depth:    false,
+        //             conservative:       false
+        //         },
+        //         depth_stencil: None,
+        //         multisample:   wgpu::MultisampleState {
+        //             count:                     1,
+        //             mask:                      !0,
+        //             alpha_to_coverage_enabled: false
+        //         },
+        //         multiview:     None
+        //     });
 
         // Because of a bug in winit, the first resize command that comes in is borked
         // https://github.com/rust-windowing/winit/issues/2094
@@ -396,7 +401,7 @@ impl Renderer
                     timestamp_writes:         None
                 });
 
-                render_pass.set_pipeline(&render_pipeline);
+                render_pass.set_pipeline(&render_cache.lookup_render_pipeline(crate::gfx::PipelineType::TestSample));
                 render_pass.set_bind_group(0, &diffuse_bind_group, &[]);
                 render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
                 render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint16);
@@ -471,30 +476,6 @@ impl Renderer
     }
 }
 
-#[repr(C)]
-#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
-struct Vertex
-{
-    position:   [f32; 3],
-    tex_coords: [f32; 2]
-}
-
-impl Vertex
-{
-    const ATTRIBS: [wgpu::VertexAttribute; 2] =
-        wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x2];
-
-    fn desc() -> wgpu::VertexBufferLayout<'static>
-    {
-        use std::mem;
-
-        wgpu::VertexBufferLayout {
-            array_stride: mem::size_of::<Self>() as wgpu::BufferAddress,
-            step_mode:    wgpu::VertexStepMode::Vertex,
-            attributes:   &Self::ATTRIBS
-        }
-    }
-}
 
 struct CriticalSection
 {

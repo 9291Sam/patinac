@@ -2,6 +2,8 @@
 #![feature(if_let_guard)]
 #![feature(map_try_insert)]
 #![feature(associated_type_defaults)]
+#![feature(const_trait_impl)]
+#![feature(effects)]
 
 use std::sync::atomic::AtomicBool;
 use std::sync::OnceLock;

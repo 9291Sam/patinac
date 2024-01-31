@@ -6,48 +6,37 @@ use std::sync::Arc;
 
 use strum::{EnumIter, IntoEnumIterator};
 
+#[allow(private_bounds)]
 pub trait Renderable: Send + Sync + Sealed
 {
-    // fn get_pass_type(&self) -> PassStage;
-    // fn get_pipeline_type(&self) -> PipelineType;
-    // fn get_bind_groups(&self) -> [Option<&'_ wgpu::BindGroup>; 4];
-    // fn get_bind_group_ids(&self) -> [Option<NonZeroU64>; 4]
-    // {
-    //     // TODO: replace with wgpu::Id<wgpu::BindGroup>'s Ord impl once that gets
-    //     // stabilized
-    //     std::array::from_fn(|i| {
-    //         self.get_bind_groups()[i]
-    //             .map(|group| NonZeroU64::new(group.global_id().inner()).unwrap())
-    //     })
-    // }
+    fn get_pass_type(&self) -> PassStage;
+    fn get_pipeline_type(&self) -> PipelineType;
+    fn get_bind_groups(&self) -> [Option<&'_ wgpu::BindGroup>; 4];
+    fn get_bind_group_ids(&self) -> [Option<NonZeroU64>; 4]
+    {
+        // TODO: replace with wgpu::Id<wgpu::BindGroup>'s Ord impl once that gets
+        // stabilized
+        std::array::from_fn(|i| {
+            self.get_bind_groups()[i]
+                .map(|group| NonZeroU64::new(group.global_id().inner()).unwrap())
+        })
+    }
 
-    // fn should_draw(&self) -> bool;
+    fn should_draw(&self) -> bool;
 
-    // fn ord(&self, other: &impl Renderable) -> Ordering
-    // {
-    //     Equal
-    //         .then(self.get_pass_type().cmp(&other.get_pass_type()))
-    //         .then(self.get_pipeline_type().cmp(&other.get_pipeline_type()))
-    //         .then(self.get_bind_group_ids().cmp(&other.get_bind_group_ids()))
-    // }
+    fn ord(&self, other: &impl Renderable) -> Ordering
+    {
+        Equal
+            .then(self.get_pass_type().cmp(&other.get_pass_type()))
+            .then(self.get_pipeline_type().cmp(&other.get_pipeline_type()))
+            .then(self.get_bind_group_ids().cmp(&other.get_bind_group_ids()))
+    }
 
-    // fn bind_and_draw(&self, render_pass: &mut wgpu::RenderPass);
+    fn bind_and_draw(&self, render_pass: &mut wgpu::RenderPass);
 }
 
 trait Sealed {}
 impl<T> Sealed for Arc<T> {}
-
-struct Bar {}
-
-impl Bar
-{
-    fn new() -> Arc<Bar>
-    {
-        Arc::new(Bar {})
-    }
-}
-
-impl Renderable for Arc<Bar> {}
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash, EnumIter)]
 pub enum PassStage
@@ -58,13 +47,14 @@ pub enum PassStage
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash, EnumIter)]
 pub enum PipelineType
 {
-    GraphicsFlat
+    TestSample
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash, EnumIter)]
 pub enum BindGroupType
 {
-    GlobalCamera
+    GlobalCamera,
+    TestSimpleTexture
 }
 
 pub struct RenderCache
@@ -91,21 +81,51 @@ impl RenderCache
                             entries: &[]
                         })
                     }
+                    BindGroupType::TestSimpleTexture =>
+                    {
+                        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                            entries: &[
+                                wgpu::BindGroupLayoutEntry {
+                                    binding:    0,
+                                    visibility: wgpu::ShaderStages::FRAGMENT,
+                                    ty:         wgpu::BindingType::Texture {
+                                        multisampled:   false,
+                                        view_dimension: wgpu::TextureViewDimension::D2,
+                                        sample_type:    wgpu::TextureSampleType::Float {
+                                            filterable: true
+                                        }
+                                    },
+                                    count:      None
+                                },
+                                wgpu::BindGroupLayoutEntry {
+                                    binding:    1,
+                                    visibility: wgpu::ShaderStages::FRAGMENT,
+                                    ty:         wgpu::BindingType::Sampler(
+                                        wgpu::SamplerBindingType::Filtering
+                                    ),
+                                    count:      None
+                                }
+                            ],
+                            label:   Some("texture_bind_group_layout")
+                        })
+                    }
                 };
 
                 (bind_group_type, new_bind_group_layout)
             })
-            .collect();
+            .collect::<HashMap<BindGroupType, wgpu::BindGroupLayout>>();
 
         let pipeline_layout_cache = PipelineType::iter()
             .map(|pipeline_type| {
                 let new_pipeline_layout = match pipeline_type
                 {
-                    PipelineType::GraphicsFlat =>
+                    PipelineType::TestSample =>
                     {
                         device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                             label:                Some("GraphicsFlat"),
-                            bind_group_layouts:   &[],
+                            bind_group_layouts:   &[bind_group_layout_cache
+                                .get(&BindGroupType::TestSimpleTexture)
+                                .unwrap()],
                             push_constant_ranges: &[]
                         })
                     }
@@ -113,24 +133,53 @@ impl RenderCache
 
                 (pipeline_type, new_pipeline_layout)
             })
-            .collect();
+            .collect::<HashMap<PipelineType, wgpu::PipelineLayout>>();
 
         let render_pipeline_cache = PipelineType::iter()
             .filter_map(|pipeline_type| {
                 let maybe_new_pipeline = match pipeline_type
                 {
-                    PipelineType::GraphicsFlat =>
+                    PipelineType::TestSample =>
                     {
+                        let shader =
+                            device.create_shader_module(wgpu::include_wgsl!("shaders/foo.wgsl"));
+
                         Some(
                             device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-                                label:         todo!(),
-                                layout:        todo!(),
-                                vertex:        todo!(),
-                                primitive:     todo!(),
-                                depth_stencil: todo!(),
-                                multisample:   todo!(),
-                                fragment:      todo!(),
-                                multiview:     todo!()
+                                label:         Some("GraphicsFlat"),
+                                layout:        pipeline_layout_cache.get(&PipelineType::TestSample),
+                                vertex:        wgpu::VertexState {
+                                    module:      &shader,
+                                    entry_point: "vs_main",
+                                    buffers:     &[Vertex::desc()]
+                                },
+                                fragment:      Some(wgpu::FragmentState {
+                                    // 3.
+                                    module:      &shader,
+                                    entry_point: "fs_main",
+                                    targets:     &[Some(wgpu::ColorTargetState {
+                                        // 4.
+                                        format:     wgpu::TextureFormat::Bgra8UnormSrgb,
+                                        blend:      Some(wgpu::BlendState::REPLACE),
+                                        write_mask: wgpu::ColorWrites::ALL
+                                    })]
+                                }),
+                                primitive:     wgpu::PrimitiveState {
+                                    topology:           wgpu::PrimitiveTopology::TriangleStrip,
+                                    strip_index_format: None,
+                                    front_face:         wgpu::FrontFace::Ccw,
+                                    cull_mode:          Some(wgpu::Face::Back),
+                                    polygon_mode:       wgpu::PolygonMode::Fill,
+                                    unclipped_depth:    false,
+                                    conservative:       false
+                                },
+                                depth_stencil: None,
+                                multisample:   wgpu::MultisampleState {
+                                    count:                     1,
+                                    mask:                      !0,
+                                    alpha_to_coverage_enabled: false
+                                },
+                                multiview:     None
                             })
                         )
                     }
@@ -149,6 +198,12 @@ impl RenderCache
         }
     }
 
+    pub fn lookup_bind_group_layout(&self, bind_group_type: BindGroupType)
+    -> &wgpu::BindGroupLayout
+    {
+        self.bind_group_layout_cache.get(&bind_group_type).unwrap()
+    }
+
     pub fn lookup_render_pipeline(&self, pipeline_type: PipelineType) -> &wgpu::RenderPipeline
     {
         self.render_pipeline_cache.get(&pipeline_type).unwrap()
@@ -161,7 +216,7 @@ impl PipelineType
     {
         match *self
         {
-            PipelineType::GraphicsFlat => PipelinePass::Render
+            PipelineType::TestSample => PipelinePass::Render
         }
     }
 }
@@ -171,4 +226,32 @@ pub enum PipelinePass
 {
     Compute,
     Render
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct Vertex
+{
+    pub position:   cgmath::Vector3<f32>,
+    pub tex_coords: cgmath::Vector2<f32>
+}
+
+unsafe impl bytemuck::Pod for Vertex {}
+unsafe impl bytemuck::Zeroable for Vertex {}
+
+impl Vertex
+{
+    const ATTRIBS: [wgpu::VertexAttribute; 2] =
+        wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x2];
+
+    fn desc() -> wgpu::VertexBufferLayout<'static>
+    {
+        use std::mem;
+
+        wgpu::VertexBufferLayout {
+            array_stride: mem::size_of::<Self>() as wgpu::BufferAddress,
+            step_mode:    wgpu::VertexStepMode::Vertex,
+            attributes:   &Self::ATTRIBS
+        }
+    }
 }
