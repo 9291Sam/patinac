@@ -1,12 +1,13 @@
 use std::sync::atomic::AtomicBool;
-use std::sync::{Arc, Weak};
+use std::sync::{Arc, OnceLock, Weak};
 
 use bytemuck::bytes_of;
+use chrono::Utc;
 use image::GenericImageView;
 use nalgebra_glm as glm;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 
-use crate::gfx;
+use crate::gfx::{self, Transform};
 pub struct Game<'r>
 {
     renderer: &'r gfx::Renderer
@@ -185,22 +186,29 @@ impl gfx::Renderable for PentagonalTreeRenderer
         camera: &gfx::Camera
     )
     {
+        let start = INIT_TIME.get_or_init(|| Utc::now());
+        let diff_seconds = (Utc::now() - *start).to_std().unwrap().as_secs_f32();
+
         active_render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
         active_render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
 
-        let matrix = camera.get_perspective(
-            renderer,
-            &gfx::Transform {
-                translation: glm::Vec3::new(0.0, 0.0, 0.25),
-                rotation:    nalgebra::UnitQuaternion::new_normalize(glm::quat(1.0, 1.0, 0.7, 0.2)),
-                scale:       glm::Vec3::new(1.0, 1.0, 1.0)
-            }
+        let mut transform = gfx::Transform {
+            translation: glm::Vec3::new(0.0, 0.0, 0.25),
+            rotation:    nalgebra::UnitQuaternion::new_normalize(glm::quat(1.0, 1.0, 0.7, 0.2)),
+            scale:       glm::Vec3::new(1.0, 1.0, 1.0)
+        };
+
+        transform.rotation *= nalgebra::UnitQuaternion::from_axis_angle(
+            &Transform::global_up_vector(),
+            5.0 * diff_seconds
         );
 
-        log::info!("mvp matrix: {:?}", matrix);
+        let matrix = camera.get_perspective(renderer, &transform);
 
         active_render_pass.set_push_constants(wgpu::ShaderStages::VERTEX, 0, bytes_of(&matrix));
 
         active_render_pass.draw_indexed(0..INDICES.len() as u32, 0, 0..1);
     }
 }
+
+static INIT_TIME: OnceLock<chrono::DateTime<chrono::Utc>> = OnceLock::new();
