@@ -91,9 +91,3 @@ enum UpdateType<K, V>
     Insertion(K, V),
     Deletion(K)
 }
-
-struct CriticalSection<K, V>
-{
-    storage:         HashMap<K, V>,
-    update_receiver: Receiver<UpdateType<K, V>>
-}

@@ -5,7 +5,7 @@ use std::num::NonZeroU64;
 use std::sync::Arc;
 
 #[allow(private_bounds)]
-pub trait Renderable: Debug + Send + Sync + Sealed
+pub trait Renderable: Debug + Send + Sync // + Sealed
 {
     fn get_pass_stage(&self) -> super::PassStage;
     fn get_pipeline_type(&self) -> super::PipelineType;
@@ -34,5 +34,5 @@ pub trait Renderable: Debug + Send + Sync + Sealed
     fn bind_and_draw<'s>(&'s self, render_pass: &mut wgpu::RenderPass<'s>);
 }
 
-trait Sealed {}
-impl<T> Sealed for Arc<T> {}
+// trait Sealed {}
+// impl<T> Sealed for Arc<T> {}

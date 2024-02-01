@@ -1,5 +1,5 @@
 use std::sync::atomic::AtomicBool;
-use std::sync::Arc;
+use std::sync::{Arc, Weak};
 
 use image::GenericImageView;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
@@ -29,6 +29,8 @@ impl<'r> Game<'r>
             contents: &all_u8s,
             usage:    wgpu::BufferUsages::STORAGE
         });
+
+        let _obj = PentagonalTreeRenderer::new(self.renderer);
 
         // self.renderer.create_texture_with_data(
         //     &self.renderer.queue,
@@ -156,15 +158,19 @@ impl PentagonalTreeRenderer
             label:   Some("tree_bind_group")
         });
 
-        Arc::new(Self {
+        let this = Arc::new(Self {
             vertex_buffer,
             index_buffer,
             tree_bind_group
-        })
+        });
+
+        renderer.register(Arc::downgrade(&(this.clone() as Arc<dyn gfx::Renderable>)));
+
+        this
     }
 }
 
-impl gfx::Renderable for Arc<PentagonalTreeRenderer>
+impl gfx::Renderable for PentagonalTreeRenderer
 {
     fn get_pass_stage(&self) -> gfx::PassStage
     {
