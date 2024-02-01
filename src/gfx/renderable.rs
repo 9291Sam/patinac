@@ -2,8 +2,8 @@ use std::cmp::Ordering;
 use std::cmp::Ordering::*;
 use std::fmt::Debug;
 use std::num::NonZeroU64;
-#[allow(private_bounds)]
-pub trait Renderable: Debug + Send + Sync // + Sealed
+
+pub trait Renderable: Debug + Send + Sync
 {
     fn get_pass_stage(&self) -> super::PassStage;
     fn get_pipeline_type(&self) -> super::PipelineType;

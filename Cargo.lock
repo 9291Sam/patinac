@@ -931,6 +931,7 @@ dependencies = [
  "approx",
  "bytemuck",
  "matrixmultiply",
+ "nalgebra-macros",
  "num-complex",
  "num-rational",
  "num-traits",
@@ -948,6 +949,17 @@ dependencies = [
  "nalgebra",
  "num-traits",
  "simba",
+]
+
+[[package]]
+name = "nalgebra-macros"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "91761aed67d03ad966ef783ae962ef9bbaca728d2dd7ceb7939ec110fffad998"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
 ]
 
 [[package]]
@@ -1154,6 +1166,7 @@ dependencies = [
  "chrono",
  "image",
  "log",
+ "nalgebra",
  "nalgebra-glm",
  "pollster",
  "strum",

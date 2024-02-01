@@ -1,10 +1,11 @@
 use std::collections::HashMap;
 use std::ops::Deref;
-use std::sync::atomic::AtomicBool;
-use std::sync::atomic::Ordering::*;
+use std::sync::atomic::Ordering::{self, *};
+use std::sync::atomic::{AtomicBool, AtomicU32};
 use std::sync::{Arc, Mutex, Weak};
 use std::thread::ThreadId;
 
+use nalgebra_glm as glm;
 use pollster::FutureExt;
 use strum::IntoEnumIterator;
 use winit::dpi::PhysicalSize;
@@ -23,8 +24,12 @@ pub struct Renderer
 {
     pub queue:        wgpu::Queue,
     pub render_cache: super::RenderCache,
-    device:           wgpu::Device,
-    renderables:      util::Registrar<*const (), Weak<dyn super::Renderable>>,
+
+    device:      wgpu::Device,
+    renderables: util::Registrar<*const (), Weak<dyn super::Renderable>>,
+
+    window_size_x:    AtomicU32,
+    window_size_y:    AtomicU32,
     critical_section: Mutex<CriticalSection>
 }
 
@@ -166,7 +171,9 @@ impl Renderer
             queue,
             device,
             critical_section: Mutex::new(critical_section),
-            render_cache
+            render_cache,
+            window_size_x: AtomicU32::new(size.width),
+            window_size_y: AtomicU32::new(size.height)
         }
     }
 
@@ -174,6 +181,35 @@ impl Renderer
     {
         self.renderables
             .insert(renderable.as_ptr() as *const (), renderable);
+    }
+
+    pub fn get_fov(&self) -> glm::Vec2
+    {
+        let y_rads: f32 = glm::radians(&glm::Vec1::new(70.0)).x;
+        let x_rads: f32 = y_rads * self.get_aspect_ratio();
+
+        glm::Vec2::new(x_rads, y_rads)
+    }
+
+    pub fn get_aspect_ratio(&self) -> f32
+    {
+        let width_height = self.get_framebuffer_size().xy();
+
+        width_height.x as f32 / width_height.y as f32
+    }
+
+    pub fn get_framebuffer_size(&self) -> glm::UVec2
+    {
+        let loaded_x = self.window_size_x.load(Ordering::SeqCst);
+        let loaded_y = self.window_size_y.load(Ordering::SeqCst);
+
+        glm::UVec2::new(loaded_x, loaded_y)
+    }
+
+    fn set_framebuffer_size(&self, new_size: glm::UVec2)
+    {
+        self.window_size_x.store(new_size.x, Ordering::SeqCst);
+        self.window_size_y.store(new_size.y, Ordering::SeqCst);
     }
 
     pub fn enter_gfx_loop(&self, should_stop: &AtomicBool)
@@ -212,9 +248,11 @@ impl Renderer
 
             if new_size.width > 0 && new_size.height > 0
             {
+                // this seems excessive...
                 *size = new_size;
                 config.width = new_size.width;
                 config.height = new_size.height;
+                self.set_framebuffer_size(glm::UVec2::new(new_size.width, new_size.height));
                 surface.configure(&self.device, config);
             }
         };
