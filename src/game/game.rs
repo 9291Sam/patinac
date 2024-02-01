@@ -2,6 +2,7 @@ use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Weak};
 
 use image::GenericImageView;
+use nalgebra_glm as glm;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 
 use crate::gfx;
@@ -39,24 +40,24 @@ impl<'r> Game<'r>
 
 const VERTICES: &[gfx::Vertex] = &[
     gfx::Vertex {
-        position:   cgmath::Vector3::new(-0.0868241, 0.49240386, 0.0),
-        tex_coords: cgmath::Vector2::new(0.4131759, 0.99240386)
+        position:   glm::Vec3::new(-0.0868241, 0.49240386, 0.0),
+        tex_coords: glm::Vec2::new(0.4131759, 0.99240386)
     }, // A
     gfx::Vertex {
-        position:   cgmath::Vector3::new(-0.49513406, 0.06958647, 0.0),
-        tex_coords: cgmath::Vector2::new(0.0048659444, 0.56958647)
+        position:   glm::Vec3::new(-0.49513406, 0.06958647, 0.0),
+        tex_coords: glm::Vec2::new(0.0048659444, 0.56958647)
     }, // B
     gfx::Vertex {
-        position:   cgmath::Vector3::new(-0.21918549, -0.44939706, 0.0),
-        tex_coords: cgmath::Vector2::new(0.28081453, 0.05060294)
+        position:   glm::Vec3::new(-0.21918549, -0.44939706, 0.0),
+        tex_coords: glm::Vec2::new(0.28081453, 0.05060294)
     }, // C
     gfx::Vertex {
-        position:   cgmath::Vector3::new(0.35966998, -0.3473291, 0.0),
-        tex_coords: cgmath::Vector2::new(0.85967, 0.1526709)
+        position:   glm::Vec3::new(0.35966998, -0.3473291, 0.0),
+        tex_coords: glm::Vec2::new(0.85967, 0.1526709)
     }, // D
     gfx::Vertex {
-        position:   cgmath::Vector3::new(0.44147372, 0.2347359, 0.0),
-        tex_coords: cgmath::Vector2::new(0.9414737, 0.7347359)
+        position:   glm::Vec3::new(0.44147372, 0.2347359, 0.0),
+        tex_coords: glm::Vec2::new(0.9414737, 0.7347359)
     } // E
 ];
 

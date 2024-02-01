@@ -12,6 +12,6 @@ winit = "0.29"
 wgpu = "0.19"
 pollster = "0.3.0"
 bytemuck = { version = "1.14.1", features = [ "derive" ] }
-cgmath = "0.18.0"
 image = { version = "0.24", default-features = false, features = ["png", "jpeg"] }
 strum = {version = "0.26", features = ["derive"] }
+nalgebra-glm = {version = "0.18.0", features = ["convert-bytemuck"] }

@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use bytemuck::{Pod, Zeroable};
+use nalgebra_glm as glm;
 use strum::{EnumIter, IntoEnumIterator};
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash, EnumIter)]
@@ -187,15 +189,12 @@ pub enum PipelinePass
 }
 
 #[repr(C)]
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Pod, Zeroable)]
 pub struct Vertex
 {
-    pub position:   cgmath::Vector3<f32>,
-    pub tex_coords: cgmath::Vector2<f32>
+    pub position:   glm::Vec3,
+    pub tex_coords: glm::Vec2
 }
-
-unsafe impl bytemuck::Pod for Vertex {}
-unsafe impl bytemuck::Zeroable for Vertex {}
 
 impl Vertex
 {

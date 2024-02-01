@@ -295,7 +295,7 @@ impl Renderer
                         .render_cache
                         .lookup_render_pipeline(renderable.get_pipeline_type());
 
-                    if active_pipeline != Some(renderable_pipeline).map(|p| p.global_id())
+                    if active_pipeline != Some(renderable_pipeline.global_id())
                     {
                         render_pass.set_pipeline(renderable_pipeline);
 
