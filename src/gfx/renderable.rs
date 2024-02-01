@@ -2,8 +2,6 @@ use std::cmp::Ordering;
 use std::cmp::Ordering::*;
 use std::fmt::Debug;
 use std::num::NonZeroU64;
-use std::sync::Arc;
-
 #[allow(private_bounds)]
 pub trait Renderable: Debug + Send + Sync // + Sealed
 {
