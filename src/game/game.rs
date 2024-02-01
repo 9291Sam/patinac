@@ -1,5 +1,5 @@
 use std::sync::atomic::AtomicBool;
-use std::sync::{Arc, OnceLock, Weak};
+use std::sync::{Arc, Mutex, OnceLock, Weak};
 
 use bytemuck::bytes_of;
 use chrono::Utc;
@@ -186,8 +186,7 @@ impl gfx::Renderable for PentagonalTreeRenderer
         camera: &gfx::Camera
     )
     {
-        let start = INIT_TIME.get_or_init(|| Utc::now());
-        let diff_seconds = (Utc::now() - *start).to_std().unwrap().as_secs_f32();
+        *ALIVE_TIME.lock().unwrap() += renderer.get_delta_time();
 
         active_render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
         active_render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
@@ -200,7 +199,7 @@ impl gfx::Renderable for PentagonalTreeRenderer
 
         transform.rotation *= nalgebra::UnitQuaternion::from_axis_angle(
             &Transform::global_up_vector(),
-            5.0 * diff_seconds
+            5.0 * *ALIVE_TIME.lock().unwrap()
         );
 
         let matrix = camera.get_perspective(renderer, &transform);
@@ -211,4 +210,4 @@ impl gfx::Renderable for PentagonalTreeRenderer
     }
 }
 
-static INIT_TIME: OnceLock<chrono::DateTime<chrono::Utc>> = OnceLock::new();
+static ALIVE_TIME: Mutex<f32> = Mutex::new(0.0);

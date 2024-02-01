@@ -26,11 +26,16 @@ pub struct Renderer
     pub render_cache: super::RenderCache,
     pub camera:       Mutex<super::Camera>,
 
+    // gated publics
     device:      wgpu::Device,
     renderables: util::Registrar<*const (), Weak<dyn super::Renderable>>,
 
-    window_size_x:    AtomicU32,
-    window_size_y:    AtomicU32,
+    // Rendering views
+    window_size_x:            AtomicU32,
+    window_size_y:            AtomicU32,
+    float_delta_frame_time_s: AtomicU32,
+
+    // Rendering
     critical_section: Mutex<CriticalSection>
 }
 
@@ -178,7 +183,8 @@ impl Renderer
             render_cache,
             window_size_x: AtomicU32::new(size.width),
             window_size_y: AtomicU32::new(size.height),
-            camera: Mutex::new(super::Camera::new(glm::Vec3::repeat(0.0), 0.0, 0.0))
+            camera: Mutex::new(super::Camera::new(glm::Vec3::repeat(0.0), 0.0, 0.0)),
+            float_delta_frame_time_s: AtomicU32::new(0.0f32.to_bits())
         }
     }
 
@@ -209,6 +215,11 @@ impl Renderer
         let loaded_y = self.window_size_y.load(Ordering::SeqCst);
 
         glm::UVec2::new(loaded_x, loaded_y)
+    }
+
+    pub fn get_delta_time(&self) -> f32
+    {
+        f32::from_bits(self.float_delta_frame_time_s.load(Ordering::Acquire))
     }
 
     fn set_framebuffer_size(&self, new_size: glm::UVec2)
@@ -262,7 +273,18 @@ impl Renderer
             }
         };
 
-        let render_func = || -> Result<(), wgpu::SurfaceError> {
+        let mut previous_frame_time = std::time::Instant::now();
+
+        let mut render_func = || -> Result<(), wgpu::SurfaceError> {
+            let now = std::time::Instant::now();
+
+            self.float_delta_frame_time_s.store(
+                (now - previous_frame_time).as_secs_f32().to_bits(),
+                Ordering::Release
+            );
+
+            previous_frame_time = now;
+
             let output = surface.get_current_texture()?;
             let view = output
                 .texture

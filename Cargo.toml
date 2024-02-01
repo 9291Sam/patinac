@@ -16,3 +16,4 @@ image = { version = "0.24", default-features = false, features = ["png", "jpeg"]
 strum = {version = "0.26", features = ["derive"] }
 nalgebra-glm = {version = "0.18.0", features = ["convert-bytemuck"] }
 nalgebra = "0.32.3"
+atomic_float = "0.1.0"
