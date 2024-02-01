@@ -24,6 +24,7 @@ pub struct Renderer
 {
     pub queue:        wgpu::Queue,
     pub render_cache: super::RenderCache,
+    pub camera:       Mutex<super::Camera>,
 
     device:      wgpu::Device,
     renderables: util::Registrar<*const (), Weak<dyn super::Renderable>>,
@@ -109,7 +110,10 @@ impl Renderer
                 &wgpu::DeviceDescriptor {
                     label:             Some("Device"),
                     required_features: wgpu::Features::PUSH_CONSTANTS,
-                    required_limits:   wgpu::Limits::default()
+                    required_limits:   wgpu::Limits {
+                        max_push_constant_size: 128,
+                        ..Default::default()
+                    }
                 },
                 None // Trace path
             )
@@ -173,7 +177,8 @@ impl Renderer
             critical_section: Mutex::new(critical_section),
             render_cache,
             window_size_x: AtomicU32::new(size.width),
-            window_size_y: AtomicU32::new(size.height)
+            window_size_y: AtomicU32::new(size.height),
+            camera: Mutex::new(super::Camera::new(glm::Vec3::repeat(0.0), 0.0, 0.0))
         }
     }
 
@@ -290,6 +295,8 @@ impl Renderer
                 .iter_mut()
                 .for_each(|(_, renderable_vec)| renderable_vec.sort_by(|l, r| l.ord(&**r)));
 
+            let camera = self.camera.lock().unwrap().clone();
+
             let mut encoder = self
                 .device
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor {
@@ -358,7 +365,7 @@ impl Renderer
                         }
                     }
 
-                    renderable.bind_and_draw(&mut render_pass);
+                    renderable.bind_and_draw(&mut render_pass, self, &camera);
                 }
 
                 active_pipeline = None;

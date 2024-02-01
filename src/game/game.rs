@@ -1,6 +1,7 @@
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Weak};
 
+use bytemuck::bytes_of;
 use image::GenericImageView;
 use nalgebra_glm as glm;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
@@ -177,10 +178,29 @@ impl gfx::Renderable for PentagonalTreeRenderer
         true
     }
 
-    fn bind_and_draw<'s>(&'s self, active_render_pass: &mut wgpu::RenderPass<'s>)
+    fn bind_and_draw<'s>(
+        &'s self,
+        active_render_pass: &mut wgpu::RenderPass<'s>,
+        renderer: &gfx::Renderer,
+        camera: &gfx::Camera
+    )
     {
         active_render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
         active_render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+
+        let matrix = camera.get_perspective(
+            renderer,
+            &gfx::Transform {
+                translation: glm::Vec3::new(0.0, 0.0, 0.25),
+                rotation:    nalgebra::UnitQuaternion::new_normalize(glm::quat(1.0, 1.0, 0.7, 0.2)),
+                scale:       glm::Vec3::new(1.0, 1.0, 1.0)
+            }
+        );
+
+        log::info!("mvp matrix: {:?}", matrix);
+
+        active_render_pass.set_push_constants(wgpu::ShaderStages::VERTEX, 0, bytes_of(&matrix));
+
         active_render_pass.draw_indexed(0..INDICES.len() as u32, 0, 0..1);
     }
 }

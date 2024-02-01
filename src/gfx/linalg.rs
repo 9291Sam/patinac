@@ -31,19 +31,12 @@ impl Camera
     pub fn get_perspective(&self, renderer: &super::Renderer, transform: &Transform) -> glm::Mat4
     {
         //! sync with shaders!
-        let projection = glm::perspective::<f32>(
+        let projection = glm::perspective_fov_lh_zo::<f32>(
             renderer.get_fov().y,
-            renderer.get_aspect_ratio(),
+            renderer.get_framebuffer_size().x as f32,
+            renderer.get_framebuffer_size().y as f32,
             0.1,
             100000.0
-        ) * OPENGL_TO_WGPU_MATRIX;
-
-        #[rustfmt::skip]
-        const OPENGL_TO_WGPU_MATRIX: glm::Mat4 = glm::Mat4::new(
-            1.0, 0.0, 0.0, 0.0,
-            0.0, 1.0, 0.0, 0.0,
-            0.0, 0.0, 0.5, 0.5,
-            0.0, 0.0, 0.0, 1.0,
         );
 
         projection * self.get_view_matrix() * transform.as_model_matrix()
@@ -166,9 +159,9 @@ struct CameraCriticalSection
 #[derive(Debug, Clone, Default)]
 pub struct Transform
 {
-    translation: glm::Vec3,
-    rotation:    nalgebra::UnitQuaternion<f32>,
-    scale:       glm::Vec3
+    pub translation: glm::Vec3,
+    pub rotation:    nalgebra::UnitQuaternion<f32>,
+    pub scale:       glm::Vec3
 }
 
 impl Transform

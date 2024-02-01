@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::mem::size_of;
 
 use bytemuck::{Pod, Zeroable};
 use nalgebra_glm as glm;
@@ -92,7 +93,10 @@ impl RenderCache
                             bind_group_layouts:   &[bind_group_layout_cache
                                 .get(&BindGroupType::TestSimpleTexture)
                                 .unwrap()],
-                            push_constant_ranges: &[]
+                            push_constant_ranges: &[wgpu::PushConstantRange {
+                                stages: wgpu::ShaderStages::VERTEX,
+                                range:  0..(std::mem::size_of::<glm::Mat4>() as u32)
+                            }]
                         })
                     }
                 };
@@ -134,7 +138,7 @@ impl RenderCache
                                     topology:           wgpu::PrimitiveTopology::TriangleStrip,
                                     strip_index_format: None,
                                     front_face:         wgpu::FrontFace::Ccw,
-                                    cull_mode:          Some(wgpu::Face::Back),
+                                    cull_mode:          None,
                                     polygon_mode:       wgpu::PolygonMode::Fill,
                                     unclipped_depth:    false,
                                     conservative:       false

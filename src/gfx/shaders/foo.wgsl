@@ -1,4 +1,6 @@
 
+
+
 struct VertexInput {
     @location(0) position: vec3<f32>,
     @location(1) tex_coords: vec2<f32>,
@@ -9,17 +11,20 @@ struct VertexOutput {
     @location(0) tex_coords: vec2<f32>,
 }
 
+var<push_constant> mvp: mat4x4<f32>;
+
 @vertex
 fn vs_main(
     model: VertexInput,
 ) -> VertexOutput {
     var out: VertexOutput;
     out.tex_coords = model.tex_coords;
-    out.clip_position = vec4<f32>(model.position, 1.0);
+    out.clip_position = mvp * vec4<f32>(model.position, 1.0);
+    
     return out;
 }
  
- @group(0) @binding(0)
+@group(0) @binding(0)
 var t_diffuse: texture_2d<f32>;
 @group(0) @binding(1)
 var s_diffuse: sampler;
