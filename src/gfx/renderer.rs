@@ -439,12 +439,13 @@ impl Renderer
             let mut active_pipeline: Option<wgpu::Id<wgpu::RenderPipeline>> = None;
             let mut active_bind_groups: [Option<wgpu::Id<wgpu::BindGroup>>; 4] = [None; 4];
 
-            let get_pass_descriptor = |pass_type| {
-                match pass_type
+            for pass_type in super::PassStage::iter()
+            {
+                let mut render_pass = match pass_type
                 {
                     crate::gfx::PassStage::GraphicsSimpleColor =>
                     {
-                        wgpu::RenderPassDescriptor {
+                        encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                             label:                    Some("Render Pass"),
                             color_attachments:        &[Some(wgpu::RenderPassColorAttachment {
                                 view:           &view,
@@ -462,14 +463,9 @@ impl Renderer
                             depth_stencil_attachment: None,
                             occlusion_query_set:      None,
                             timestamp_writes:         None
-                        }
+                        })
                     }
-                }
-            };
-
-            for pass_type in super::PassStage::iter()
-            {
-                let mut render_pass = encoder.begin_render_pass(&get_pass_descriptor(pass_type));
+                };
 
                 for renderable in renderables_map.get(&pass_type).unwrap()
                 {
@@ -497,7 +493,7 @@ impl Renderer
                             if let Some(new_bind_group) = maybe_new_bind_group
                             {
                                 render_pass.set_bind_group(idx as u32, new_bind_group, &[]);
-                                active_bind_groups[idx] = Some(new_bind_group.global_id());
+                                *active_bind_group_id = Some(new_bind_group.global_id());
                             }
                         }
                     }

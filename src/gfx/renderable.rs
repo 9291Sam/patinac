@@ -31,7 +31,7 @@ pub trait Renderable: Debug + Send + Sync + Sealed
     }
 
     /// Pipeline is already bound
-    fn bind_and_draw(&self, render_pass: &mut wgpu::RenderPass);
+    fn bind_and_draw<'s>(&'s self, render_pass: &mut wgpu::RenderPass<'s>);
 }
 
 trait Sealed {}
