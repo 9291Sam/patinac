@@ -24,8 +24,8 @@ pub enum BindGroupType
 pub struct RenderCache
 {
     bind_group_layout_cache: HashMap<BindGroupType, wgpu::BindGroupLayout>,
-    pipeline_layout_cache:   HashMap<PipelineType, wgpu::PipelineLayout>,
 
+    // pipeline_layout_cache:   HashMap<PipelineType, wgpu::PipelineLayout>,
     render_pipeline_cache:  HashMap<PipelineType, wgpu::RenderPipeline>,
     compute_pipeline_cache: HashMap<PipelineType, wgpu::ComputePipeline>
 }
@@ -156,7 +156,7 @@ impl RenderCache
 
         RenderCache {
             bind_group_layout_cache,
-            pipeline_layout_cache,
+            // pipeline_layout_cache,
             render_pipeline_cache,
             compute_pipeline_cache
         }
@@ -171,6 +171,11 @@ impl RenderCache
     pub fn lookup_render_pipeline(&self, pipeline_type: PipelineType) -> &wgpu::RenderPipeline
     {
         self.render_pipeline_cache.get(&pipeline_type).unwrap()
+    }
+
+    pub fn lookup_compute_pipeline(&self, pipeline_type: PipelineType) -> &wgpu::ComputePipeline
+    {
+        self.compute_pipeline_cache.get(&pipeline_type).unwrap()
     }
 }
 

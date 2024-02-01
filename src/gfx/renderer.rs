@@ -1,14 +1,12 @@
+use std::collections::HashMap;
 use std::ops::Deref;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering::*;
-use std::sync::Arc;
-use std::sync::Mutex;
-use std::sync::Weak;
+use std::sync::{Arc, Mutex, Weak};
 use std::thread::ThreadId;
 
-use image::GenericImageView;
 use pollster::FutureExt;
-use wgpu::util::DeviceExt;
+use strum::IntoEnumIterator;
 use winit::dpi::PhysicalSize;
 use winit::event::*;
 use winit::event_loop::EventLoop;
@@ -24,8 +22,9 @@ pub const SURFACE_TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgr
 pub struct Renderer
 {
     pub queue:        wgpu::Queue,
+    pub render_cache: super::RenderCache,
     device:           wgpu::Device,
-    renderables : util::Registrar<*const (), Weak<dyn super::Renderable>>,
+    renderables:      util::Registrar<*const (), Weak<dyn super::Renderable>>,
     critical_section: Mutex<CriticalSection>
 }
 
@@ -86,11 +85,11 @@ impl Renderer
 
         let version_string: String = if maybe_driver_version.is_empty()
         {
-             "".into()
+            "".into()
         }
         else
         {
-             format!("with version {} ", maybe_driver_version)
+            format!("with version {} ", maybe_driver_version)
         };
 
         log::info!(
@@ -160,17 +159,21 @@ impl Renderer
             event_loop
         };
 
+        let render_cache = super::RenderCache::new(&device);
+
         Renderer {
             renderables: Registrar::new(),
             queue,
             device,
-            critical_section: Mutex::new(critical_section)
+            critical_section: Mutex::new(critical_section),
+            render_cache
         }
     }
 
     pub fn register(&self, renderable: Weak<dyn super::Renderable>)
     {
-        self.renderables.insert(renderable.as_ptr() as *const (), renderable);
+        self.renderables
+            .insert(renderable.as_ptr() as *const (), renderable);
     }
 
     pub fn enter_gfx_loop(&self, should_stop: &AtomicBool)
@@ -185,92 +188,83 @@ impl Renderer
             event_loop
         } = &mut *guard;
 
-        let render_cache = super::RenderCache::new(&self.device);
-
         assert!(
             *thread_id == std::thread::current().id(),
             "Renderer::enter_gfx_loop() must be called on the same thread that Renderer::new() \
              was called from!"
         );
 
-        const VERTICES: &[super::Vertex] = &[
-            super::Vertex {
-                position:   cgmath::Vector3::new(-0.0868241, 0.49240386, 0.0),
-                tex_coords: cgmath::Vector2::new(0.4131759, 0.99240386)
-            }, // A
-            super::Vertex {
-                position:   cgmath::Vector3::new(-0.49513406, 0.06958647, 0.0),
-                tex_coords: cgmath::Vector2::new(0.0048659444, 0.56958647)
-            }, // B
-            super::Vertex {
-                position:   cgmath::Vector3::new(-0.21918549, -0.44939706, 0.0),
-                tex_coords: cgmath::Vector2::new(0.28081453, 0.05060294)
-            }, // C
-            super::Vertex {
-                position:   cgmath::Vector3::new(0.35966998, -0.3473291, 0.0),
-                tex_coords: cgmath::Vector2::new(0.85967, 0.1526709)
-            }, // D
-            super::Vertex {
-                position:   cgmath::Vector3::new(0.44147372, 0.2347359, 0.0),
-                tex_coords: cgmath::Vector2::new(0.9414737, 0.7347359)
-            } // E
-        ];
+        // const VERTICES: &[super::Vertex] = &[
+        //     super::Vertex {
+        //         position:   cgmath::Vector3::new(-0.0868241, 0.49240386, 0.0),
+        //         tex_coords: cgmath::Vector2::new(0.4131759, 0.99240386)
+        //     }, // A
+        //     super::Vertex {
+        //         position:   cgmath::Vector3::new(-0.49513406, 0.06958647, 0.0),
+        //         tex_coords: cgmath::Vector2::new(0.0048659444, 0.56958647)
+        //     }, // B
+        //     super::Vertex {
+        //         position:   cgmath::Vector3::new(-0.21918549, -0.44939706, 0.0),
+        //         tex_coords: cgmath::Vector2::new(0.28081453, 0.05060294)
+        //     }, // C
+        //     super::Vertex {
+        //         position:   cgmath::Vector3::new(0.35966998, -0.3473291, 0.0),
+        //         tex_coords: cgmath::Vector2::new(0.85967, 0.1526709)
+        //     }, // D
+        //     super::Vertex {
+        //         position:   cgmath::Vector3::new(0.44147372, 0.2347359, 0.0),
+        //         tex_coords: cgmath::Vector2::new(0.9414737, 0.7347359)
+        //     } // E
+        // ];
 
-        const INDICES: &[u16] = &[0, 1, 4, 1, 2, 4, 2, 3, 4, /* padding */ 0];
+        // const INDICES: &[u16] = &[0, 1, 4, 1, 2, 4, 2, 3, 4, /* padding */ 0];
 
-        let vertex_buffer = self
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label:    Some("Vertex Buffer"),
-                contents: bytemuck::cast_slice(VERTICES),
-                usage:    wgpu::BufferUsages::VERTEX
-            });
+        // let vertex_buffer = self
+        //     .device
+        //     .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        //         label:    Some("Vertex Buffer"),
+        //         contents: bytemuck::cast_slice(VERTICES),
+        //         usage:    wgpu::BufferUsages::VERTEX
+        //     });
 
-        let index_buffer = self
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label:    Some("Index Buffer"),
-                contents: bytemuck::cast_slice(INDICES),
-                usage:    wgpu::BufferUsages::INDEX
-            });
+        // let index_buffer = self
+        //     .device
+        //     .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        //         label:    Some("Index Buffer"),
+        //         contents: bytemuck::cast_slice(INDICES),
+        //         usage:    wgpu::BufferUsages::INDEX
+        //     });
 
-        let diffuse_bytes = include_bytes!("happy-tree.png");
-        let diffuse_image = image::load_from_memory(diffuse_bytes).unwrap();
-        let diffuse_rgba = diffuse_image.to_rgba8();
-        let dimensions = diffuse_image.dimensions();
+        // let diffuse_bytes = include_bytes!("happy-tree.png");
+        // let diffuse_image = image::load_from_memory(diffuse_bytes).unwrap();
+        // let diffuse_rgba = diffuse_image.to_rgba8();
+        // let dimensions = diffuse_image.dimensions();
 
-        let tree_texture_size = wgpu::Extent3d {
-            width:                 dimensions.0,
-            height:                dimensions.1,
-            depth_or_array_layers: 1
-        };
+        // let tree_texture_size = wgpu::Extent3d {
+        //     width:                 dimensions.0,
+        //     height:                dimensions.1,
+        //     depth_or_array_layers: 1
+        // };
 
-        let tree_texture = self.device.create_texture_with_data(
-            &self.queue,
-            &wgpu::TextureDescriptor {
-                label:           Some("tree texture"),
-                size:            tree_texture_size,
-                mip_level_count: 1,
-                sample_count:    1,
-                dimension:       wgpu::TextureDimension::D2,
-                format:          wgpu::TextureFormat::Rgba8UnormSrgb,
-                usage:           wgpu::TextureUsages::TEXTURE_BINDING,
-                view_formats:    &[]
-            },
-            wgpu::util::TextureDataOrder::LayerMajor,
-            &diffuse_rgba
-        );
+        // let tree_texture = self.device.create_texture_with_data(
+        //     &self.queue,
+        //     &wgpu::TextureDescriptor {
+        //         label:           Some("tree texture"),
+        //         size:            tree_texture_size,
+        //         mip_level_count: 1,
+        //         sample_count:    1,
+        //         dimension:       wgpu::TextureDimension::D2,
+        //         format:          wgpu::TextureFormat::Rgba8UnormSrgb,
+        //         usage:           wgpu::TextureUsages::TEXTURE_BINDING,
+        //         view_formats:    &[]
+        //     },
+        //     wgpu::util::TextureDataOrder::LayerMajor,
+        //     &diffuse_rgba
+        // );
 
-        let tree_texture_view = tree_texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let tree_sampler = self.device.create_sampler(&wgpu::SamplerDescriptor {
-            address_mode_u: wgpu::AddressMode::ClampToEdge,
-            address_mode_v: wgpu::AddressMode::ClampToEdge,
-            address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Nearest,
-            mipmap_filter: wgpu::FilterMode::Nearest,
-            ..Default::default()
-        });
+        // let tree_texture_view =
+        // tree_texture.create_view(&wgpu::TextureViewDescriptor::default());
+        // let tree_sampler = ;
 
         // let texture_bind_group_layout =
         //     self.device
@@ -300,20 +294,32 @@ impl Renderer
         //             label:   Some("texture_bind_group_layout")
         //         });
 
-        let diffuse_bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout:  render_cache.lookup_bind_group_layout(super::BindGroupType::TestSimpleTexture),
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding:  0,
-                    resource: wgpu::BindingResource::TextureView(&tree_texture_view)
-                },
-                wgpu::BindGroupEntry {
-                    binding:  1,
-                    resource: wgpu::BindingResource::Sampler(&tree_sampler)
-                }
-            ],
-            label:   Some("diffuse_bind_group")
-        });
+        // let diffuse_bind_group =
+        // self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+        //     layout:
+        // render_cache.
+        // lookup_bind_group_layout(super::BindGroupType::TestSimpleTexture),
+        //     entries: &[
+        //         wgpu::BindGroupEntry {
+        //             binding:  0,
+        //             resource: wgpu::BindingResource::TextureView(&tree_texture_view)
+        //         },
+        //         wgpu::BindGroupEntry {
+        //             binding:  1,
+        //             resource:
+        // wgpu::BindingResource::Sampler(&self.device.create_sampler(&
+        // wgpu::SamplerDescriptor {                 // address_mode_u:
+        // wgpu::AddressMode::ClampToEdge,                 // address_mode_v:
+        // wgpu::AddressMode::ClampToEdge,                 // address_mode_w:
+        // wgpu::AddressMode::ClampToEdge,                 // mag_filter:
+        // wgpu::FilterMode::Linear,                 // min_filter:
+        // wgpu::FilterMode::Nearest,                 // mipmap_filter:
+        // wgpu::FilterMode::Nearest,                 ..Default::default()
+        //             }))
+        //         }
+        //     ],
+        //     label:   Some("diffuse_bind_group")
+        // });
 
         // let shader = self
         //     .device
@@ -323,7 +329,7 @@ impl Renderer
         //         .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
         //             label:                Some("Render Pipeline Layout"),
         //             bind_group_layouts:   &[render_cache
-        //                 .lookup_bind_group_layout(super::BindGroupType::TestSimpleTexture)],
+        // .lookup_bind_group_layout(super::BindGroupType::TestSimpleTexture)],
         //             push_constant_ranges: &[]
         //         });
 
@@ -397,48 +403,110 @@ impl Renderer
                 .texture
                 .create_view(&wgpu::TextureViewDescriptor::default());
 
-            let mut renderables = self.renderables.access().into_iter().filter_map(|(ptr, weak_renderable)| match weak_renderable.upgrade() {
-                Some(s) => Some(s),
-                None => {self.renderables.delete(ptr); None},
-            }).collect::<Vec<_>>();
+            let mut renderables_map: HashMap<super::PassStage, Vec<Arc<dyn super::Renderable>>> =
+                super::PassStage::iter().map(|s| (s, Vec::new())).collect();
 
-            renderables.sort_by(|l, r| l.ord(&**r));
-            
+            self.renderables
+                .access()
+                .into_iter()
+                // Upgrade if possible, otherwise cull
+                .filter_map(|(ptr, weak_renderable)| {
+                    match weak_renderable.upgrade()
+                    {
+                        Some(s) => Some(s),
+                        None =>
+                        {
+                            self.renderables.delete(ptr);
+                            None
+                        }
+                    }
+                })
+                // put into the renderpass map
+                .for_each(|r| {
+                    renderables_map.get_mut(&r.get_pass_stage()).unwrap().push(r);
+                });
+
+            renderables_map
+                .iter_mut()
+                .for_each(|(_, renderable_vec)| renderable_vec.sort_by(|l, r| l.ord(&**r)));
+
             let mut encoder = self
                 .device
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                     label: Some("Render Encoder")
                 });
 
-            let mut active_render_pass: Option<wgpu::RenderPass> = None;
-            // let mut active_pipeline: Option<wgpu::
+            let mut active_pipeline: Option<wgpu::Id<wgpu::RenderPipeline>> = None;
+            let mut active_bind_groups: [Option<wgpu::Id<wgpu::BindGroup>>; 4] = [None; 4];
 
-            {
-                let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                    label:                    Some("Render Pass"),
-                    color_attachments:        &[Some(wgpu::RenderPassColorAttachment {
-                        view:           &view,
-                        resolve_target: None,
-                        ops:            wgpu::Operations {
-                            load:  wgpu::LoadOp::Clear(wgpu::Color {
-                                r: 0.1,
-                                g: 0.2,
-                                b: 0.3,
-                                a: 1.0
-                            }),
-                            store: wgpu::StoreOp::Store
+            let get_pass_descriptor = |pass_type| {
+                match pass_type
+                {
+                    crate::gfx::PassStage::GraphicsSimpleColor =>
+                    {
+                        wgpu::RenderPassDescriptor {
+                            label:                    Some("Render Pass"),
+                            color_attachments:        &[Some(wgpu::RenderPassColorAttachment {
+                                view:           &view,
+                                resolve_target: None,
+                                ops:            wgpu::Operations {
+                                    load:  wgpu::LoadOp::Clear(wgpu::Color {
+                                        r: 0.1,
+                                        g: 0.2,
+                                        b: 0.3,
+                                        a: 1.0
+                                    }),
+                                    store: wgpu::StoreOp::Store
+                                }
+                            })],
+                            depth_stencil_attachment: None,
+                            occlusion_query_set:      None,
+                            timestamp_writes:         None
                         }
-                    })],
-                    depth_stencil_attachment: None,
-                    occlusion_query_set:      None,
-                    timestamp_writes:         None
-                });
+                    }
+                }
+            };
 
-                render_pass.set_pipeline(render_cache.lookup_render_pipeline(crate::gfx::PipelineType::TestSample));
-                render_pass.set_bind_group(0, &diffuse_bind_group, &[]);
-                render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
-                render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-                render_pass.draw_indexed(0..INDICES.len() as u32, 0, 0..1);
+            for pass_type in super::PassStage::iter()
+            {
+                let mut render_pass = encoder.begin_render_pass(&get_pass_descriptor(pass_type));
+
+                for renderable in renderables_map.get(&pass_type).unwrap()
+                {
+                    let renderable_pipeline = self
+                        .render_cache
+                        .lookup_render_pipeline(renderable.get_pipeline_type());
+
+                    if active_pipeline != Some(renderable_pipeline).map(|p| p.global_id())
+                    {
+                        render_pass.set_pipeline(renderable_pipeline);
+
+                        active_pipeline = Some(renderable_pipeline.global_id());
+                    }
+
+                    for (idx, (active_bind_group_id, maybe_new_bind_group)) in active_bind_groups
+                        .iter_mut()
+                        .zip(renderable.get_bind_groups())
+                        .enumerate()
+                    {
+                        // if the bind group is different
+                        if *active_bind_group_id != maybe_new_bind_group.map(|g| g.global_id())
+                        {
+                            // if the different group actually exists, sometimes there may be a
+                            // bound one but we want None bound, so we can just leave it there
+                            if let Some(new_bind_group) = maybe_new_bind_group
+                            {
+                                render_pass.set_bind_group(idx as u32, new_bind_group, &[]);
+                                active_bind_groups[idx] = Some(new_bind_group.global_id());
+                            }
+                        }
+                    }
+
+                    renderable.bind_and_draw(&mut render_pass);
+                }
+
+                active_pipeline = None;
+                active_bind_groups = [None; 4];
             }
 
             window.pre_present_notify();
@@ -508,7 +576,6 @@ impl Renderer
         log::info!("event loop returned");
     }
 }
-
 
 struct CriticalSection
 {

@@ -7,7 +7,7 @@ use std::sync::Arc;
 #[allow(private_bounds)]
 pub trait Renderable: Debug + Send + Sync + Sealed
 {
-    fn get_pass_type(&self) -> super::PassStage;
+    fn get_pass_stage(&self) -> super::PassStage;
     fn get_pipeline_type(&self) -> super::PipelineType;
     fn get_bind_groups(&self) -> [Option<&'_ wgpu::BindGroup>; 4];
     fn get_bind_group_ids(&self) -> [Option<NonZeroU64>; 4]
@@ -25,11 +25,12 @@ pub trait Renderable: Debug + Send + Sync + Sealed
     fn ord(&self, other: &dyn Renderable) -> Ordering
     {
         Equal
-            .then(self.get_pass_type().cmp(&other.get_pass_type()))
+            .then(self.get_pass_stage().cmp(&other.get_pass_stage()))
             .then(self.get_pipeline_type().cmp(&other.get_pipeline_type()))
             .then(self.get_bind_group_ids().cmp(&other.get_bind_group_ids()))
     }
 
+    /// Pipeline is already bound
     fn bind_and_draw(&self, render_pass: &mut wgpu::RenderPass);
 }
 
