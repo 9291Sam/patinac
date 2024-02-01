@@ -32,22 +32,6 @@ impl<'r> Game<'r>
 
         let _obj = PentagonalTreeRenderer::new(self.renderer);
 
-        // self.renderer.create_texture_with_data(
-        //     &self.renderer.queue,
-        //     &wgpu::TextureDescriptor {
-        //         label:           todo!(),
-        //         size:            todo!(),
-        //         mip_level_count: todo!(),
-        //         sample_count:    todo!(),
-        //         dimension:       todo!(),
-        //         format:          todo!(),
-        //         usage:           todo!(),
-        //         view_formats:    todo!()
-        //     },
-        //     wgpu::util::TextureDataOrder::MipMajor,
-        //     &[]
-        // );
-
         while !should_stop.load(std::sync::atomic::Ordering::Acquire)
         {}
     }
@@ -164,7 +148,7 @@ impl PentagonalTreeRenderer
             tree_bind_group
         });
 
-        renderer.register(Arc::downgrade(&(this.clone() as Arc<dyn gfx::Renderable>)));
+        renderer.register(Arc::downgrade(&this) as Weak<dyn gfx::Renderable>);
 
         this
     }
