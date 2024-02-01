@@ -1,6 +1,7 @@
 use std::f32::consts::{FRAC_PI_2, TAU};
 use std::sync::{Mutex, RwLock};
 
+use nalgebra::UnitQuaternion;
 use nalgebra_glm as glm;
 
 #[derive(Debug)]
@@ -52,10 +53,7 @@ impl Camera
     {
         let guard = self.critical_section.read().unwrap();
         let CameraCriticalSection {
-            translation,
-            pitch,
-            yaw,
-            transform
+            transform, ..
         } = &*guard;
 
         (transform.as_translation_matrix() * transform.as_rotation_matrix())
@@ -106,16 +104,13 @@ impl Camera
 
         {
             let CameraCriticalSection {
-                translation,
-                pitch,
-                yaw,
-                transform
+                pitch, ..
             } = &mut *guard;
 
             *pitch += pitch_to_add;
         }
 
-        Camera::enforce_invariants(&mut *guard);
+        Camera::enforce_invariants(&mut guard);
     }
 
     pub fn add_yaw(&self, yaw_to_add: f32)
@@ -124,16 +119,13 @@ impl Camera
 
         {
             let CameraCriticalSection {
-                translation,
-                pitch,
-                yaw,
-                transform
+                yaw, ..
             } = &mut *guard;
 
             *yaw += yaw_to_add;
         }
 
-        Camera::enforce_invariants(&mut *guard);
+        Camera::enforce_invariants(&mut guard);
     }
 
     fn enforce_invariants(
@@ -145,16 +137,7 @@ impl Camera
         }: &mut CameraCriticalSection
     )
     {
-        let mut q = glm::Quat::new(1.0, 0.0, 0.0, 0.0);
-
-        *pitch = pitch.clamp(-FRAC_PI_2, FRAC_PI_2);
-        *yaw = glm::modf(*yaw, TAU);
-
-        q *= glm::quat_angle_axis(*pitch, &Transform::RIGHT_VECTOR);
-
-        q = glm::quat_angle_axis(*yaw, &Transform::UP_VECTOR) * q;
-
-        transform.rotation = q;
+        transform.rotation = nalgebra::UnitQuaternion::from_euler_angles(0.0, *pitch, *yaw);
     }
 }
 
@@ -184,15 +167,26 @@ struct CameraCriticalSection
 pub struct Transform
 {
     translation: glm::Vec3,
-    rotation:    glm::Quat,
+    rotation:    nalgebra::UnitQuaternion<f32>,
     scale:       glm::Vec3
 }
 
 impl Transform
 {
-    const FORWARD_VECTOR: glm::Vec3 = glm::Vec3::new(0.0, 0.0, 1.0);
-    const RIGHT_VECTOR: glm::Vec3 = glm::Vec3::new(1.0, 0.0, 0.0);
-    const UP_VECTOR: glm::Vec3 = glm::Vec3::new(0.0, 1.0, 0.0);
+    pub fn global_forward_vector() -> nalgebra::UnitVector3<f32>
+    {
+        nalgebra::UnitVector3::new_normalize(glm::Vec3::new(0.0, 0.0, 1.0))
+    }
+
+    pub fn global_right_vector() -> nalgebra::UnitVector3<f32>
+    {
+        nalgebra::UnitVector3::new_normalize(glm::Vec3::new(1.0, 0.0, 0.0))
+    }
+
+    pub fn global_up_vector() -> nalgebra::UnitVector3<f32>
+    {
+        nalgebra::UnitVector3::new_normalize(glm::Vec3::new(0.0, 1.0, 0.0))
+    }
 
     pub fn as_model_matrix(&self) -> glm::Mat4
     {
@@ -206,28 +200,26 @@ impl Transform
 
     pub fn as_rotation_matrix(&self) -> glm::Mat4
     {
-        todo!()
-        // UnitQuaternion::new()
-        // nalgebraself.rotation.to
+        glm::mat3_to_mat4(&self.rotation.to_rotation_matrix().into())
     }
 
     pub fn as_scale_matrix(&self) -> glm::Mat4
     {
-        todo!()
+        glm::scale(&glm::Mat4::identity(), &self.scale)
     }
 
     pub fn get_forward_vector(&self) -> glm::Vec3
     {
-        todo!()
+        *(self.rotation.to_rotation_matrix() * Transform::global_forward_vector())
     }
 
     pub fn get_right_vector(&self) -> glm::Vec3
     {
-        todo!()
+        *(self.rotation.to_rotation_matrix() * Transform::global_right_vector())
     }
 
     pub fn get_up_vector(&self) -> glm::Vec3
     {
-        todo!()
+        *(self.rotation.to_rotation_matrix() * Transform::global_up_vector())
     }
 }
