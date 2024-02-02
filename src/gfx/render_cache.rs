@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::marker::PhantomData;
 use std::mem::size_of;
 
 use bytemuck::{Pod, Zeroable};
@@ -174,9 +175,19 @@ impl RenderCache
         self.bind_group_layout_cache.get(&bind_group_type).unwrap()
     }
 
-    pub fn lookup_render_pipeline(&self, pipeline_type: PipelineType) -> &wgpu::RenderPipeline
+    pub fn lookup_pipeline(&self, pipeline_type: PipelineType) -> GenericPipeline<'_>
     {
-        self.render_pipeline_cache.get(&pipeline_type).unwrap()
+        match pipeline_type.classify()
+        {
+            GenericPipelineType::Compute =>
+            {
+                GenericPipeline::Compute(self.compute_pipeline_cache.get(&pipeline_type).unwrap())
+            }
+            GenericPipelineType::Render =>
+            {
+                GenericPipeline::Render(self.render_pipeline_cache.get(&pipeline_type).unwrap())
+            }
+        }
     }
 
     pub fn lookup_compute_pipeline(&self, pipeline_type: PipelineType) -> &wgpu::ComputePipeline
@@ -185,11 +196,59 @@ impl RenderCache
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash)]
-pub enum PipelinePass
+pub enum GenericPass<'p>
+{
+    Compute(wgpu::ComputePass<'p>),
+    Render(wgpu::RenderPass<'p>)
+}
+
+impl<'p> GenericPass<'p>
+{
+    pub fn set_bind_group(&mut self, index: u32, bind_group: &'p wgpu::BindGroup, offsets: &[u32])
+    {
+        match *self
+        {
+            GenericPass::Compute(ref mut pass) => pass.set_bind_group(index, bind_group, offsets),
+            GenericPass::Render(ref mut pass) => pass.set_bind_group(index, bind_group, offsets)
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum GenericPipeline<'p>
+{
+    Compute(&'p wgpu::ComputePipeline),
+    Render(&'p wgpu::RenderPipeline)
+}
+
+impl GenericPipeline<'_>
+{
+    pub fn global_id(&self) -> u64
+    {
+        match *self
+        {
+            GenericPipeline::Compute(p) => p.global_id().inner(),
+            GenericPipeline::Render(p) => p.global_id().inner()
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum GenericPipelineType
 {
     Compute,
     Render
+}
+
+impl PipelineType
+{
+    pub fn classify(&self) -> GenericPipelineType
+    {
+        match *self
+        {
+            PipelineType::TestSample => GenericPipelineType::Render
+        }
+    }
 }
 
 #[repr(C)]

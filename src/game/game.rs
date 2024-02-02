@@ -181,7 +181,7 @@ impl gfx::Renderable for PentagonalTreeRenderer
 
     fn bind_and_draw<'s>(
         &'s self,
-        active_render_pass: &mut wgpu::RenderPass<'s>,
+        active_render_pass: &mut gfx::GenericPass<'s>,
         renderer: &gfx::Renderer,
         camera: &gfx::Camera
     )
@@ -192,25 +192,28 @@ impl gfx::Renderable for PentagonalTreeRenderer
             *guard
         };
 
-        active_render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-        active_render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+        if let gfx::GenericPass::Render(ref mut pass) = active_render_pass
+        {
+            pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+            pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
 
-        let mut transform = gfx::Transform {
-            translation: glm::Vec3::new(0.0, 0.0, 0.0), // 2.0 + 2.0 * time_alive.sin()
-            rotation:    nalgebra::UnitQuaternion::new_normalize(glm::quat(1.0, 0.0, 0.0, 0.0)),
-            scale:       glm::Vec3::new(1.0, 1.0, 1.0)
-        };
+            let mut transform = gfx::Transform {
+                translation: glm::Vec3::new(0.0, 0.0, 0.5), // 2.0 + 2.0 * time_alive.sin()
+                rotation:    nalgebra::UnitQuaternion::new_normalize(glm::quat(1.0, 0.0, 0.0, 0.0)),
+                scale:       glm::Vec3::new(1.0, 1.0, 1.0)
+            };
 
-        transform.rotation *= nalgebra::UnitQuaternion::from_axis_angle(
-            &Transform::global_up_vector(),
-            5.0 * time_alive
-        );
+            transform.rotation *= nalgebra::UnitQuaternion::from_axis_angle(
+                &Transform::global_up_vector(),
+                5.0 * time_alive
+            );
 
-        let matrix = camera.get_perspective(renderer, &transform);
+            let matrix = camera.get_perspective(renderer, &transform);
 
-        active_render_pass.set_push_constants(wgpu::ShaderStages::VERTEX, 0, bytes_of(&matrix));
+            pass.set_push_constants(wgpu::ShaderStages::VERTEX, 0, bytes_of(&matrix));
 
-        active_render_pass.draw_indexed(0..INDICES.len() as u32, 0, 0..1);
+            pass.draw_indexed(0..INDICES.len() as u32, 0, 0..1);
+        }
     }
 }
 

@@ -31,7 +31,7 @@ pub trait Renderable: Debug + Send + Sync
     /// Pipeline is already bound
     fn bind_and_draw<'s>(
         &'s self,
-        render_pass: &mut wgpu::RenderPass<'s>,
+        render_pass: &mut super::GenericPass<'s>,
         renderer: &super::Renderer,
         camera: &super::Camera
     );

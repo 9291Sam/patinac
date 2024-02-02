@@ -18,6 +18,7 @@ use winit::platform::run_on_demand::EventLoopExtRunOnDemand;
 use winit::window::{Window, WindowBuilder};
 use winit_input_helper::WinitInputHelper;
 
+use crate::gfx::GenericPass;
 use crate::util;
 use crate::util::Registrar;
 
@@ -334,48 +335,63 @@ impl Renderer
                     label: Some("Render Encoder")
                 });
 
-            let mut active_pipeline: Option<wgpu::Id<wgpu::RenderPipeline>> = None;
+            let mut active_pipeline: Option<u64> = None;
             let mut active_bind_groups: [Option<wgpu::Id<wgpu::BindGroup>>; 4] = [None; 4];
 
             for pass_type in super::PassStage::iter()
             {
-                let mut render_pass = match pass_type
+                let mut render_pass: GenericPass = match pass_type
                 {
                     super::PassStage::GraphicsSimpleColor =>
                     {
-                        encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                            label:                    Some("Render Pass"),
-                            color_attachments:        &[Some(wgpu::RenderPassColorAttachment {
-                                view:           &view,
-                                resolve_target: None,
-                                ops:            wgpu::Operations {
-                                    load:  wgpu::LoadOp::Clear(wgpu::Color {
-                                        r: 0.1,
-                                        g: 0.2,
-                                        b: 0.3,
-                                        a: 1.0
-                                    }),
-                                    store: wgpu::StoreOp::Store
-                                }
-                            })],
-                            depth_stencil_attachment: None,
-                            occlusion_query_set:      None,
-                            timestamp_writes:         None
-                        })
+                        GenericPass::Render(encoder.begin_render_pass(
+                            &wgpu::RenderPassDescriptor {
+                                label:                    Some("Render Pass"),
+                                color_attachments:        &[Some(
+                                    wgpu::RenderPassColorAttachment {
+                                        view:           &view,
+                                        resolve_target: None,
+                                        ops:            wgpu::Operations {
+                                            load:  wgpu::LoadOp::Clear(wgpu::Color {
+                                                r: 0.1,
+                                                g: 0.2,
+                                                b: 0.3,
+                                                a: 1.0
+                                            }),
+                                            store: wgpu::StoreOp::Store
+                                        }
+                                    }
+                                )],
+                                depth_stencil_attachment: None,
+                                occlusion_query_set:      None,
+                                timestamp_writes:         None
+                            }
+                        ))
                     }
                 };
 
                 for renderable in renderables_map.get(&pass_type).unwrap()
                 {
-                    let renderable_pipeline = self
+                    let desired_pipeline = self
                         .render_cache
-                        .lookup_render_pipeline(renderable.get_pipeline_type());
+                        .lookup_pipeline(renderable.get_pipeline_type());
 
-                    if active_pipeline != Some(renderable_pipeline.global_id())
+                    if active_pipeline != Some(desired_pipeline.global_id())
                     {
-                        render_pass.set_pipeline(renderable_pipeline);
+                        match (desired_pipeline, &mut render_pass)
+                        {
+                            (super::GenericPipeline::Compute(p), GenericPass::Compute(pass)) =>
+                            {
+                                pass.set_pipeline(p);
+                            }
+                            (super::GenericPipeline::Render(p), GenericPass::Render(pass)) =>
+                            {
+                                pass.set_pipeline(p)
+                            }
+                            (_, _) => panic!("Pass Pipeline Invariant Violated!")
+                        }
 
-                        active_pipeline = Some(renderable_pipeline.global_id());
+                        active_pipeline = Some(desired_pipeline.global_id());
                     }
 
                     for (idx, (active_bind_group_id, maybe_new_bind_group)) in active_bind_groups
