@@ -1,4 +1,6 @@
+use std::cell::RefCell;
 use std::collections::HashMap;
+use std::f32::consts::PI;
 use std::ops::Deref;
 use std::sync::atomic::Ordering::{self, *};
 use std::sync::atomic::{AtomicBool, AtomicU32};
@@ -10,10 +12,11 @@ use pollster::FutureExt;
 use strum::IntoEnumIterator;
 use winit::dpi::PhysicalSize;
 use winit::event::*;
-use winit::event_loop::EventLoop;
-use winit::keyboard::{Key, NamedKey};
+use winit::event_loop::{EventLoop, EventLoopWindowTarget};
+use winit::keyboard::{Key, KeyCode, NamedKey, PhysicalKey};
 use winit::platform::run_on_demand::EventLoopExtRunOnDemand;
 use winit::window::{Window, WindowBuilder};
+use winit_input_helper::WinitInputHelper;
 
 use crate::util;
 use crate::util::Registrar;
@@ -24,10 +27,12 @@ pub struct Renderer
 {
     pub queue:        wgpu::Queue,
     pub render_cache: super::RenderCache,
-    pub camera:       Mutex<super::Camera>,
+
+    // pub camera:       Mutex<super::Camera>,
 
     // gated publics
     device:      wgpu::Device,
+    // TODO: replace with UUIDs
     renderables: util::Registrar<*const (), Weak<dyn super::Renderable>>,
 
     // Rendering views
@@ -170,7 +175,8 @@ impl Renderer
             config,
             size,
             window,
-            event_loop
+            event_loop,
+            camera: RefCell::new(super::Camera::new(glm::Vec3::repeat(0.0), 0.0, 0.0))
         };
 
         let render_cache = super::RenderCache::new(&device);
@@ -183,7 +189,7 @@ impl Renderer
             render_cache,
             window_size_x: AtomicU32::new(size.width),
             window_size_y: AtomicU32::new(size.height),
-            camera: Mutex::new(super::Camera::new(glm::Vec3::repeat(0.0), 0.0, 0.0)),
+            // camera: Mutex::new(super::Camera::new(glm::Vec3::repeat(0.0), 0.0, 0.0)),
             float_delta_frame_time_s: AtomicU32::new(0.0f32.to_bits())
         }
     }
@@ -237,7 +243,8 @@ impl Renderer
             config,
             size,
             window,
-            event_loop
+            event_loop,
+            camera
         } = &mut *guard;
 
         assert!(
@@ -245,6 +252,8 @@ impl Renderer
             "Renderer::enter_gfx_loop() must be called on the same thread that Renderer::new() \
              was called from!"
         );
+
+        let input_helper = RefCell::new(WinitInputHelper::new());
 
         // Because of a bug in winit, the first resize command that comes in is borked
         // https://github.com/rust-windowing/winit/issues/2094
@@ -296,7 +305,6 @@ impl Renderer
             self.renderables
                 .access()
                 .into_iter()
-                // Upgrade if possible, otherwise cull
                 .filter_map(|(ptr, weak_renderable)| {
                     match weak_renderable.upgrade()
                     {
@@ -308,16 +316,18 @@ impl Renderer
                         }
                     }
                 })
-                // put into the renderpass map
                 .for_each(|r| {
-                    renderables_map.get_mut(&r.get_pass_stage()).unwrap().push(r);
+                    renderables_map
+                        .get_mut(&r.get_pass_stage())
+                        .unwrap()
+                        .push(r);
                 });
 
             renderables_map
                 .iter_mut()
                 .for_each(|(_, renderable_vec)| renderable_vec.sort_by(|l, r| l.ord(&**r)));
 
-            let camera = self.camera.lock().unwrap().clone();
+            // let camera = self.camera.lock().unwrap().clone();
 
             let mut encoder = self
                 .device
@@ -387,7 +397,7 @@ impl Renderer
                         }
                     }
 
-                    renderable.bind_and_draw(&mut render_pass, self, &camera);
+                    renderable.bind_and_draw(&mut render_pass, self, &camera.borrow());
                 }
 
                 active_pipeline = None;
@@ -402,11 +412,94 @@ impl Renderer
             Ok(())
         };
 
+        let handle_input = |control_flow: &EventLoopWindowTarget<()>| {
+            // TODO: do the trig thing so that diagonal isn't faster!
+            let move_scale = 10.0;
+            let rotate_scale = 1000.0;
+
+            let input_helper = input_helper.borrow();
+
+            if input_helper.key_held(KeyCode::KeyW)
+            {
+                let v = camera.borrow().get_forward_vector() * move_scale;
+
+                camera.borrow_mut().add_position(v * self.get_delta_time());
+            };
+
+            if input_helper.key_held(KeyCode::KeyS)
+            {
+                let v = camera.borrow().get_forward_vector() * -move_scale;
+
+                camera.borrow_mut().add_position(v * self.get_delta_time());
+            };
+
+            if input_helper.key_held(KeyCode::KeyD)
+            {
+                let v = camera.borrow().get_right_vector() * move_scale;
+
+                camera.borrow_mut().add_position(v * self.get_delta_time());
+            };
+
+            if input_helper.key_held(KeyCode::KeyA)
+            {
+                let v = camera.borrow().get_right_vector() * -move_scale;
+
+                camera.borrow_mut().add_position(v * self.get_delta_time());
+            };
+
+            if input_helper.key_held(KeyCode::KeyE)
+            {
+                let v = camera.borrow().get_up_vector() * move_scale;
+
+                camera.borrow_mut().add_position(v * self.get_delta_time());
+            };
+
+            if input_helper.key_held(KeyCode::KeyQ)
+            {
+                let v = camera.borrow().get_up_vector() * -move_scale;
+
+                camera.borrow_mut().add_position(v * self.get_delta_time());
+            };
+
+            let mouse_diff_px: glm::Vec2 = {
+                let mouse_cords_diff_px_f32: (f32, f32) = input_helper.mouse_diff();
+
+                glm::Vec2::new(mouse_cords_diff_px_f32.0, mouse_cords_diff_px_f32.1)
+            };
+
+            let screen_size_px: glm::Vec2 = {
+                let screen_size_u32 = self.get_framebuffer_size();
+
+                glm::Vec2::new(screen_size_u32.x as f32, screen_size_u32.y as f32)
+            };
+
+            // delta over the whole screen -1 -> 1
+            let normalized_delta = mouse_diff_px.component_div(&screen_size_px);
+
+            let delta_rads = normalized_delta
+                .component_div(&glm::Vec2::repeat(2.0))
+                .component_mul(&self.get_fov());
+
+            {
+                let mut camera_guard = camera.borrow_mut();
+
+                camera_guard.add_yaw(delta_rads.x * rotate_scale * self.get_delta_time());
+                camera_guard.add_pitch(delta_rads.y * rotate_scale * self.get_delta_time());
+            }
+
+            if input_helper.key_pressed(KeyCode::Escape)
+            {
+                control_flow.exit();
+            }
+        };
+
         let _ = event_loop.run_on_demand(|event, control_flow| {
             if should_stop.load(Acquire)
             {
                 control_flow.exit();
             }
+
+            input_helper.borrow_mut().update(&event);
 
             match event
             {
@@ -418,21 +511,12 @@ impl Renderer
                     match event
                     {
                         WindowEvent::Resized(new_size) => resize_func(Some(*new_size)),
-                        WindowEvent::KeyboardInput {
-                            device_id: _,
-                            ref event,
-                            is_synthetic: _
-                        } =>
-                        {
-                            if let Key::Named(NamedKey::Escape) = event.logical_key
-                            {
-                                control_flow.exit()
-                            }
-                        }
                         WindowEvent::CloseRequested => control_flow.exit(),
                         WindowEvent::RedrawRequested =>
                         {
                             use wgpu::SurfaceError::*;
+
+                            handle_input(control_flow);
 
                             match render_func()
                             {
@@ -469,5 +553,7 @@ struct CriticalSection
     config:     wgpu::SurfaceConfiguration,
     size:       PhysicalSize<u32>,
     window:     Window,
-    event_loop: EventLoop<()>
+    event_loop: EventLoop<()>,
+
+    camera: RefCell<super::Camera>
 }
