@@ -31,7 +31,7 @@ impl Camera
     pub fn get_perspective(&self, renderer: &super::Renderer, transform: &Transform) -> glm::Mat4
     {
         //! sync with shaders!
-        let projection = glm::perspective_fov_lh_zo::<f32>(
+        let projection = glm::perspective_fov_lh_zo(
             renderer.get_fov().y,
             renderer.get_framebuffer_size().x as f32,
             renderer.get_framebuffer_size().y as f32,

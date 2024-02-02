@@ -186,20 +186,24 @@ impl gfx::Renderable for PentagonalTreeRenderer
         camera: &gfx::Camera
     )
     {
-        *ALIVE_TIME.lock().unwrap() += renderer.get_delta_time();
+        let time_alive = {
+            let mut guard = ALIVE_TIME.lock().unwrap();
+            *guard += renderer.get_delta_time();
+            *guard
+        };
 
         active_render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
         active_render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
 
         let mut transform = gfx::Transform {
-            translation: glm::Vec3::new(0.0, 0.0, 0.25),
-            rotation:    nalgebra::UnitQuaternion::new_normalize(glm::quat(1.0, 1.0, 0.7, 0.2)),
+            translation: glm::Vec3::new(0.0, 0.0, 2.0 + 2.0 * time_alive.sin()),
+            rotation:    nalgebra::UnitQuaternion::new_normalize(glm::quat(1.0, 0.0, 0.0, 0.0)),
             scale:       glm::Vec3::new(1.0, 1.0, 1.0)
         };
 
         transform.rotation *= nalgebra::UnitQuaternion::from_axis_angle(
             &Transform::global_up_vector(),
-            5.0 * *ALIVE_TIME.lock().unwrap()
+            5.0 * time_alive
         );
 
         let matrix = camera.get_perspective(renderer, &transform);
