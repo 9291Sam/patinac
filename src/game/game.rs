@@ -192,28 +192,31 @@ impl gfx::Renderable for PentagonalTreeRenderer
             *guard
         };
 
-        if let gfx::GenericPass::Render(ref mut pass) = active_render_pass
+        let gfx::GenericPass::Render(ref mut pass) = active_render_pass
+        else
         {
-            pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-            pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+            panic!("Generic RenderPass bound with incorrect type!")
+        };
 
-            let mut transform = gfx::Transform {
-                translation: glm::Vec3::new(0.0, 0.0, 0.5), // 2.0 + 2.0 * time_alive.sin()
-                rotation:    nalgebra::UnitQuaternion::new_normalize(glm::quat(1.0, 0.0, 0.0, 0.0)),
-                scale:       glm::Vec3::new(1.0, 1.0, 1.0)
-            };
+        pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+        pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
 
-            transform.rotation *= nalgebra::UnitQuaternion::from_axis_angle(
-                &Transform::global_up_vector(),
-                5.0 * time_alive
-            );
+        let mut transform = gfx::Transform {
+            translation: glm::Vec3::new(0.0, 0.0, 0.5), // 2.0 + 2.0 * time_alive.sin()
+            rotation:    nalgebra::UnitQuaternion::new_normalize(glm::quat(1.0, 0.0, 0.0, 0.0)),
+            scale:       glm::Vec3::new(1.0, 1.0, 1.0)
+        };
 
-            let matrix = camera.get_perspective(renderer, &transform);
+        transform.rotation *= nalgebra::UnitQuaternion::from_axis_angle(
+            &Transform::global_up_vector(),
+            5.0 * time_alive
+        );
 
-            pass.set_push_constants(wgpu::ShaderStages::VERTEX, 0, bytes_of(&matrix));
+        let matrix = camera.get_perspective(renderer, &transform);
 
-            pass.draw_indexed(0..INDICES.len() as u32, 0, 0..1);
-        }
+        pass.set_push_constants(wgpu::ShaderStages::VERTEX, 0, bytes_of(&matrix));
+
+        pass.draw_indexed(0..INDICES.len() as u32, 0, 0..1);
     }
 }
 

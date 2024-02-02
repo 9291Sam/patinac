@@ -327,8 +327,6 @@ impl Renderer
                 .iter_mut()
                 .for_each(|(_, renderable_vec)| renderable_vec.sort_by(|l, r| l.ord(&**r)));
 
-            // let camera = self.camera.lock().unwrap().clone();
-
             let mut encoder = self
                 .device
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor {
