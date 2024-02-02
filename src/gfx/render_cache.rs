@@ -1,8 +1,5 @@
 use std::collections::HashMap;
-use std::marker::PhantomData;
-use std::mem::size_of;
 
-use bytemuck::{Pod, Zeroable};
 use nalgebra_glm as glm;
 use strum::{EnumIter, IntoEnumIterator};
 
@@ -28,17 +25,14 @@ pub enum BindGroupType
 pub struct RenderCache
 {
     bind_group_layout_cache: HashMap<BindGroupType, wgpu::BindGroupLayout>,
-
-    // pipeline_layout_cache:   HashMap<PipelineType, wgpu::PipelineLayout>,
-    render_pipeline_cache:  HashMap<PipelineType, wgpu::RenderPipeline>,
-    compute_pipeline_cache: HashMap<PipelineType, wgpu::ComputePipeline>
+    pipeline_cache:          HashMap<PipelineType, GenericPipeline>
 }
 
 impl RenderCache
 {
     pub fn new(device: &wgpu::Device) -> Self
     {
-        let bind_group_layout_cache = BindGroupType::iter()
+        let bind_group_layout_cache: HashMap<_, _> = BindGroupType::iter()
             .map(|bind_group_type| {
                 let new_bind_group_layout = match bind_group_type
                 {
@@ -83,7 +77,7 @@ impl RenderCache
             })
             .collect::<HashMap<BindGroupType, wgpu::BindGroupLayout>>();
 
-        let pipeline_layout_cache = PipelineType::iter()
+        let pipeline_layout_cache: HashMap<_, _> = PipelineType::iter()
             .map(|pipeline_type| {
                 let new_pipeline_layout = match pipeline_type
                 {
@@ -104,25 +98,25 @@ impl RenderCache
 
                 (pipeline_type, new_pipeline_layout)
             })
-            .collect::<HashMap<PipelineType, wgpu::PipelineLayout>>();
+            .collect();
 
-        let render_pipeline_cache = PipelineType::iter()
-            .filter_map(|pipeline_type| {
-                let maybe_new_pipeline = match pipeline_type
+        let pipeline_cache: HashMap<_, _> = PipelineType::iter()
+            .map(|pipeline_type| {
+                let new_pipeline = match pipeline_type
                 {
                     PipelineType::TestSample =>
                     {
                         let shader =
                             device.create_shader_module(wgpu::include_wgsl!("shaders/foo.wgsl"));
 
-                        Some(
-                            device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                        GenericPipeline::Render(device.create_render_pipeline(
+                            &wgpu::RenderPipelineDescriptor {
                                 label:         Some("GraphicsFlat"),
                                 layout:        pipeline_layout_cache.get(&PipelineType::TestSample),
                                 vertex:        wgpu::VertexState {
                                     module:      &shader,
                                     entry_point: "vs_main",
-                                    buffers:     &[Vertex::desc()]
+                                    buffers:     &[super::renderable::flat_textured::Vertex::desc()]
                                 },
                                 fragment:      Some(wgpu::FragmentState {
                                     // 3.
@@ -151,21 +145,18 @@ impl RenderCache
                                     alpha_to_coverage_enabled: false
                                 },
                                 multiview:     None
-                            })
-                        )
+                            }
+                        ))
                     }
                 };
 
-                maybe_new_pipeline.map(|p| (pipeline_type, p))
+                (pipeline_type, new_pipeline)
             })
             .collect();
-        let compute_pipeline_cache = HashMap::new();
 
         RenderCache {
             bind_group_layout_cache,
-            // pipeline_layout_cache,
-            render_pipeline_cache,
-            compute_pipeline_cache
+            pipeline_cache
         }
     }
 
@@ -175,24 +166,9 @@ impl RenderCache
         self.bind_group_layout_cache.get(&bind_group_type).unwrap()
     }
 
-    pub fn lookup_pipeline(&self, pipeline_type: PipelineType) -> GenericPipeline<'_>
+    pub fn lookup_pipeline(&self, pipeline_type: PipelineType) -> &GenericPipeline
     {
-        match pipeline_type.classify()
-        {
-            GenericPipelineType::Compute =>
-            {
-                GenericPipeline::Compute(self.compute_pipeline_cache.get(&pipeline_type).unwrap())
-            }
-            GenericPipelineType::Render =>
-            {
-                GenericPipeline::Render(self.render_pipeline_cache.get(&pipeline_type).unwrap())
-            }
-        }
-    }
-
-    pub fn lookup_compute_pipeline(&self, pipeline_type: PipelineType) -> &wgpu::ComputePipeline
-    {
-        self.compute_pipeline_cache.get(&pipeline_type).unwrap()
+        self.pipeline_cache.get(&pipeline_type).unwrap()
     }
 }
 
@@ -202,76 +178,21 @@ pub enum GenericPass<'p>
     Render(wgpu::RenderPass<'p>)
 }
 
-impl<'p> GenericPass<'p>
+#[derive(Debug)]
+pub enum GenericPipeline
 {
-    pub fn set_bind_group(&mut self, index: u32, bind_group: &'p wgpu::BindGroup, offsets: &[u32])
-    {
-        match *self
-        {
-            GenericPass::Compute(ref mut pass) => pass.set_bind_group(index, bind_group, offsets),
-            GenericPass::Render(ref mut pass) => pass.set_bind_group(index, bind_group, offsets)
-        }
-    }
+    Compute(wgpu::ComputePipeline),
+    Render(wgpu::RenderPipeline)
 }
 
-#[derive(Debug, Clone, Copy)]
-pub enum GenericPipeline<'p>
-{
-    Compute(&'p wgpu::ComputePipeline),
-    Render(&'p wgpu::RenderPipeline)
-}
-
-impl GenericPipeline<'_>
+impl GenericPipeline
 {
     pub fn global_id(&self) -> u64
     {
-        match *self
+        match self
         {
             GenericPipeline::Compute(p) => p.global_id().inner(),
             GenericPipeline::Render(p) => p.global_id().inner()
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum GenericPipelineType
-{
-    Compute,
-    Render
-}
-
-impl PipelineType
-{
-    pub fn classify(&self) -> GenericPipelineType
-    {
-        match *self
-        {
-            PipelineType::TestSample => GenericPipelineType::Render
-        }
-    }
-}
-
-#[repr(C)]
-#[derive(Copy, Clone, Debug, Pod, Zeroable)]
-pub struct Vertex
-{
-    pub position:   glm::Vec3,
-    pub tex_coords: glm::Vec2
-}
-
-impl Vertex
-{
-    const ATTRIBS: [wgpu::VertexAttribute; 2] =
-        wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x2];
-
-    fn desc() -> wgpu::VertexBufferLayout<'static>
-    {
-        use std::mem;
-
-        wgpu::VertexBufferLayout {
-            array_stride: mem::size_of::<Self>() as wgpu::BufferAddress,
-            step_mode:    wgpu::VertexStepMode::Vertex,
-            attributes:   &Self::ATTRIBS
         }
     }
 }

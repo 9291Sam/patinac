@@ -1,6 +1,5 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::f32::consts::PI;
 use std::ops::Deref;
 use std::sync::atomic::Ordering::{self, *};
 use std::sync::atomic::{AtomicBool, AtomicU32};
@@ -13,7 +12,7 @@ use strum::IntoEnumIterator;
 use winit::dpi::PhysicalSize;
 use winit::event::*;
 use winit::event_loop::{EventLoop, EventLoopWindowTarget};
-use winit::keyboard::{Key, KeyCode, NamedKey, PhysicalKey};
+use winit::keyboard::KeyCode;
 use winit::platform::run_on_demand::EventLoopExtRunOnDemand;
 use winit::window::{Window, WindowBuilder};
 use winit_input_helper::WinitInputHelper;
@@ -34,7 +33,7 @@ pub struct Renderer
     // gated publics
     device:      wgpu::Device,
     // TODO: replace with UUIDs
-    renderables: util::Registrar<*const (), Weak<dyn super::Renderable>>,
+    renderables: util::Registrar<*const (), Weak<dyn super::Recordable>>,
 
     // Rendering views
     window_size_x:            AtomicU32,
@@ -194,7 +193,7 @@ impl Renderer
         }
     }
 
-    pub fn register(&self, renderable: Weak<dyn super::Renderable>)
+    pub fn register(&self, renderable: Weak<dyn super::Recordable>)
     {
         self.renderables
             .insert(renderable.as_ptr() as *const (), renderable);
@@ -299,7 +298,7 @@ impl Renderer
                 .texture
                 .create_view(&wgpu::TextureViewDescriptor::default());
 
-            let mut renderables_map: HashMap<super::PassStage, Vec<Arc<dyn super::Renderable>>> =
+            let mut renderables_map: HashMap<super::PassStage, Vec<Arc<dyn super::Recordable>>> =
                 super::PassStage::iter().map(|s| (s, Vec::new())).collect();
 
             self.renderables
@@ -397,20 +396,27 @@ impl Renderer
                         .zip(renderable.get_bind_groups())
                         .enumerate()
                     {
-                        // if the bind group is different
                         if *active_bind_group_id != maybe_new_bind_group.map(|g| g.global_id())
                         {
-                            // if the different group actually exists, sometimes there may be a
-                            // bound one but we want None bound, so we can just leave it there
                             if let Some(new_bind_group) = maybe_new_bind_group
                             {
-                                render_pass.set_bind_group(idx as u32, new_bind_group, &[]);
+                                match render_pass
+                                {
+                                    GenericPass::Compute(ref mut p) =>
+                                    {
+                                        p.set_bind_group(idx as u32, new_bind_group, &[])
+                                    }
+                                    GenericPass::Render(ref mut p) =>
+                                    {
+                                        p.set_bind_group(idx as u32, new_bind_group, &[])
+                                    }
+                                }
                                 *active_bind_group_id = Some(new_bind_group.global_id());
                             }
                         }
                     }
 
-                    renderable.bind_and_draw(&mut render_pass, self, &camera.borrow());
+                    renderable.record(&mut render_pass, self, &camera.borrow());
                 }
 
                 active_pipeline = None;
@@ -419,7 +425,7 @@ impl Renderer
 
             window.pre_present_notify();
 
-            self.queue.submit(std::iter::once(encoder.finish()));
+            self.queue.submit([encoder.finish()]);
             output.present();
 
             Ok(())

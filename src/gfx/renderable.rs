@@ -1,17 +1,17 @@
+pub mod flat_textured;
+
 use std::cmp::Ordering;
 use std::cmp::Ordering::*;
 use std::fmt::Debug;
 use std::num::NonZeroU64;
 
-pub trait Renderable: Debug + Send + Sync
+pub trait Recordable: Debug + Send + Sync
 {
     fn get_pass_stage(&self) -> super::PassStage;
     fn get_pipeline_type(&self) -> super::PipelineType;
     fn get_bind_groups(&self) -> [Option<&'_ wgpu::BindGroup>; 4];
     fn get_bind_group_ids(&self) -> [Option<NonZeroU64>; 4]
     {
-        // TODO: replace with wgpu::Id<wgpu::BindGroup>'s Ord impl once that gets
-        // stabilized
         std::array::from_fn(|i| {
             self.get_bind_groups()[i]
                 .map(|group| NonZeroU64::new(group.global_id().inner()).unwrap())
@@ -20,7 +20,7 @@ pub trait Renderable: Debug + Send + Sync
 
     fn should_render(&self) -> bool;
 
-    fn ord(&self, other: &dyn Renderable) -> Ordering
+    fn ord(&self, other: &dyn Recordable) -> Ordering
     {
         Equal
             .then(self.get_pass_stage().cmp(&other.get_pass_stage()))
@@ -28,8 +28,7 @@ pub trait Renderable: Debug + Send + Sync
             .then(self.get_bind_group_ids().cmp(&other.get_bind_group_ids()))
     }
 
-    /// Pipeline is already bound
-    fn bind_and_draw<'s>(
+    fn record<'s>(
         &'s self,
         render_pass: &mut super::GenericPass<'s>,
         renderer: &super::Renderer,

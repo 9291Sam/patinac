@@ -1,8 +1,6 @@
 use std::collections::HashSet;
 use std::num::NonZeroUsize;
 
-use bytemuck::Contiguous;
-
 pub struct FreelistAllocator
 {
     free_blocks:     HashSet<NonZeroUsize>,
@@ -88,6 +86,7 @@ pub struct OutOfBlocks;
 
 mod tests
 {
+    #[allow(unused_imports)]
     use super::*;
 
     #[test]
