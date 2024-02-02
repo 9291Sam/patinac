@@ -196,7 +196,7 @@ impl gfx::Renderable for PentagonalTreeRenderer
         active_render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
 
         let mut transform = gfx::Transform {
-            translation: glm::Vec3::new(0.0, 0.0, 2.0 + 2.0 * time_alive.sin()),
+            translation: glm::Vec3::new(0.0, 0.0, 0.0), // 2.0 + 2.0 * time_alive.sin()
             rotation:    nalgebra::UnitQuaternion::new_normalize(glm::quat(1.0, 0.0, 0.0, 0.0)),
             scale:       glm::Vec3::new(1.0, 1.0, 1.0)
         };

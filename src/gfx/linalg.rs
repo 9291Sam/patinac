@@ -1,6 +1,3 @@
-use std::f32::consts::{FRAC_PI_2, TAU};
-use std::sync::{Mutex, RwLock};
-
 use nalgebra::UnitQuaternion;
 use nalgebra_glm as glm;
 

@@ -189,7 +189,6 @@ impl Renderer
             render_cache,
             window_size_x: AtomicU32::new(size.width),
             window_size_y: AtomicU32::new(size.height),
-            // camera: Mutex::new(super::Camera::new(glm::Vec3::repeat(0.0), 0.0, 0.0)),
             float_delta_frame_time_s: AtomicU32::new(0.0f32.to_bits())
         }
     }
@@ -342,7 +341,7 @@ impl Renderer
             {
                 let mut render_pass = match pass_type
                 {
-                    crate::gfx::PassStage::GraphicsSimpleColor =>
+                    super::PassStage::GraphicsSimpleColor =>
                     {
                         encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                             label:                    Some("Render Pass"),
