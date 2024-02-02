@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::sync::atomic::Ordering::{self, *};
@@ -11,7 +12,7 @@ use strum::IntoEnumIterator;
 use winit::dpi::PhysicalSize;
 use winit::event::*;
 use winit::event_loop::EventLoop;
-use winit::keyboard::{Key, NamedKey};
+use winit::keyboard::{Key, KeyCode, NamedKey, PhysicalKey};
 use winit::platform::run_on_demand::EventLoopExtRunOnDemand;
 use winit::window::{Window, WindowBuilder};
 
@@ -24,10 +25,12 @@ pub struct Renderer
 {
     pub queue:        wgpu::Queue,
     pub render_cache: super::RenderCache,
-    pub camera:       Mutex<super::Camera>,
+
+    // pub camera:       Mutex<super::Camera>,
 
     // gated publics
     device:      wgpu::Device,
+    // TODO: replace with UUIDs
     renderables: util::Registrar<*const (), Weak<dyn super::Renderable>>,
 
     // Rendering views
@@ -170,7 +173,8 @@ impl Renderer
             config,
             size,
             window,
-            event_loop
+            event_loop,
+            camera: RefCell::new(super::Camera::new(glm::Vec3::repeat(0.0), 0.0, 0.0))
         };
 
         let render_cache = super::RenderCache::new(&device);
@@ -183,7 +187,7 @@ impl Renderer
             render_cache,
             window_size_x: AtomicU32::new(size.width),
             window_size_y: AtomicU32::new(size.height),
-            camera: Mutex::new(super::Camera::new(glm::Vec3::repeat(0.0), 0.0, 0.0)),
+            // camera: Mutex::new(super::Camera::new(glm::Vec3::repeat(0.0), 0.0, 0.0)),
             float_delta_frame_time_s: AtomicU32::new(0.0f32.to_bits())
         }
     }
@@ -237,7 +241,8 @@ impl Renderer
             config,
             size,
             window,
-            event_loop
+            event_loop,
+            camera
         } = &mut *guard;
 
         assert!(
@@ -296,7 +301,6 @@ impl Renderer
             self.renderables
                 .access()
                 .into_iter()
-                // Upgrade if possible, otherwise cull
                 .filter_map(|(ptr, weak_renderable)| {
                     match weak_renderable.upgrade()
                     {
@@ -308,16 +312,18 @@ impl Renderer
                         }
                     }
                 })
-                // put into the renderpass map
                 .for_each(|r| {
-                    renderables_map.get_mut(&r.get_pass_stage()).unwrap().push(r);
+                    renderables_map
+                        .get_mut(&r.get_pass_stage())
+                        .unwrap()
+                        .push(r);
                 });
 
             renderables_map
                 .iter_mut()
                 .for_each(|(_, renderable_vec)| renderable_vec.sort_by(|l, r| l.ord(&**r)));
 
-            let camera = self.camera.lock().unwrap().clone();
+            // let camera = self.camera.lock().unwrap().clone();
 
             let mut encoder = self
                 .device
@@ -387,7 +393,7 @@ impl Renderer
                         }
                     }
 
-                    renderable.bind_and_draw(&mut render_pass, self, &camera);
+                    renderable.bind_and_draw(&mut render_pass, self, &camera.borrow());
                 }
 
                 active_pipeline = None;
@@ -424,16 +430,66 @@ impl Renderer
                             is_synthetic: _
                         } =>
                         {
-                            if let Key::Named(NamedKey::Escape) = event.logical_key
+                            match event.physical_key
                             {
-                                control_flow.exit()
-                            }
+                                PhysicalKey::Code(k) =>
+                                {
+                                    let scale = 10.0;
+                                    match k
+                                    {
+                                        // The key codes are only coming in every couple of frames,
+                                        // like its getting repeated like if you type
+                                        // a.aaaaaaaaaaaaaa
+                                        KeyCode::KeyW =>
+                                        {
+                                            // TODO: figure out why this isn't 1u/s
+                                            let v = camera.borrow().get_forward_vector() * scale;
+
+                                            camera
+                                                .borrow_mut()
+                                                .add_position(v * self.get_delta_time());
+                                        }
+                                        KeyCode::KeyS =>
+                                        {
+                                            // TODO: figure out why this isn't 1u/s
+                                            let v = camera.borrow().get_forward_vector() * -scale;
+
+                                            camera
+                                                .borrow_mut()
+                                                .add_position(v * self.get_delta_time());
+                                        }
+                                        KeyCode::KeyA =>
+                                        {
+                                            // TODO: figure out why this isn't 1u/s
+                                            let v = camera.borrow().get_right_vector() * -scale;
+
+                                            camera
+                                                .borrow_mut()
+                                                .add_position(v * self.get_delta_time());
+                                        }
+                                        KeyCode::KeyD =>
+                                        {
+                                            // TODO: figure out why this isn't 1u/s
+                                            let v = camera.borrow().get_right_vector() * scale;
+
+                                            camera
+                                                .borrow_mut()
+                                                .add_position(v * self.get_delta_time());
+                                        }
+                                        _ => ()
+                                    }
+                                }
+                                PhysicalKey::Unidentified(n) =>
+                                {
+                                    log::trace!("Unknown key pressed {n:?}")
+                                }
+                            };
                         }
                         WindowEvent::CloseRequested => control_flow.exit(),
                         WindowEvent::RedrawRequested =>
                         {
                             use wgpu::SurfaceError::*;
-
+                            log::info!("camera pos: {:?}", camera.borrow());
                             match render_func()
                             {
                                 Ok(_) => (),
@@ -469,5 +525,7 @@ struct CriticalSection
     config:     wgpu::SurfaceConfiguration,
     size:       PhysicalSize<u32>,
     window:     Window,
-    event_loop: EventLoop<()>
+    event_loop: EventLoop<()>,
+
+    camera: RefCell<super::Camera>
 }

@@ -4,33 +4,34 @@ use std::sync::{Mutex, RwLock};
 use nalgebra::UnitQuaternion;
 use nalgebra_glm as glm;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Camera
 {
-    critical_section: RwLock<CameraCriticalSection>
+    pitch:     f32,
+    yaw:       f32,
+    transform: Transform
 }
 
 impl Camera
 {
     pub fn new(translation: glm::Vec3, pitch: f32, yaw: f32) -> Camera
     {
-        let mut critical_section = CameraCriticalSection {
-            translation,
+        let mut this = Camera {
             pitch,
             yaw,
-            transform: Transform::default()
+            transform: Transform {
+                translation,
+                ..Default::default()
+            }
         };
 
-        Camera::enforce_invariants(&mut critical_section);
+        this.enforce_invariants();
 
-        Camera {
-            critical_section: RwLock::new(critical_section)
-        }
+        this
     }
 
     pub fn get_perspective(&self, renderer: &super::Renderer, transform: &Transform) -> glm::Mat4
     {
-        //! sync with shaders!
         let projection = glm::perspective_fov_lh_zo::<f32>(
             renderer.get_fov().y,
             renderer.get_framebuffer_size().x as f32,
@@ -44,116 +45,55 @@ impl Camera
 
     pub fn get_view_matrix(&self) -> glm::Mat4
     {
-        let guard = self.critical_section.read().unwrap();
-        let CameraCriticalSection {
-            transform, ..
-        } = &*guard;
-
-        (transform.as_translation_matrix() * transform.as_rotation_matrix())
+        (self.transform.as_translation_matrix() * self.transform.as_rotation_matrix())
             .try_inverse()
             .unwrap()
     }
 
     pub fn get_forward_vector(&self) -> glm::Vec3
     {
-        self.critical_section
-            .read()
-            .unwrap()
-            .transform
-            .get_forward_vector()
+        self.transform.get_forward_vector()
     }
 
     pub fn get_right_vector(&self) -> glm::Vec3
     {
-        self.critical_section
-            .read()
-            .unwrap()
-            .transform
-            .get_right_vector()
+        self.transform.get_right_vector()
     }
 
     pub fn get_up_vector(&self) -> glm::Vec3
     {
-        self.critical_section
-            .read()
-            .unwrap()
-            .transform
-            .get_up_vector()
+        self.transform.get_up_vector()
     }
 
-    pub fn get_position(&self) -> glm::Vec3
+    pub fn get_position(&mut self) -> glm::Vec3
     {
-        self.critical_section.read().unwrap().transform.translation
+        self.transform.translation
     }
 
-    pub fn add_position(&self, position: glm::Vec3)
+    pub fn add_position(&mut self, position: glm::Vec3)
     {
-        self.critical_section.write().unwrap().transform.translation += position;
+        self.transform.translation += position;
     }
 
-    pub fn add_pitch(&self, pitch_to_add: f32)
+    pub fn add_pitch(&mut self, pitch_to_add: f32)
     {
-        let mut guard = self.critical_section.write().unwrap();
+        self.pitch += pitch_to_add;
 
-        {
-            let CameraCriticalSection {
-                pitch, ..
-            } = &mut *guard;
-
-            *pitch += pitch_to_add;
-        }
-
-        Camera::enforce_invariants(&mut guard);
+        self.enforce_invariants();
     }
 
-    pub fn add_yaw(&self, yaw_to_add: f32)
+    pub fn add_yaw(&mut self, yaw_to_add: f32)
     {
-        let mut guard = self.critical_section.write().unwrap();
+        self.yaw += yaw_to_add;
 
-        {
-            let CameraCriticalSection {
-                yaw, ..
-            } = &mut *guard;
-
-            *yaw += yaw_to_add;
-        }
-
-        Camera::enforce_invariants(&mut guard);
+        self.enforce_invariants();
     }
 
-    fn enforce_invariants(
-        CameraCriticalSection {
-            translation,
-            pitch,
-            yaw,
-            transform
-        }: &mut CameraCriticalSection
-    )
+    fn enforce_invariants(&mut self)
     {
-        transform.rotation = nalgebra::UnitQuaternion::from_euler_angles(0.0, *pitch, *yaw);
+        self.transform.rotation =
+            nalgebra::UnitQuaternion::from_euler_angles(0.0, self.pitch, self.yaw);
     }
-}
-
-impl Clone for Camera
-{
-    fn clone(&self) -> Self
-    {
-        let guard = self.critical_section.read().unwrap();
-        let critical_section = &*guard;
-
-        Self {
-            critical_section: RwLock::new(critical_section.clone())
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-struct CameraCriticalSection
-{
-    translation: glm::Vec3,
-    pitch:       f32,
-    yaw:         f32,
-    transform:   Transform
 }
 
 #[derive(Debug, Clone, Default)]
