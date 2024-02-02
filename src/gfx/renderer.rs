@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::f32::consts::PI;
 use std::ops::Deref;
 use std::sync::atomic::Ordering::{self, *};
 use std::sync::atomic::{AtomicBool, AtomicU32};
@@ -11,10 +12,11 @@ use pollster::FutureExt;
 use strum::IntoEnumIterator;
 use winit::dpi::PhysicalSize;
 use winit::event::*;
-use winit::event_loop::EventLoop;
+use winit::event_loop::{EventLoop, EventLoopWindowTarget};
 use winit::keyboard::{Key, KeyCode, NamedKey, PhysicalKey};
 use winit::platform::run_on_demand::EventLoopExtRunOnDemand;
 use winit::window::{Window, WindowBuilder};
+use winit_input_helper::WinitInputHelper;
 
 use crate::util;
 use crate::util::Registrar;
@@ -251,6 +253,8 @@ impl Renderer
              was called from!"
         );
 
+        let input_helper = RefCell::new(WinitInputHelper::new());
+
         // Because of a bug in winit, the first resize command that comes in is borked
         // https://github.com/rust-windowing/winit/issues/2094
         #[cfg(target_os = "windows")]
@@ -408,11 +412,94 @@ impl Renderer
             Ok(())
         };
 
+        let handle_input = |control_flow: &EventLoopWindowTarget<()>| {
+            // TODO: do the trig thing so that diagonal isn't faster!
+            let move_scale = 10.0;
+            let rotate_scale = 1000.0;
+
+            let input_helper = input_helper.borrow();
+
+            if input_helper.key_held(KeyCode::KeyW)
+            {
+                let v = camera.borrow().get_forward_vector() * move_scale;
+
+                camera.borrow_mut().add_position(v * self.get_delta_time());
+            };
+
+            if input_helper.key_held(KeyCode::KeyS)
+            {
+                let v = camera.borrow().get_forward_vector() * -move_scale;
+
+                camera.borrow_mut().add_position(v * self.get_delta_time());
+            };
+
+            if input_helper.key_held(KeyCode::KeyD)
+            {
+                let v = camera.borrow().get_right_vector() * move_scale;
+
+                camera.borrow_mut().add_position(v * self.get_delta_time());
+            };
+
+            if input_helper.key_held(KeyCode::KeyA)
+            {
+                let v = camera.borrow().get_right_vector() * -move_scale;
+
+                camera.borrow_mut().add_position(v * self.get_delta_time());
+            };
+
+            if input_helper.key_held(KeyCode::KeyE)
+            {
+                let v = camera.borrow().get_up_vector() * move_scale;
+
+                camera.borrow_mut().add_position(v * self.get_delta_time());
+            };
+
+            if input_helper.key_held(KeyCode::KeyQ)
+            {
+                let v = camera.borrow().get_up_vector() * -move_scale;
+
+                camera.borrow_mut().add_position(v * self.get_delta_time());
+            };
+
+            let mouse_diff_px: glm::Vec2 = {
+                let mouse_cords_diff_px_f32: (f32, f32) = input_helper.mouse_diff();
+
+                glm::Vec2::new(mouse_cords_diff_px_f32.0, mouse_cords_diff_px_f32.1)
+            };
+
+            let screen_size_px: glm::Vec2 = {
+                let screen_size_u32 = self.get_framebuffer_size();
+
+                glm::Vec2::new(screen_size_u32.x as f32, screen_size_u32.y as f32)
+            };
+
+            // delta over the whole screen -1 -> 1
+            let normalized_delta = mouse_diff_px.component_div(&screen_size_px);
+
+            let delta_rads = normalized_delta
+                .component_div(&glm::Vec2::repeat(2.0))
+                .component_mul(&self.get_fov());
+
+            {
+                let mut camera_guard = camera.borrow_mut();
+
+                camera_guard.add_yaw(delta_rads.x * rotate_scale * self.get_delta_time());
+                camera_guard.add_pitch(delta_rads.y * rotate_scale * self.get_delta_time());
+            }
+
+            if input_helper.key_pressed(KeyCode::Escape)
+            {
+                control_flow.exit();
+            }
+        };
+
         let _ = event_loop.run_on_demand(|event, control_flow| {
             if should_stop.load(Acquire)
             {
                 control_flow.exit();
             }
+
+            input_helper.borrow_mut().update(&event);
 
             match event
             {
@@ -424,72 +511,13 @@ impl Renderer
                     match event
                     {
                         WindowEvent::Resized(new_size) => resize_func(Some(*new_size)),
-                        WindowEvent::KeyboardInput {
-                            device_id: _,
-                            ref event,
-                            is_synthetic: _
-                        } =>
-                        {
-                            match event.physical_key
-                            {
-                                PhysicalKey::Code(k) =>
-                                {
-                                    let scale = 10.0;
-                                    match k
-                                    {
-                                        // The key codes are only coming in every couple of frames,
-                                        // like its getting repeated like if you type
-                                        // a.aaaaaaaaaaaaaa
-                                        KeyCode::KeyW =>
-                                        {
-                                            // TODO: figure out why this isn't 1u/s
-                                            let v = camera.borrow().get_forward_vector() * scale;
-
-                                            camera
-                                                .borrow_mut()
-                                                .add_position(v * self.get_delta_time());
-                                        }
-                                        KeyCode::KeyS =>
-                                        {
-                                            // TODO: figure out why this isn't 1u/s
-                                            let v = camera.borrow().get_forward_vector() * -scale;
-
-                                            camera
-                                                .borrow_mut()
-                                                .add_position(v * self.get_delta_time());
-                                        }
-                                        KeyCode::KeyA =>
-                                        {
-                                            // TODO: figure out why this isn't 1u/s
-                                            let v = camera.borrow().get_right_vector() * -scale;
-
-                                            camera
-                                                .borrow_mut()
-                                                .add_position(v * self.get_delta_time());
-                                        }
-                                        KeyCode::KeyD =>
-                                        {
-                                            // TODO: figure out why this isn't 1u/s
-                                            let v = camera.borrow().get_right_vector() * scale;
-
-                                            camera
-                                                .borrow_mut()
-                                                .add_position(v * self.get_delta_time());
-                                        }
-                                        _ => ()
-                                    }
-                                }
-                                PhysicalKey::Unidentified(n) =>
-                                {
-                                    log::trace!("Unknown key pressed {n:?}")
-                                }
-                            };
-                        }
                         WindowEvent::CloseRequested => control_flow.exit(),
                         WindowEvent::RedrawRequested =>
                         {
                             use wgpu::SurfaceError::*;
-                            log::info!("camera pos: {:?}", camera.borrow());
+
+                            handle_input(control_flow);
+
                             match render_func()
                             {
                                 Ok(_) => (),

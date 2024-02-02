@@ -92,7 +92,8 @@ impl Camera
     fn enforce_invariants(&mut self)
     {
         self.transform.rotation =
-            nalgebra::UnitQuaternion::from_euler_angles(0.0, self.pitch, self.yaw);
+            UnitQuaternion::from_axis_angle(&Transform::global_up_vector(), self.yaw)
+                * UnitQuaternion::from_axis_angle(&Transform::global_right_vector(), self.pitch);
     }
 }
 
