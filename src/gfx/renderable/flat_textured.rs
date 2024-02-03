@@ -118,7 +118,7 @@ impl FlatTextured
         let tree_bind_group = renderer.create_bind_group(&wgpu::BindGroupDescriptor {
             layout:  renderer
                 .render_cache
-                .lookup_bind_group_layout(gfx::BindGroupType::TestSimpleTexture),
+                .lookup_bind_group_layout(gfx::BindGroupType::FlatSimpleTexture),
             entries: &[
                 wgpu::BindGroupEntry {
                     binding:  0,
@@ -160,7 +160,7 @@ impl gfx::Recordable for FlatTextured
 
     fn get_pipeline_type(&self) -> gfx::PipelineType
     {
-        gfx::PipelineType::TestSample
+        gfx::PipelineType::FlatTextured
     }
 
     fn get_bind_groups(&self) -> [Option<&'_ wgpu::BindGroup>; 4]

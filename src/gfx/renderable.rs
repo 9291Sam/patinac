@@ -1,4 +1,5 @@
 pub mod flat_textured;
+pub mod lit_textured;
 
 use std::cmp::Ordering;
 use std::cmp::Ordering::*;
