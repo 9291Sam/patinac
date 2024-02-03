@@ -173,7 +173,6 @@ impl Renderer
             thread_id: std::thread::current().id(),
             surface,
             config,
-            size,
             window,
             event_loop,
             camera: RefCell::new(super::Camera::new(
@@ -244,7 +243,6 @@ impl Renderer
             thread_id,
             surface,
             config,
-            size,
             window,
             event_loop,
             camera
@@ -259,7 +257,7 @@ impl Renderer
         let input_helper = RefCell::new(WinitInputHelper::new());
 
         // Because of a bug in winit, the first resize command that comes in is borked
-        // https://github.com/rust-windowing/winit/issues/2094
+        // on Windows https://github.com/rust-windowing/winit/issues/2094
         #[cfg(target_os = "windows")]
         let mut is_first_resize = true;
         #[cfg(not(target_os = "windows"))]
@@ -272,15 +270,22 @@ impl Renderer
                 return;
             }
 
-            let new_size = maybe_new_size.unwrap_or(*size);
+            let new_size = maybe_new_size.unwrap_or_else(|| {
+                let old_size = self.get_framebuffer_size();
+
+                PhysicalSize {
+                    width:  old_size.x,
+                    height: old_size.y
+                }
+            });
 
             if new_size.width > 0 && new_size.height > 0
             {
-                // this seems excessive...
-                *size = new_size;
+                self.set_framebuffer_size(glm::UVec2::new(new_size.width, new_size.height));
+
                 config.width = new_size.width;
                 config.height = new_size.height;
-                self.set_framebuffer_size(glm::UVec2::new(new_size.width, new_size.height));
+
                 surface.configure(&self.device, config);
             }
         };
@@ -582,7 +587,6 @@ struct CriticalSection
     thread_id:  ThreadId,
     surface:    wgpu::Surface<'static>,
     config:     wgpu::SurfaceConfiguration,
-    size:       PhysicalSize<u32>,
     window:     Window,
     event_loop: EventLoop<()>,
 
