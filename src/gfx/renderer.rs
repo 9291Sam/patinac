@@ -288,15 +288,6 @@ impl Renderer
         let mut previous_frame_time = std::time::Instant::now();
 
         let mut render_func = || -> Result<(), wgpu::SurfaceError> {
-            let now = std::time::Instant::now();
-
-            self.float_delta_frame_time_s.store(
-                (now - previous_frame_time).as_secs_f32().to_bits(),
-                Ordering::Release
-            );
-
-            previous_frame_time = now;
-
             let output = surface.get_current_texture()?;
             let view = output
                 .texture
@@ -431,6 +422,15 @@ impl Renderer
 
             self.queue.submit([encoder.finish()]);
             output.present();
+
+            let now = std::time::Instant::now();
+
+            self.float_delta_frame_time_s.store(
+                (now - previous_frame_time).as_secs_f32().to_bits(),
+                Ordering::Release
+            );
+
+            previous_frame_time = now;
 
             Ok(())
         };

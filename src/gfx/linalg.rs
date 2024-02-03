@@ -1,3 +1,5 @@
+use std::f32::consts::{FRAC_PI_2, TAU};
+
 use nalgebra::UnitQuaternion;
 use nalgebra_glm as glm;
 
@@ -89,6 +91,9 @@ impl Camera
 
     fn enforce_invariants(&mut self)
     {
+        self.pitch = self.pitch.clamp(-FRAC_PI_2, FRAC_PI_2);
+        self.yaw %= TAU;
+
         self.transform.rotation =
             UnitQuaternion::from_axis_angle(&Transform::global_up_vector(), self.yaw)
                 * UnitQuaternion::from_axis_angle(&Transform::global_right_vector(), self.pitch);
