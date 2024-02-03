@@ -23,19 +23,16 @@ impl<'r> Game<'r>
 
         for x in -5..=5
         {
-            for y in -5..=5
+            for z in -5..=5
             {
-                for z in -5..=5
-                {
-                    let vec = glm::Vec3::new(x as f32, y as f32, z as f32);
+                let vec = glm::Vec3::new(x as f32, 0.0, z as f32);
 
-                    objs.push(gfx::flat_textured::FlatTextured::new(
-                        self.renderer,
-                        vec,
-                        gfx::flat_textured::FlatTextured::PENTAGON_VERTICES,
-                        gfx::flat_textured::FlatTextured::PENTAGON_INDICES
-                    ));
-                }
+                objs.push(gfx::flat_textured::FlatTextured::new(
+                    self.renderer,
+                    vec,
+                    gfx::flat_textured::FlatTextured::PENTAGON_VERTICES,
+                    gfx::flat_textured::FlatTextured::PENTAGON_INDICES
+                ));
             }
         }
 

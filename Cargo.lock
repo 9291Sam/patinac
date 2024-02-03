@@ -1171,11 +1171,13 @@ dependencies = [
  "atomic_float",
  "bytemuck",
  "chrono",
+ "getrandom",
  "image",
  "log",
  "nalgebra",
  "nalgebra-glm",
  "pollster",
+ "random",
  "strum",
  "wgpu",
  "winit",
@@ -1280,6 +1282,12 @@ checksum = "291ec9ab5efd934aaf503a6466c5d5251535d108ee747472c3977cc5acc868ef"
 dependencies = [
  "proc-macro2",
 ]
+
+[[package]]
+name = "random"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "61c7093a82705b48f10d4b165c6482dbe9f58cd63a870d85537e857b2badbd88"
 
 [[package]]
 name = "range-alloc"
