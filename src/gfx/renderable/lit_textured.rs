@@ -71,7 +71,16 @@ impl LitTextured
         .map(|err| (err.0, err.1.unwrap()))
         .unwrap();
 
-        log::info!("Size {} {}", model.len(), material.len());
+        assert_eq!((1, 1), (model.len(), material.len()));
+
+        let tobj::Material {
+            diffuse_texture,
+            normal_texture,
+            ..
+        } = &material[0];
+
+        assert_eq!(diffuse_texture.as_ref().unwrap(), "cube-diffuse.jpg");
+        assert_eq!(normal_texture.as_ref().unwrap(), "cube-normal.jpg");
 
         todo!()
     }

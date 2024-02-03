@@ -36,6 +36,8 @@ impl<'r> Game<'r>
             }
         }
 
+        let lit_textured = gfx::lit_textured::LitTextured::new_cube();
+
         while !should_stop.load(std::sync::atomic::Ordering::Acquire)
         {}
     }
