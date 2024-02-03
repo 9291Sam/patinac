@@ -17,7 +17,7 @@ use winit::platform::run_on_demand::EventLoopExtRunOnDemand;
 use winit::window::{CursorGrabMode, Window, WindowBuilder};
 use winit_input_helper::WinitInputHelper;
 
-use crate::gfx::GenericPass;
+use crate::gfx::{self, GenericPass};
 use crate::util;
 use crate::util::Registrar;
 
@@ -495,14 +495,14 @@ impl Renderer
 
             if input_helper.key_held(KeyCode::Space)
             {
-                let v = camera.borrow().get_up_vector() * move_scale;
+                let v = *gfx::Transform::global_up_vector() * move_scale;
 
                 camera.borrow_mut().add_position(v * self.get_delta_time());
             };
 
             if input_helper.key_held(KeyCode::ControlLeft)
             {
-                let v = camera.borrow().get_up_vector() * -move_scale;
+                let v = *gfx::Transform::global_up_vector() * -move_scale;
 
                 camera.borrow_mut().add_position(v * self.get_delta_time());
             };
@@ -549,12 +549,6 @@ impl Renderer
             }
 
             input_helper.borrow_mut().update(&event);
-            // window
-            //     .set_cursor_position(PhysicalPosition {
-            //         x: self.get_framebuffer_size().x / 2,
-            //         y: self.get_framebuffer_size().y / 2
-            //     })
-            //     .unwrap();
 
             match event
             {
