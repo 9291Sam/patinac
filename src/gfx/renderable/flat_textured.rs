@@ -33,11 +33,12 @@ impl Vertex
 #[derive(Debug)]
 pub struct FlatTextured
 {
-    vertex_buffer:      wgpu::Buffer,
-    index_buffer:       wgpu::Buffer,
-    tree_bind_group:    wgpu::BindGroup,
-    time_alive:         Mutex<f32>,
-    number_of_indicies: u32
+    vertex_buffer:     wgpu::Buffer,
+    index_buffer:      wgpu::Buffer,
+    tree_bind_group:   wgpu::BindGroup,
+    time_alive:        Mutex<f32>,
+    number_of_indices: u32,
+    translation:       glm::Vec3
 }
 
 impl FlatTextured
@@ -66,7 +67,12 @@ impl FlatTextured
         }
     ];
 
-    pub fn new(renderer: &gfx::Renderer, vertices: &[Vertex], indicies: &[u16]) -> Arc<Self>
+    pub fn new(
+        renderer: &gfx::Renderer,
+        translation: glm::Vec3,
+        vertices: &[Vertex],
+        indices: &[u16]
+    ) -> Arc<Self>
     {
         let vertex_buffer = renderer.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label:    Some("Vertex Buffer"),
@@ -76,7 +82,7 @@ impl FlatTextured
 
         let index_buffer = renderer.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label:    Some("Index Buffer"),
-            contents: bytemuck::cast_slice(indicies),
+            contents: bytemuck::cast_slice(indices),
             usage:    wgpu::BufferUsages::INDEX
         });
 
@@ -135,7 +141,8 @@ impl FlatTextured
             index_buffer,
             tree_bind_group,
             time_alive: Mutex::new(0.0),
-            number_of_indicies: indicies.len() as u32
+            number_of_indices: indices.len() as u32,
+            translation
         });
 
         renderer.register(Arc::downgrade(&this) as Weak<dyn gfx::Recordable>);
@@ -189,7 +196,7 @@ impl gfx::Recordable for FlatTextured
         pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
 
         let mut transform = gfx::Transform {
-            translation: glm::Vec3::new(0.0, 0.0, 0.5), // 2.0 + 2.0 * time_alive.sin()
+            translation: self.translation, // 2.0 + 2.0 * time_alive.sin()
             rotation:    nalgebra::UnitQuaternion::new_normalize(glm::quat(1.0, 0.0, 0.0, 0.0)),
             scale:       glm::Vec3::new(1.0, 1.0, 1.0)
         };
@@ -203,6 +210,6 @@ impl gfx::Recordable for FlatTextured
 
         pass.set_push_constants(wgpu::ShaderStages::VERTEX, 0, bytes_of(&matrix));
 
-        pass.draw_indexed(0..self.number_of_indicies, 0, 0..1);
+        pass.draw_indexed(0..self.number_of_indices, 0, 0..1);
     }
 }

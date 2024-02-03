@@ -9,7 +9,7 @@ use std::thread::ThreadId;
 use nalgebra_glm as glm;
 use pollster::FutureExt;
 use strum::IntoEnumIterator;
-use winit::dpi::PhysicalSize;
+use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event::*;
 use winit::event_loop::{EventLoop, EventLoopWindowTarget};
 use winit::keyboard::KeyCode;
@@ -176,7 +176,11 @@ impl Renderer
             size,
             window,
             event_loop,
-            camera: RefCell::new(super::Camera::new(glm::Vec3::repeat(0.0), 0.0, 0.0))
+            camera: RefCell::new(super::Camera::new(
+                glm::Vec3::new(0.0, 0.0, -10.0),
+                0.0,
+                0.0
+            ))
         };
 
         let render_cache = super::RenderCache::new(&device);
@@ -466,14 +470,14 @@ impl Renderer
                 camera.borrow_mut().add_position(v * self.get_delta_time());
             };
 
-            if input_helper.key_held(KeyCode::KeyE)
+            if input_helper.key_held(KeyCode::Space)
             {
                 let v = camera.borrow().get_up_vector() * move_scale;
 
                 camera.borrow_mut().add_position(v * self.get_delta_time());
             };
 
-            if input_helper.key_held(KeyCode::KeyQ)
+            if input_helper.key_held(KeyCode::ControlLeft)
             {
                 let v = camera.borrow().get_up_vector() * -move_scale;
 
@@ -512,6 +516,8 @@ impl Renderer
             }
         };
 
+        window.set_cursor_visible(false);
+
         let _ = event_loop.run_on_demand(|event, control_flow| {
             if should_stop.load(Acquire)
             {
@@ -519,6 +525,12 @@ impl Renderer
             }
 
             input_helper.borrow_mut().update(&event);
+            window
+                .set_cursor_position(PhysicalPosition {
+                    x: self.get_framebuffer_size().x / 2,
+                    y: self.get_framebuffer_size().y / 2
+                })
+                .unwrap();
 
             match event
             {

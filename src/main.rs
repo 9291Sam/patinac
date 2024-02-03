@@ -5,6 +5,7 @@
 #![feature(const_trait_impl)]
 #![feature(effects)]
 
+use std::hint::black_box;
 use std::sync::atomic::AtomicBool;
 use std::sync::OnceLock;
 

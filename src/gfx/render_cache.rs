@@ -106,8 +106,9 @@ impl RenderCache
                 {
                     PipelineType::TestSample =>
                     {
-                        let shader =
-                            device.create_shader_module(wgpu::include_wgsl!("shaders/foo.wgsl"));
+                        let shader = device.create_shader_module(wgpu::include_wgsl!(
+                            "renderable/flat_textured.wgsl"
+                        ));
 
                         GenericPipeline::Render(device.create_render_pipeline(
                             &wgpu::RenderPipelineDescriptor {
