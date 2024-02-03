@@ -22,6 +22,7 @@ use crate::util;
 use crate::util::Registrar;
 
 pub const SURFACE_TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8UnormSrgb;
+pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 
 pub struct Renderer
 {
@@ -254,10 +255,14 @@ impl Renderer
              was called from!"
         );
 
+        // Helper Structures
         let input_helper = RefCell::new(WinitInputHelper::new());
+
+        let depth_buffer = RefCell::new(create_depth_buffer(&self.device, config));
 
         // Because of a bug in winit, the first resize command that comes in is borked
         // on Windows https://github.com/rust-windowing/winit/issues/2094
+        // we want to skip the first resize event
         #[cfg(target_os = "windows")]
         let mut is_first_resize = true;
         #[cfg(not(target_os = "windows"))]
@@ -287,6 +292,8 @@ impl Renderer
                 config.height = new_size.height;
 
                 surface.configure(&self.device, config);
+
+                *depth_buffer.borrow_mut() = create_depth_buffer(&self.device, config);
             }
         };
 
@@ -337,6 +344,8 @@ impl Renderer
 
             for pass_type in super::PassStage::iter()
             {
+                let (_, ref depth_view, _) = *depth_buffer.borrow();
+
                 let mut render_pass: GenericPass = match pass_type
                 {
                     super::PassStage::GraphicsSimpleColor =>
@@ -359,7 +368,16 @@ impl Renderer
                                         }
                                     }
                                 )],
-                                depth_stencil_attachment: None,
+                                depth_stencil_attachment: Some(
+                                    wgpu::RenderPassDepthStencilAttachment {
+                                        view:        depth_view,
+                                        depth_ops:   Some(wgpu::Operations {
+                                            load:  wgpu::LoadOp::Clear(1.0),
+                                            store: wgpu::StoreOp::Store
+                                        }),
+                                        stencil_ops: None
+                                    }
+                                ),
                                 occlusion_query_set:      None,
                                 timestamp_writes:         None
                             }
@@ -591,4 +609,46 @@ struct CriticalSection
     event_loop: EventLoop<()>,
 
     camera: RefCell<super::Camera>
+}
+
+fn create_depth_buffer(
+    device: &wgpu::Device,
+    config: &wgpu::SurfaceConfiguration
+) -> (wgpu::Texture, wgpu::TextureView, wgpu::Sampler)
+{
+    let size = wgpu::Extent3d {
+        // 2.
+        width:                 config.width,
+        height:                config.height,
+        depth_or_array_layers: 1
+    };
+    let desc = wgpu::TextureDescriptor {
+        label: Some("Depth Buffer"),
+        size,
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format: DEPTH_FORMAT,
+        usage: wgpu::TextureUsages::RENDER_ATTACHMENT // 3.
+            | wgpu::TextureUsages::TEXTURE_BINDING,
+        view_formats: &[]
+    };
+    let texture = device.create_texture(&desc);
+
+    let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+    let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+        // 4.
+        address_mode_u: wgpu::AddressMode::ClampToEdge,
+        address_mode_v: wgpu::AddressMode::ClampToEdge,
+        address_mode_w: wgpu::AddressMode::ClampToEdge,
+        mag_filter: wgpu::FilterMode::Linear,
+        min_filter: wgpu::FilterMode::Linear,
+        mipmap_filter: wgpu::FilterMode::Nearest,
+        compare: Some(wgpu::CompareFunction::LessEqual), // 5.
+        lod_min_clamp: 0.0,
+        lod_max_clamp: 100.0,
+        ..Default::default()
+    });
+
+    (texture, view, sampler)
 }
