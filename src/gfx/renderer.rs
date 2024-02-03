@@ -14,7 +14,7 @@ use winit::event::*;
 use winit::event_loop::{EventLoop, EventLoopWindowTarget};
 use winit::keyboard::KeyCode;
 use winit::platform::run_on_demand::EventLoopExtRunOnDemand;
-use winit::window::{Window, WindowBuilder};
+use winit::window::{CursorGrabMode, Window, WindowBuilder};
 use winit_input_helper::WinitInputHelper;
 
 use crate::gfx::GenericPass;
@@ -540,6 +540,7 @@ impl Renderer
         };
 
         window.set_cursor_visible(false);
+        window.set_cursor_grab(CursorGrabMode::Locked).unwrap();
 
         let _ = event_loop.run_on_demand(|event, control_flow| {
             if should_stop.load(Acquire)
@@ -548,12 +549,12 @@ impl Renderer
             }
 
             input_helper.borrow_mut().update(&event);
-            window
-                .set_cursor_position(PhysicalPosition {
-                    x: self.get_framebuffer_size().x / 2,
-                    y: self.get_framebuffer_size().y / 2
-                })
-                .unwrap();
+            // window
+            //     .set_cursor_position(PhysicalPosition {
+            //         x: self.get_framebuffer_size().x / 2,
+            //         y: self.get_framebuffer_size().y / 2
+            //     })
+            //     .unwrap();
 
             match event
             {

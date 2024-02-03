@@ -80,9 +80,9 @@ impl LitTextured
         } = &material[0];
 
         assert_eq!(diffuse_texture.as_ref().unwrap(), "cube-diffuse.jpg");
-        assert_eq!(normal_texture.as_ref().unwrap(), "cube-normal.jpg");
+        assert_eq!(normal_texture.as_ref().unwrap(), "cube-normal.png");
 
-        todo!()
+        // todo!()
     }
 
     pub fn new() {}
