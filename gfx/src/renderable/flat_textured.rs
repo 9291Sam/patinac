@@ -2,10 +2,8 @@ use std::sync::{Arc, Mutex, Weak};
 
 use bytemuck::{bytes_of, Pod, Zeroable};
 use image::GenericImageView;
-use nalgebra_glm as glm;
 use wgpu::util::DeviceExt;
-
-use crate::gfx;
+use {crate as gfx, nalgebra_glm as glm};
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Pod, Zeroable)]

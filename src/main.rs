@@ -1,17 +1,13 @@
 #![feature(stmt_expr_attributes)]
 #![feature(if_let_guard)]
-#![feature(map_try_insert)]
 #![feature(associated_type_defaults)]
 #![feature(const_trait_impl)]
 #![feature(effects)]
 
-use std::hint::black_box;
 use std::sync::atomic::AtomicBool;
 use std::sync::OnceLock;
 
 mod game;
-mod gfx;
-mod util;
 
 static LOGGER: OnceLock<util::AsyncLogger> = OnceLock::new();
 

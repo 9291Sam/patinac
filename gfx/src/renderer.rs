@@ -9,6 +9,7 @@ use std::thread::ThreadId;
 use nalgebra_glm as glm;
 use pollster::FutureExt;
 use strum::IntoEnumIterator;
+use util::Registrar;
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event::*;
 use winit::event_loop::{EventLoop, EventLoopWindowTarget};
@@ -17,9 +18,7 @@ use winit::platform::run_on_demand::EventLoopExtRunOnDemand;
 use winit::window::{CursorGrabMode, Window, WindowBuilder};
 use winit_input_helper::WinitInputHelper;
 
-use crate::gfx::{self, GenericPass};
-use crate::util;
-use crate::util::Registrar;
+use super::GenericPass;
 
 pub const SURFACE_TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8UnormSrgb;
 pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
@@ -500,14 +499,14 @@ impl Renderer
 
             if input_helper.key_held(KeyCode::Space)
             {
-                let v = *gfx::Transform::global_up_vector() * move_scale;
+                let v = *super::Transform::global_up_vector() * move_scale;
 
                 camera.borrow_mut().add_position(v * self.get_delta_time());
             };
 
             if input_helper.key_held(KeyCode::ControlLeft)
             {
-                let v = *gfx::Transform::global_up_vector() * -move_scale;
+                let v = *super::Transform::global_up_vector() * -move_scale;
 
                 camera.borrow_mut().add_position(v * self.get_delta_time());
             };

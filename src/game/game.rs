@@ -5,7 +5,6 @@ use std::time::Duration;
 use nalgebra::UnitQuaternion;
 use nalgebra_glm as glm;
 
-use crate::gfx::{self};
 pub struct Game<'r>
 {
     renderer: &'r gfx::Renderer
