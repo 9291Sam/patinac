@@ -45,11 +45,26 @@ impl<'r> Game<'r>
                     &gfx::Transform::global_up_vector(),
                     0.0
                 ),
-                scale:       glm::Vec3::repeat(4.0)
+                scale:       glm::Vec3::repeat(1.0)
             }
         );
 
+        let mut prev = std::time::Instant::now();
+        let mut delta_time = 0.0f32;
+
         while !should_stop.load(std::sync::atomic::Ordering::Acquire)
-        {}
+        {
+            {
+                let mut guard = lit_textured.transform.lock().unwrap();
+                guard.rotation = UnitQuaternion::from_axis_angle(
+                    &gfx::Transform::global_right_vector(),
+                    1.0 * delta_time
+                ) * guard.rotation;
+            }
+
+            let now = std::time::Instant::now();
+            delta_time = (now - prev).as_secs_f32();
+            prev = now;
+        }
     }
 }

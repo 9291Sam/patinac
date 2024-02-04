@@ -40,7 +40,7 @@ pub struct LitTextured
     index_buffer:              wgpu::Buffer,
     texture_normal_bind_group: wgpu::BindGroup,
     number_of_indices:         u32,
-    transform:                 Mutex<gfx::Transform>
+    pub transform:             Mutex<gfx::Transform>
 }
 
 impl LitTextured
