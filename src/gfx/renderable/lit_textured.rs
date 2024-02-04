@@ -121,7 +121,7 @@ impl LitTextured
                 mip_level_count: 1,
                 sample_count:    1,
                 dimension:       wgpu::TextureDimension::D2,
-                format:          wgpu::TextureFormat::Rgba8Unorm,
+                format:          wgpu::TextureFormat::Rgba8Snorm,
                 usage:           wgpu::TextureUsages::TEXTURE_BINDING,
                 view_formats:    &[]
             },
@@ -266,11 +266,18 @@ impl gfx::Recordable for LitTextured
 
         pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
         pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-        pass.set_push_constants(
-            wgpu::ShaderStages::VERTEX,
-            0,
-            bytes_of(&camera.get_perspective(renderer, &*self.transform.lock().unwrap()))
-        );
+        {
+            let guard = self.transform.lock().unwrap();
+
+            pass.set_push_constants(
+                wgpu::ShaderStages::VERTEX,
+                0,
+                bytes_of::<[glm::Mat4; 2]>(&[
+                    camera.get_perspective(renderer, &guard),
+                    guard.as_model_matrix()
+                ])
+            );
+        }
         pass.draw_indexed(0..self.number_of_indices, 0, 0..1);
     }
 }
