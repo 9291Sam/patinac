@@ -1,26 +1,15 @@
-workspace = { members = ["gfx", "util"] }
-
 [package]
 name = "patinac"
 version = "0.0.0-0"
 edition = "2021"
 
 [dependencies]
-util = {path = "util"}
-gfx  = {path = "gfx"}
+util = {path = "crates/util"}
+gfx  = {path = "crates/gfx"}
 log = { version = "0.4.20", features = ["std"]}
-nalgebra-glm = {version = "0.18.0", features = ["convert-bytemuck"] }
-nalgebra = "0.32.3"
+uuid = "1.7.0"
+# nalgebra-glm = {version = "0.18.0", features = ["convert-bytemuck"] }
+# nalgebra = "0.32.3"
 
 [profile.dev]
 opt-level = 2
-
-[profile.overdrive]
-inherits = "release"
-opt-level = 3
-panic = "unwind"
-strip = "symbols"
-lto = true
-codegen-units = 1
-debug = false
-rpath = true

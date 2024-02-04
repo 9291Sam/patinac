@@ -4,6 +4,8 @@ mod renderable;
 mod renderer;
 
 pub use linalg::*;
+pub use nalgebra::UnitQuaternion;
+pub use nalgebra_glm::*;
 pub use render_cache::*;
 pub use renderable::*;
 pub use renderer::*;
