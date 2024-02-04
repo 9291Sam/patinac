@@ -465,6 +465,11 @@ impl Renderer
 
             let input_helper = input_helper.borrow();
 
+            if input_helper.key_held(KeyCode::KeyK)
+            {
+                log::info!("positon: {:?}", camera.borrow().get_position())
+            }
+
             if input_helper.key_held(KeyCode::KeyW)
             {
                 let v = camera.borrow().get_forward_vector() * move_scale;

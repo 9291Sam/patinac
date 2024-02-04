@@ -65,7 +65,7 @@ impl Camera
         self.transform.get_up_vector()
     }
 
-    pub fn get_position(&mut self) -> glm::Vec3
+    pub fn get_position(&self) -> glm::Vec3
     {
         self.transform.translation
     }
@@ -95,8 +95,8 @@ impl Camera
         self.yaw %= TAU;
 
         self.transform.rotation =
-            UnitQuaternion::from_axis_angle(&Transform::global_up_vector(), self.yaw)
-                * UnitQuaternion::from_axis_angle(&Transform::global_right_vector(), self.pitch);
+            *(UnitQuaternion::from_axis_angle(&Transform::global_up_vector(), self.yaw)
+                * UnitQuaternion::from_axis_angle(&Transform::global_right_vector(), self.pitch));
     }
 }
 
@@ -104,7 +104,7 @@ impl Camera
 pub struct Transform
 {
     pub translation: glm::Vec3,
-    pub rotation:    nalgebra::UnitQuaternion<f32>,
+    pub rotation:    nalgebra::Quaternion<f32>,
     pub scale:       glm::Vec3
 }
 
@@ -137,7 +137,7 @@ impl Transform
 
     pub fn as_rotation_matrix(&self) -> glm::Mat4
     {
-        glm::mat3_to_mat4(&self.rotation.to_rotation_matrix().into())
+        glm::quat_to_mat4(&self.rotation)
     }
 
     pub fn as_scale_matrix(&self) -> glm::Mat4
@@ -147,16 +147,19 @@ impl Transform
 
     pub fn get_forward_vector(&self) -> glm::Vec3
     {
-        *(self.rotation.to_rotation_matrix() * Transform::global_forward_vector())
+        *(UnitQuaternion::new_normalize(self.rotation).to_rotation_matrix()
+            * Transform::global_forward_vector())
     }
 
     pub fn get_right_vector(&self) -> glm::Vec3
     {
-        *(self.rotation.to_rotation_matrix() * Transform::global_right_vector())
+        *(UnitQuaternion::new_normalize(self.rotation).to_rotation_matrix()
+            * Transform::global_right_vector())
     }
 
     pub fn get_up_vector(&self) -> glm::Vec3
     {
-        *(self.rotation.to_rotation_matrix() * Transform::global_up_vector())
+        *(UnitQuaternion::new_normalize(self.rotation).to_rotation_matrix()
+            * Transform::global_up_vector())
     }
 }

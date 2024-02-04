@@ -159,18 +159,6 @@ impl LitTextured
             })
             .collect::<Vec<_>>();
 
-        // assert!(positions.len() == normals.len());
-        // assert!(normals.len() == texcoords.len());
-
-        log::info!(
-            "Positions: {} | Normals: {} | texcoords: {}",
-            positions.len(),
-            normals.len(),
-            texcoords.len()
-        );
-
-        // positions.into_iter().zip(other)
-
         Self::new(
             renderer,
             diffuse_texture,
@@ -192,12 +180,12 @@ impl LitTextured
     {
         let vertex_buffer = renderer.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label:    Some("vertex buffer"),
-            contents: bytemuck::cast_slice(&vertices),
+            contents: bytemuck::cast_slice(vertices),
             usage:    wgpu::BufferUsages::VERTEX
         });
         let index_buffer = renderer.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label:    Some("index buffer"),
-            contents: bytemuck::cast_slice(&indices),
+            contents: bytemuck::cast_slice(indices),
             usage:    wgpu::BufferUsages::INDEX
         });
 

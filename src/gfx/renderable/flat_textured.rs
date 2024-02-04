@@ -197,14 +197,16 @@ impl gfx::Recordable for FlatTextured
 
         let mut transform = gfx::Transform {
             translation: self.translation, // 2.0 + 2.0 * time_alive.sin()
-            rotation:    nalgebra::UnitQuaternion::new_normalize(glm::quat(1.0, 0.0, 0.0, 0.0)),
+            rotation:    *nalgebra::UnitQuaternion::new_normalize(glm::quat(1.0, 0.0, 0.0, 0.0)),
             scale:       glm::Vec3::new(1.0, 1.0, 1.0)
         };
 
-        transform.rotation *= nalgebra::UnitQuaternion::from_axis_angle(
+        transform.rotation *= *nalgebra::UnitQuaternion::from_axis_angle(
             &gfx::Transform::global_up_vector(),
             5.0 * time_alive
         );
+
+        transform.rotation.normalize_mut();
 
         let matrix = camera.get_perspective(renderer, &transform);
 
