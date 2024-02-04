@@ -7,9 +7,8 @@ edition = "2021"
 util = {path = "crates/util"}
 gfx  = {path = "crates/gfx"}
 log = { version = "0.4.20", features = ["std"]}
-uuid = "1.7.0"
 # nalgebra-glm = {version = "0.18.0", features = ["convert-bytemuck"] }
 # nalgebra = "0.32.3"
 
-[profile.dev]
-opt-level = 2
+# [profile.dev]
+# opt-level = 2

@@ -4,7 +4,7 @@ use std::time::Duration;
 
 pub struct Game<'r>
 {
-    renderer: &'r gfx::Renderer
+    renderer: &'r gfx::Renderer // entities: util::Registrar
 }
 
 impl<'r> Game<'r>
@@ -72,6 +72,11 @@ impl<'r> Game<'r>
             let now = std::time::Instant::now();
             delta_time = (now - prev).as_secs_f32();
             prev = now;
+
+            let id1 = util::Uuid::new();
+            let id2 = util::Uuid::new();
+
+            log::info!("id: {id1} | {id2}");
 
             std::thread::sleep(Duration::from_millis(10));
         }
