@@ -137,7 +137,7 @@ impl Transform
 
     pub fn as_rotation_matrix(&self) -> glm::Mat4
     {
-        glm::quat_to_mat4(&self.rotation)
+        glm::quat_to_mat4(&self.rotation.normalize())
     }
 
     pub fn as_scale_matrix(&self) -> glm::Mat4
