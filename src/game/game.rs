@@ -23,6 +23,7 @@ impl<'r> Game<'r>
     pub fn enter_tick_loop(&self, should_stop: &AtomicBool)
     {
         let mut objs: Vec<Arc<dyn gfx::Recordable>> = Vec::new();
+        let mut cube: Option<Arc<gfx::lit_textured::LitTextured>> = None;
 
         for x in -5..=5
         {
@@ -34,35 +35,27 @@ impl<'r> Game<'r>
                     gfx::flat_textured::FlatTextured::PENTAGON_VERTICES,
                     gfx::flat_textured::FlatTextured::PENTAGON_INDICES
                 ));
-            }
-        }
 
-        for i in 0..25
-        {
-            objs.push(gfx::lit_textured::LitTextured::new_cube(
-                self.renderer,
-                gfx::Transform {
-                    translation: glm::Vec3::new(0.0, 5.0, (i * 2) as f32),
-                    rotation:    *UnitQuaternion::from_axis_angle(
-                        &gfx::Transform::global_up_vector(),
-                        i as f32 / 4.0
-                    ),
-                    scale:       glm::Vec3::repeat(1.0)
+                let a = gfx::lit_textured::LitTextured::new_cube(
+                    self.renderer,
+                    gfx::Transform {
+                        translation: glm::Vec3::new(x as f32, 4.0, z as f32),
+                        rotation:    *UnitQuaternion::from_axis_angle(
+                            &gfx::Transform::global_up_vector(),
+                            (x + z) as f32 / 4.0
+                        ),
+                        scale:       glm::Vec3::repeat(0.4)
+                    }
+                );
+
+                if x == 0 && z == 0
+                {
+                    cube = Some(a.clone());
                 }
-            ));
-        }
 
-        let obj = gfx::lit_textured::LitTextured::new_cube(
-            self.renderer,
-            gfx::Transform {
-                translation: glm::Vec3::new(5.0, 5.0, 5.0),
-                rotation:    *UnitQuaternion::from_axis_angle(
-                    &gfx::Transform::global_up_vector(),
-                    0.0
-                ),
-                scale:       glm::Vec3::repeat(1.0)
+                objs.push(a);
             }
-        );
+        }
 
         let mut prev = std::time::Instant::now();
         let mut delta_time = 0.0f32;
@@ -70,7 +63,7 @@ impl<'r> Game<'r>
         while !should_stop.load(std::sync::atomic::Ordering::Acquire)
         {
             {
-                let mut guard = obj.transform.lock().unwrap();
+                let mut guard = cube.as_ref().unwrap().transform.lock().unwrap();
                 let quat = guard.rotation
                     * *UnitQuaternion::from_axis_angle(
                         &gfx::Transform::global_up_vector(),

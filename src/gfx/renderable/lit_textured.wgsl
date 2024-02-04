@@ -37,15 +37,15 @@ fn vs_main(model: VertexInput) -> VertexOutput
 @group(0) @binding(1) var t_normal: texture_2d<f32>;
 @group(0) @binding(2) var s_diffuse: sampler;
 
-const LightPosition: vec3<f32> = vec3<f32>(1.0, 6.6, 7.2);
-const LightColor: vec4<f32> = vec4<f32>(1.0, 1.0, 1.0, 4.0);
+const LightPosition: vec3<f32> = vec3<f32>(1.0, 2.6, -1.2);
+const LightColor: vec4<f32> = vec4<f32>(1.0, 1.0, 1.0, 9.0);
 
 const Ambient: vec4<f32> = vec4<f32>(1.0, 1.0, 1.0, 0.02);
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let color: vec4<f32> = textureSample(t_diffuse, s_diffuse, in.tex_coords);
-    let normal: vec3<f32> = normalize(abs(textureSample(t_normal, s_diffuse, in.tex_coords))).xyz;
+    let normal: vec3<f32> = normalize(textureSample(t_normal, s_diffuse, in.tex_coords)).xyz;
 
     let direction_non_norm: vec3<f32> = (LightPosition - in.world_pos);
     let direction_norm: vec3<f32> = normalize(direction_non_norm);
