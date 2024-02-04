@@ -1,5 +1,6 @@
 use std::sync::atomic::AtomicBool;
 
+use nalgebra::UnitQuaternion;
 use nalgebra_glm as glm;
 
 use crate::gfx::{self};
@@ -36,7 +37,17 @@ impl<'r> Game<'r>
             }
         }
 
-        let lit_textured = gfx::lit_textured::LitTextured::new_cube();
+        let lit_textured = gfx::lit_textured::LitTextured::new_cube(
+            self.renderer,
+            gfx::Transform {
+                translation: glm::Vec3::new(0.0, 5.0, 0.0),
+                rotation:    UnitQuaternion::from_axis_angle(
+                    &gfx::Transform::global_up_vector(),
+                    0.0
+                ),
+                scale:       glm::Vec3::repeat(4.0)
+            }
+        );
 
         while !should_stop.load(std::sync::atomic::Ordering::Acquire)
         {}

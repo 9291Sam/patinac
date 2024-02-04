@@ -1,8 +1,11 @@
 use std::io::Cursor;
-use std::sync::Mutex;
+use std::os::raw;
+use std::sync::{Arc, Mutex, Weak};
 
 use bytemuck::{bytes_of, Pod, Zeroable};
+use image::GenericImageView;
 use nalgebra_glm as glm;
+use wgpu::util::DeviceExt;
 
 use crate::gfx;
 
@@ -33,16 +36,16 @@ impl Vertex
 #[derive(Debug)]
 pub struct LitTextured
 {
-    vertex_buffer:     wgpu::Buffer,
-    index_buffer:      wgpu::Buffer,
-    texture_normal:    wgpu::BindGroup,
-    number_of_indices: u32,
-    transform:         Mutex<gfx::Transform>
+    vertex_buffer:             wgpu::Buffer,
+    index_buffer:              wgpu::Buffer,
+    texture_normal_bind_group: wgpu::BindGroup,
+    number_of_indices:         u32,
+    transform:                 Mutex<gfx::Transform>
 }
 
 impl LitTextured
 {
-    pub fn new_cube()
+    pub fn new_cube(renderer: &gfx::Renderer, transform: gfx::Transform) -> Arc<Self>
     {
         let obj_data = include_bytes!("cube.obj");
         let mut obj_cursor = Cursor::new(obj_data);
@@ -82,10 +85,161 @@ impl LitTextured
         assert_eq!(diffuse_texture.as_ref().unwrap(), "cube-diffuse.jpg");
         assert_eq!(normal_texture.as_ref().unwrap(), "cube-normal.png");
 
-        // todo!()
+        let raw_diffuse = image::load_from_memory(include_bytes!("cube-diffuse.jpg")).unwrap();
+
+        let diffuse_texture = renderer.create_texture_with_data(
+            &renderer.queue,
+            &wgpu::TextureDescriptor {
+                label:           Some("cube-diffuse"),
+                size:            wgpu::Extent3d {
+                    width:                 raw_diffuse.dimensions().0,
+                    height:                raw_diffuse.dimensions().1,
+                    depth_or_array_layers: 1
+                },
+                mip_level_count: 1,
+                sample_count:    1,
+                dimension:       wgpu::TextureDimension::D2,
+                format:          wgpu::TextureFormat::Rgba8UnormSrgb,
+                usage:           wgpu::TextureUsages::TEXTURE_BINDING,
+                view_formats:    &[]
+            },
+            wgpu::util::TextureDataOrder::LayerMajor,
+            &raw_diffuse.to_rgba8()
+        );
+
+        let raw_normal = image::load_from_memory(include_bytes!("cube-normal.png")).unwrap();
+
+        let normal_texture = renderer.create_texture_with_data(
+            &renderer.queue,
+            &wgpu::TextureDescriptor {
+                label:           Some("cube-normal"),
+                size:            wgpu::Extent3d {
+                    width:                 raw_normal.dimensions().0,
+                    height:                raw_normal.dimensions().1,
+                    depth_or_array_layers: 1
+                },
+                mip_level_count: 1,
+                sample_count:    1,
+                dimension:       wgpu::TextureDimension::D2,
+                format:          wgpu::TextureFormat::Rgba8Unorm,
+                usage:           wgpu::TextureUsages::TEXTURE_BINDING,
+                view_formats:    &[]
+            },
+            wgpu::util::TextureDataOrder::LayerMajor,
+            &raw_normal.to_rgba8()
+        );
+
+        let tobj::Mesh {
+            positions,
+            vertex_color,
+            normals,
+            texcoords,
+            indices,
+            face_arities,
+            texcoord_indices,
+            normal_indices,
+            material_id
+        } = &model[0].mesh;
+
+        let vertices = (0..positions.len() / 3)
+            .map(|i| {
+                Vertex {
+                    position:   glm::Vec3::new(
+                        positions[i * 3],
+                        positions[i * 3 + 1],
+                        positions[i * 3 + 2]
+                    ),
+                    tex_coords: glm::Vec2::new(texcoords[i * 2], 1.0 - texcoords[i * 2 + 1]),
+                    normal:     glm::Vec3::new(
+                        normals[i * 3],
+                        normals[i * 3 + 1],
+                        normals[i * 3 + 2]
+                    )
+                }
+            })
+            .collect::<Vec<_>>();
+
+        // assert!(positions.len() == normals.len());
+        // assert!(normals.len() == texcoords.len());
+
+        log::info!(
+            "Positions: {} | Normals: {} | texcoords: {}",
+            positions.len(),
+            normals.len(),
+            texcoords.len()
+        );
+
+        // positions.into_iter().zip(other)
+
+        Self::new(
+            renderer,
+            diffuse_texture,
+            normal_texture,
+            &vertices,
+            indices,
+            transform
+        )
     }
 
-    pub fn new() {}
+    pub fn new(
+        renderer: &gfx::Renderer,
+        diffuse_texture: wgpu::Texture,
+        normal_texture: wgpu::Texture,
+        vertices: &[Vertex],
+        indices: &[u32],
+        transform: gfx::Transform
+    ) -> Arc<Self>
+    {
+        let vertex_buffer = renderer.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label:    Some("vertex buffer"),
+            contents: bytemuck::cast_slice(&vertices),
+            usage:    wgpu::BufferUsages::VERTEX
+        });
+        let index_buffer = renderer.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label:    Some("index buffer"),
+            contents: bytemuck::cast_slice(&indices),
+            usage:    wgpu::BufferUsages::INDEX
+        });
+
+        let bind_group = renderer.create_bind_group(&wgpu::BindGroupDescriptor {
+            label:   Some("Lit Textured"),
+            layout:  renderer
+                .render_cache
+                .lookup_bind_group_layout(gfx::BindGroupType::LitSimpleTexture),
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding:  0,
+                    resource: wgpu::BindingResource::TextureView(
+                        &diffuse_texture.create_view(&Default::default())
+                    )
+                },
+                wgpu::BindGroupEntry {
+                    binding:  1,
+                    resource: wgpu::BindingResource::TextureView(
+                        &normal_texture.create_view(&Default::default())
+                    )
+                },
+                wgpu::BindGroupEntry {
+                    binding:  2,
+                    resource: wgpu::BindingResource::Sampler(
+                        &renderer.create_sampler(&Default::default())
+                    )
+                }
+            ]
+        });
+
+        let this = Arc::new(Self {
+            vertex_buffer,
+            index_buffer,
+            texture_normal_bind_group: bind_group,
+            number_of_indices: indices.len() as u32,
+            transform: Mutex::new(transform)
+        });
+
+        renderer.register(Arc::downgrade(&this) as Weak<dyn gfx::Recordable>);
+
+        this
+    }
 }
 impl gfx::Recordable for LitTextured
 {
@@ -101,7 +255,7 @@ impl gfx::Recordable for LitTextured
 
     fn get_bind_groups(&self) -> [Option<&'_ wgpu::BindGroup>; 4]
     {
-        [Some(&self.texture_normal), None, None, None]
+        [Some(&self.texture_normal_bind_group), None, None, None]
     }
 
     fn should_render(&self) -> bool

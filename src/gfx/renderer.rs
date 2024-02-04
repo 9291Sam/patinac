@@ -540,7 +540,10 @@ impl Renderer
         };
 
         window.set_cursor_visible(false);
+        #[cfg(target_os = "macos")]
         window.set_cursor_grab(CursorGrabMode::Locked).unwrap();
+        #[cfg(not(target_os = "macos"))]
+        window.set_cursor_grab(CursorGrabMode::Confined).unwrap();
 
         let _ = event_loop.run_on_demand(|event, control_flow| {
             if should_stop.load(Acquire)
