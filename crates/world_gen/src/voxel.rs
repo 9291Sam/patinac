@@ -1,7 +1,3 @@
-use std::default;
-
-use phf_macros::phf_map;
-use phf_shared::PhfBorrow;
 use strum::{EnumIter, IntoEnumIterator};
 
 #[repr(u16)]
@@ -9,19 +5,24 @@ use strum::{EnumIter, IntoEnumIterator};
 pub enum Voxel
 {
     #[default]
-    Air = 0
-}
-
-impl phf::PhfHash for Voxel
-{
-    fn phf_hash<H: std::hash::Hasher>(&self, state: &mut H)
-    {
-        state.write_u16(*self as u16)
-    }
+    Air   = 0,
+    Red   = 1,
+    Green = 2,
+    Blue  = 3
 }
 
 impl Voxel
 {
+    pub fn get_material_lookup(&self) -> Box<[VoxelMaterial]>
+    {
+        let a = align_of_val_raw(self);
+
+        Voxel::iter()
+            .map(|v| v.get_material())
+            .collect::<Vec<_>>()
+            .into_boxed_slice()
+    }
+
     #[inline(never)]
     pub fn get_material(&self) -> VoxelMaterial
     {
@@ -30,49 +31,49 @@ impl Voxel
             Voxel::Air =>
             {
                 VoxelMaterial {
-                    alpha_or_emissive: 0,
-                    srgb_r:            todo!(),
-                    srgb_g:            todo!(),
-                    srgb_b:            todo!(),
-                    special:           todo!(),
-                    specular:          todo!(),
-                    roughness:         todo!(),
-                    metallic:          todo!()
+                    is_visible: false,
+                    srgb_r:     0,
+                    srgb_g:     0,
+                    srgb_b:     0
+                }
+            }
+            Voxel::Red =>
+            {
+                VoxelMaterial {
+                    is_visible: true,
+                    srgb_r:     255,
+                    srgb_g:     0,
+                    srgb_b:     0
+                }
+            }
+            Voxel::Green =>
+            {
+                VoxelMaterial {
+                    is_visible: true,
+                    srgb_r:     0,
+                    srgb_g:     255,
+                    srgb_b:     0
+                }
+            }
+            Voxel::Blue =>
+            {
+                VoxelMaterial {
+                    is_visible: true,
+                    srgb_r:     0,
+                    srgb_g:     0,
+                    srgb_b:     255
                 }
             }
         }
     }
 }
 
-pub fn build_lookup_table() -> Vec<VoxelMaterial>
-{
-    Voxel::iter().map(|v| v.get_material()).collect()
-}
-
+#[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct VoxelMaterial
-// TODO: literally just rip off blender's bsdf
 {
-    visibility:          Visibility,
-    visibility_strength: u16,
-
-    srgb_r: u8,
-    srgb_g: u8,
-    srgb_b: u8,
-
-    special:   u8,
-    specular:  u8,
-    roughness: u8,
-    metallic:  u8
-}
-
-#[repr(u8)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
-pub enum Visibility
-{
-    #[default]
-    Invisible,
-    Translucent,
-    Opaque,
-    Emissive
+    is_visible: bool,
+    srgb_r:     u8,
+    srgb_g:     u8,
+    srgb_b:     u8
 }

@@ -6,7 +6,4 @@ edition = "2021"
 
 [dependencies]
 bytemuck = { version = "1.14.1", features = [ "derive" ] }
-phf = { version = "0.11.2", features = ["phf_macros"] } 
-phf_shared = "0.11.2"
-phf_macros = "0.11.2"
 strum = {version = "0.26", features = ["derive"] }
