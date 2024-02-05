@@ -1,6 +1,6 @@
 use core::fmt::Debug;
 
-use crate::game::TickTag;
+use crate::TickTag;
 
 pub trait Entity: Debug + Send + Sync
 {

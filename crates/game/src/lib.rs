@@ -4,9 +4,10 @@ use std::time::Duration;
 
 use rayon::iter::{ParallelBridge, ParallelIterator};
 
-use crate::entity::Entity;
+mod entity;
 
-pub(crate) struct TickTag(());
+use entity::Entity;
+pub struct TickTag(());
 
 pub struct Game<'r>
 {
