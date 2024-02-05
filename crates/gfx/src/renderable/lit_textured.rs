@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::io::Cursor;
 use std::sync::{Arc, Mutex};
 
@@ -224,8 +225,14 @@ impl LitTextured
         this
     }
 }
+
 impl gfx::Recordable for LitTextured
 {
+    fn get_name(&self) -> Cow<'_, str>
+    {
+        Cow::Borrowed("LitTextured")
+    }
+
     fn get_pass_stage(&self) -> gfx::PassStage
     {
         gfx::PassStage::GraphicsSimpleColor

@@ -157,16 +157,6 @@ impl RenderCache
 
         let pipeline_cache: HashMap<_, _> = PipelineType::iter()
             .map(|pipeline_type| {
-                let default_primitive_state = wgpu::PrimitiveState {
-                    topology:           wgpu::PrimitiveTopology::TriangleStrip,
-                    strip_index_format: None,
-                    front_face:         wgpu::FrontFace::Ccw,
-                    cull_mode:          None,
-                    polygon_mode:       wgpu::PolygonMode::Fill,
-                    unclipped_depth:    false,
-                    conservative:       false
-                };
-
                 let default_depth_state = Some(wgpu::DepthStencilState {
                     format:              super::DEPTH_FORMAT,
                     depth_write_enabled: true,
@@ -208,7 +198,15 @@ impl RenderCache
                                         write_mask: wgpu::ColorWrites::ALL
                                     })]
                                 }),
-                                primitive:     default_primitive_state,
+                                primitive:     wgpu::PrimitiveState {
+                                    topology:           wgpu::PrimitiveTopology::TriangleStrip,
+                                    strip_index_format: None,
+                                    front_face:         wgpu::FrontFace::Ccw,
+                                    cull_mode:          None,
+                                    polygon_mode:       wgpu::PolygonMode::Fill,
+                                    unclipped_depth:    false,
+                                    conservative:       false
+                                },
                                 depth_stencil: default_depth_state,
                                 multisample:   default_multisample_state,
                                 multiview:     None
@@ -240,7 +238,15 @@ impl RenderCache
                                         write_mask: wgpu::ColorWrites::ALL
                                     })]
                                 }),
-                                primitive:     default_primitive_state,
+                                primitive:     wgpu::PrimitiveState {
+                                    topology:           wgpu::PrimitiveTopology::TriangleList,
+                                    strip_index_format: None,
+                                    front_face:         wgpu::FrontFace::Cw,
+                                    cull_mode:          Some(wgpu::Face::Back),
+                                    polygon_mode:       wgpu::PolygonMode::Fill,
+                                    unclipped_depth:    false,
+                                    conservative:       false
+                                },
                                 depth_stencil: default_depth_state,
                                 multisample:   default_multisample_state,
                                 multiview:     None

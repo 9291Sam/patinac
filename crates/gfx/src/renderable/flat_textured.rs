@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::sync::{Arc, Mutex};
 
 use bytemuck::{bytes_of, Pod, Zeroable};
@@ -153,6 +154,11 @@ impl FlatTextured
 
 impl gfx::Recordable for FlatTextured
 {
+    fn get_name(&self) -> Cow<'_, str>
+    {
+        Cow::Borrowed("Flat Textured Recordable")
+    }
+
     fn get_uuid(&self) -> util::Uuid
     {
         self.id
