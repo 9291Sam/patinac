@@ -8,9 +8,8 @@ use std::sync::Mutex;
 #[derive(Debug)]
 pub struct Registrar<K: Hash + Eq, V>
 {
-    update_sender:   Sender<UpdateType<K, V>>,
-    update_receiver: Receiver<UpdateType<K, V>>,
-    storage:         Mutex<HashMap<K, V>>
+    update_sender:    Sender<UpdateType<K, V>>,
+    critical_section: Mutex<CriticalSection<K, V>>
 }
 
 impl<K, V> Registrar<K, V>
@@ -23,17 +22,23 @@ where
         let (sender, receiver) = mpsc::channel();
 
         Self {
-            update_sender:   sender,
-            update_receiver: receiver,
-            storage:         Mutex::new(HashMap::new())
+            update_sender:    sender,
+            critical_section: Mutex::new(CriticalSection {
+                update_receiver: receiver,
+                storage:         HashMap::new()
+            })
         }
     }
 
     pub fn access(&self) -> Vec<(K, V)>
     {
-        let mut storage = self.storage.lock().unwrap();
+        let mut guard = self.critical_section.lock().unwrap();
+        let CriticalSection {
+            update_receiver,
+            storage
+        } = &mut *guard;
 
-        while let Ok(update) = self.update_receiver.try_recv()
+        while let Ok(update) = update_receiver.try_recv()
         {
             match update
             {
@@ -90,4 +95,11 @@ enum UpdateType<K, V>
 {
     Insertion(K, V),
     Deletion(K)
+}
+
+#[derive(Debug)]
+struct CriticalSection<K, V>
+{
+    update_receiver: Receiver<UpdateType<K, V>>,
+    storage:         HashMap<K, V>
 }

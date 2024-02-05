@@ -1,8 +1,18 @@
-// use nalgebra_glm as glm;
+use core::fmt::Debug;
 
-// pub struct Entity {}
+use crate::game::TickTag;
 
-// pub trait HasPosition
-// {
-//     fn get_position() -> glm::Vec3 {}
-// }
+pub trait Entity: Debug + Send + Sync
+{
+    fn get_uuid(&self) -> util::Uuid;
+    fn get_position(&self) -> Option<gfx::Vec3>;
+
+    fn tick(&self, _: TickTag);
+
+    fn eq(&self, other: &dyn Entity) -> bool
+    where
+        Self: Sized
+    {
+        std::ptr::eq(self as *const dyn Entity, other as *const dyn Entity)
+    }
+}

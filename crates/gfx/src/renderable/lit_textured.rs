@@ -1,6 +1,5 @@
 use std::io::Cursor;
-use std::os::raw;
-use std::sync::{Arc, Mutex, Weak};
+use std::sync::{Arc, Mutex};
 
 use bytemuck::{bytes_of, Pod, Zeroable};
 use image::GenericImageView;
@@ -34,6 +33,7 @@ impl Vertex
 #[derive(Debug)]
 pub struct LitTextured
 {
+    id:                        util::Uuid,
     vertex_buffer:             wgpu::Buffer,
     index_buffer:              wgpu::Buffer,
     texture_normal_bind_group: wgpu::BindGroup,
@@ -129,14 +129,10 @@ impl LitTextured
 
         let tobj::Mesh {
             positions,
-            vertex_color,
             normals,
             texcoords,
             indices,
-            face_arities,
-            texcoord_indices,
-            normal_indices,
-            material_id
+            ..
         } = &model[0].mesh;
 
         let vertices = (0..positions.len() / 3)
@@ -215,6 +211,7 @@ impl LitTextured
         });
 
         let this = Arc::new(Self {
+            id: util::Uuid::new(),
             vertex_buffer,
             index_buffer,
             texture_normal_bind_group: bind_group,
@@ -222,7 +219,7 @@ impl LitTextured
             transform: Mutex::new(transform)
         });
 
-        renderer.register(Arc::downgrade(&this) as Weak<dyn gfx::Recordable>);
+        renderer.register(this.clone());
 
         this
     }
@@ -277,5 +274,10 @@ impl gfx::Recordable for LitTextured
             );
         }
         pass.draw_indexed(0..self.number_of_indices, 0, 0..1);
+    }
+
+    fn get_uuid(&self) -> util::Uuid
+    {
+        self.id
     }
 }

@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex, Weak};
+use std::sync::{Arc, Mutex};
 
 use bytemuck::{bytes_of, Pod, Zeroable};
 use image::GenericImageView;
@@ -31,6 +31,7 @@ impl Vertex
 #[derive(Debug)]
 pub struct FlatTextured
 {
+    id:                util::Uuid,
     vertex_buffer:     wgpu::Buffer,
     index_buffer:      wgpu::Buffer,
     tree_bind_group:   wgpu::BindGroup,
@@ -135,6 +136,7 @@ impl FlatTextured
         });
 
         let this = Arc::new(Self {
+            id: util::Uuid::new(),
             vertex_buffer,
             index_buffer,
             tree_bind_group,
@@ -143,7 +145,7 @@ impl FlatTextured
             translation
         });
 
-        renderer.register(Arc::downgrade(&this) as Weak<dyn gfx::Recordable>);
+        renderer.register(this.clone());
 
         this
     }
@@ -151,6 +153,11 @@ impl FlatTextured
 
 impl gfx::Recordable for FlatTextured
 {
+    fn get_uuid(&self) -> util::Uuid
+    {
+        self.id
+    }
+
     fn get_pass_stage(&self) -> gfx::PassStage
     {
         gfx::PassStage::GraphicsSimpleColor

@@ -4,6 +4,8 @@ use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering::AcqRel;
 use std::sync::OnceLock;
 
+use bytemuck::bytes_of;
+
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Uuid
 {
@@ -22,8 +24,8 @@ impl Uuid
         let raw_id = get_monotonic_id();
 
         Uuid {
-            data:       fxhash::hash64(&raw_id),
-            time_stamp: fxhash::hash64(&raw_time_stamp)
+            data:       seahash::hash(bytes_of(&raw_id)),
+            time_stamp: seahash::hash(bytes_of(&raw_time_stamp))
         }
     }
 }

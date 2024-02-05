@@ -1,10 +1,29 @@
 use std::sync::atomic::AtomicBool;
-use std::sync::Arc;
+use std::sync::{Arc, Weak};
 use std::time::Duration;
+
+use rayon::iter::{ParallelBridge, ParallelIterator};
+
+use crate::entity::Entity;
+
+pub(crate) struct TickTag(());
 
 pub struct Game<'r>
 {
-    renderer: &'r gfx::Renderer // entities: util::Registrar
+    renderer: &'r gfx::Renderer,
+    entities: util::Registrar<util::Uuid, Weak<dyn Entity>>
+}
+
+impl Drop for Game<'_>
+{
+    fn drop(&mut self)
+    {
+        self.entities
+            .access()
+            .into_iter()
+            .filter_map(|(_, weak)| weak.upgrade())
+            .for_each(|strong| log::warn!("Retained Entity! {:?}", &*strong));
+    }
 }
 
 impl<'r> Game<'r>
@@ -12,8 +31,20 @@ impl<'r> Game<'r>
     pub fn new(renderer: &'r gfx::Renderer) -> Self
     {
         Game {
-            renderer
+            renderer,
+            entities: util::Registrar::new()
         }
+    }
+
+    pub fn get_renderer(&self) -> &gfx::Renderer
+    {
+        self.renderer
+    }
+
+    pub fn register(&self, entity: Arc<dyn Entity>)
+    {
+        self.entities
+            .insert(entity.get_uuid(), Arc::downgrade(&entity));
     }
 
     pub fn enter_tick_loop(&self, should_stop: &AtomicBool)
@@ -58,6 +89,23 @@ impl<'r> Game<'r>
 
         while !should_stop.load(std::sync::atomic::Ordering::Acquire)
         {
+            self.entities
+                .access()
+                .into_iter()
+                .filter_map(|(ptr, weak_renderable)| {
+                    match weak_renderable.upgrade()
+                    {
+                        Some(s) => Some(s),
+                        None =>
+                        {
+                            self.entities.delete(ptr);
+                            None
+                        }
+                    }
+                })
+                .par_bridge()
+                .for_each(|strong_entity| strong_entity.tick(TickTag(())));
+
             {
                 let mut guard = cube.as_ref().unwrap().transform.lock().unwrap();
                 let quat = guard.rotation
@@ -72,11 +120,6 @@ impl<'r> Game<'r>
             let now = std::time::Instant::now();
             delta_time = (now - prev).as_secs_f32();
             prev = now;
-
-            let id1 = util::Uuid::new();
-            let id2 = util::Uuid::new();
-
-            log::info!("id: {id1} | {id2}");
 
             std::thread::sleep(Duration::from_millis(10));
         }

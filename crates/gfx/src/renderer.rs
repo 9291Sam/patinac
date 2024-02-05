@@ -10,7 +10,7 @@ use nalgebra_glm as glm;
 use pollster::FutureExt;
 use strum::IntoEnumIterator;
 use util::Registrar;
-use winit::dpi::{PhysicalPosition, PhysicalSize};
+use winit::dpi::PhysicalSize;
 use winit::event::*;
 use winit::event_loop::{EventLoop, EventLoopWindowTarget};
 use winit::keyboard::KeyCode;
@@ -33,7 +33,7 @@ pub struct Renderer
     // gated publics
     device:      wgpu::Device,
     // TODO: replace with UUIDs
-    renderables: util::Registrar<*const (), Weak<dyn super::Recordable>>,
+    renderables: util::Registrar<util::Uuid, Weak<dyn super::Recordable>>,
 
     // Rendering views
     window_size_x:            AtomicU32,
@@ -196,10 +196,10 @@ impl Renderer
         }
     }
 
-    pub fn register(&self, renderable: Weak<dyn super::Recordable>)
+    pub fn register(&self, renderable: Arc<dyn super::Recordable>)
     {
         self.renderables
-            .insert(renderable.as_ptr() as *const (), renderable);
+            .insert(renderable.get_uuid(), Arc::downgrade(&renderable));
     }
 
     pub fn get_fov(&self) -> glm::Vec2
