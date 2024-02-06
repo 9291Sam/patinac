@@ -65,7 +65,13 @@ impl Renderer
     pub fn new() -> Self
     {
         let event_loop = EventLoop::new().unwrap();
-        let window = WindowBuilder::new().build(&event_loop).unwrap();
+        let window = WindowBuilder::new()
+            .with_inner_size(PhysicalSize {
+                width:  1920,
+                height: 1080
+            })
+            .build(&event_loop)
+            .unwrap();
 
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: wgpu::Backends::all(),
