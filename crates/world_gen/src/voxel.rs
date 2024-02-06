@@ -15,8 +15,6 @@ impl Voxel
 {
     pub fn get_material_lookup(&self) -> Box<[VoxelMaterial]>
     {
-        let a = align_of_val_raw(self);
-
         Voxel::iter()
             .map(|v| v.get_material())
             .collect::<Vec<_>>()
