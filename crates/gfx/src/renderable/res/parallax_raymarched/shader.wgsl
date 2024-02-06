@@ -130,7 +130,8 @@ fn get_spherical_coords(point: vec3<f32>) -> vec3<f32>
     let phi:   f32 = acos(point.z / rho);
 
     return vec3<f32>(
-        map(rho, 0.0, 32.0, 0.0, 1.0),
+        // map(rho, 0.0, 64.0, 0.0, 1.0),
+        0.0,
         map(theta, -PI, PI, 0.0, 1.0),
         map(phi, 0.0, PI, 0.0, 1.0),
     );
