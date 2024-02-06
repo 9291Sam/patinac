@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use super::Entity;
-use crate::game;
 
 #[derive(Debug)]
 pub struct TestScene
@@ -13,7 +12,7 @@ pub struct TestScene
 
 impl TestScene
 {
-    pub fn new(game: &game::Game) -> Arc<Self>
+    pub fn new(game: &super::Game) -> Arc<Self>
     {
         let mut objs: Vec<Arc<dyn gfx::Recordable>> = Vec::new();
         let mut cube: Option<Arc<gfx::lit_textured::LitTextured>> = None;
@@ -79,7 +78,7 @@ impl Entity for TestScene
         None
     }
 
-    fn tick(&self, game: &game::Game, _: crate::game::TickTag)
+    fn tick(&self, game: &super::Game, _: super::TickTag)
     {
         let mut guard = self.cube.transform.lock().unwrap();
 

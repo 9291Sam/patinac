@@ -5,6 +5,7 @@ use std::sync::{Arc, Weak};
 use rayon::iter::{ParallelBridge, ParallelIterator};
 
 mod entity;
+mod test_scene;
 
 use entity::Entity;
 pub struct TickTag(());
@@ -57,7 +58,7 @@ impl<'r> Game<'r>
 
     pub fn enter_tick_loop(&self, should_stop: &AtomicBool)
     {
-        let _scene = entity::test_scene::TestScene::new(self);
+        let _scene = test_scene::TestScene::new(self);
 
         let mut prev = std::time::Instant::now();
         let mut delta_time: f32;
