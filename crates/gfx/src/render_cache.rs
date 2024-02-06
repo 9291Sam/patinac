@@ -156,8 +156,10 @@ impl RenderCache
                             label:                Some("Parallax Raymarched Pipeline Layout"),
                             bind_group_layouts:   &[],
                             push_constant_ranges: &[wgpu::PushConstantRange {
-                                stages: wgpu::ShaderStages::VERTEX,
-                                range:  0..(std::mem::size_of::<glm::Mat4>() as u32 * 2)
+                                stages: wgpu::ShaderStages::VERTEX_FRAGMENT,
+                                range:  0..(std::mem::size_of::<
+                                    crate::renderable::parallax_raymarched::PushConstants
+                                >() as u32)
                             }]
                         })
                     }

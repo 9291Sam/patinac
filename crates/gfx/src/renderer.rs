@@ -128,7 +128,7 @@ impl Renderer
                     label:             Some("Device"),
                     required_features: wgpu::Features::PUSH_CONSTANTS,
                     required_limits:   wgpu::Limits {
-                        max_push_constant_size: 128,
+                        max_push_constant_size: 192,
                         ..Default::default()
                     }
                 },

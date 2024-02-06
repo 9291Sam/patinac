@@ -1,13 +1,16 @@
 use std::sync::Arc;
 
+use gfx::pi;
+
 use super::Entity;
 
 #[derive(Debug)]
 pub struct TestScene
 {
-    _objs: Vec<Arc<dyn gfx::Recordable>>,
-    cube:  Arc<gfx::lit_textured::LitTextured>,
-    id:    util::Uuid
+    _objs:  Vec<Arc<dyn gfx::Recordable>>,
+    cube:   Arc<gfx::lit_textured::LitTextured>,
+    voxels: Arc<gfx::parallax_raymarched::ParallaxRaymarched>,
+    id:     util::Uuid
 }
 
 impl TestScene
@@ -16,14 +19,13 @@ impl TestScene
     {
         let mut objs: Vec<Arc<dyn gfx::Recordable>> = Vec::new();
         let mut cube: Option<Arc<gfx::lit_textured::LitTextured>> = None;
-
-        objs.push(gfx::parallax_raymarched::ParallaxRaymarched::new_cube(
+        let voxels = gfx::parallax_raymarched::ParallaxRaymarched::new_cube(
             game.get_renderer(),
             gfx::Transform {
                 translation: gfx::Vec3::new(0.0, 2.0, 0.0),
                 ..Default::default()
             }
-        ));
+        );
 
         for x in -5..=5
         {
@@ -59,8 +61,9 @@ impl TestScene
 
         let this = Arc::new(TestScene {
             _objs: objs,
-            cube:  cube.unwrap(),
-            id:    util::Uuid::new()
+            cube: cube.unwrap(),
+            voxels,
+            id: util::Uuid::new()
         });
 
         game.register(this.clone());
@@ -88,14 +91,28 @@ impl Entity for TestScene
 
     fn tick(&self, game: &super::Game, _: super::TickTag)
     {
-        let mut guard = self.cube.transform.lock().unwrap();
+        {
+            let mut guard = self.cube.transform.lock().unwrap();
 
-        let quat = guard.rotation
-            * *gfx::UnitQuaternion::from_axis_angle(
-                &gfx::Transform::global_up_vector(),
-                1.0 * game.get_delta_time()
-            );
+            let quat = guard.rotation
+                * *gfx::UnitQuaternion::from_axis_angle(
+                    &gfx::Transform::global_up_vector(),
+                    1.0 * game.get_delta_time()
+                );
 
-        guard.rotation = quat.normalize();
+            guard.rotation = quat.normalize();
+        }
+
+        {
+            let mut guard = self.voxels.transform.lock().unwrap();
+
+            let quat = guard.rotation
+                * *gfx::UnitQuaternion::from_axis_angle(
+                    &gfx::Transform::global_up_vector(),
+                    -1.0 * game.get_delta_time()
+                );
+
+            guard.rotation = quat.normalize();
+        }
     }
 }

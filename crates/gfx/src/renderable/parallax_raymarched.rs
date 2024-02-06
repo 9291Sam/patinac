@@ -29,6 +29,16 @@ impl Vertex
         }
     }
 }
+
+#[repr(C)]
+#[derive(Clone, Copy, Pod, Zeroable)]
+pub(crate) struct PushConstants
+{
+    mvp:        glm::Mat4,
+    model:      glm::Mat4,
+    camera_pos: glm::Vec3
+}
+
 #[derive(Debug)]
 pub struct ParallaxRaymarched
 {
@@ -130,12 +140,13 @@ impl gfx::Recordable for ParallaxRaymarched
             let guard = self.transform.lock().unwrap();
 
             pass.set_push_constants(
-                wgpu::ShaderStages::VERTEX,
+                wgpu::ShaderStages::VERTEX_FRAGMENT,
                 0,
-                bytes_of::<[glm::Mat4; 2]>(&[
-                    camera.get_perspective(renderer, &guard),
-                    guard.as_model_matrix()
-                ])
+                bytes_of(&PushConstants {
+                    mvp:        camera.get_perspective(renderer, &guard),
+                    model:      guard.as_model_matrix(),
+                    camera_pos: camera.get_position()
+                })
             );
         }
 
