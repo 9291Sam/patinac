@@ -7,9 +7,6 @@
 use std::sync::atomic::AtomicBool;
 use std::sync::OnceLock;
 
-mod entity;
-mod game;
-
 static LOGGER: OnceLock<util::AsyncLogger> = OnceLock::new();
 
 fn main()

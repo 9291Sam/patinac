@@ -1,6 +1,7 @@
 pub mod flat_textured;
 pub mod lit_textured;
 
+use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::cmp::Ordering::*;
 use std::fmt::Debug;
@@ -8,6 +9,7 @@ use std::num::NonZeroU64;
 
 pub trait Recordable: Debug + Send + Sync
 {
+    fn get_name(&self) -> Cow<'_, str>;
     fn get_uuid(&self) -> util::Uuid;
     fn get_pass_stage(&self) -> super::PassStage;
     fn get_pipeline_type(&self) -> super::PipelineType;

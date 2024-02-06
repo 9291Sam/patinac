@@ -1,8 +1,6 @@
 use core::fmt::Debug;
 
-use crate::game::{self, TickTag};
-
-pub mod test_scene;
+use crate::TickTag;
 
 pub trait Entity: Debug + Send + Sync
 {

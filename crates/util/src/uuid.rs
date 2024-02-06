@@ -1,10 +1,9 @@
 use std::fmt::{Debug, Display};
-use std::mem::MaybeUninit;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering::AcqRel;
 use std::sync::OnceLock;
 
-use bytemuck::bytes_of;
+use bytemuck::{bytes_of, bytes_of_mut};
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Uuid
@@ -59,11 +58,11 @@ fn get_monotonic_id() -> u64
 
     MONOTONIC_ID
         .get_or_init(|| {
-            let mut new_id: MaybeUninit<u64> = MaybeUninit::uninit();
+            let mut new_id: u64 = 4378234789237894789;
 
-            getrandom::getrandom_uninit(new_id.as_bytes_mut()).unwrap();
+            getrandom::getrandom(bytes_of_mut(&mut new_id)).unwrap();
 
-            AtomicU64::new(unsafe { new_id.assume_init() })
+            AtomicU64::new(new_id)
         })
         .fetch_add(1, AcqRel)
 }

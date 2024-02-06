@@ -4,9 +4,10 @@ use std::sync::{Arc, Weak};
 
 use rayon::iter::{ParallelBridge, ParallelIterator};
 
-use crate::entity::{self, Entity};
+mod entity;
 
-pub(crate) struct TickTag(());
+use entity::Entity;
+pub struct TickTag(());
 
 pub struct Game<'r>
 {
