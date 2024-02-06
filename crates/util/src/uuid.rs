@@ -14,6 +14,7 @@ pub struct Uuid
 
 impl Uuid
 {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self
     {
         let raw_time_stamp = std::time::SystemTime::now()

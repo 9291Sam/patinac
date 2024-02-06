@@ -61,6 +61,7 @@ unsafe impl Sync for Renderer {}
 
 impl Renderer
 {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self
     {
         let event_loop = EventLoop::new().unwrap();
@@ -466,7 +467,7 @@ impl Renderer
 
             if input_helper.key_held(KeyCode::KeyK)
             {
-                log::info!("positon: {:?}", camera.borrow().get_position())
+                log::info!("position: {:?}", camera.borrow().get_position())
             }
 
             if input_helper.key_held(KeyCode::KeyW)

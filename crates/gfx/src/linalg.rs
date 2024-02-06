@@ -100,7 +100,7 @@ impl Camera
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct Transform
 {
     pub translation: glm::Vec3,
@@ -108,8 +108,25 @@ pub struct Transform
     pub scale:       glm::Vec3
 }
 
+impl Default for Transform
+{
+    fn default() -> Self
+    {
+        Self::new()
+    }
+}
+
 impl Transform
 {
+    pub fn new() -> Transform
+    {
+        Transform {
+            translation: glm::Vec3::repeat(0.0),
+            rotation:    glm::Quat::new(1.0, 0.0, 0.0, 0.0),
+            scale:       glm::Vec3::repeat(1.0)
+        }
+    }
+
     pub fn global_forward_vector() -> nalgebra::UnitVector3<f32>
     {
         nalgebra::UnitVector3::new_normalize(glm::Vec3::new(0.0, 0.0, 1.0))

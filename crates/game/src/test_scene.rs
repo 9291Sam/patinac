@@ -5,9 +5,9 @@ use super::Entity;
 #[derive(Debug)]
 pub struct TestScene
 {
-    objs: Vec<Arc<dyn gfx::Recordable>>,
-    cube: Arc<gfx::lit_textured::LitTextured>,
-    id:   util::Uuid
+    _objs: Vec<Arc<dyn gfx::Recordable>>,
+    cube:  Arc<gfx::lit_textured::LitTextured>,
+    id:    util::Uuid
 }
 
 impl TestScene
@@ -16,6 +16,14 @@ impl TestScene
     {
         let mut objs: Vec<Arc<dyn gfx::Recordable>> = Vec::new();
         let mut cube: Option<Arc<gfx::lit_textured::LitTextured>> = None;
+
+        objs.push(gfx::parallax_raymarched::ParallaxRaymarched::new_cube(
+            game.get_renderer(),
+            gfx::Transform {
+                translation: gfx::Vec3::new(0.0, 2.0, 0.0),
+                ..Default::default()
+            }
+        ));
 
         for x in -5..=5
         {
@@ -50,9 +58,9 @@ impl TestScene
         }
 
         let this = Arc::new(TestScene {
-            objs,
-            cube: cube.unwrap(),
-            id: util::Uuid::new()
+            _objs: objs,
+            cube:  cube.unwrap(),
+            id:    util::Uuid::new()
         });
 
         game.register(this.clone());

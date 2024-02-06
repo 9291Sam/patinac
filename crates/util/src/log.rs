@@ -14,6 +14,7 @@ pub struct AsyncLogger
 
 impl AsyncLogger
 {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self
     {
         let (thread_sender, receiver) = mpsc::channel();

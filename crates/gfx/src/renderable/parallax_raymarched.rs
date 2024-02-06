@@ -1,0 +1,184 @@
+use std::borrow::Cow;
+use std::sync::{Arc, Mutex};
+
+use bytemuck::{bytes_of, cast_slice, Pod, Zeroable};
+use wgpu::util::{BufferInitDescriptor, DeviceExt};
+use {crate as gfx, nalgebra_glm as glm};
+
+use crate::GenericPass;
+
+#[repr(C)]
+#[derive(Clone, Copy, Pod, Zeroable)]
+pub struct Vertex
+{
+    color:    glm::Vec3,
+    position: glm::Vec3
+}
+
+impl Vertex
+{
+    const ATTRIBS: [wgpu::VertexAttribute; 2] =
+        wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3];
+
+    pub fn desc() -> wgpu::VertexBufferLayout<'static>
+    {
+        wgpu::VertexBufferLayout {
+            array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
+            step_mode:    wgpu::VertexStepMode::Vertex,
+            attributes:   &Self::ATTRIBS
+        }
+    }
+}
+#[derive(Debug)]
+pub struct ParallaxRaymarched
+{
+    uuid:              util::Uuid,
+    vertex_buffer:     wgpu::Buffer,
+    index_buffer:      wgpu::Buffer,
+    number_of_indices: u16,
+    pub transform:     Mutex<gfx::Transform>
+}
+
+impl ParallaxRaymarched
+{
+    pub fn new_cube(renderer: &gfx::Renderer, transform: gfx::Transform) -> Arc<Self>
+    {
+        Self::new(renderer, transform, &CUBE_VERTICES, &CUBE_INDICES)
+    }
+
+    pub fn new(
+        renderer: &gfx::Renderer,
+        transform: gfx::Transform,
+        vertices: &[Vertex],
+        indices: &[u16]
+    ) -> Arc<Self>
+    {
+        let vertex_buffer = renderer.create_buffer_init(&BufferInitDescriptor {
+            label:    Some("Parallax Raymarched Vertex Buffer"),
+            contents: cast_slice(vertices),
+            usage:    wgpu::BufferUsages::VERTEX
+        });
+
+        let index_buffer = renderer.create_buffer_init(&BufferInitDescriptor {
+            label:    Some("Parallax Raymarched Index Buffer"),
+            contents: cast_slice(indices),
+            usage:    wgpu::BufferUsages::INDEX
+        });
+
+        let this = Arc::new(Self {
+            uuid: util::Uuid::new(),
+            vertex_buffer,
+            index_buffer,
+            number_of_indices: indices.len().try_into().unwrap(),
+            transform: Mutex::new(transform)
+        });
+
+        renderer.register(this.clone());
+
+        this
+    }
+}
+
+impl gfx::Recordable for ParallaxRaymarched
+{
+    fn get_name(&self) -> std::borrow::Cow<'_, str>
+    {
+        Cow::Borrowed("Parallax Raymarched")
+    }
+
+    fn get_uuid(&self) -> util::Uuid
+    {
+        self.uuid
+    }
+
+    fn get_pass_stage(&self) -> gfx::PassStage
+    {
+        gfx::PassStage::GraphicsSimpleColor
+    }
+
+    fn get_pipeline_type(&self) -> gfx::PipelineType
+    {
+        gfx::PipelineType::ParallaxRaymarched
+    }
+
+    fn get_bind_groups(&self) -> [Option<&'_ wgpu::BindGroup>; 4]
+    {
+        [None; 4]
+    }
+
+    fn should_render(&self) -> bool
+    {
+        true
+    }
+
+    fn record<'s>(
+        &'s self,
+        render_pass: &mut gfx::GenericPass<'s>,
+        renderer: &gfx::Renderer,
+        camera: &gfx::Camera
+    )
+    {
+        let GenericPass::Render(ref mut pass) = render_pass
+        else
+        {
+            panic!("unexpected generic pass")
+        };
+
+        pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+        pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+        {
+            let guard = self.transform.lock().unwrap();
+
+            pass.set_push_constants(
+                wgpu::ShaderStages::VERTEX,
+                0,
+                bytes_of::<[glm::Mat4; 2]>(&[
+                    camera.get_perspective(renderer, &guard),
+                    guard.as_model_matrix()
+                ])
+            );
+        }
+
+        pass.draw_indexed(0..self.number_of_indices as u32, 0, 0..1);
+    }
+}
+
+const CUBE_VERTICES: [Vertex; 8] = [
+    Vertex {
+        color:    glm::Vec3::new(0.0, 0.0, 0.0),
+        position: glm::Vec3::new(-1.0, -1.0, -1.0)
+    },
+    Vertex {
+        color:    glm::Vec3::new(0.0, 0.0, 1.0),
+        position: glm::Vec3::new(-1.0, -1.0, 1.0)
+    },
+    Vertex {
+        color:    glm::Vec3::new(0.0, 1.0, 0.0),
+        position: glm::Vec3::new(-1.0, 1.0, -1.0)
+    },
+    Vertex {
+        color:    glm::Vec3::new(0.0, 1.0, 1.0),
+        position: glm::Vec3::new(-1.0, 1.0, 1.0)
+    },
+    Vertex {
+        color:    glm::Vec3::new(1.0, 0.0, 0.0),
+        position: glm::Vec3::new(1.0, -1.0, -1.0)
+    },
+    Vertex {
+        color:    glm::Vec3::new(1.0, 0.0, 1.0),
+        position: glm::Vec3::new(1.0, -1.0, 1.0)
+    },
+    Vertex {
+        color:    glm::Vec3::new(1.0, 1.0, 0.0),
+        position: glm::Vec3::new(1.0, 1.0, -1.0)
+    },
+    Vertex {
+        color:    glm::Vec3::new(1.0, 1.0, 1.0),
+        position: glm::Vec3::new(1.0, 1.0, 1.0)
+    }
+];
+
+const CUBE_INDICES: [u16; 36] = [
+    6, 2, 7, 2, 3, 7, 0, 4, 5, 1, 0, 5, 0, 2, 6, 4, 0, 6, 3, 1, 7, 1, 5, 7, 2, 0, 3, 0, 1, 3, 4, 6,
+    7, 5, 4, 7
+];

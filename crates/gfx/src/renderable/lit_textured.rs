@@ -46,7 +46,7 @@ impl LitTextured
 {
     pub fn new_cube(renderer: &gfx::Renderer, transform: gfx::Transform) -> Arc<Self>
     {
-        let obj_data = include_bytes!("cube.obj");
+        let obj_data = include_bytes!("res/lit_textured/cube.obj");
         let mut obj_cursor = Cursor::new(obj_data);
 
         let (model, material) = tobj::load_obj_buf(
@@ -61,7 +61,7 @@ impl LitTextured
                 {
                     "cube.mtl" =>
                     {
-                        let mtl_data = include_bytes!("cube.mtl");
+                        let mtl_data = include_bytes!("res/lit_textured/cube.mtl");
                         let mut mtl_cursor = Cursor::new(mtl_data);
 
                         tobj::load_mtl_buf(&mut mtl_cursor)
@@ -84,7 +84,8 @@ impl LitTextured
         assert_eq!(diffuse_texture.as_ref().unwrap(), "cube-diffuse.jpg");
         assert_eq!(normal_texture.as_ref().unwrap(), "cube-normal.png");
 
-        let raw_diffuse = image::load_from_memory(include_bytes!("cube-diffuse.jpg")).unwrap();
+        let raw_diffuse =
+            image::load_from_memory(include_bytes!("res/lit_textured/cube-diffuse.jpg")).unwrap();
 
         let diffuse_texture = renderer.create_texture_with_data(
             &renderer.queue,
@@ -106,7 +107,8 @@ impl LitTextured
             &raw_diffuse.to_rgba8()
         );
 
-        let raw_normal = image::load_from_memory(include_bytes!("cube-normal.png")).unwrap();
+        let raw_normal =
+            image::load_from_memory(include_bytes!("res/lit_textured/cube-normal.png")).unwrap();
 
         let normal_texture = renderer.create_texture_with_data(
             &renderer.queue,

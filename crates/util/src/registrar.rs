@@ -91,6 +91,17 @@ where
     }
 }
 
+impl<K, V> Default for Registrar<K, V>
+where
+    K: Eq + Hash + Debug + Clone,
+    V: Debug + Clone
+{
+    fn default() -> Self
+    {
+        Registrar::new()
+    }
+}
+
 enum UpdateType<K, V>
 {
     Insertion(K, V),

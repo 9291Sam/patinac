@@ -13,7 +13,8 @@ pub enum PassStage
 pub enum PipelineType
 {
     FlatTextured,
-    LitTextured
+    LitTextured,
+    ParallaxRaymarched
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash, EnumIter)]
@@ -149,6 +150,17 @@ impl RenderCache
                             }]
                         })
                     }
+                    PipelineType::ParallaxRaymarched =>
+                    {
+                        device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                            label:                Some("Parallax Raymarched Pipeline Layout"),
+                            bind_group_layouts:   &[],
+                            push_constant_ranges: &[wgpu::PushConstantRange {
+                                stages: wgpu::ShaderStages::VERTEX,
+                                range:  0..(std::mem::size_of::<glm::Mat4>() as u32 * 2)
+                            }]
+                        })
+                    }
                 };
 
                 (pipeline_type, new_pipeline_layout)
@@ -176,7 +188,7 @@ impl RenderCache
                     PipelineType::FlatTextured =>
                     {
                         let shader = device.create_shader_module(wgpu::include_wgsl!(
-                            "renderable/flat_textured.wgsl"
+                            "renderable/res/flat_textured/flat_textured.wgsl"
                         ));
 
                         GenericPipeline::Render(device.create_render_pipeline(
@@ -216,7 +228,7 @@ impl RenderCache
                     PipelineType::LitTextured =>
                     {
                         let shader = device.create_shader_module(wgpu::include_wgsl!(
-                            "renderable/lit_textured.wgsl"
+                            "renderable/res/lit_textured/lit_textured.wgsl"
                         ));
 
                         GenericPipeline::Render(device.create_render_pipeline(
@@ -228,6 +240,48 @@ impl RenderCache
                                     module:      &shader,
                                     entry_point: "vs_main",
                                     buffers:     &[super::renderable::lit_textured::Vertex::desc()]
+                                },
+                                fragment:      Some(wgpu::FragmentState {
+                                    module:      &shader,
+                                    entry_point: "fs_main",
+                                    targets:     &[Some(wgpu::ColorTargetState {
+                                        format:     super::SURFACE_TEXTURE_FORMAT,
+                                        blend:      Some(wgpu::BlendState::REPLACE),
+                                        write_mask: wgpu::ColorWrites::ALL
+                                    })]
+                                }),
+                                primitive:     wgpu::PrimitiveState {
+                                    topology:           wgpu::PrimitiveTopology::TriangleList,
+                                    strip_index_format: None,
+                                    front_face:         wgpu::FrontFace::Cw,
+                                    cull_mode:          Some(wgpu::Face::Back),
+                                    polygon_mode:       wgpu::PolygonMode::Fill,
+                                    unclipped_depth:    false,
+                                    conservative:       false
+                                },
+                                depth_stencil: default_depth_state,
+                                multisample:   default_multisample_state,
+                                multiview:     None
+                            }
+                        ))
+                    }
+                    PipelineType::ParallaxRaymarched =>
+                    {
+                        let shader = device.create_shader_module(wgpu::include_wgsl!(
+                            "renderable/res/parallax_raymarched/shader.wgsl"
+                        ));
+
+                        GenericPipeline::Render(device.create_render_pipeline(
+                            &wgpu::RenderPipelineDescriptor {
+                                label:         Some("Parallax Raymarched Pipeline"),
+                                layout:
+                                    pipeline_layout_cache.get(&PipelineType::ParallaxRaymarched),
+                                vertex:        wgpu::VertexState {
+                                    module:      &shader,
+                                    entry_point: "vs_main",
+                                    buffers:     &[
+                                        super::renderable::parallax_raymarched::Vertex::desc()
+                                    ]
                                 },
                                 fragment:      Some(wgpu::FragmentState {
                                     module:      &shader,
