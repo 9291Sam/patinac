@@ -60,17 +60,11 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32>
         mapPos = mapPos + vec3<i32>(vec3<f32>(mask)) * rayStep;
     }
 
-    var color: vec3<f32> = vec3<f32>(0.0, 0.0, 0.0);
+    let xy = vec2<f32>(mapPos.xy);
+    let yz = vec2<f32>(mapPos.yz);
+    let zx = vec2<f32>(mapPos.zx);
 
-    if (mask.x) {
-        color = vec3<f32>(0.5);
-    }
-    if (mask.y) {
-        color = vec3<f32>(1.0);
-    }
-    if (mask.z) {
-        color = vec3<f32>(0.75);
-    }
+    var color: vec3<f32> = vec3<f32>(rand(xy), rand(yz), rand(zx));
 
     return vec4<f32>(color, 1.0);
 }
@@ -113,3 +107,20 @@ fn mainImage(fragCoord: vec2<f32>) {
     
 }
 
+
+fn triple32(i_x: u32) -> u32
+{
+    var x: u32 = i_x;
+    x ^= x >> 17;
+    x *= 0xed5ad4bbu;
+    x ^= x >> 11;
+    x *= 0xac4c1b51u;
+    x ^= x >> 15;
+    x *= 0x31848babu;
+    x ^= x >> 14;
+    return x;
+}
+
+fn rand(co: vec2<f32>) -> f32 {
+    return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453);
+}

@@ -14,11 +14,12 @@ impl Brick
     pub fn new_solid(voxel: super::Voxel) -> Brick
     {
         Brick {
-            bricks: [[[voxel; 8]; 8]; 8]
+            bricks: [[[voxel; Self::SIDE_LENGTH_VOXELS]; Self::SIDE_LENGTH_VOXELS];
+                Self::SIDE_LENGTH_VOXELS]
         }
     }
 
-    // function is called with args
+    // function is called with args L:SIDE_LENGTH_VOXELS | (0..L, 0..L, 0..L)
     pub fn new_fill(mut fill_func: impl FnMut(usize, usize, usize) -> super::Voxel) -> Brick
     {
         Brick {
