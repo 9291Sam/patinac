@@ -60,11 +60,13 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32>
         mapPos = mapPos + vec3<i32>(vec3<f32>(mask)) * rayStep;
     }
 
-    let xy = vec2<f32>(mapPos.xy);
-    let yz = vec2<f32>(mapPos.yz);
-    let zx = vec2<f32>(mapPos.zx);
+    let scale: f32 = 0.35;
 
-    return vec4<f32>(get_spherical_coords(vec3<f32>(mapPos)), 1.0);
+    let multiplier = ((vec3<f32>(mask) * scale) + (1 - scale));
+
+    let color = get_spherical_coords(vec3<f32>(mapPos)) * multiplier;
+
+    return vec4<f32>(color, 1.0);
 }
  
  // The raycasting code is somewhat based around a 2D raycasting tutorial found here: 

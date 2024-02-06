@@ -6,7 +6,7 @@ edition = "2021"
 
 [dependencies]
 util = {path = "crates/util"}
-gfx  = {path = "crates/gfx"}
+gfx = {path = "crates/gfx"}
 world_gen = {path = "crates/world_gen"}
 game = {path = "crates/game"}
 log = { version = "0.4.20", features = ["std"]}
