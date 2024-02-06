@@ -64,9 +64,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32>
     let yz = vec2<f32>(mapPos.yz);
     let zx = vec2<f32>(mapPos.zx);
 
-    var color: vec3<f32> = vec3<f32>(rand(xy), rand(yz), rand(zx));
-
-    return vec4<f32>(color, 1.0);
+    return vec4<f32>(get_spherical_coords(vec3<f32>(mapPos)), 1.0);
 }
  
  // The raycasting code is somewhat based around a 2D raycasting tutorial found here: 
@@ -123,4 +121,26 @@ fn triple32(i_x: u32) -> u32
 
 fn rand(co: vec2<f32>) -> f32 {
     return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453);
+}
+
+fn get_spherical_coords(point: vec3<f32>) -> vec3<f32>
+{
+    let rho:   f32 = sqrt(dot(point, point));
+    let theta: f32 = atan2(point.y, point.x);
+    let phi:   f32 = acos(point.z / rho);
+
+    return vec3<f32>(
+        map(rho, 0.0, 32.0, 0.0, 1.0),
+        map(theta, -PI, PI, 0.0, 1.0),
+        map(phi, 0.0, PI, 0.0, 1.0),
+    );
+}
+
+const TAU: f32 = 6.2831853071795862;
+const PI: f32 = 3.141592653589793;
+
+fn map(x: f32, in_min: f32, in_max: f32, out_min: f32, out_max: f32)
+    -> f32
+{
+  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
