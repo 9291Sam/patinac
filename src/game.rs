@@ -1,17 +1,18 @@
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering::*;
+use std::sync::atomic::{AtomicBool, AtomicU32};
 use std::sync::{Arc, Weak};
-use std::time::Duration;
 
 use rayon::iter::{ParallelBridge, ParallelIterator};
 
-use crate::entity::Entity;
+use crate::entity::{self, Entity};
 
 pub(crate) struct TickTag(());
 
 pub struct Game<'r>
 {
-    renderer: &'r gfx::Renderer,
-    entities: util::Registrar<util::Uuid, Weak<dyn Entity>>
+    renderer:         &'r gfx::Renderer,
+    entities:         util::Registrar<util::Uuid, Weak<dyn Entity>>,
+    float_delta_time: AtomicU32 // event_dispatcher: /* */
 }
 
 impl Drop for Game<'_>
@@ -32,13 +33,19 @@ impl<'r> Game<'r>
     {
         Game {
             renderer,
-            entities: util::Registrar::new()
+            entities: util::Registrar::new(),
+            float_delta_time: AtomicU32::new(0.0f32.to_bits())
         }
     }
 
     pub fn get_renderer(&self) -> &gfx::Renderer
     {
         self.renderer
+    }
+
+    pub fn get_delta_time(&self) -> f32
+    {
+        f32::from_bits(self.float_delta_time.load(Acquire))
     }
 
     pub fn register(&self, entity: Arc<dyn Entity>)
@@ -49,79 +56,35 @@ impl<'r> Game<'r>
 
     pub fn enter_tick_loop(&self, should_stop: &AtomicBool)
     {
-        let mut objs: Vec<Arc<dyn gfx::Recordable>> = Vec::new();
-        let mut cube: Option<Arc<gfx::lit_textured::LitTextured>> = None;
-
-        for x in -5..=5
-        {
-            for z in -5..=5
-            {
-                objs.push(gfx::flat_textured::FlatTextured::new(
-                    self.renderer,
-                    gfx::Vec3::new(x as f32, 0.0, z as f32),
-                    gfx::flat_textured::FlatTextured::PENTAGON_VERTICES,
-                    gfx::flat_textured::FlatTextured::PENTAGON_INDICES
-                ));
-
-                let a = gfx::lit_textured::LitTextured::new_cube(
-                    self.renderer,
-                    gfx::Transform {
-                        translation: gfx::Vec3::new(x as f32, 4.0, z as f32),
-                        rotation:    *gfx::UnitQuaternion::from_axis_angle(
-                            &gfx::Transform::global_up_vector(),
-                            (x + z) as f32 / 4.0
-                        ),
-                        scale:       gfx::Vec3::repeat(0.4)
-                    }
-                );
-
-                if x == 0 && z == 0
-                {
-                    cube = Some(a.clone());
-                }
-
-                objs.push(a);
-            }
-        }
+        let _scene = entity::test_scene::TestScene::new(self);
 
         let mut prev = std::time::Instant::now();
-        let mut delta_time = 0.0f32;
+        let mut delta_time: f32;
 
-        while !should_stop.load(std::sync::atomic::Ordering::Acquire)
+        while !should_stop.load(Acquire)
         {
+            let now = std::time::Instant::now();
+
+            delta_time = (now - prev).as_secs_f32();
+            prev = now;
+            self.float_delta_time.store(delta_time.to_bits(), Release);
+
             self.entities
                 .access()
                 .into_iter()
-                .filter_map(|(ptr, weak_renderable)| {
+                .filter_map(|(uuid, weak_renderable)| {
                     match weak_renderable.upgrade()
                     {
                         Some(s) => Some(s),
                         None =>
                         {
-                            self.entities.delete(ptr);
+                            self.entities.delete(uuid);
                             None
                         }
                     }
                 })
                 .par_bridge()
-                .for_each(|strong_entity| strong_entity.tick(TickTag(())));
-
-            {
-                let mut guard = cube.as_ref().unwrap().transform.lock().unwrap();
-                let quat = guard.rotation
-                    * *gfx::UnitQuaternion::from_axis_angle(
-                        &gfx::Transform::global_up_vector(),
-                        1.0 * delta_time
-                    );
-
-                guard.rotation = quat.normalize();
-            }
-
-            let now = std::time::Instant::now();
-            delta_time = (now - prev).as_secs_f32();
-            prev = now;
-
-            std::thread::sleep(Duration::from_millis(10));
+                .for_each(|strong_entity| strong_entity.tick(self, TickTag(())));
         }
     }
 }
