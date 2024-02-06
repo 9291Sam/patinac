@@ -80,7 +80,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32>
 
 // Constants
 const USE_BRANCHLESS_DDA : bool = true;
-const MAX_RAY_STEPS : i32 = 64;
+const MAX_RAY_STEPS : i32 = 192;
 
 // Sphere distance function
 fn sdSphere(p: vec3<f32>, d: f32) -> f32 {
