@@ -77,6 +77,21 @@ fn fs_main(in: VertexOutput) -> FragmentOutput
     out.color = vec4<f32>(get_random_color(vec3<f32>(mapPos)), 1.0);
     // out.depth 
 
+    var c: Cube;
+    c.center = vec3<f32>(mapPos) + 0.5;
+    c.edge_length = 1.0;
+
+    var r: Ray;
+    r.origin = rayPos;
+    r.direction = rayDir;
+    
+    let res = Cube_tryIntersect(c, r);
+
+    if (!res.intersection_occurred)
+    {
+        out.color = vec4<f32>(1.0, 0.5, 0.5, 1.0);
+    }
+
     return out;
 }
 
@@ -149,9 +164,9 @@ fn get_spherical_coords(point: vec3<f32>) -> vec3<f32>
 fn get_random_color(point: vec3<f32>) -> vec3<f32>
 {
     var out: vec3<f32>;
-    out.x = rand(point.xy);
-    out.y = rand(point.yz);
-    out.z = rand(point.zx);
+    out.x = rand(point.xy * point.xz);
+    out.y = rand(point.yz * point.yx);
+    out.z = rand(point.zx * point.zy);
 
     return out;
 }
@@ -252,19 +267,11 @@ fn Cube_tryIntersect(me: Cube, ray: Ray) -> IntersectionResult {
 
     var res: IntersectionResult;
         
-    res.intersection_occurred = false;
+    res.intersection_occurred = true;
     res.maybe_distance = length(ray.origin - hitPoint);
     res.maybe_hit_point = hitPoint;
     res.maybe_normal = normal;
     res.maybe_color = vec4<f32>(0.0, 1.0, 1.0, 1.0);
 
     return res; 
-    
-    // return IntersectionResult {
-    //     intersection_occurred: true,
-    //     maybe_distance: length(ray.origin - hitPoint),
-    //     maybe_hit_point: hitPoint,
-    //     maybe_normal: normal,
-    //     maybe_color: vec4<f32>(0.0, 1.0, 1.0, 1.0),
-    // };
 }
