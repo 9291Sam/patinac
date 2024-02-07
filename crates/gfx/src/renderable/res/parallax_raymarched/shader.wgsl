@@ -89,7 +89,7 @@ fn fs_main(in: VertexOutput) -> FragmentOutput
 
     if (!res.intersection_occurred)
     {
-        out.color = vec4<f32>(1.0, 0.5, 0.5, 1.0);
+        out.color = ERROR_COLOR;
         return out;
     }
 
@@ -100,7 +100,7 @@ fn fs_main(in: VertexOutput) -> FragmentOutput
 
     if (maybe_depth > 1.0)
     {
-        out.color = vec4<f32>(1.0, 0.5, 0.5, 1.0);
+        out.color = ERROR_COLOR;
         return out;
     }
 
@@ -112,6 +112,7 @@ fn fs_main(in: VertexOutput) -> FragmentOutput
 // Constants
 const USE_BRANCHLESS_DDA : bool = true;
 const MAX_RAY_STEPS : i32 = 192;
+const ERROR_COLOR: vec4<f32> = vec4<f32>(1.0, 0.0, 1.0, 1.0);
 
 // Sphere distance function
 fn sdSphere(p: vec3<f32>, d: f32) -> f32
