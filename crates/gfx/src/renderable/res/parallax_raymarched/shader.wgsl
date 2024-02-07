@@ -42,8 +42,6 @@ struct FragmentOutput
 @fragment
 fn fs_main(in: VertexOutput) -> FragmentOutput
 {
-    // TODO
-
     let rayDir: vec3<f32> = (in.world_pos - push_constants.camera_pos );
     var rayPos: vec3<f32> = in.world_pos + 0.5;
 
@@ -74,45 +72,21 @@ fn fs_main(in: VertexOutput) -> FragmentOutput
         discard;
     }
 
-    // let tracedFragmentPos: vec3<f32> = rayPos + sideDist * rayDir;
-
-    let scale: f32 = 0.35;
-
-    let multiplier = ((vec3<f32>(mask) * scale) + (1 - scale));
-
-    let color = vec4<f32>(get_spherical_coords(vec3<f32>(mapPos)) * multiplier, 1.0);
-
-    //! sync with camera!
-
-    var c: Cube;
-    c.center = vec3<f32>(mapPos) + 0.5;
-    c.edge_length = 1.0;
-
-    var r: Ray;
-    r.origin = rayPos;
-    r.direction = normalize(rayDir);
-
-    let strike = Cube_tryIntersect(c, r).maybe_hit_point;
-
-    let depth_intercalc: vec4<f32> = push_constants.mvp * vec4<f32>(strike, 1.0);
-    let depth = depth_intercalc.z / depth_intercalc.w;
-
     var out: FragmentOutput;
-    out.color = color;
-    out.depth = depth;
+
+    out.color = vec4<f32>(get_random_color(vec3<f32>(mapPos)), 1.0);
+    // out.depth 
 
     return out;
 }
- 
- // The raycasting code is somewhat based around a 2D raycasting tutorial found here: 
-// http://lodev.org/cgtutor/raycasting.html
 
 // Constants
 const USE_BRANCHLESS_DDA : bool = true;
 const MAX_RAY_STEPS : i32 = 192;
 
 // Sphere distance function
-fn sdSphere(p: vec3<f32>, d: f32) -> f32 {
+fn sdSphere(p: vec3<f32>, d: f32) -> f32
+{
     return length(p) - d;
 }
 
@@ -123,13 +97,15 @@ fn sdBox(p: vec3<f32>, b: vec3<f32>) -> f32 {
 }
 
 // Function to check if a voxel exists at a given position
-fn getVoxel(c: vec3<i32>) -> bool {
+fn getVoxel(c: vec3<i32>) -> bool
+{
     if (sqrt(dot(vec3<f32>(c), vec3<f32>(c))) > 27.0)
     {
         return false;
     }
 
-    if (all(c == vec3<i32>(0, 0, 0)))
+    let mask = vec3<i32>(c == vec3<i32>(0, 0, 0));
+    if (dot(mask, mask) == 2)
     {
         return true;
     }
@@ -138,20 +114,6 @@ fn getVoxel(c: vec3<i32>) -> bool {
     let d: f32 = min(max(-sdSphere(p, 7.5), sdBox(p, vec3<f32>(6.0))), -sdSphere(p, 25.0));
     return d < 0.0;
 }
-
-// 2D rotation function
-// fn rotate2d(v: vec2<f32>, a: f32) -> vec2<f32> {
-//     let sinA: f32 = sin(a);
-//     let cosA: f32 = cos(a);
-//     return vec2<f32>(v.x * cosA - v.y * sinA, v.y * cosA + v.x * sinA);
-// }
-
-// Main function
-// [[stage(fragment)]]
-fn mainImage(fragCoord: vec2<f32>) {
-    
-}
-
 
 fn triple32(i_x: u32) -> u32
 {
@@ -182,6 +144,16 @@ fn get_spherical_coords(point: vec3<f32>) -> vec3<f32>
         map(theta, -PI, PI, 0.0, 1.0),
         map(phi, 0.0, PI, 0.0, 1.0),
     );
+}
+
+fn get_random_color(point: vec3<f32>) -> vec3<f32>
+{
+    var out: vec3<f32>;
+    out.x = rand(point.xy);
+    out.y = rand(point.yz);
+    out.z = rand(point.zx);
+
+    return out;
 }
 
 const TAU: f32 = 6.2831853071795862;

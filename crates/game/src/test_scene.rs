@@ -29,6 +29,15 @@ impl TestScene
         // objs.push(gfx::parallax_raymarched::ParallaxRaymarched::new_cube(
         //     game.get_renderer(),
         //     gfx::Transform {
+        //         translation: gfx::Vec3::repeat(0.0),
+        //         scale: gfx::Vec3::repeat(1.25),
+        //         ..Default::default()
+        //     }
+        // ));
+
+        // objs.push(gfx::parallax_raymarched::ParallaxRaymarched::new_cube(
+        //     game.get_renderer(),
+        //     gfx::Transform {
         //         translation: gfx::Vec3::new(10.1, 2.0, 0.0),
         //         scale: gfx::Vec3::repeat(4.0),
         //         ..Default::default()
