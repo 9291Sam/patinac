@@ -98,7 +98,7 @@ fn fs_main(in: VertexOutput) -> FragmentOutput
     let depth_intercalc = push_constants.mvp * vec4<f32>(strike_pos_world, 1.0);
     let maybe_depth = depth_intercalc.z / depth_intercalc.w;
 
-    if (maybe_depth > 1.0)
+    if (maybe_depth > 0.99995)
     {
         out.color = ERROR_COLOR;
         return out;
