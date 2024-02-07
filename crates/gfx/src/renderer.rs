@@ -67,8 +67,8 @@ impl Renderer
         let event_loop = EventLoop::new().unwrap();
         let window = WindowBuilder::new()
             .with_inner_size(PhysicalSize {
-                width:  1920,
-                height: 1080
+                width:  3024,
+                height: 1900
             })
             .build(&event_loop)
             .unwrap();

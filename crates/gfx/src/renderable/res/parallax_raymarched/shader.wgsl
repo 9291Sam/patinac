@@ -96,7 +96,15 @@ fn fs_main(in: VertexOutput) -> FragmentOutput
     let strike_pos_world: vec3<f32> = res.maybe_hit_point - 0.5;
     
     let depth_intercalc = push_constants.mvp * vec4<f32>(strike_pos_world, 1.0);
-    out.depth = depth_intercalc.z / depth_intercalc.w;
+    let maybe_depth = depth_intercalc.z / depth_intercalc.w;
+
+    if (maybe_depth > 1.0)
+    {
+        out.color = vec4<f32>(1.0, 0.5, 0.5, 1.0);
+        return out;
+    }
+
+    out.depth = maybe_depth;
 
     return out;
 }

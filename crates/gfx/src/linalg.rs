@@ -36,8 +36,8 @@ impl Camera
             renderer.get_fov().y,
             renderer.get_framebuffer_size().x as f32,
             renderer.get_framebuffer_size().y as f32,
-            0.1,
-            100000.0
+            0.01,
+            10000.0
         );
 
         projection * self.get_view_matrix() * transform.as_model_matrix()
