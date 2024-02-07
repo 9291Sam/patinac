@@ -1,11 +1,11 @@
-use std::borrow::Cow;
+use std::borrow::{BorrowMut, Cow};
 use std::sync::{Arc, Mutex};
 
 use bytemuck::{bytes_of, cast_slice, Pod, Zeroable};
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use {crate as gfx, nalgebra_glm as glm};
 
-use crate::GenericPass;
+use crate::{GenericPass, Transform};
 
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
@@ -46,11 +46,44 @@ pub struct ParallaxRaymarched
     vertex_buffer:     wgpu::Buffer,
     index_buffer:      wgpu::Buffer,
     number_of_indices: u16,
-    pub transform:     Mutex<gfx::Transform>
+    pub transform:     Mutex<gfx::Transform>,
+    camera_track:      bool
 }
 
 impl ParallaxRaymarched
 {
+    pub fn new_camera_tracked(renderer: &gfx::Renderer) -> Arc<Self>
+    {
+        // TODO: bad!
+        let vertex_buffer = renderer.create_buffer_init(&BufferInitDescriptor {
+            label:    Some("Parallax Raymarched Vertex Buffer"),
+            contents: cast_slice(&CUBE_VERTICES),
+            usage:    wgpu::BufferUsages::VERTEX
+        });
+
+        let index_buffer = renderer.create_buffer_init(&BufferInitDescriptor {
+            label:    Some("Parallax Raymarched Index Buffer"),
+            contents: cast_slice(&CUBE_INDICES),
+            usage:    wgpu::BufferUsages::INDEX
+        });
+
+        let this = Arc::new(Self {
+            uuid: util::Uuid::new(),
+            vertex_buffer,
+            index_buffer,
+            number_of_indices: CUBE_INDICES.len().try_into().unwrap(),
+            transform: Mutex::new(Transform {
+                scale: glm::Vec3::repeat(0.19),
+                ..Default::default()
+            }),
+            camera_track: true
+        });
+
+        renderer.register(this.clone());
+
+        this
+    }
+
     pub fn new_cube(renderer: &gfx::Renderer, transform: gfx::Transform) -> Arc<Self>
     {
         Self::new(renderer, transform, &CUBE_VERTICES, &CUBE_INDICES)
@@ -80,7 +113,8 @@ impl ParallaxRaymarched
             vertex_buffer,
             index_buffer,
             number_of_indices: indices.len().try_into().unwrap(),
-            transform: Mutex::new(transform)
+            transform: Mutex::new(transform),
+            camera_track: false
         });
 
         renderer.register(this.clone());
@@ -137,7 +171,12 @@ impl gfx::Recordable for ParallaxRaymarched
         pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
         pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
         {
-            let guard = self.transform.lock().unwrap();
+            let mut guard = self.transform.lock().unwrap();
+
+            if self.camera_track
+            {
+                guard.translation = camera.get_position();
+            }
 
             pass.set_push_constants(
                 wgpu::ShaderStages::VERTEX_FRAGMENT,

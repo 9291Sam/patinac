@@ -16,7 +16,7 @@ impl TestScene
     pub fn new(game: &super::Game) -> Arc<Self>
     {
         let mut objs: Vec<Arc<dyn gfx::Recordable>> = Vec::new();
-        // let mut cube: Option<Arc<gfx::lit_textured::LitTextured>> = None;
+        let mut cube: Option<Arc<gfx::lit_textured::LitTextured>> = None;
         let voxels = gfx::parallax_raymarched::ParallaxRaymarched::new_cube(
             game.get_renderer(),
             gfx::Transform {
@@ -44,37 +44,41 @@ impl TestScene
             }
         ));
 
-        // for x in -5..=5
-        // {
-        //     for z in -5..=5
-        //     {
-        //         objs.push(gfx::flat_textured::FlatTextured::new(
-        //             game.get_renderer(),
-        //             gfx::Vec3::new(x as f32, 0.0, z as f32),
-        //             gfx::flat_textured::FlatTextured::PENTAGON_VERTICES,
-        //             gfx::flat_textured::FlatTextured::PENTAGON_INDICES
-        //         ));
+        objs.push(
+            gfx::parallax_raymarched::ParallaxRaymarched::new_camera_tracked(game.get_renderer())
+        );
 
-        //         let a = gfx::lit_textured::LitTextured::new_cube(
-        //             game.get_renderer(),
-        //             gfx::Transform {
-        //                 translation: gfx::Vec3::new(x as f32, 4.0, z as f32),
-        //                 rotation:    *gfx::UnitQuaternion::from_axis_angle(
-        //                     &gfx::Transform::global_up_vector(),
-        //                     (x + z) as f32 / 4.0
-        //                 ),
-        //                 scale:       gfx::Vec3::repeat(0.4)
-        //             }
-        //         );
+        for x in -5..=5
+        {
+            for z in -5..=5
+            {
+                objs.push(gfx::flat_textured::FlatTextured::new(
+                    game.get_renderer(),
+                    gfx::Vec3::new(x as f32, 0.0, z as f32),
+                    gfx::flat_textured::FlatTextured::PENTAGON_VERTICES,
+                    gfx::flat_textured::FlatTextured::PENTAGON_INDICES
+                ));
 
-        //         if x == 0 && z == 0
-        //         {
-        //             cube = Some(a.clone());
-        //         }
+                let a = gfx::lit_textured::LitTextured::new_cube(
+                    game.get_renderer(),
+                    gfx::Transform {
+                        translation: gfx::Vec3::new(x as f32, 4.0, z as f32),
+                        rotation:    *gfx::UnitQuaternion::from_axis_angle(
+                            &gfx::Transform::global_up_vector(),
+                            (x + z) as f32 / 4.0
+                        ),
+                        scale:       gfx::Vec3::repeat(0.4)
+                    }
+                );
 
-        //         objs.push(a);
-        //     }
-        // }
+                if x == 0 && z == 0
+                {
+                    cube = Some(a.clone());
+                }
+
+                objs.push(a);
+            }
+        }
 
         let this = Arc::new(TestScene {
             _objs: objs,

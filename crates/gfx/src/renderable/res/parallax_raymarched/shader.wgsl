@@ -33,9 +33,17 @@ fn vs_main(input: VertexInput) -> VertexOutput
     return out;
 }
 
-@fragment
-fn fs_main(in: VertexOutput) -> @location(0) vec4<f32>
+struct FragmentOutput
 {
+   @builtin(frag_depth) depth: f32,
+   @location(0) color: vec4<f32>
+}
+
+@fragment
+fn fs_main(in: VertexOutput) -> FragmentOutput
+{
+    // TODO
+
     let rayDir: vec3<f32> = (in.world_pos - push_constants.camera_pos);
     var rayPos: vec3<f32> = in.world_pos;
 
@@ -50,7 +58,8 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32>
 
     var mask: vec3<bool> = vec3<bool>(false, false, false);
 
-    for (var i: i32 = 0; i < MAX_RAY_STEPS; i = i + 1) {
+    var i: i32 = 0;
+    for (; i < MAX_RAY_STEPS; i = i + 1) {
         if (getVoxel(mapPos)) {
             break;
         }
@@ -60,13 +69,25 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32>
         mapPos = mapPos + vec3<i32>(vec3<f32>(mask)) * rayStep;
     }
 
+    if (i == MAX_RAY_STEPS)
+    {
+        discard;
+    }
+
     let scale: f32 = 0.35;
 
     let multiplier = ((vec3<f32>(mask) * scale) + (1 - scale));
 
-    let color = get_spherical_coords(vec3<f32>(mapPos)) * multiplier;
+    let color = vec4<f32>(get_spherical_coords(vec3<f32>(mapPos)) * multiplier, 1.0);
 
-    return vec4<f32>(color, 1.0);
+    //! sync with camera!
+    let depth = map(length(sideDist - push_constants.camera_pos), 0.1, 100000.0, 0.0, 1.0);
+
+    var out: FragmentOutput;
+    out.color = color;
+    out.depth = depth;
+
+    return out;
 }
  
  // The raycasting code is somewhat based around a 2D raycasting tutorial found here: 
@@ -89,6 +110,11 @@ fn sdBox(p: vec3<f32>, b: vec3<f32>) -> f32 {
 
 // Function to check if a voxel exists at a given position
 fn getVoxel(c: vec3<i32>) -> bool {
+    if (sqrt(dot(vec3<f32>(c), vec3<f32>(c))) > 27.0)
+    {
+        return false;
+    }
+
     let p: vec3<f32> = vec3<f32>(c) + vec3<f32>(0.5);
     let d: f32 = min(max(-sdSphere(p, 7.5), sdBox(p, vec3<f32>(6.0))), -sdSphere(p, 25.0));
     return d < 0.0;
