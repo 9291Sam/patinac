@@ -90,7 +90,10 @@ fn fs_main(in: VertexOutput) -> FragmentOutput
     if (!res.intersection_occurred)
     {
         out.color = vec4<f32>(1.0, 0.5, 0.5, 1.0);
+        return out;
     }
+
+    out.color = vec4<f32>(res.maybe_hit_point / 10, 1.0);
 
     return out;
 }
@@ -216,11 +219,11 @@ fn Cube_tryIntersect(me: Cube, ray: Ray) -> IntersectionResult {
     if (Cube_contains(me, ray.origin)) {
         var res: IntersectionResult;
         
-        res.intersection_occurred = false;
-        // res.maybe_distance = 0.0;
-        // res.maybe_hit_point = vec3<f32>(0.0);
-        // res.maybe_normal = vec3<f32>(0.0);
-        // res.maybe_color = vec4<f32>(0.0, 0.0, 0.0, 0.0);
+        res.intersection_occurred = true;
+        res.maybe_distance = 0.0;
+        res.maybe_hit_point = ray.origin;
+        res.maybe_normal = vec3<f32>(0.0);
+        res.maybe_color = vec4<f32>(0.0, 0.0, 0.0, 0.0);
 
         return res; 
     }
