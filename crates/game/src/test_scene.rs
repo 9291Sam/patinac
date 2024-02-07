@@ -20,33 +20,33 @@ impl TestScene
         let voxels = gfx::parallax_raymarched::ParallaxRaymarched::new_cube(
             game.get_renderer(),
             gfx::Transform {
-                translation: gfx::Vec3::new(0.0, 2.0, 0.0),
-                scale: gfx::Vec3::repeat(3.0),
+                translation: gfx::Vec3::new(0.0, 0.0, 0.0),
+                scale: gfx::Vec3::repeat(10.0),
                 ..Default::default()
             }
         );
 
-        objs.push(gfx::parallax_raymarched::ParallaxRaymarched::new_cube(
-            game.get_renderer(),
-            gfx::Transform {
-                translation: gfx::Vec3::new(10.1, 2.0, 0.0),
-                scale: gfx::Vec3::repeat(4.0),
-                ..Default::default()
-            }
-        ));
+        // objs.push(gfx::parallax_raymarched::ParallaxRaymarched::new_cube(
+        //     game.get_renderer(),
+        //     gfx::Transform {
+        //         translation: gfx::Vec3::new(10.1, 2.0, 0.0),
+        //         scale: gfx::Vec3::repeat(4.0),
+        //         ..Default::default()
+        //     }
+        // ));
 
-        objs.push(gfx::parallax_raymarched::ParallaxRaymarched::new_cube(
-            game.get_renderer(),
-            gfx::Transform {
-                translation: gfx::Vec3::new(-8.0, 2.0, 12.0),
-                scale: gfx::Vec3::repeat(5.99),
-                ..Default::default()
-            }
-        ));
+        // objs.push(gfx::parallax_raymarched::ParallaxRaymarched::new_cube(
+        //     game.get_renderer(),
+        //     gfx::Transform {
+        //         translation: gfx::Vec3::new(-8.0, 2.0, 12.0),
+        //         scale: gfx::Vec3::repeat(5.99),
+        //         ..Default::default()
+        //     }
+        // ));
 
-        objs.push(
-            gfx::parallax_raymarched::ParallaxRaymarched::new_camera_tracked(game.get_renderer())
-        );
+        // objs.push(
+        //     gfx::parallax_raymarched::ParallaxRaymarched::new_camera_tracked(game.
+        // get_renderer()) );
 
         for x in -5..=5
         {
@@ -117,22 +117,23 @@ impl Entity for TestScene
 
         //     let quat = guard.rotation
         //         * *gfx::UnitQuaternion::from_axis_angle(
-        //           &gfx::Transform::global_up_vector(), 1.0 * game.get_delta_time()
+        //           &gfx::Transform::global_up_vector(), 1.0 *
+        //           game.get_delta_time()
         //         );
 
         //     guard.rotation = quat.normalize();
         // }
 
-        {
-            let mut guard = self.voxels.transform.lock().unwrap();
+        // {
+        //     let mut guard = self.voxels.transform.lock().unwrap();
 
-            let quat = guard.rotation
-                * *gfx::UnitQuaternion::from_axis_angle(
-                    &gfx::Transform::global_up_vector(),
-                    -1.0 * game.get_delta_time()
-                );
+        //     let quat = guard.rotation
+        //         * *gfx::UnitQuaternion::from_axis_angle(
+        //           &gfx::Transform::global_up_vector(), -1.0 *
+        //           game.get_delta_time()
+        //         );
 
-            guard.rotation = quat.normalize();
-        }
+        //     guard.rotation = quat.normalize();
+        // }
     }
 }
