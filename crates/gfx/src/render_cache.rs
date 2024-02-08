@@ -21,7 +21,7 @@ pub enum PipelineType
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash, EnumIter)]
 pub enum BindGroupType
 {
-    GlobalCamera,
+    GlobalData,
     BrickMap,
     FlatSimpleTexture,
     LitSimpleTexture
@@ -41,11 +41,15 @@ impl RenderCache
             .map(|bind_group_type| {
                 let new_bind_group_layout = match bind_group_type
                 {
-                    BindGroupType::GlobalCamera =>
+                    BindGroupType::GlobalData =>
                     {
                         device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                            label:   Some("GlobalCamera"),
-                            entries: &[]
+                            label:   Some("GlobalData"),
+                            entries: &[
+                                // camera
+                                // projection matricies
+                                // depth buffer
+                            ]
                         })
                     }
                     BindGroupType::BrickMap =>
