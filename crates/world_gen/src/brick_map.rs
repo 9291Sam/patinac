@@ -2,6 +2,7 @@ use std::array::from_fn;
 use std::num::{NonZeroU32, NonZeroUsize};
 use std::sync::Arc;
 
+use gfx::any;
 use wgpu::util::DeviceExt;
 
 use crate::*;
@@ -12,6 +13,8 @@ struct Brick
     bricks: [[[super::Voxel; Self::SIDE_LENGTH_VOXELS as usize]; Self::SIDE_LENGTH_VOXELS as usize];
         Self::SIDE_LENGTH_VOXELS as usize]
 }
+
+// const _: () = assert_eq!(std::mem::size_of::<Brick>(), 1024);
 
 impl Brick
 {
@@ -32,6 +35,11 @@ impl Brick
         Brick {
             bricks: from_fn(|x| from_fn(|y| from_fn(|z| fill_func(x, y, z))))
         }
+    }
+
+    pub fn set(&mut self, local_pos: gfx::U64Vec3, voxel: Voxel)
+    {
+        self.bricks[local_pos.x as usize][local_pos.y as usize][local_pos.z as usize] = voxel;
     }
 }
 
@@ -60,10 +68,21 @@ impl BrickMap
     pub fn set_voxel(&mut self, voxel: Voxel, position: gfx::I64Vec3)
     {
         let div = position.component_div(&gfx::I64Vec3::repeat(Brick::SIDE_LENGTH_VOXELS));
-        let modulo = gfx::modf_vec(&position, &gfx::I64Vec3::repeat(Brick::SIDE_LENGTH_VOXELS));
+        // let modulo = gfx::modf_vec(&position,
+        // &gfx::I64Vec3::repeat(Brick::SIDE_LENGTH_VOXELS));
 
-        // This feels hacky...
-        let start_of_array: isize = self.tracking_array.as_ptr() as isize;
+        let modulo = position.zip_map(&gfx::I64Vec3::repeat(Brick::SIDE_LENGTH_VOXELS), |l, r| {
+            l.rem_euclid(r)
+        });
+
+        if modulo.x < 0 || modulo.y < 0 || modulo.z < 0
+        {
+            log::warn!("modulo returned negative! {position} {modulo}");
+        }
+
+        let head_tracking_array: *const Option<NonZeroU32> =
+            self.tracking_array.as_ptr() as *const Option<NonZeroU32>;
+
         let brick_of_voxel: &mut Option<NonZeroU32> = &mut self.tracking_array
             [TryInto::<usize>::try_into(div.x + Self::SIDE_LENGTH_BRICKS / 2).unwrap()]
             [TryInto::<usize>::try_into(div.x + Self::SIDE_LENGTH_BRICKS / 2).unwrap()]
@@ -71,72 +90,57 @@ impl BrickMap
 
         match brick_of_voxel
         {
+            // The brick has already been mapped, we just need to write to it
             Some(brick_ptr) =>
             {
-                let brick_size: u64 = std::mem::size_of::<Brick>() as u64;
-                let brick_addr = brick_size * brick_ptr.get() as u64;
-                let brick_range = brick_addr..(brick_addr + brick_size);
+                let brick_offset_in_buffer =
+                    brick_ptr.get() as u64 * std::mem::size_of::<Brick>() as u64;
+                let brick_range = brick_offset_in_buffer
+                    ..(brick_offset_in_buffer + std::mem::size_of::<Brick>() as u64);
 
-                let voxel_size: u64 = std::mem::size_of::<Voxel>() as u64;
-                let voxel_addr =
-                    ((voxel_size * voxel_size * TryInto::<u64>::try_into(modulo.x).unwrap())
-                        + (voxel_size * TryInto::<u64>::try_into(modulo.y).unwrap())
-                        + (TryInto::<u64>::try_into(modulo.z).unwrap()))
-                        * voxel_size;
-                let voxel_range = voxel_addr..(voxel_addr + voxel_size);
+                let ptr = self
+                    .brick_buffer
+                    .slice(brick_range)
+                    .get_mapped_range_mut()
+                    .as_mut_ptr() as *mut Brick;
 
-                let closure_buffer = self.brick_buffer.clone();
-
-                self.brick_buffer.slice(brick_range.clone()).map_async(
-                    wgpu::MapMode::Write,
-                    move |map_result| {
-                        map_result.unwrap();
-
-                        let ptr: *mut Voxel = closure_buffer
-                            .slice(voxel_range)
-                            .get_mapped_range_mut()
-                            .as_mut_ptr()
-                            as *mut Voxel;
-
-                        unsafe { ptr.write(voxel) };
-
-                        log::info!("Wrote Voxel {voxel:?} @ {position}")
-                    }
-                )
+                Brick::set(
+                    unsafe { &mut *ptr },
+                    gfx::U64Vec3::new(modulo.x as u64, modulo.y as u64, modulo.z as u64),
+                    voxel
+                );
             }
             None =>
             {
-                let new_brick: u32 =
+                let new_brick_ptr = NonZeroU32::new(
                     TryInto::<u32>::try_into(self.brick_allocator.allocate().unwrap().get())
-                        .unwrap();
+                        .unwrap()
+                )
+                .unwrap();
 
-                *brick_of_voxel = NonZeroU32::new(new_brick);
+                // Update CPU side
+                *brick_of_voxel = Some(new_brick_ptr);
 
-                let brick_ptr: isize = brick_of_voxel as *mut _ as isize;
+                let tail_tracking_array = brick_of_voxel as *const Option<NonZeroU32>;
 
-                let offset_into_buffer: isize = brick_ptr - start_of_array;
-                let unsigned_offset: u64 = offset_into_buffer.try_into().unwrap();
+                let offset_unaligned: u64 = TryInto::<u64>::try_into(unsafe {
+                    tail_tracking_array.byte_offset_from(head_tracking_array)
+                })
+                .unwrap();
 
-                let closure_buffer = self.tracking_buffer.clone();
+                let offset_aligned = (offset_unaligned / 8) * 8;
+                let forward_offset = offset_unaligned.rem_euclid(8) as usize;
 
-                let brick_ptr_range = unsigned_offset
-                    ..(unsigned_offset + std::mem::size_of::<Option<NonZeroU32>>() as u64);
+                let ptr = self
+                    .tracking_buffer
+                    .slice(
+                        offset_aligned
+                            ..(offset_aligned + std::mem::size_of::<Option<NonZeroU32>>() as u64)
+                    )
+                    .get_mapped_range_mut()
+                    .as_mut_ptr() as *mut Option<NonZeroU32>;
 
-                self.tracking_buffer
-                    .slice(brick_ptr_range.clone())
-                    .map_async(wgpu::MapMode::Write, move |map_result| {
-                        map_result.unwrap();
-
-                        let ptr = closure_buffer
-                            .slice(brick_ptr_range)
-                            .get_mapped_range_mut()
-                            .as_mut_ptr()
-                            as *mut Option<NonZeroU32>;
-
-                        unsafe { ptr.write(Some(NonZeroU32::new(new_brick).unwrap())) };
-
-                        log::info!("Wrote Voxel {voxel:?} @ {position}")
-                    });
+                unsafe { ptr.byte_add(forward_offset).write(Some(new_brick_ptr)) };
 
                 // recurse and call the actual set method
                 self.set_voxel(voxel, position);

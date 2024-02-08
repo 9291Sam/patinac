@@ -1,6 +1,6 @@
 use strum::{EnumIter, IntoEnumIterator};
 
-#[repr(u16)]
+#[repr(u32)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Default, EnumIter)]
 pub enum Voxel
 {

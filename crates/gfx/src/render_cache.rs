@@ -188,7 +188,9 @@ impl RenderCache
                     {
                         device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                             label:                Some("Parallax Raymarched Pipeline Layout"),
-                            bind_group_layouts:   &[],
+                            bind_group_layouts:   &[bind_group_layout_cache
+                                .get(&BindGroupType::BrickMap)
+                                .unwrap()],
                             push_constant_ranges: &[wgpu::PushConstantRange {
                                 stages: wgpu::ShaderStages::VERTEX_FRAGMENT,
                                 range:  0..(std::mem::size_of::<

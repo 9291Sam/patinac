@@ -22,12 +22,29 @@ impl TestScene
         let mut cube: Option<Arc<gfx::lit_textured::LitTextured>> = None;
 
         let (
-            world,
+            mut world,
             BrickMapBuffers {
                 tracking_buffer,
                 brick_buffer
             }
         ) = world_gen::BrickMap::new(game.get_renderer());
+
+        for x in -64..64
+        {
+            for y in -64..64
+            {
+                for z in -64..64
+                {
+                    if x == 0
+                    {
+                        world.set_voxel(world_gen::Voxel::Green, gfx::I64Vec3::new(x, y, z));
+                    }
+                }
+            }
+        }
+
+        tracking_buffer.unmap();
+        brick_buffer.unmap();
 
         let bind_group = Arc::new(
             game.get_renderer()

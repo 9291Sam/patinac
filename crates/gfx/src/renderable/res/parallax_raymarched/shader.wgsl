@@ -40,6 +40,14 @@ struct FragmentOutput
    @location(0) color: vec4<f32>
 }
 
+struct Brick
+{
+    data: array<array<array<u32, 8>, 8>, 8>,
+}
+
+@group(0) @binding(0) var<storage> tracking_array: array<u32>;
+@group(0) @binding(1) var<storage> brick_array: array<Brick>;
+
 @fragment
 fn fs_main(in: VertexOutput) -> FragmentOutput
 {
@@ -176,6 +184,27 @@ fn sdBox(p: vec3<f32>, b: vec3<f32>) -> f32 {
 // Function to check if a voxel exists at a given position
 fn getVoxel(c: vec3<i32>) -> bool
 {
+    // if (any(c < vec3<i32>(-64)) || any(c > vec3<i32>(63)))
+    // {
+    //     return false;
+    // }
+
+    // let b_idx: vec3<u32> = vec3<u32>((c / vec3<i32>(8)) + vec3<i32>(8));
+
+    // let maybe_brick_ptr = tracking_array[64 * b_idx.x + 8 * b_idx.y + b_idx.z];
+
+    // if (maybe_brick_ptr == 0)
+    // {
+    //     return false;
+    // }
+
+    // if (brick_array[maybe_brick_ptr].data[c.x % 8][c.y % 8][c.z % 8] != 0)
+    // {
+    //     return true;
+    // }
+
+    // return false;
+
     if (sqrt(dot(vec3<f32>(c), vec3<f32>(c))) > 27.0)
     {
         return false;

@@ -162,7 +162,7 @@ impl gfx::Recordable for ParallaxRaymarched
 
     fn get_bind_groups(&self) -> [Option<&'_ wgpu::BindGroup>; 4]
     {
-        [None; 4]
+        [Some(&*self.brick_bind_group), None, None, None]
     }
 
     fn should_render(&self) -> bool
