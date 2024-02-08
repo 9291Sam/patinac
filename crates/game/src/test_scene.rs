@@ -77,7 +77,8 @@ impl TestScene
                 scale: gfx::Vec3::repeat(1.25),
                 ..Default::default()
             },
-            bind_group.clone()
+            bind_group.clone(),
+            false
         );
 
         // objs.push(gfx::parallax_raymarched::ParallaxRaymarched::new_cube(
@@ -96,7 +97,8 @@ impl TestScene
                 scale: gfx::Vec3::repeat(4.0),
                 ..Default::default()
             },
-            bind_group.clone()
+            bind_group.clone(),
+            false
         ));
 
         objs.push(gfx::parallax_raymarched::ParallaxRaymarched::new_cube(
@@ -106,12 +108,16 @@ impl TestScene
                 scale: gfx::Vec3::repeat(5.99),
                 ..Default::default()
             },
-            bind_group.clone()
+            bind_group.clone(),
+            false
         ));
 
-        // objs.push(
-        //     gfx::parallax_raymarched::ParallaxRaymarched::new_camera_tracked(game.
-        // get_renderer()) );
+        objs.push(
+            gfx::parallax_raymarched::ParallaxRaymarched::new_camera_tracked(
+                game.get_renderer(),
+                bind_group.clone()
+            )
+        );
 
         for x in -5..=5
         {
