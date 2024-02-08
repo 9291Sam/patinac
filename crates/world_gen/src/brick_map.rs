@@ -85,8 +85,8 @@ impl BrickMap
 
         let brick_of_voxel: &mut Option<NonZeroU32> = &mut self.tracking_array
             [TryInto::<usize>::try_into(div.x + Self::SIDE_LENGTH_BRICKS / 2).unwrap()]
-            [TryInto::<usize>::try_into(div.x + Self::SIDE_LENGTH_BRICKS / 2).unwrap()]
-            [TryInto::<usize>::try_into(div.x + Self::SIDE_LENGTH_BRICKS / 2).unwrap()];
+            [TryInto::<usize>::try_into(div.y + Self::SIDE_LENGTH_BRICKS / 2).unwrap()]
+            [TryInto::<usize>::try_into(div.z + Self::SIDE_LENGTH_BRICKS / 2).unwrap()];
 
         match brick_of_voxel
         {
@@ -118,6 +118,8 @@ impl BrickMap
                 )
                 .unwrap();
 
+                // log::info!("Allocated new brick | {} @ {:?}", new_brick_ptr.get(), div);
+
                 // Update CPU side
                 *brick_of_voxel = Some(new_brick_ptr);
 
@@ -148,9 +150,23 @@ impl BrickMap
         }
     }
 
+    pub fn debug_print(&self)
+    {
+        for xyz in self.tracking_array.iter()
+        {
+            for yz in xyz.iter()
+            {
+                for z in yz.iter()
+                {
+                    log::info!("Id: {:?}", z);
+                }
+            }
+        }
+    }
+
     pub fn new(renderer: &gfx::Renderer) -> (Self, BrickMapBuffers)
     {
-        let temp_fixed_size: u64 = 4096;
+        let temp_fixed_size: u64 = 8192;
 
         let this = Self {
             tracking_array: vec![

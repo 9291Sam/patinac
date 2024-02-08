@@ -36,7 +36,7 @@ impl TestScene
             {
                 for z in -64..64
                 {
-                    if rand::thread_rng().gen::<f32>() > 0.5
+                    if rand::thread_rng().gen::<f32>() > 0.99
                     {
                         world.set_voxel(world_gen::Voxel::Green, gfx::I64Vec3::new(x, y, z));
                     }
@@ -46,6 +46,8 @@ impl TestScene
 
         tracking_buffer.unmap();
         brick_buffer.unmap();
+
+        // world.debug_print();
 
         let bind_group = Arc::new(
             game.get_renderer()
