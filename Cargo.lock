@@ -545,6 +545,7 @@ dependencies = [
  "log",
  "rayon",
  "util",
+ "world_gen",
 ]
 
 [[package]]

@@ -1,11 +1,14 @@
 use std::sync::Arc;
 
+use world_gen::BrickMapBuffers;
+
 use super::Entity;
 
 #[derive(Debug)]
 pub struct TestScene
 {
     _objs:  Vec<Arc<dyn gfx::Recordable>>,
+    world:  world_gen::BrickMap,
     // cube:   Arc<gfx::lit_textured::LitTextured>,
     voxels: Arc<gfx::parallax_raymarched::ParallaxRaymarched>,
     id:     util::Uuid
@@ -17,6 +20,17 @@ impl TestScene
     {
         let mut objs: Vec<Arc<dyn gfx::Recordable>> = Vec::new();
         let mut cube: Option<Arc<gfx::lit_textured::LitTextured>> = None;
+
+        let (
+            world,
+            BrickMapBuffers {
+                tracking_buffer,
+                brick_buffer
+            }
+        ) = world_gen::BrickMap::new(game.get_renderer());
+
+        let bind_group = todo!();
+
         let voxels = gfx::parallax_raymarched::ParallaxRaymarched::new_cube(
             game.get_renderer(),
             gfx::Transform {
@@ -91,7 +105,7 @@ impl TestScene
 
         let this = Arc::new(TestScene {
             _objs: objs,
-            // cube: cube.unwrap(),
+            world,
             voxels,
             id: util::Uuid::new()
         });

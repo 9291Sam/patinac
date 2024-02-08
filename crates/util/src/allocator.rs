@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 use std::num::NonZeroUsize;
 
+#[derive(Debug)]
 pub struct FreelistAllocator
 {
     free_blocks:     HashSet<NonZeroUsize>,
