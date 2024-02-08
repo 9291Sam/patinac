@@ -44,65 +44,34 @@ struct FragmentOutput
 fn fs_main(in: VertexOutput) -> FragmentOutput
 {
     // return vec4<f32>(0.0);
-    let ro = in.world_pos + 0.5;
-    let rd = normalize(in.world_pos - push_constants.camera_pos);
-    // ro.xz = rot * ro.xz;
-    // rd.xz = rot * rd.xz;
+    // let ro = in.world_pos + 0.5;
+    // let rd = normalize(in.world_pos - push_constants.camera_pos);
+    // // ro.xz = rot * ro.xz;
+    // // rd.xz = rot * rd.xz;
     
-    var pos = ro;
-    var cell = floor(ro);
+    // var pos = ro;
+    // var cell = floor(ro);
     
-    var nextEdge = vec3<f32>(rd > vec3<f32>(0.0));
-    var steps = (nextEdge - fract(pos)) / rd;
-    var originalStepSizes = abs(1.0 / rd);
-    var rdSign = sign(rd);
+    // var nextEdge = vec3<f32>(rd > vec3<f32>(0.0));
+    // var steps = (nextEdge - fract(pos)) / rd;
+    // var originalStepSizes = abs(1.0 / rd);
+    // var rdSign = sign(rd);
     
-    var i = 0;
-    for (; i < MAX_RAY_STEPS; i++) {
-        let stepSize = min(steps.x, min(steps.y, steps.z));
-        pos += rd * stepSize;
-        let stepAxis = vec3<f32>(steps <= vec3(stepSize));
-        cell += stepAxis * rdSign;
-        steps += originalStepSizes * stepAxis - stepSize;
+    // var i = 0;
+    // for (; i < MAX_RAY_STEPS; i++) {
+    //     let stepSize = min(steps.x, min(steps.y, steps.z));
+    //     pos += rd * stepSize;
+    //     let stepAxis = vec3<f32>(steps <= vec3(stepSize));
+    //     cell += stepAxis * rdSign;
+    //     steps += originalStepSizes * stepAxis - stepSize;
     
-        if (getVoxel(vec3<i32>(cell))) {
-            // return vec4<f32>(get_random_color(cell), 1.0);
-            // // vec3 normal = stepAxis * rdSign;
-            // // fragColor.rgb = vec3(dot(normal, normalize(vec3(1, 3, 2)))) * 0.5 + 0.5;
-            // // return;
-            break;
-        }
-    }
-
-    if (i == MAX_RAY_STEPS)
-    {
-        discard;
-    }
-
-    
-    // let rayDir: vec3<f32> = (in.world_pos - push_constants.camera_pos );
-    // var rayPos: vec3<f32> = in.world_pos + 0.5;
-
-    // var mapPos: vec3<i32> = vec3<i32>(floor(rayPos + vec3<f32>(0.0)));
-
-    // let deltaDist: vec3<f32> = abs(vec3<f32>(length(rayDir)) / rayDir);
-
-    // let rayStep: vec3<i32> = vec3<i32>(sign(rayDir));
-
-    // var sideDist: vec3<f32> =
-    //     (sign(rayDir) * (vec3<f32>(mapPos) - rayPos) + (sign(rayDir) * 0.5) + 0.5) * deltaDist;
-
-    // var mask: vec3<bool> = vec3<bool>(false, false, false);
-
-    // var i: i32 = 0;
-    // for (; i < MAX_RAY_STEPS; i = i + 1) {
-    //     if (getVoxel(mapPos)) {
+    //     if (getVoxel(vec3<i32>(cell))) {
+    //         // return vec4<f32>(get_random_color(cell), 1.0);
+    //         // // vec3 normal = stepAxis * rdSign;
+    //         // // fragColor.rgb = vec3(dot(normal, normalize(vec3(1, 3, 2)))) * 0.5 + 0.5;
+    //         // // return;
     //         break;
     //     }
-
-    //     mask = sideDist.xyz <= min(sideDist.yzx, sideDist.zxy);
-    //     sideDist = sideDist + vec3<f32>(mask) * deltaDist;
-    //     mapPos = mapPos + vec3<i32>(vec3<f32>(mask)) * rayStep;
     // }
 
     // if (i == MAX_RAY_STEPS)
@@ -110,48 +79,79 @@ fn fs_main(in: VertexOutput) -> FragmentOutput
     //     discard;
     // }
 
+    
+    let rayDir: vec3<f32> = (in.world_pos - push_constants.camera_pos );
+    var rayPos: vec3<f32> = in.world_pos + 0.5;
+
+    var mapPos: vec3<i32> = vec3<i32>(floor(rayPos + vec3<f32>(0.0)));
+
+    let deltaDist: vec3<f32> = abs(vec3<f32>(length(rayDir)) / rayDir);
+
+    let rayStep: vec3<i32> = vec3<i32>(sign(rayDir));
+
+    var sideDist: vec3<f32> =
+        (sign(rayDir) * (vec3<f32>(mapPos) - rayPos) + (sign(rayDir) * 0.5) + 0.5) * deltaDist;
+
+    var mask: vec3<bool> = vec3<bool>(false, false, false);
+
+    var i: i32 = 0;
+    for (; i < MAX_RAY_STEPS; i = i + 1) {
+        if (getVoxel(mapPos)) {
+            break;
+        }
+
+        mask = sideDist.xyz <= min(sideDist.yzx, sideDist.zxy);
+        sideDist = sideDist + vec3<f32>(mask) * deltaDist;
+        mapPos = mapPos + vec3<i32>(vec3<f32>(mask)) * rayStep;
+    }
+
+    if (i == MAX_RAY_STEPS)
+    {
+        discard;
+    }
+
     var out: FragmentOutput;
 
-    out.color = vec4<f32>(get_random_color(vec3<f32>(cell)), 1.0);
-    let strike = pos - (-rd * 0.5);
+    out.color = vec4<f32>(get_random_color(vec3<f32>(mapPos)), 1.0);
+    // let strike = pos; // + (-rd * 0.5);
 
-    // out.color = vec4<f32>(pos - 0.5, 1.0);
-    let depth_intercalc = push_constants.vp * vec4<f32>(strike, 1.0);
-    out.depth = depth_intercalc.z / depth_intercalc.w;
+    // // out.color = vec4<f32>(pos - 0.5, 1.0);
+    // let depth_intercalc = push_constants.vp * vec4<f32>(strike, 1.0);
+    // out.depth = depth_intercalc.z / depth_intercalc.w;
 
 
 
 
     // out.depth 
 
-    // var c: Cube;
-    // c.center = vec3<f32>(mapPos) + 0.5;
-    // c.edge_length = 1.0;
+    var c: Cube;
+    c.center = vec3<f32>(mapPos) + 0.5;
+    c.edge_length = 1.0;
 
-    // var r: Ray;
-    // r.origin = rayPos;
-    // r.direction = rayDir;
+    var r: Ray;
+    r.origin = rayPos;
+    r.direction = rayDir;
     
-    // let res = Cube_tryIntersect(c, r);
+    let res = Cube_tryIntersect(c, r);
 
-    // if (!res.intersection_occurred)
-    // {
-    //     out.color = ERROR_COLOR;
-    //     return out;
-    // }
+    if (!res.intersection_occurred)
+    {
+        out.color = ERROR_COLOR;
+        return out;
+    }
 
-    // let strike_pos_world: vec3<f32> = res.maybe_hit_point - 0.5;
+    let strike_pos_world: vec3<f32> = res.maybe_hit_point - 0.5;
     
-    // let depth_intercalc = push_constants.mvp * vec4<f32>(strike_pos_world, 1.0);
-    // let maybe_depth = depth_intercalc.z / depth_intercalc.w;
+    let depth_intercalc = push_constants.vp * vec4<f32>(strike_pos_world, 1.0);
+    let maybe_depth = depth_intercalc.z / depth_intercalc.w;
 
-    // if (maybe_depth > 1.0)
-    // {
-    //     out.color = ERROR_COLOR;
-    //     return out;
-    // }
+    if (maybe_depth > 1.0)
+    {
+        out.color = ERROR_COLOR;
+        return out;
+    }
 
-    // out.depth = maybe_depth;
+    out.depth = maybe_depth;
 
     return out;
 }
