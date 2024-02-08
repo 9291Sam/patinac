@@ -2410,7 +2410,10 @@ name = "world_gen"
 version = "0.0.0"
 dependencies = [
  "bytemuck",
+ "gfx",
  "strum",
+ "util",
+ "wgpu",
 ]
 
 [[package]]
