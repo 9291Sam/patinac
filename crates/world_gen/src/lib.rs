@@ -1,3 +1,5 @@
+#![feature(new_uninit)]
+
 mod brick_map;
 mod voxel;
 

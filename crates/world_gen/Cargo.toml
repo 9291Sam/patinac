@@ -10,3 +10,4 @@ strum = {version = "0.26", features = ["derive"] }
 util = {path = "../util"}
 gfx = {path = "../gfx"}
 wgpu = "0.19"
+log = { version = "0.4.20", features = ["std"]}

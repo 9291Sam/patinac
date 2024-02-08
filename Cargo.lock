@@ -2411,6 +2411,7 @@ version = "0.0.0"
 dependencies = [
  "bytemuck",
  "gfx",
+ "log",
  "strum",
  "util",
  "wgpu",
