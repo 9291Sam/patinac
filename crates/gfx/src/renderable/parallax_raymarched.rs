@@ -36,6 +36,7 @@ pub(crate) struct PushConstants
 {
     mvp:        glm::Mat4,
     model:      glm::Mat4,
+    vp:         glm::Mat4,
     camera_pos: glm::Vec3
 }
 
@@ -184,6 +185,12 @@ impl gfx::Recordable for ParallaxRaymarched
                 bytes_of(&PushConstants {
                     mvp:        camera.get_perspective(renderer, &guard),
                     model:      guard.as_model_matrix(),
+                    vp:         camera.get_perspective(
+                        renderer,
+                        &Transform {
+                            ..Default::default()
+                        }
+                    ),
                     camera_pos: camera.get_position()
                 })
             );
