@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::num::{NonZeroU32, NonZeroU64};
 
 use nalgebra_glm as glm;
 use strum::{EnumIter, IntoEnumIterator};
@@ -21,6 +22,7 @@ pub enum PipelineType
 pub enum BindGroupType
 {
     GlobalCamera,
+    BrickMap,
     FlatSimpleTexture,
     LitSimpleTexture
 }
@@ -44,6 +46,38 @@ impl RenderCache
                         device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                             label:   Some("GlobalCamera"),
                             entries: &[]
+                        })
+                    }
+                    BindGroupType::BrickMap =>
+                    {
+                        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                            label:   Some("Brick Map Bind Group Layout"),
+                            entries: &[
+                                wgpu::BindGroupLayoutEntry {
+                                    binding:    0,
+                                    visibility: wgpu::ShaderStages::FRAGMENT,
+                                    ty:         wgpu::BindingType::Buffer {
+                                        ty:                 wgpu::BufferBindingType::Storage {
+                                            read_only: true
+                                        },
+                                        has_dynamic_offset: false,
+                                        min_binding_size:   None
+                                    },
+                                    count:      None
+                                },
+                                wgpu::BindGroupLayoutEntry {
+                                    binding:    1,
+                                    visibility: wgpu::ShaderStages::FRAGMENT,
+                                    ty:         wgpu::BindingType::Buffer {
+                                        ty:                 wgpu::BufferBindingType::Storage {
+                                            read_only: true
+                                        },
+                                        has_dynamic_offset: false,
+                                        min_binding_size:   None
+                                    },
+                                    count:      None
+                                }
+                            ]
                         })
                     }
                     BindGroupType::FlatSimpleTexture =>

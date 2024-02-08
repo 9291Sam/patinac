@@ -29,15 +29,35 @@ impl TestScene
             }
         ) = world_gen::BrickMap::new(game.get_renderer());
 
-        let bind_group = todo!();
+        let bind_group = Arc::new(
+            game.get_renderer()
+                .create_bind_group(&wgpu::BindGroupDescriptor {
+                    label:   Some("Brick Map Bind Group"),
+                    layout:  game
+                        .get_renderer()
+                        .render_cache
+                        .lookup_bind_group_layout(gfx::BindGroupType::BrickMap),
+                    entries: &[
+                        wgpu::BindGroupEntry {
+                            binding:  0,
+                            resource: tracking_buffer.as_entire_binding()
+                        },
+                        wgpu::BindGroupEntry {
+                            binding:  1,
+                            resource: brick_buffer.as_entire_binding()
+                        }
+                    ]
+                })
+        );
 
         let voxels = gfx::parallax_raymarched::ParallaxRaymarched::new_cube(
             game.get_renderer(),
             gfx::Transform {
                 translation: gfx::Vec3::new(0.0, 0.0, 0.0),
-                scale: gfx::Vec3::repeat(2.0),
+                scale: gfx::Vec3::repeat(1.25),
                 ..Default::default()
-            }
+            },
+            bind_group.clone()
         );
 
         // objs.push(gfx::parallax_raymarched::ParallaxRaymarched::new_cube(
@@ -55,7 +75,8 @@ impl TestScene
                 translation: gfx::Vec3::new(10.1, 2.0, 0.0),
                 scale: gfx::Vec3::repeat(4.0),
                 ..Default::default()
-            }
+            },
+            bind_group.clone()
         ));
 
         objs.push(gfx::parallax_raymarched::ParallaxRaymarched::new_cube(
@@ -64,7 +85,8 @@ impl TestScene
                 translation: gfx::Vec3::new(-8.0, 2.0, 12.0),
                 scale: gfx::Vec3::repeat(5.99),
                 ..Default::default()
-            }
+            },
+            bind_group.clone()
         ));
 
         // objs.push(

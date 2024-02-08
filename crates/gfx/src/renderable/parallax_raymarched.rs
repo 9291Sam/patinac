@@ -46,6 +46,7 @@ pub struct ParallaxRaymarched
     uuid:              util::Uuid,
     vertex_buffer:     wgpu::Buffer,
     index_buffer:      wgpu::Buffer,
+    brick_bind_group:  Arc<wgpu::BindGroup>,
     number_of_indices: u16,
     pub transform:     Mutex<gfx::Transform>,
     camera_track:      bool
@@ -53,48 +54,60 @@ pub struct ParallaxRaymarched
 
 impl ParallaxRaymarched
 {
-    pub fn new_camera_tracked(renderer: &gfx::Renderer) -> Arc<Self>
+    // pub fn new_camera_tracked(renderer: &gfx::Renderer) -> Arc<Self>
+    // {
+    //     // TODO: bad!
+    //     let vertex_buffer = renderer.create_buffer_init(&BufferInitDescriptor {
+    //         label:    Some("Parallax Raymarched Vertex Buffer"),
+    //         contents: cast_slice(&CUBE_VERTICES),
+    //         usage:    wgpu::BufferUsages::VERTEX
+    //     });
+
+    //     let index_buffer = renderer.create_buffer_init(&BufferInitDescriptor {
+    //         label:    Some("Parallax Raymarched Index Buffer"),
+    //         contents: cast_slice(&CUBE_INDICES),
+    //         usage:    wgpu::BufferUsages::INDEX
+    //     });
+
+    //     let this = Arc::new(Self {
+    //         uuid: util::Uuid::new(),
+    //         vertex_buffer,
+    //         index_buffer,
+    //         number_of_indices: CUBE_INDICES.len().try_into().unwrap(),
+    //         transform: Mutex::new(Transform {
+    //             scale: glm::Vec3::repeat(0.19),
+    //             ..Default::default()
+    //         }),
+    //         camera_track: true,
+    //         brick_bind_group: todo!()
+    //     });
+
+    //     renderer.register(this.clone());
+
+    //     this
+    // }
+
+    pub fn new_cube(
+        renderer: &gfx::Renderer,
+        transform: gfx::Transform,
+        brick_buffer_bind_group: Arc<wgpu::BindGroup>
+    ) -> Arc<Self>
     {
-        // TODO: bad!
-        let vertex_buffer = renderer.create_buffer_init(&BufferInitDescriptor {
-            label:    Some("Parallax Raymarched Vertex Buffer"),
-            contents: cast_slice(&CUBE_VERTICES),
-            usage:    wgpu::BufferUsages::VERTEX
-        });
-
-        let index_buffer = renderer.create_buffer_init(&BufferInitDescriptor {
-            label:    Some("Parallax Raymarched Index Buffer"),
-            contents: cast_slice(&CUBE_INDICES),
-            usage:    wgpu::BufferUsages::INDEX
-        });
-
-        let this = Arc::new(Self {
-            uuid: util::Uuid::new(),
-            vertex_buffer,
-            index_buffer,
-            number_of_indices: CUBE_INDICES.len().try_into().unwrap(),
-            transform: Mutex::new(Transform {
-                scale: glm::Vec3::repeat(0.19),
-                ..Default::default()
-            }),
-            camera_track: true
-        });
-
-        renderer.register(this.clone());
-
-        this
-    }
-
-    pub fn new_cube(renderer: &gfx::Renderer, transform: gfx::Transform) -> Arc<Self>
-    {
-        Self::new(renderer, transform, &CUBE_VERTICES, &CUBE_INDICES)
+        Self::new(
+            renderer,
+            transform,
+            &CUBE_VERTICES,
+            &CUBE_INDICES,
+            brick_buffer_bind_group
+        )
     }
 
     pub fn new(
         renderer: &gfx::Renderer,
         transform: gfx::Transform,
         vertices: &[Vertex],
-        indices: &[u16]
+        indices: &[u16],
+        brick_buffer_bind_group: Arc<wgpu::BindGroup>
     ) -> Arc<Self>
     {
         let vertex_buffer = renderer.create_buffer_init(&BufferInitDescriptor {
@@ -115,7 +128,8 @@ impl ParallaxRaymarched
             index_buffer,
             number_of_indices: indices.len().try_into().unwrap(),
             transform: Mutex::new(transform),
-            camera_track: false
+            camera_track: false,
+            brick_bind_group: brick_buffer_bind_group
         });
 
         renderer.register(this.clone());

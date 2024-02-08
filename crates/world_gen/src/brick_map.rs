@@ -165,13 +165,13 @@ impl BrickMap
                 label:              Some("Brick Tracking storage buffer"),
                 size:               std::mem::size_of::<Option<NonZeroU32>>() as u64
                     * temp_fixed_size,
-                usage:              wgpu::BufferUsages::MAP_WRITE | wgpu::BufferUsages::STORAGE,
+                usage:              wgpu::BufferUsages::STORAGE,
                 mapped_at_creation: true
             })),
             brick_buffer:    Arc::new(renderer.create_buffer(&wgpu::BufferDescriptor {
                 label:              Some("Brick Map storage buffer"),
                 size:               std::mem::size_of::<Brick>() as u64 * temp_fixed_size,
-                usage:              wgpu::BufferUsages::MAP_WRITE | wgpu::BufferUsages::STORAGE,
+                usage:              wgpu::BufferUsages::STORAGE,
                 mapped_at_creation: true
             }))
         };

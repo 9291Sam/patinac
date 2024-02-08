@@ -132,7 +132,7 @@ impl Renderer
                         ..Default::default()
                     }
                 },
-                None // Trace path
+                None
             )
             .block_on()
             .unwrap();

@@ -545,6 +545,7 @@ dependencies = [
  "log",
  "rayon",
  "util",
+ "wgpu",
  "world_gen",
 ]
 
