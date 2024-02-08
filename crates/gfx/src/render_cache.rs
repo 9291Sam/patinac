@@ -334,7 +334,7 @@ impl RenderCache
                                     topology:           wgpu::PrimitiveTopology::TriangleList,
                                     strip_index_format: None,
                                     front_face:         wgpu::FrontFace::Cw,
-                                    cull_mode:          Some(wgpu::Face::Back),
+                                    cull_mode:          None,
                                     polygon_mode:       wgpu::PolygonMode::Fill,
                                     unclipped_depth:    false,
                                     conservative:       false

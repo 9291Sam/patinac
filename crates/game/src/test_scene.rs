@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use rand::Rng;
 use world_gen::BrickMapBuffers;
 
 use super::Entity;
@@ -35,7 +36,7 @@ impl TestScene
             {
                 for z in -64..64
                 {
-                    if x == 0
+                    if rand::thread_rng().gen::<f32>() > 0.5
                     {
                         world.set_voxel(world_gen::Voxel::Green, gfx::I64Vec3::new(x, y, z));
                     }

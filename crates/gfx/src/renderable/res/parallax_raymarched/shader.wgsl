@@ -184,41 +184,41 @@ fn sdBox(p: vec3<f32>, b: vec3<f32>) -> f32 {
 // Function to check if a voxel exists at a given position
 fn getVoxel(c: vec3<i32>) -> bool
 {
-    // if (any(c < vec3<i32>(-64)) || any(c > vec3<i32>(63)))
-    // {
-    //     return false;
-    // }
-
-    // let b_idx: vec3<u32> = vec3<u32>((c / vec3<i32>(8)) + vec3<i32>(8));
-
-    // let maybe_brick_ptr = tracking_array[64 * b_idx.x + 8 * b_idx.y + b_idx.z];
-
-    // if (maybe_brick_ptr == 0)
-    // {
-    //     return false;
-    // }
-
-    // if (brick_array[maybe_brick_ptr].data[c.x % 8][c.y % 8][c.z % 8] != 0)
-    // {
-    //     return true;
-    // }
-
-    // return false;
-
-    if (sqrt(dot(vec3<f32>(c), vec3<f32>(c))) > 27.0)
+    if (any(c < vec3<i32>(-64)) || any(c > vec3<i32>(63)))
     {
         return false;
     }
 
-    let mask = vec3<i32>(c == vec3<i32>(0, 0, 0));
-    if (dot(mask, mask) == 2)
+    let b_idx: vec3<u32> = vec3<u32>((c / vec3<i32>(8)) + vec3<i32>(8));
+
+    let maybe_brick_ptr = tracking_array[64 * b_idx.x + 8 * b_idx.y + b_idx.z];
+
+    if (maybe_brick_ptr == 0)
+    {
+        return false;
+    }
+
+    if (brick_array[maybe_brick_ptr].data[((c.x % 8) + 8) % 8][((c.y % 8) + 8) % 8][((c.z % 8) + 8) % 8] != 0)
     {
         return true;
     }
 
-    let p: vec3<f32> = vec3<f32>(c) + vec3<f32>(0.5);
-    let d: f32 = min(max(-sdSphere(p, 7.5), sdBox(p, vec3<f32>(6.0))), -sdSphere(p, 25.0));
-    return d < 0.0;
+    return false;
+
+    // if (sqrt(dot(vec3<f32>(c), vec3<f32>(c))) > 27.0)
+    // {
+    //     return false;
+    // }
+
+    // let mask = vec3<i32>(c == vec3<i32>(0, 0, 0));
+    // if (dot(mask, mask) == 2)
+    // {
+    //     return true;
+    // }
+
+    // let p: vec3<f32> = vec3<f32>(c) + vec3<f32>(0.5);
+    // let d: f32 = min(max(-sdSphere(p, 7.5), sdBox(p, vec3<f32>(6.0))), -sdSphere(p, 25.0));
+    // return d < 0.0;
 }
 
 fn triple32(i_x: u32) -> u32
