@@ -12,10 +12,7 @@ game = {path = "crates/game"}
 log = { version = "0.4.20", features = ["std"]}
 
 [profile.dev]
-codegen-units = 1
-incremental = false
-lto = "thin"
-# opt-level = 2
+opt-level = 2
 
 [profile.deploy]
 inherits = "release"

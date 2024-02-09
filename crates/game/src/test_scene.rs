@@ -36,14 +36,19 @@ impl TestScene
             {
                 for z in -64..64
                 {
-                    if ((x + y) / 2) == z
+                    if x == 0 || y == 0 || z == 0
                     {
                         world.set_voxel(world_gen::Voxel::Green, gfx::I64Vec3::new(x, y, z));
                     }
-                    // if rand::thread_rng().gen::<f32>() > 0.99
-                    // {
-                    // }
                 }
+            }
+        }
+
+        for x in 0..8
+        {
+            for y in 0..8
+            {
+                world.set_voxel(world_gen::Voxel::Blue, gfx::I64Vec3::new(x, 1, y))
             }
         }
 
@@ -122,37 +127,37 @@ impl TestScene
             )
         );
 
-        // for x in -5..=5
-        // {
-        //     for z in -5..=5
-        //     {
-        //         objs.push(gfx::flat_textured::FlatTextured::new(
-        //             game.get_renderer(),
-        //             gfx::Vec3::new(x as f32, 0.0, z as f32),
-        //             gfx::flat_textured::FlatTextured::PENTAGON_VERTICES,
-        //             gfx::flat_textured::FlatTextured::PENTAGON_INDICES
-        //         ));
+        for x in -5..=5
+        {
+            for z in -5..=5
+            {
+                objs.push(gfx::flat_textured::FlatTextured::new(
+                    game.get_renderer(),
+                    gfx::Vec3::new(x as f32, 0.0, z as f32),
+                    gfx::flat_textured::FlatTextured::PENTAGON_VERTICES,
+                    gfx::flat_textured::FlatTextured::PENTAGON_INDICES
+                ));
 
-        //         let a = gfx::lit_textured::LitTextured::new_cube(
-        //             game.get_renderer(),
-        //             gfx::Transform {
-        //                 translation: gfx::Vec3::new(x as f32, 4.0, z as f32),
-        //                 rotation:    *gfx::UnitQuaternion::from_axis_angle(
-        //                     &gfx::Transform::global_up_vector(),
-        //                     (x + z) as f32 / 4.0
-        //                 ),
-        //                 scale:       gfx::Vec3::repeat(0.4)
-        //             }
-        //         );
+                let a = gfx::lit_textured::LitTextured::new_cube(
+                    game.get_renderer(),
+                    gfx::Transform {
+                        translation: gfx::Vec3::new(x as f32, 4.0, z as f32),
+                        rotation:    *gfx::UnitQuaternion::from_axis_angle(
+                            &gfx::Transform::global_up_vector(),
+                            (x + z) as f32 / 4.0
+                        ),
+                        scale:       gfx::Vec3::repeat(0.4)
+                    }
+                );
 
-        //         if x == 0 && z == 0
-        //         {
-        //             cube = Some(a.clone());
-        //         }
+                if x == 0 && z == 0
+                {
+                    cube = Some(a.clone());
+                }
 
-        //         objs.push(a);
-        //     }
-        // }
+                objs.push(a);
+            }
+        }
 
         let this = Arc::new(TestScene {
             _objs: objs,
