@@ -44,13 +44,13 @@ impl TestScene
             }
         }
 
-        for x in 0..8
-        {
-            for y in 0..8
-            {
-                world.set_voxel(world_gen::Voxel::Blue, gfx::I64Vec3::new(x, 1, y))
-            }
-        }
+        // for x in 0..8
+        // {
+        //     for y in 0..8
+        //     {
+        //         world.set_voxel(world_gen::Voxel::Blue, gfx::I64Vec3::new(x, 1, y))
+        //     }
+        // }
 
         tracking_buffer.unmap();
         brick_buffer.unmap();

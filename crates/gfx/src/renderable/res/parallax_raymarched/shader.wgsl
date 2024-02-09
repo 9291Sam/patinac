@@ -189,9 +189,11 @@ fn getVoxel(c: vec3<i32>) -> bool
         return false;
     }
 
+
     let b_idx: vec3<u32> = vec3<u32>((c / vec3<i32>(8)) + vec3<i32>(8));
 
-    let maybe_brick_ptr = tracking_array[64 * b_idx.x + 8 * b_idx.y + b_idx.z];
+    let maybe_brick_ptr = tracking_array[16 * 16 * b_idx.x + 16 * b_idx.y + b_idx.z];
+
 
     if (maybe_brick_ptr == 0)
     {
