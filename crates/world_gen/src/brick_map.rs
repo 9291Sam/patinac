@@ -137,7 +137,9 @@ impl BrickMap
                     .tracking_buffer
                     .slice(
                         offset_aligned
-                            ..(offset_aligned + std::mem::size_of::<Option<NonZeroU32>>() as u64)
+                            ..(offset_aligned
+                                + std::mem::size_of::<Option<NonZeroU32>>() as u64
+                                + forward_offset as u64)
                     )
                     .get_mapped_range_mut()
                     .as_mut_ptr() as *mut Option<NonZeroU32>;
