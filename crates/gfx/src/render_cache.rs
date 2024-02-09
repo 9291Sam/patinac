@@ -45,11 +45,10 @@ impl RenderCache
                     {
                         device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                             label:   Some("GlobalData"),
-                            entries: &[
-                                // camera
-                                // projection matricies
-                                // depth buffer
-                            ]
+                            // camera
+                            // projection matricies
+                            // depth buffer
+                            entries: &[]
                         })
                     }
                     BindGroupType::BrickMap =>

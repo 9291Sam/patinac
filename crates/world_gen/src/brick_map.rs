@@ -1,5 +1,6 @@
 use std::array::from_fn;
 use std::num::{NonZeroU32, NonZeroUsize};
+use std::ops::RangeInclusive;
 use std::sync::Arc;
 
 use gfx::any;
@@ -52,23 +53,23 @@ impl Brick
 #[derive(Debug)]
 struct BrickTrackingArray
 {
-    array: Box<[[[Option<NonZeroU32>; Self::SIDE_LENGTH_BRICKS]; Self::SIDE_LENGTH_BRICKS];
-        Self::SIDE_LENGTH_BRICKS]>
+    array: Box<
+        [[[Option<NonZeroU32>; Self::SIDE_LENGTH_BRICKS as usize];
+            Self::SIDE_LENGTH_BRICKS as usize]; Self::SIDE_LENGTH_BRICKS as usize]
+    >
 }
 
 impl BrickTrackingArray
 {
-    type BrickPointer = Option<NonZeroU32>;
-
-    const SIDE_LENGTH_BRICKS: usize = 16;
+    const SIDE_LENGTH_BRICKS: u64 = 16;
 
     pub fn new() -> Self
     {
         Self {
             array: vec![
-                [[None; Self::SIDE_LENGTH_BRICKS];
-                    Self::SIDE_LENGTH_BRICKS];
-                Self::SIDE_LENGTH_BRICKS
+                [[None; Self::SIDE_LENGTH_BRICKS as usize];
+                    Self::SIDE_LENGTH_BRICKS as usize];
+                Self::SIDE_LENGTH_BRICKS as usize
             ]
             .into_boxed_slice()
             .try_into()
@@ -76,27 +77,45 @@ impl BrickTrackingArray
         }
     }
 
-    pub fn get(&self, pos: &gfx::I64Vec3) -> Self::BrickPointer
+    pub fn access(&self, pos: &gfx::I64Vec3) -> &Option<NonZeroU32>
     {
         let indices = Self::get_pos_indices(pos);
 
-        self.array[indices.x][indices.y][indices.z]
+        &self.array[indices.x][indices.y][indices.z]
     }
 
-    // pub fn set(&mut self, new_ptr: BrickPointer)
-    // // get set write
+    pub fn access_mut(&mut self, pos: &gfx::I64Vec3) -> &mut Option<NonZeroU32>
+    {
+        let indices = Self::get_pos_indices(pos);
+
+        &mut self.array[indices.x][indices.y][indices.z]
+    }
+
+    pub fn access_head(&self) -> *const Option<NonZeroU32>
+    {
+        &self.array[0][0][0]
+    }
 
     fn get_pos_indices(pos: &gfx::I64Vec3) -> gfx::TVec3<usize>
     {
-        pos.map(|c| -> usize {  TryInto::<usize>::try_into(c).unwrap() - TryInto::<usize>::try_into(Self::SIDE_LENGTH_BRICKS / 2).unwrap()} )
-    }
+        const UPPER_BOUND: i64 = (BrickTrackingArray::SIDE_LENGTH_BRICKS as i64 / 2) - 1;
+        const LOWER_BOUND: i64 = -(BrickTrackingArray::SIDE_LENGTH_BRICKS as i64 / 2);
+        const BOUND: RangeInclusive<i64> = LOWER_BOUND..=UPPER_BOUND;
 
+        assert!(BOUND.contains(&pos.x));
+        assert!(BOUND.contains(&pos.y));
+        assert!(BOUND.contains(&pos.z));
+
+        pos.map(|c| -> usize {
+            TryInto::<usize>::try_into(c + Self::SIDE_LENGTH_BRICKS as i64 / 2).unwrap()
+        })
+    }
 }
 
 #[derive(Debug)]
 pub struct BrickMap
 {
-    tracking_array: BrickTrackingArray,
+    tracking_array:  BrickTrackingArray,
     brick_allocator: util::FreelistAllocator,
     tracking_buffer: Arc<wgpu::Buffer>,
     brick_buffer:    Arc<wgpu::Buffer>
@@ -112,19 +131,31 @@ impl BrickMap
 {
     pub fn set_voxel(&mut self, voxel: Voxel, position: gfx::I64Vec3)
     {
-        todo!();
+        let VoxelLocation {
+            brick_pos,
+            voxel_pos
+        } = get_brick_pos(position, Brick::SIDE_LENGTH_VOXELS);
 
-        // let VoxelLocation {
-        //     brick_pos,
-        //     voxel_pos
-        // } = get_brick_pos(position, Brick::SIDE_LENGTH_VOXELS);
+        // Rust's normal borrowing rules still apply, reading from this pointer is UB as
+        // theres is a &mut still active in the same object
+        let head_brick = self.tracking_array.access_head();
+        let this_brick = self.tracking_array.access_mut(&brick_pos);
 
-        // let start_addr_tracking_array: usize = self.tracking_array.as_ptr().addr();
+        let brick_offset_bytes =
+            unsafe { (this_brick as *mut Option<NonZeroU32>).byte_offset_from(head_brick) };
+        // let voxel_offset_bytes =
 
-        // let brick_of_voxel: &mut Option<NonZeroU32> = &mut self.tracking_array
-        //     [TryInto::<usize>::try_into(brick_pos.x + Self::SIDE_LENGTH_BRICKS / 2).unwrap()]
-        //     [TryInto::<usize>::try_into(brick_pos.y + Self::SIDE_LENGTH_BRICKS / 2).unwrap()]
-        //     [TryInto::<usize>::try_into(brick_pos.z + Self::SIDE_LENGTH_BRICKS / 2).unwrap()];
+        // let start_addr_tracking_array: usize =
+        // self.tracking_array.as_ptr().addr();
+
+        // let brick_of_voxel: &mut Option<NonZeroU32> = &mut
+        // self.tracking_array
+        //     [TryInto::<usize>::try_into(brick_pos.x +
+        // Self::SIDE_LENGTH_BRICKS / 2).unwrap()]
+        //     [TryInto::<usize>::try_into(brick_pos.y +
+        // Self::SIDE_LENGTH_BRICKS / 2).unwrap()]
+        //     [TryInto::<usize>::try_into(brick_pos.z +
+        // Self::SIDE_LENGTH_BRICKS / 2).unwrap()];
 
         // match brick_of_voxel
         // {
@@ -132,9 +163,10 @@ impl BrickMap
         //     Some(brick_ptr) =>
         //     {
         //         let brick_offset_in_buffer =
-        //             brick_ptr.get() as u64 * std::mem::size_of::<Brick>() as u64;
-        //         let brick_range = brick_offset_in_buffer
-        //             ..(brick_offset_in_buffer + std::mem::size_of::<Brick>() as u64);
+        //             brick_ptr.get() as u64 * std::mem::size_of::<Brick>() as
+        // u64;         let brick_range = brick_offset_in_buffer
+        //             ..(brick_offset_in_buffer + std::mem::size_of::<Brick>()
+        // as u64);
 
         //         let ptr = self
         //             .brick_buffer
@@ -151,17 +183,20 @@ impl BrickMap
         //     None =>
         //     {
         //         let new_brick_ptr = NonZeroU32::new(
-        //             TryInto::<u32>::try_into(self.brick_allocator.allocate().unwrap().get())
-        //                 .unwrap()
+        //
+        // TryInto::<u32>::try_into(self.brick_allocator.allocate().unwrap().
+        // get())                 .unwrap()
         //         )
         //         .unwrap();
 
-        //         // log::info!("Allocated new brick | {} @ {:?}", new_brick_ptr.get(), div);
+        //         // log::info!("Allocated new brick | {} @ {:?}",
+        // new_brick_ptr.get(), div);
 
         //         // Update CPU side
         //         *brick_of_voxel = Some(new_brick_ptr);
 
-        //         let tail_tracking_array = brick_of_voxel as *const Option<NonZeroU32>;
+        //         let tail_tracking_array = brick_of_voxel as *const
+        // Option<NonZeroU32>;
 
         //         let offset_unaligned: u64 = TryInto::<u64>::try_into(unsafe {
         //             tail_tracking_array.byte_offset_from(head_tracking_array)
@@ -176,13 +211,15 @@ impl BrickMap
         //             .slice(
         //                 offset_aligned
         //                     ..(offset_aligned
-        //                         + std::mem::size_of::<Option<NonZeroU32>>() as u64
+        //                         + std::mem::size_of::<Option<NonZeroU32>>()
+        //                           as u64
         //                         + forward_offset as u64)
         //             )
         //             .get_mapped_range_mut()
         //             .as_mut_ptr() as *mut Option<NonZeroU32>;
 
-        //         unsafe { ptr.byte_add(forward_offset).write(Some(new_brick_ptr)) };
+        //         unsafe {
+        // ptr.byte_add(forward_offset).write(Some(new_brick_ptr)) };
 
         //         // recurse and call the actual set method
         //         self.set_voxel(voxel, position);
@@ -214,20 +251,23 @@ impl BrickMap
         //     tracking_array: ,
 
         //     brick_allocator: util::FreelistAllocator::new(
-        //         NonZeroUsize::new(temp_fixed_size.try_into().unwrap()).unwrap()
-        //     ),
-        //     tracking_buffer: Arc::new(renderer.create_buffer(&wgpu::BufferDescriptor {
+        //         NonZeroUsize::new(temp_fixed_size.try_into().unwrap()).
+        // unwrap()     ),
+        //     tracking_buffer:
+        // Arc::new(renderer.create_buffer(&wgpu::BufferDescriptor {
         //         label:              Some("Brick Tracking storage buffer"),
-        //         size:               std::mem::size_of::<Option<NonZeroU32>>() as u64
+        //         size:               std::mem::size_of::<Option<NonZeroU32>>()
+        // as u64
         //             * temp_fixed_size,
         //         usage:              wgpu::BufferUsages::STORAGE,
         //         mapped_at_creation: true
         //     })),
-        //     brick_buffer:    Arc::new(renderer.create_buffer(&wgpu::BufferDescriptor {
+        //     brick_buffer:
+        // Arc::new(renderer.create_buffer(&wgpu::BufferDescriptor {
         //         label:              Some("Brick Map storage buffer"),
-        //         size:               std::mem::size_of::<Brick>() as u64 * temp_fixed_size,
-        //         usage:              wgpu::BufferUsages::STORAGE,
-        //         mapped_at_creation: true
+        //         size:               std::mem::size_of::<Brick>() as u64 *
+        // temp_fixed_size,         usage:
+        // wgpu::BufferUsages::STORAGE,         mapped_at_creation: true
         //     }))
         // };
 
@@ -342,7 +382,19 @@ mod test
     #[test]
     fn test_get_pos_indices()
     {
-        assert_eq!(gfx::TVec3::<usize>::new(0, 0, 0), BrickTrackingArray::get_pos_indices(&gfx::I64Vec3::new(-16, -16, -16)));
+        assert_eq!(
+            gfx::TVec3::<usize>::new(0, 0, 0),
+            BrickTrackingArray::get_pos_indices(&gfx::I64Vec3::new(-8, -8, -8))
+        );
 
+        assert_eq!(
+            gfx::TVec3::<usize>::new(1, 1, 1),
+            BrickTrackingArray::get_pos_indices(&gfx::I64Vec3::new(-7, -7, -7))
+        );
+
+        assert_eq!(
+            gfx::TVec3::<usize>::new(15, 14, 2),
+            BrickTrackingArray::get_pos_indices(&gfx::I64Vec3::new(7, 6, -6))
+        );
     }
 }
