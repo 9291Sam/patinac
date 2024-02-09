@@ -91,7 +91,21 @@ impl BrickTrackingArray
         &mut self.array[indices.x][indices.y][indices.z]
     }
 
-    pub fn access_head(&self) -> *const Option<NonZeroU32>
+    pub fn access_mut_with_head_offset(
+        &mut self,
+        pos: &gfx::I64Vec3
+    ) -> (&mut Option<NonZeroU32>, usize)
+    {
+        let head = unsafe { self.access_head() };
+        let this_brick = self.access_mut(pos);
+
+        let brick_offset_elements =
+            unsafe { (this_brick as *mut Option<NonZeroU32>).offset_from(head) };
+
+        (this_brick, brick_offset_elements.try_into().unwrap())
+    }
+
+    pub unsafe fn access_head(&self) -> *const Option<NonZeroU32>
     {
         &self.array[0][0][0]
     }
@@ -136,147 +150,87 @@ impl BrickMap
             voxel_pos
         } = get_brick_pos(position, Brick::SIDE_LENGTH_VOXELS);
 
-        // Rust's normal borrowing rules still apply, reading from this pointer is UB as
-        // theres is a &mut still active in the same object
-        let head_brick = self.tracking_array.access_head();
-        let this_brick = self.tracking_array.access_mut(&brick_pos);
+        let (cpu_maybe_brick_ptr, brick_ptr_offset_elements) =
+            self.tracking_array.access_mut_with_head_offset(&brick_pos);
 
-        let brick_offset_bytes =
-            unsafe { (this_brick as *mut Option<NonZeroU32>).byte_offset_from(head_brick) };
-        // let voxel_offset_bytes =
+        match *cpu_maybe_brick_ptr
+        {
+            Some(brick_ptr) =>
+            {
+                let gpu_offset_bytes = brick_ptr.get() as u64 * std::mem::size_of::<Brick>() as u64;
 
-        // let start_addr_tracking_array: usize =
-        // self.tracking_array.as_ptr().addr();
+                let gpu_brick: &mut Brick = unsafe {
+                    &mut *(self
+                        .brick_buffer
+                        .slice(
+                            gpu_offset_bytes
+                                ..(gpu_offset_bytes + std::mem::size_of::<Brick>() as u64)
+                        )
+                        .get_mapped_range_mut()
+                        .as_mut_ptr() as *mut Brick)
+                };
 
-        // let brick_of_voxel: &mut Option<NonZeroU32> = &mut
-        // self.tracking_array
-        //     [TryInto::<usize>::try_into(brick_pos.x +
-        // Self::SIDE_LENGTH_BRICKS / 2).unwrap()]
-        //     [TryInto::<usize>::try_into(brick_pos.y +
-        // Self::SIDE_LENGTH_BRICKS / 2).unwrap()]
-        //     [TryInto::<usize>::try_into(brick_pos.z +
-        // Self::SIDE_LENGTH_BRICKS / 2).unwrap()];
+                gpu_brick.set(voxel_pos, voxel);
+            }
+            None =>
+            {
+                let new_brick_ptr: u32 = self
+                    .brick_allocator
+                    .allocate()
+                    .unwrap()
+                    .get()
+                    .try_into()
+                    .unwrap();
 
-        // match brick_of_voxel
-        // {
-        //     // The brick has already been mapped, we just need to write to it
-        //     Some(brick_ptr) =>
-        //     {
-        //         let brick_offset_in_buffer =
-        //             brick_ptr.get() as u64 * std::mem::size_of::<Brick>() as
-        // u64;         let brick_range = brick_offset_in_buffer
-        //             ..(brick_offset_in_buffer + std::mem::size_of::<Brick>()
-        // as u64);
+                *cpu_maybe_brick_ptr = Some(NonZeroU32::new(new_brick_ptr).unwrap());
 
-        //         let ptr = self
-        //             .brick_buffer
-        //             .slice(brick_range)
-        //             .get_mapped_range_mut()
-        //             .as_mut_ptr() as *mut Brick;
+                let gpu_brick_ptr_ptr = self
+                    .tracking_buffer
+                    .slice(..) // TODO:
+                    .get_mapped_range_mut()
+                    .as_mut_ptr()
+                    as *mut Option<NonZeroU32>;
 
-        //         Brick::set(
-        //             unsafe { &mut *ptr },
-        //             gfx::U64Vec3::new(voxel_pos.x, voxel_pos.y, voxel_pos.z),
-        //             voxel
-        //         );
-        //     }
-        //     None =>
-        //     {
-        //         let new_brick_ptr = NonZeroU32::new(
-        //
-        // TryInto::<u32>::try_into(self.brick_allocator.allocate().unwrap().
-        // get())                 .unwrap()
-        //         )
-        //         .unwrap();
+                unsafe {
+                    *gpu_brick_ptr_ptr.wrapping_add(brick_ptr_offset_elements) =
+                        NonZeroU32::new(new_brick_ptr);
+                }
 
-        //         // log::info!("Allocated new brick | {} @ {:?}",
-        // new_brick_ptr.get(), div);
-
-        //         // Update CPU side
-        //         *brick_of_voxel = Some(new_brick_ptr);
-
-        //         let tail_tracking_array = brick_of_voxel as *const
-        // Option<NonZeroU32>;
-
-        //         let offset_unaligned: u64 = TryInto::<u64>::try_into(unsafe {
-        //             tail_tracking_array.byte_offset_from(head_tracking_array)
-        //         })
-        //         .unwrap();
-
-        //         let offset_aligned = (offset_unaligned / 8) * 8;
-        //         let forward_offset = offset_unaligned.rem_euclid(8) as usize;
-
-        //         let ptr = self
-        //             .tracking_buffer
-        //             .slice(
-        //                 offset_aligned
-        //                     ..(offset_aligned
-        //                         + std::mem::size_of::<Option<NonZeroU32>>()
-        //                           as u64
-        //                         + forward_offset as u64)
-        //             )
-        //             .get_mapped_range_mut()
-        //             .as_mut_ptr() as *mut Option<NonZeroU32>;
-
-        //         unsafe {
-        // ptr.byte_add(forward_offset).write(Some(new_brick_ptr)) };
-
-        //         // recurse and call the actual set method
-        //         self.set_voxel(voxel, position);
-        //     }
-        // }
-    }
-
-    pub fn debug_print(&self)
-    {
-        todo!()
-        // for xyz in self.tracking_array.iter()
-        // {
-        //     for yz in xyz.iter()
-        //     {
-        //         for z in yz.iter()
-        //         {
-        //             log::info!("Id: {:?}", z);
-        //         }
-        //     }
-        // }
+                self.set_voxel(voxel, position);
+            }
+        }
     }
 
     pub fn new(renderer: &gfx::Renderer) -> (Self, BrickMapBuffers)
     {
-        todo!()
-        // let temp_fixed_size: u64 = 8192;
+        let temp_fixed_size: u64 = 8192;
 
-        // let this = Self {
-        //     tracking_array: ,
+        let this = Self {
+            tracking_array:  BrickTrackingArray::new(),
+            brick_allocator: util::FreelistAllocator::new(
+                NonZeroUsize::new(temp_fixed_size.try_into().unwrap()).unwrap()
+            ),
+            tracking_buffer: Arc::new(renderer.create_buffer(&wgpu::BufferDescriptor {
+                label:              Some("Brick Tracking storage buffer"),
+                size:               std::mem::size_of::<Option<NonZeroU32>>() as u64
+                    * temp_fixed_size,
+                usage:              wgpu::BufferUsages::STORAGE,
+                mapped_at_creation: true
+            })),
+            brick_buffer:    Arc::new(renderer.create_buffer(&wgpu::BufferDescriptor {
+                label:              Some("Brick Map storage buffer"),
+                size:               std::mem::size_of::<Brick>() as u64 * temp_fixed_size,
+                usage:              wgpu::BufferUsages::STORAGE,
+                mapped_at_creation: true
+            }))
+        };
 
-        //     brick_allocator: util::FreelistAllocator::new(
-        //         NonZeroUsize::new(temp_fixed_size.try_into().unwrap()).
-        // unwrap()     ),
-        //     tracking_buffer:
-        // Arc::new(renderer.create_buffer(&wgpu::BufferDescriptor {
-        //         label:              Some("Brick Tracking storage buffer"),
-        //         size:               std::mem::size_of::<Option<NonZeroU32>>()
-        // as u64
-        //             * temp_fixed_size,
-        //         usage:              wgpu::BufferUsages::STORAGE,
-        //         mapped_at_creation: true
-        //     })),
-        //     brick_buffer:
-        // Arc::new(renderer.create_buffer(&wgpu::BufferDescriptor {
-        //         label:              Some("Brick Map storage buffer"),
-        //         size:               std::mem::size_of::<Brick>() as u64 *
-        // temp_fixed_size,         usage:
-        // wgpu::BufferUsages::STORAGE,         mapped_at_creation: true
-        //     }))
-        // };
+        let brick_map_buffers = BrickMapBuffers {
+            tracking_buffer: this.tracking_buffer.clone(),
+            brick_buffer:    this.brick_buffer.clone()
+        };
 
-        // let brick_map_buffers = BrickMapBuffers {
-        //     tracking_buffer: this.tracking_buffer.clone(),
-        //     brick_buffer:    this.brick_buffer.clone()
-        // };
-
-        // (this, brick_map_buffers)
+        (this, brick_map_buffers)
     }
 }
 
