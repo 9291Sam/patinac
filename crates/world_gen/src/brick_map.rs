@@ -243,11 +243,11 @@ struct VoxelLocation
 
 fn get_brick_pos(pos: gfx::I64Vec3, brick_side_length: u64) -> VoxelLocation
 {
-    let brick_side_vec = gfx::I64Vec3::repeat(brick_side_length.try_into().unwrap());
+    let length: i64 = brick_side_length.try_into().unwrap();
 
     VoxelLocation {
-        brick_pos: pos.zip_map(&brick_side_vec, |l, r| l.div_floor(r)),
-        voxel_pos: pos.zip_map(&brick_side_vec, |l, r| l.rem_euclid(r).try_into().unwrap())
+        brick_pos: pos.map(|i| i.div_euclid(length)),
+        voxel_pos: pos.map(|i| i.rem_euclid(length).try_into().unwrap())
     }
 }
 
@@ -296,6 +296,14 @@ mod test
             VoxelLocation {
                 brick_pos: gfx::I64Vec3::new(-1, -1, -1),
                 voxel_pos: gfx::U64Vec3::new(7, 7, 7)
+            }
+        );
+
+        assert_eq!(
+            get_brick_pos(gfx::I64Vec3::new(-2, -3, -4), 8),
+            VoxelLocation {
+                brick_pos: gfx::I64Vec3::new(-1, -1, -1),
+                voxel_pos: gfx::U64Vec3::new(6, 5, 4)
             }
         );
 

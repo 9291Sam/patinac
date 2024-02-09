@@ -30,32 +30,16 @@ impl TestScene
             }
         ) = world_gen::BrickMap::new(game.get_renderer());
 
-        for x in -64..64
-        {
-            for y in -64..64
-            {
-                for z in -64..64
-                {
-                    if x == 0 || y == 0 || z == 0
-                    {
-                        world.set_voxel(world_gen::Voxel::Green, gfx::I64Vec3::new(x, y, z));
-                    }
-                }
-            }
-        }
-
-        // for x in 0..8
+        // for x in -64..64
         // {
-        //     for y in 0..8
+        //     for y in -64..64
         //     {
-        //         world.set_voxel(world_gen::Voxel::Blue, gfx::I64Vec3::new(x, 1, y))
+        //         world.set_voxel(world_gen::Voxel::Blue, gfx::I64Vec3::new(x, 2, y));
         //     }
         // }
 
         tracking_buffer.unmap();
         brick_buffer.unmap();
-
-        // world.debug_print();
 
         let bind_group = Arc::new(
             game.get_renderer()

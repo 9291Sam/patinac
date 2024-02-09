@@ -62,7 +62,7 @@ impl ParallaxRaymarched
         Self::new_cube(
             renderer,
             gfx::Transform {
-                scale: gfx::Vec3::repeat(0.01),
+                scale: gfx::Vec3::repeat(10.0),
                 ..Default::default()
             },
             brick_buffer_bind_group,

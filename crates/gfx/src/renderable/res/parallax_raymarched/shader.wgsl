@@ -189,18 +189,17 @@ fn getVoxel(c: vec3<i32>) -> bool
         return false;
     }
 
-
-    let b_idx: vec3<u32> = vec3<u32>((c / vec3<i32>(8)) + vec3<i32>(8));
+    let b_idx: vec3<i32> = vec3<i32>(div_euc(c.x, 8), div_euc(c.y, 8), div_euc(c.z, 8));
 
     let maybe_brick_ptr = tracking_array[16 * 16 * b_idx.x + 16 * b_idx.y + b_idx.z];
 
 
     if (maybe_brick_ptr == 0)
     {
-        return false;
+        return true;
     }
 
-    if (brick_array[maybe_brick_ptr].data[((c.x % 8) + 8) % 8][((c.y % 8) + 8) % 8][((c.z % 8) + 8) % 8] != 0)
+    if (brick_array[maybe_brick_ptr].data[mod_euc(c.x, 8)][mod_euc(c.y, 8)][mod_euc(c.z, 8)] != 0)
     {
         return true;
     }
@@ -367,4 +366,41 @@ fn Cube_tryIntersect(me: Cube, ray: Ray) -> IntersectionResult {
     res.maybe_color = vec4<f32>(0.0, 1.0, 1.0, 1.0);
 
     return res; 
+}
+
+fn mod_euc(l: i32, r: i32) -> i32
+{
+    let res = l % r;
+    if res < 0 
+    {
+        if res > 0
+        {
+            return res + r;
+        }
+        else
+        {
+            return res - r;
+        }
+    }
+
+    return res;
+}
+
+fn div_euc(l: i32, r: i32) -> i32
+{
+    let q = l / r;
+
+    if l % r < 0
+    {
+        if r > 0
+        {
+            return q - 1;
+        }
+        else
+        {
+            return q + 1;
+        }
+    }
+
+    return q;
 }
