@@ -30,15 +30,15 @@ impl TestScene
             }
         ) = world_gen::BrickMap::new(game.get_renderer());
 
-        for x in -8..8
+        for x in -64..64
         {
-            for y in -8..8
+            for y in -64..64
             {
-                for z in -8..8
+                for z in -64..64
                 {
                     let d = f32::sqrt((x * x + y * y + z * z) as f32);
 
-                    if d > 4.5 && d < 5.5
+                    if d > 27.0 && d < 29.0
                     {
                         log::trace!("added at {} {} {}", x, y, z);
                         world.set_voxel(world_gen::Voxel::Blue, gfx::I64Vec3::new(x, y, z));

@@ -189,9 +189,23 @@ fn getVoxel(c: vec3<i32>) -> bool
         return false;
     }
 
-    let brick_idx = vec3<i32>(div_euc(c.x, 8), div_euc(c.y, 8),div_euc(c.z, 8)) + vec3<i32>(8);
+    let brick_idx = vec3<i32>(div_euc(c.x, 8), div_euc(c.y, 8),div_euc(c.z, 8)) + vec3<i32>(16 / 2);
+    let maybe_brick_ptr = tracking_array[brick_idx.x][brick_idx.y][brick_idx.z];
 
-    if tracking_array[brick_idx.x][brick_idx.y][brick_idx.z] != 0
+
+    if maybe_brick_ptr == 0
+    {
+        return false;
+    }
+
+    let voxel_idx = vec3<i32>(mod_euc(c.x, 8), mod_euc(c.y, 8),mod_euc(c.z, 8));
+
+    if any(voxel_idx > vec3<i32>(7)) || any(voxel_idx < vec3<i32>(0))
+    {
+        return true;
+    }
+
+    if brick_array[maybe_brick_ptr].data[voxel_idx.x][voxel_idx.y][voxel_idx.z] != 0
     {
         return true;
     }
