@@ -23,6 +23,7 @@ use super::GenericPass;
 pub const SURFACE_TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8UnormSrgb;
 pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 
+#[derive(Debug)]
 pub struct Renderer
 {
     pub queue:        wgpu::Queue,
@@ -41,7 +42,19 @@ pub struct Renderer
     float_delta_frame_time_s: AtomicU32,
 
     // Rendering
+    thread_id:        ThreadId,
     critical_section: Mutex<CriticalSection>
+}
+
+impl Drop for Renderer
+{
+    fn drop(&mut self)
+    {
+        if std::thread::current().id() != self.thread_id
+        {
+            eprintln!("Dropping Renderer from a thread it was not created on!")
+        }
+    }
 }
 
 impl Deref for Renderer
@@ -58,11 +71,17 @@ impl Deref for Renderer
 // created it, you can't even do this as its behind a mutex!
 // We also verify this with a threadID
 unsafe impl Sync for Renderer {}
+unsafe impl Send for Renderer {}
 
 impl Renderer
 {
     #[allow(clippy::new_without_default)]
-    pub fn new() -> Self
+
+    /// # Safety
+    ///
+    /// The Self returned must be dropped on the same thread that it was created
+    /// on
+    pub unsafe fn new() -> Self
     {
         let event_loop = EventLoop::new().unwrap();
         let window = WindowBuilder::new()
@@ -195,6 +214,7 @@ impl Renderer
         let render_cache = super::RenderCache::new(&device);
 
         Renderer {
+            thread_id: std::thread::current().id(),
             renderables: Registrar::new(),
             queue,
             device,
@@ -620,6 +640,7 @@ impl Renderer
     }
 }
 
+#[derive(Debug)]
 struct CriticalSection
 {
     thread_id:  ThreadId,
@@ -630,6 +651,8 @@ struct CriticalSection
 
     camera: RefCell<super::Camera>
 }
+
+unsafe impl Sync for CriticalSection {}
 
 fn create_depth_buffer(
     device: &wgpu::Device,

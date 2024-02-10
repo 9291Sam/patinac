@@ -10,14 +10,14 @@ mod test_scene;
 use entity::Entity;
 pub struct TickTag(());
 
-pub struct Game<'r>
+pub struct Game
 {
-    renderer:         &'r gfx::Renderer,
+    renderer:         Arc<gfx::Renderer>,
     entities:         util::Registrar<util::Uuid, Weak<dyn Entity>>,
     float_delta_time: AtomicU32 // event_dispatcher: /* */
 }
 
-impl Drop for Game<'_>
+impl Drop for Game
 {
     fn drop(&mut self)
     {
@@ -29,9 +29,9 @@ impl Drop for Game<'_>
     }
 }
 
-impl<'r> Game<'r>
+impl Game
 {
-    pub fn new(renderer: &'r gfx::Renderer) -> Self
+    pub fn new(renderer: Arc<gfx::Renderer>) -> Self
     {
         Game {
             renderer,
@@ -40,9 +40,9 @@ impl<'r> Game<'r>
         }
     }
 
-    pub fn get_renderer(&self) -> &gfx::Renderer
+    pub fn get_renderer(&self) -> &Arc<gfx::Renderer>
     {
-        self.renderer
+        &self.renderer
     }
 
     pub fn get_delta_time(&self) -> f32
@@ -71,6 +71,8 @@ impl<'r> Game<'r>
             prev = now;
             self.float_delta_time.store(delta_time.to_bits(), Release);
 
+            let thread_entities = &self.entities;
+
             self.entities
                 .access()
                 .into_iter()
@@ -80,7 +82,7 @@ impl<'r> Game<'r>
                         Some(s) => Some(s),
                         None =>
                         {
-                            self.entities.delete(uuid);
+                            thread_entities.delete(uuid);
                             None
                         }
                     }

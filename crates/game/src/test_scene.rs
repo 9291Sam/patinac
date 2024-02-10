@@ -28,7 +28,7 @@ impl TestScene
                 tracking_buffer,
                 brick_buffer
             }
-        ) = world_gen::BrickMap::new(game.get_renderer());
+        ) = world_gen::BrickMap::new(game.get_renderer().clone());
 
         for x in -64..64
         {
@@ -180,7 +180,7 @@ impl Entity for TestScene
         None
     }
 
-    fn tick(&self, game: &super::Game, _: super::TickTag)
+    fn tick(&self, _: &super::Game, _: super::TickTag)
     {
         // {
         //     let mut guard = self.cube.transform.lock().unwrap();

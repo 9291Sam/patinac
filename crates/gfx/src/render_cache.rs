@@ -26,6 +26,7 @@ pub enum BindGroupType
     LitSimpleTexture
 }
 
+#[derive(Debug)]
 pub struct RenderCache
 {
     bind_group_layout_cache: HashMap<BindGroupType, wgpu::BindGroupLayout>,

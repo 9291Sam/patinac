@@ -110,6 +110,15 @@ impl BrickTrackingArray
         &self.array[0][0][0]
     }
 
+    pub fn get_position_offset(pos: &gfx::U64Vec3) -> u64
+    {
+        let voxel_size = std::mem::size_of::<Option<NonZeroU32>>() as u64;
+
+        Self::SIDE_LENGTH_BRICKS * Self::SIDE_LENGTH_BRICKS * pos.x * voxel_size
+            + Self::SIDE_LENGTH_BRICKS * pos.y * voxel_size
+            + pos.z * voxel_size
+    }
+
     fn get_pos_indices(pos: &gfx::I64Vec3) -> gfx::TVec3<usize>
     {
         const UPPER_BOUND: i64 = (BrickTrackingArray::SIDE_LENGTH_BRICKS as i64 / 2) - 1;
@@ -129,6 +138,7 @@ impl BrickTrackingArray
 #[derive(Debug)]
 pub struct BrickMap
 {
+    renderer:        Arc<gfx::Renderer>,
     tracking_array:  BrickTrackingArray,
     brick_allocator: util::FreelistAllocator,
     tracking_buffer: Arc<wgpu::Buffer>,
@@ -184,12 +194,11 @@ impl BrickMap
 
                 *cpu_maybe_brick_ptr = Some(NonZeroU32::new(new_brick_ptr).unwrap());
 
-                let gpu_brick_ptr_ptr = self
-                    .tracking_buffer
-                    .slice(..) // TODO:
-                    .get_mapped_range_mut()
-                    .as_mut_ptr()
-                    as *mut Option<NonZeroU32>;
+                let gpu_brick_ptr_ptr =
+                    self.tracking_buffer
+                        .slice(..)
+                        .get_mapped_range_mut()
+                        .as_mut_ptr() as *mut Option<NonZeroU32>;
 
                 unsafe {
                     *gpu_brick_ptr_ptr.wrapping_add(brick_ptr_offset_elements) =
@@ -201,11 +210,12 @@ impl BrickMap
         }
     }
 
-    pub fn new(renderer: &gfx::Renderer) -> (Self, BrickMapBuffers)
+    pub fn new(renderer: Arc<gfx::Renderer>) -> (Self, BrickMapBuffers)
     {
         let temp_fixed_size: u64 = 8192;
 
         let this = Self {
+            renderer:        renderer.clone(),
             tracking_array:  BrickTrackingArray::new(),
             brick_allocator: util::FreelistAllocator::new(
                 NonZeroUsize::new(temp_fixed_size.try_into().unwrap()).unwrap()
