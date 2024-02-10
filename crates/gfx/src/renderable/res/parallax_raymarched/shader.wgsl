@@ -189,34 +189,14 @@ fn getVoxel(c: vec3<i32>) -> bool
         return false;
     }
 
-    var brick_pos: vec3<i32> = c / 8 - vec3<i32>(c <= vec3<i32>(0)); 
+    let brick_idx = vec3<i32>(div_euc(c.x, 8), div_euc(c.y, 8),div_euc(c.z, 8)) + vec3<i32>(8);
 
-    let brick_idx: vec3<i32> = brick_pos + vec3<i32>(16 / 2);
-
-
-    let voxel_idx: vec3<i32> = vec3<i32>(mod_euc(c.x, 8), mod_euc(c.y, 8), mod_euc(c.z, 8));
-
-    if brick_array[tracking_array[brick_idx.x][brick_idx.y][brick_idx.z]]
-        .data[voxel_idx.x][voxel_idx.y][voxel_idx.z] != 0
+    if tracking_array[brick_idx.x][brick_idx.y][brick_idx.z] != 0
     {
         return true;
     }
 
     return false;
-    // if (length(vec3<f32>(c)) > 27.0)
-    // {
-    //     return false;
-    // }
-
-    // let mask = vec3<i32>(c == vec3<i32>(0, 0, 0));
-    // if (dot(mask, mask) == 2)
-    // {
-    //     return true;
-    // }
-
-    // let p: vec3<f32> = vec3<f32>(c) + vec3<f32>(0.5);
-    // let d: f32 = min(max(-sdSphere(p, 7.5), sdBox(p, vec3<f32>(6.0))), -sdSphere(p, 25.0));
-    // return d < 0.0;
 }
 
 fn triple32(i_x: u32) -> u32
