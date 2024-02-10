@@ -45,7 +45,7 @@ struct Brick
     data: array<array<array<u32, 8>, 8>, 8>,
 }
 
-@group(0) @binding(0) var<storage> tracking_array: array<u32>;
+@group(0) @binding(0) var<storage> tracking_array: array<array<array<u32, 16>, 16>, 16>;
 @group(0) @binding(1) var<storage> brick_array: array<Brick>;
 
 @fragment
@@ -184,29 +184,26 @@ fn sdBox(p: vec3<f32>, b: vec3<f32>) -> f32 {
 // Function to check if a voxel exists at a given position
 fn getVoxel(c: vec3<i32>) -> bool
 {
-    if (any(c < vec3<i32>(-64)) || any(c > vec3<i32>(63)))
+    if (any(c >= vec3<i32>(64)) || any(c < vec3<i32>(-64)))
     {
         return false;
     }
 
-    let b_idx: vec3<i32> = vec3<i32>(div_euc(c.x, 8), div_euc(c.y, 8), div_euc(c.z, 8));
+    var brick_pos: vec3<i32> = c / 8 - vec3<i32>(c <= vec3<i32>(0)); 
 
-    let maybe_brick_ptr = tracking_array[16 * 16 * b_idx.x + 16 * b_idx.y + b_idx.z];
+    let brick_idx: vec3<i32> = brick_pos + vec3<i32>(16 / 2);
 
 
-    if (maybe_brick_ptr == 0)
-    {
-        return true;
-    }
+    let voxel_idx: vec3<i32> = vec3<i32>(mod_euc(c.x, 8), mod_euc(c.y, 8), mod_euc(c.z, 8));
 
-    if (brick_array[maybe_brick_ptr].data[mod_euc(c.x, 8)][mod_euc(c.y, 8)][mod_euc(c.z, 8)] != 0)
+    if brick_array[tracking_array[brick_idx.x][brick_idx.y][brick_idx.z]]
+        .data[voxel_idx.x][voxel_idx.y][voxel_idx.z] != 0
     {
         return true;
     }
 
     return false;
-
-    // if (sqrt(dot(vec3<f32>(c), vec3<f32>(c))) > 27.0)
+    // if (length(vec3<f32>(c)) > 27.0)
     // {
     //     return false;
     // }

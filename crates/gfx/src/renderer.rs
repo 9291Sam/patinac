@@ -70,6 +70,9 @@ impl Renderer
                 width:  1920,
                 height: 1080
             })
+            .with_position(winit::dpi::PhysicalPosition {
+                x: 100, y: 100
+            })
             .build(&event_loop)
             .unwrap();
 
@@ -466,11 +469,19 @@ impl Renderer
 
         let handle_input = |control_flow: &EventLoopWindowTarget<()>| {
             // TODO: do the trig thing so that diagonal isn't faster!
-            let move_scale = 10.0;
-            let rotate_scale = 1000.0;
 
             let input_helper = input_helper.borrow();
 
+            let move_scale = 10.0
+                * if input_helper.key_held(KeyCode::ShiftLeft)
+                {
+                    5.0
+                }
+                else
+                {
+                    1.0
+                };
+            let rotate_scale = 1000.0;
             if input_helper.key_held(KeyCode::KeyK)
             {
                 log::info!("position: {:?}", camera.borrow().get_position())

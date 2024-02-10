@@ -30,13 +30,13 @@ impl TestScene
             }
         ) = world_gen::BrickMap::new(game.get_renderer());
 
-        // for x in -64..64
-        // {
-        //     for y in -64..64
-        //     {
-        //         world.set_voxel(world_gen::Voxel::Blue, gfx::I64Vec3::new(x, 2, y));
-        //     }
-        // }
+        for x in -64..64
+        {
+            for y in -64..64
+            {
+                world.set_voxel(world_gen::Voxel::Blue, gfx::I64Vec3::new(x, (x + y) / 2, y));
+            }
+        }
 
         tracking_buffer.unmap();
         brick_buffer.unmap();
