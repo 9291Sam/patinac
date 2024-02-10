@@ -36,13 +36,15 @@ impl TestScene
             {
                 for z in -64..64
                 {
-                    let d = f32::sqrt((x * x + y * y + z * z) as f32);
+                    // let d = f32::sqrt((x * x + y * y + z * z) as f32);
 
-                    if d > 27.0 && d < 29.0
-                    {
-                        log::trace!("added at {} {} {}", x, y, z);
-                        world.set_voxel(world_gen::Voxel::Blue, gfx::I64Vec3::new(x, y, z));
-                    }
+                    // if d > 27.0 && d < 29.0
+                    // {
+                    //     log::trace!("added at {} {} {}", x, y, z);
+                    //     world.set_voxel(world_gen::Voxel::Blue, gfx::I64Vec3::new(x, y, z));
+                    // }
+
+                    world.set_voxel(world_gen::Voxel::Blue, gfx::I64Vec3::new(x, (x + y) / 2, y));
                 }
             }
         }
