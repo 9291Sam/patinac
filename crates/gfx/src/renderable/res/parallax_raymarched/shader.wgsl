@@ -199,7 +199,8 @@ fn getVoxel(c: vec3<i32>) -> bool
     }
 
     let voxel_idx = vec3<i32>(mod_euc(c.x, 8), mod_euc(c.y, 8),mod_euc(c.z, 8));
-
+    // let voxel_idx = c % vec3<i32>(8);
+    
     if any(voxel_idx > vec3<i32>(7)) || any(voxel_idx < vec3<i32>(0))
     {
         return true;
@@ -364,7 +365,7 @@ fn mod_euc(l: i32, r: i32) -> i32
     let res = l % r;
     if res < 0 
     {
-        if res > 0
+        if r > 0
         {
             return res + r;
         }
