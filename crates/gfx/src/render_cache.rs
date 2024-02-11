@@ -48,7 +48,16 @@ impl RenderCache
                             // camera
                             // projection matricies
                             // depth buffer
-                            entries: &[]
+                            entries: &[wgpu::BindGroupLayoutEntry {
+                                binding:    0,
+                                visibility: wgpu::ShaderStages::FRAGMENT,
+                                ty:         wgpu::BindingType::StorageTexture {
+                                    access:         wgpu::StorageTextureAccess::ReadOnly,
+                                    format:         wgpu::TextureFormat::R16Uint,
+                                    view_dimension: wgpu::TextureViewDimension::D3
+                                },
+                                count:      Some(131768.try_into().unwrap())
+                            }]
                         })
                     }
                     BindGroupType::BrickMap =>

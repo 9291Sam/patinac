@@ -162,7 +162,7 @@ impl gfx::Recordable for ParallaxRaymarched
         render_pass: &mut gfx::GenericPass<'s>,
         renderer: &gfx::Renderer,
         camera: &gfx::Camera
-    )
+    ) // -> // matricies
     {
         let GenericPass::Render(ref mut pass) = render_pass
         else

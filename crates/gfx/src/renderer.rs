@@ -144,15 +144,17 @@ impl Renderer
             adapter.get_info().backend
         );
 
+        log::info!("{:?}\n {:?}", adapter.limits(), adapter.features());
+
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
                     label:             Some("Device"),
-                    required_features: wgpu::Features::PUSH_CONSTANTS,
-                    required_limits:   wgpu::Limits {
-                        max_push_constant_size: 204,
-                        ..Default::default()
-                    }
+                    required_features: wgpu::Features::PUSH_CONSTANTS
+                        | wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES
+                        | wgpu::Features::TEXTURE_BINDING_ARRAY
+                        | wgpu::Features::STORAGE_RESOURCE_BINDING_ARRAY,
+                    required_limits:   adapter.limits()
                 },
                 None
             )
@@ -664,6 +666,7 @@ fn create_depth_buffer(
         height:                config.height,
         depth_or_array_layers: 1
     };
+
     let desc = wgpu::TextureDescriptor {
         label: Some("Depth Buffer"),
         size,
