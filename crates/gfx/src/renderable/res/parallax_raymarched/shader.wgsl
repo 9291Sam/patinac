@@ -40,12 +40,16 @@ struct FragmentOutput
    @location(0) color: vec4<f32>
 }
 
+const TRACKING_ARRAY_SIZE: u32 = 32;
+const BRICK_SIDE_LENGTH: u32 = 8;
+
 struct Brick
 {
-    data: array<array<array<u32, 8>, 8>, 8>,
+    data: array<array<array<u32, BRICK_SIDE_LENGTH>, BRICK_SIDE_LENGTH>, BRICK_SIDE_LENGTH>,
 }
 
-@group(0) @binding(0) var<storage> tracking_array: array<array<array<u32, 16>, 16>, 16>;
+
+@group(0) @binding(0) var<storage> tracking_array: array<array<array<u32, TRACKING_ARRAY_SIZE>, TRACKING_ARRAY_SIZE>, TRACKING_ARRAY_SIZE>;
 @group(0) @binding(1) var<storage> brick_array: array<Brick>;
 
 @fragment
@@ -184,12 +188,14 @@ fn sdBox(p: vec3<f32>, b: vec3<f32>) -> f32 {
 // Function to check if a voxel exists at a given position
 fn getVoxel(c: vec3<i32>) -> bool
 {
-    if (any(c >= vec3<i32>(64)) || any(c < vec3<i32>(-64)))
-    {
-        return false;
-    }
+    // let bound: i32 = i32(BRICK_SIDE_LENGTH) * i32(TRACKING_ARRAY_SIZE);
 
-    let brick_idx = vec3<i32>(div_euc(c.x, 8), div_euc(c.y, 8),div_euc(c.z, 8)) + vec3<i32>(16 / 2);
+    // if (any(c >= vec3<i32>(bound)) || any(c < vec3<i32>(-bound)))
+    // {
+    //     return false;
+    // }
+
+    let brick_idx = vec3<i32>(div_euc(c.x, i32(BRICK_SIDE_LENGTH)), div_euc(c.y, i32(BRICK_SIDE_LENGTH)),div_euc(c.z, i32(BRICK_SIDE_LENGTH))) + vec3<i32>(TRACKING_ARRAY_SIZE / 2);
     let maybe_brick_ptr = tracking_array[brick_idx.x][brick_idx.y][brick_idx.z];
 
 
@@ -198,13 +204,7 @@ fn getVoxel(c: vec3<i32>) -> bool
         return false;
     }
 
-    let voxel_idx = vec3<i32>(mod_euc(c.x, 8), mod_euc(c.y, 8),mod_euc(c.z, 8));
-    // let voxel_idx = c % vec3<i32>(8);
-    
-    if any(voxel_idx > vec3<i32>(7)) || any(voxel_idx < vec3<i32>(0))
-    {
-        return true;
-    }
+    let voxel_idx = vec3<i32>(mod_euc(c.x, i32(BRICK_SIDE_LENGTH)), mod_euc(c.y, i32(BRICK_SIDE_LENGTH)),mod_euc(c.z, i32(BRICK_SIDE_LENGTH)));
 
     if brick_array[maybe_brick_ptr].data[voxel_idx.x][voxel_idx.y][voxel_idx.z] != 0
     {

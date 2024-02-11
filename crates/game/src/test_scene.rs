@@ -30,9 +30,11 @@ impl TestScene
             }
         ) = world_gen::BrickMap::new(game.get_renderer().clone());
 
-        for x in -64..64
+        let dim = 128;
+
+        for x in -dim..dim
         {
-            for y in -64..64
+            for y in -dim..dim
             {
                 world.set_voxel(
                     world_gen::Voxel::Blue,
@@ -44,9 +46,6 @@ impl TestScene
                 );
             }
         }
-
-        tracking_buffer.unmap();
-        brick_buffer.unmap();
 
         let bind_group = Arc::new(
             game.get_renderer()
