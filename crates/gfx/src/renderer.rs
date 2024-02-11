@@ -660,7 +660,6 @@ fn create_depth_buffer(
 ) -> (wgpu::Texture, wgpu::TextureView, wgpu::Sampler)
 {
     let size = wgpu::Extent3d {
-        // 2.
         width:                 config.width,
         height:                config.height,
         depth_or_array_layers: 1

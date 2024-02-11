@@ -36,7 +36,7 @@ impl TestScene
             {
                 world.set_voxel(
                     world_gen::Voxel::Blue,
-                    gfx::I64Vec3::new(
+                    &gfx::I64Vec3::new(
                         x,
                         (9.0 * f32::sin(y as f32 / 8.0) + 13.0 * f32::cos(x as f32 / 8.0)) as i64,
                         y

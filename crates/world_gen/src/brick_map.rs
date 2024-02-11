@@ -3,6 +3,7 @@ use std::num::{NonZeroU32, NonZeroUsize};
 use std::ops::RangeInclusive;
 use std::sync::Arc;
 
+use bytemuck::bytes_of;
 use gfx::any;
 use wgpu::util::DeviceExt;
 
@@ -36,6 +37,15 @@ impl Brick
         Brick {
             bricks: from_fn(|x| from_fn(|y| from_fn(|z| fill_func(x, y, z))))
         }
+    }
+
+    pub fn get_position_offset(pos: &gfx::U64Vec3) -> u64
+    {
+        let voxel_size = std::mem::size_of::<super::Voxel>() as u64;
+
+        Self::SIDE_LENGTH_VOXELS * Self::SIDE_LENGTH_VOXELS * pos.x * voxel_size
+            + Self::SIDE_LENGTH_VOXELS * pos.y * voxel_size
+            + pos.z * voxel_size
     }
 
     pub fn set(&mut self, local_pos: gfx::U64Vec3, voxel: Voxel)
@@ -110,15 +120,6 @@ impl BrickTrackingArray
         &self.array[0][0][0]
     }
 
-    pub fn get_position_offset(pos: &gfx::U64Vec3) -> u64
-    {
-        let voxel_size = std::mem::size_of::<Option<NonZeroU32>>() as u64;
-
-        Self::SIDE_LENGTH_BRICKS * Self::SIDE_LENGTH_BRICKS * pos.x * voxel_size
-            + Self::SIDE_LENGTH_BRICKS * pos.y * voxel_size
-            + pos.z * voxel_size
-    }
-
     fn get_pos_indices(pos: &gfx::I64Vec3) -> gfx::TVec3<usize>
     {
         const UPPER_BOUND: i64 = (BrickTrackingArray::SIDE_LENGTH_BRICKS as i64 / 2) - 1;
@@ -153,7 +154,7 @@ pub struct BrickMapBuffers
 
 impl BrickMap
 {
-    pub fn set_voxel(&mut self, voxel: Voxel, position: gfx::I64Vec3)
+    pub fn set_voxel(&mut self, voxel: Voxel, position: &gfx::I64Vec3)
     {
         let VoxelLocation {
             brick_pos,
@@ -181,6 +182,20 @@ impl BrickMap
                 };
 
                 gpu_brick.set(voxel_pos, voxel);
+
+                // let v = voxel as u32;
+                // let slice = bytes_of::<u32>(&v);
+                // assert!(slice.len() == 4);
+
+                // let brick_offset_bytes =
+                //     brick_ptr.get() as u64 * std::mem::size_of::<Brick>() as
+                // u64; let voxel_offset_bytes = 0;
+                // //Brick::get_position_offset(&voxel_pos); let
+                // buffer_offset = brick_offset_bytes + voxel_offset_bytes;
+
+                // self.renderer
+                //     .queue
+                //     .write_buffer(&self.brick_buffer, buffer_offset, slice);
             }
             None =>
             {
@@ -224,13 +239,13 @@ impl BrickMap
                 label:              Some("Brick Tracking storage buffer"),
                 size:               std::mem::size_of::<Option<NonZeroU32>>() as u64
                     * temp_fixed_size,
-                usage:              wgpu::BufferUsages::STORAGE,
+                usage:              wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
                 mapped_at_creation: true
             })),
             brick_buffer:    Arc::new(renderer.create_buffer(&wgpu::BufferDescriptor {
                 label:              Some("Brick Map storage buffer"),
                 size:               std::mem::size_of::<Brick>() as u64 * temp_fixed_size,
-                usage:              wgpu::BufferUsages::STORAGE,
+                usage:              wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
                 mapped_at_creation: true
             }))
         };
@@ -251,7 +266,7 @@ struct VoxelLocation
     pub voxel_pos: gfx::U64Vec3
 }
 
-fn get_brick_pos(pos: gfx::I64Vec3, brick_side_length: u64) -> VoxelLocation
+fn get_brick_pos(pos: &gfx::I64Vec3, brick_side_length: u64) -> VoxelLocation
 {
     let length: i64 = brick_side_length.try_into().unwrap();
 
@@ -270,7 +285,7 @@ mod test
     fn test_brick_pos()
     {
         assert_eq!(
-            get_brick_pos(gfx::I64Vec3::new(0, 0, 0), 8),
+            get_brick_pos(&gfx::I64Vec3::new(0, 0, 0), 8),
             VoxelLocation {
                 brick_pos: gfx::I64Vec3::new(0, 0, 0),
                 voxel_pos: gfx::U64Vec3::new(0, 0, 0)
@@ -278,7 +293,7 @@ mod test
         );
 
         assert_eq!(
-            get_brick_pos(gfx::I64Vec3::new(0, 8, 0), 8),
+            get_brick_pos(&gfx::I64Vec3::new(0, 8, 0), 8),
             VoxelLocation {
                 brick_pos: gfx::I64Vec3::new(0, 1, 0),
                 voxel_pos: gfx::U64Vec3::new(0, 0, 0)
@@ -286,7 +301,7 @@ mod test
         );
 
         assert_eq!(
-            get_brick_pos(gfx::I64Vec3::new(7, 7, 7), 8),
+            get_brick_pos(&gfx::I64Vec3::new(7, 7, 7), 8),
             VoxelLocation {
                 brick_pos: gfx::I64Vec3::new(0, 0, 0),
                 voxel_pos: gfx::U64Vec3::new(7, 7, 7)
@@ -294,7 +309,7 @@ mod test
         );
 
         assert_eq!(
-            get_brick_pos(gfx::I64Vec3::new(3, 58, 21), 8),
+            get_brick_pos(&gfx::I64Vec3::new(3, 58, 21), 8),
             VoxelLocation {
                 brick_pos: gfx::I64Vec3::new(0, 7, 2),
                 voxel_pos: gfx::U64Vec3::new(3, 2, 5)
@@ -302,7 +317,7 @@ mod test
         );
 
         assert_eq!(
-            get_brick_pos(gfx::I64Vec3::new(-1, -1, -1), 8),
+            get_brick_pos(&gfx::I64Vec3::new(-1, -1, -1), 8),
             VoxelLocation {
                 brick_pos: gfx::I64Vec3::new(-1, -1, -1),
                 voxel_pos: gfx::U64Vec3::new(7, 7, 7)
@@ -310,7 +325,7 @@ mod test
         );
 
         assert_eq!(
-            get_brick_pos(gfx::I64Vec3::new(-2, -3, -4), 8),
+            get_brick_pos(&gfx::I64Vec3::new(-2, -3, -4), 8),
             VoxelLocation {
                 brick_pos: gfx::I64Vec3::new(-1, -1, -1),
                 voxel_pos: gfx::U64Vec3::new(6, 5, 4)
@@ -318,7 +333,7 @@ mod test
         );
 
         assert_eq!(
-            get_brick_pos(gfx::I64Vec3::new(-8, -8, -8), 8),
+            get_brick_pos(&gfx::I64Vec3::new(-8, -8, -8), 8),
             VoxelLocation {
                 brick_pos: gfx::I64Vec3::new(-1, -1, -1),
                 voxel_pos: gfx::U64Vec3::new(0, 0, 0)
@@ -326,7 +341,7 @@ mod test
         );
 
         assert_eq!(
-            get_brick_pos(gfx::I64Vec3::new(-7, -7, -7), 8),
+            get_brick_pos(&gfx::I64Vec3::new(-7, -7, -7), 8),
             VoxelLocation {
                 brick_pos: gfx::I64Vec3::new(-1, -1, -1),
                 voxel_pos: gfx::U64Vec3::new(1, 1, 1)
@@ -343,7 +358,7 @@ mod test
         // -56 -> -49 | -7
         // -64 -> -57 | -8
         assert_eq!(
-            get_brick_pos(gfx::I64Vec3::new(-3, -58, -21), 8),
+            get_brick_pos(&gfx::I64Vec3::new(-3, -58, -21), 8),
             VoxelLocation {
                 brick_pos: gfx::I64Vec3::new(-1, -8, -3),
                 voxel_pos: gfx::U64Vec3::new(5, 6, 3)
