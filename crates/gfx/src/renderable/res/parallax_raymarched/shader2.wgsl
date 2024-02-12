@@ -69,22 +69,31 @@ struct FragmentOutput
     out.clip_position = global_model_view_projection[push_constants.id] * vec4<f32>(input.position, 1.0);
     out.chunk_ptr = in.chunk_ptr;
     out.local_offset = in.local_offset;
-    out.camera_pos = TODO!
+    
+    let world_pos_vertex_intercalc: vec4<f32> = global_model[push_constants.id] * vec4<f32>(input.position, 1.0);
+    let world_pos_vertex: vec3<f32> = world_pos_vertex_intercalc.xyz / world_pos_vertex_intercalc.w;
+
+    out.camera_pos = (world_pos_vertex - global_info.camera_pos);
 
     return out;
 }
 
 @fragment fn fs_main(in: VertexOutput) -> FragmentOutput
 {
-    var ray: Ray;
-    // TODO: construct ray
+    let camera_in_chunk: bool =
+        all(in.camera_pos > vec3<f32>(0.0)) &&
+        all(in.camera_pos < vec3<f32>(f32(ChunkSideBricks * BrickSideVoxels)));
 
-    if (camera in chunk, start from camera)
+    var ray: Ray;
+    ray.direction = normalize(in.local_offset - in.camera_pos);
+
+    if (camera_in_chunk)
     {
-        
-    } else // camera is outside of chunk
+        ray.origin = in.camera_pos;
+    }
+    else // camera is outside of chunk
     {
-        start from the chunk's point
+        ray.origin = in.local_offset
     }
 
     // two for loops with two seperate traces
@@ -99,6 +108,7 @@ struct FragmentOutput
     }
 
     var out: FragmentOutput;
+    
     let depth_intercalc: vec4<f32> = global_view_projection[push_constants.id] * vec4<f32>(result.strike_pos_world, 1.0);
     out.depth = depth_intercalc.z / depth_intercalc.w;
     out.color = Voxel_get_material(result.voxel);
@@ -140,4 +150,14 @@ fn Brick_access(self: BrickPointer, pos: vec3<u32>) -> Voxel;
         case 1: return val & 0xFFFF0000u;
         default: {Error = true; return 0;}
     }
+}
+
+struct VoxelTraceResult
+{
+
+}
+
+fn Chunk_trace(self: ChunkPointer, ray: Ray) -> VoxelTraceResult
+{
+    TODO!
 }
