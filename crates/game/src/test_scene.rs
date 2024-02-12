@@ -30,7 +30,7 @@ impl TestScene
             }
         ) = world_gen::BrickMap::new(game.get_renderer().clone());
 
-        let dim = 128;
+        let dim = 64;
 
         for x in -dim..dim
         {

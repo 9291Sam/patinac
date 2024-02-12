@@ -40,7 +40,7 @@ struct FragmentOutput
    @location(0) color: vec4<f32>
 }
 
-const TRACKING_ARRAY_SIZE: u32 = 32;
+const TRACKING_ARRAY_SIZE: u32 = 16;
 const BRICK_SIDE_LENGTH: u32 = 8;
 
 struct Brick
@@ -188,12 +188,12 @@ fn sdBox(p: vec3<f32>, b: vec3<f32>) -> f32 {
 // Function to check if a voxel exists at a given position
 fn getVoxel(c: vec3<i32>) -> bool
 {
-    // let bound: i32 = i32(BRICK_SIDE_LENGTH) * i32(TRACKING_ARRAY_SIZE);
+    let bound: i32 = i32(BRICK_SIDE_LENGTH) * i32(TRACKING_ARRAY_SIZE);
 
-    // if (any(c >= vec3<i32>(bound)) || any(c < vec3<i32>(-bound)))
-    // {
-    //     return false;
-    // }
+    if (any(c >= vec3<i32>(bound)) || any(c < vec3<i32>(-bound)))
+    {
+        return false;
+    }
 
     let brick_idx = vec3<i32>(div_euc(c.x, i32(BRICK_SIDE_LENGTH)), div_euc(c.y, i32(BRICK_SIDE_LENGTH)),div_euc(c.z, i32(BRICK_SIDE_LENGTH))) + vec3<i32>(TRACKING_ARRAY_SIZE / 2);
     let maybe_brick_ptr = tracking_array[brick_idx.x][brick_idx.y][brick_idx.z];

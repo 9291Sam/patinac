@@ -72,7 +72,7 @@ struct BrickTrackingArray
 
 impl BrickTrackingArray
 {
-    const SIDE_LENGTH_BRICKS: u64 = 32;
+    const SIDE_LENGTH_BRICKS: u64 = 16;
 
     pub fn new() -> Self
     {
