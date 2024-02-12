@@ -5,16 +5,15 @@ var<private> EnableValidation: bool = true;
 
 struct Voxel = u32;
 type Brick = array<u32, BrickSideVoxels * BrickSideVoxels * BrickSideVoxels / 2>;
-type BrickStorageBuffer = array<Brick, 131072>;
+type BrickStorageBuffer = array<Brick, 131072>; // 128 MiB
 type BrickPointer = u32;
 type MaybeBrickPointer = u32;
 type Chunk = array<array<array<MaybeBrickPointer, ChunkSideBricks>, ChunkSideBricks>, ChunkSideBricks>;
-type ChunkStorageBuffer = array<Chunk, MaxChunks>;
+type ChunkStorageBuffer = array<Chunk, 128>; // 128MibB
 type ChunkPointer = u32;
 
 const BrickSideVoxels = 8;
 const ChunkSideBricks = 64;
-const MaxChunks = 128;
 
 struct GlobalInfo
 {
@@ -102,9 +101,6 @@ struct FragmentOutput
     if (!result.hit)
     {
         discard;
-
-        let out: FragmentOutput;
-        return out;
     }
 
     var out: FragmentOutput;
@@ -132,6 +128,15 @@ fn Voxel_get_material(v: Voxel) -> vec4<f32>
     }
 }
 
+fn Voxel_isVisible(v)
+{
+    switch (v)
+    {
+        case 0: return false;
+        default: return true;
+    }
+}
+
 fn Brick_access(self: BrickPointer, pos: vec3<u32>) -> Voxel;
 {
     if (any(pos >= BrickSideVoxels))
@@ -146,6 +151,8 @@ fn Brick_access(self: BrickPointer, pos: vec3<u32>) -> Voxel;
 
     switch (final)
     {
+        // TODO: bitfield extract
+        TODO! wrong!
         case 0: return val & 0x0000FFFFu;
         case 1: return val & 0xFFFF0000u;
         default: {Error = true; return 0;}
@@ -159,5 +166,15 @@ struct VoxelTraceResult
 
 fn Chunk_trace(self: ChunkPointer, ray: Ray) -> VoxelTraceResult
 {
-    TODO!
+    var active_brick_ptr;
+
+    for (bricks)
+    {
+        for (voxels in brick)
+        {
+
+        }
+    }
+
+
 }

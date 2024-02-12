@@ -1,12 +1,9 @@
 use std::array::from_fn;
 use std::num::{NonZeroU32, NonZeroUsize};
 use std::ops::RangeInclusive;
-use std::ptr::addr_of;
 use std::sync::Arc;
 
 use bytemuck::bytes_of;
-use gfx::any;
-use wgpu::util::DeviceExt;
 
 use crate::*;
 

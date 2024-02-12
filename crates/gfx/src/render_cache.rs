@@ -48,16 +48,7 @@ impl RenderCache
                             // camera
                             // projection matricies
                             // depth buffer
-                            entries: &[wgpu::BindGroupLayoutEntry {
-                                binding:    0,
-                                visibility: wgpu::ShaderStages::FRAGMENT,
-                                ty:         wgpu::BindingType::StorageTexture {
-                                    access:         wgpu::StorageTextureAccess::ReadOnly,
-                                    format:         wgpu::TextureFormat::R16Uint,
-                                    view_dimension: wgpu::TextureViewDimension::D3
-                                },
-                                count:      Some(131768.try_into().unwrap())
-                            }]
+                            entries: &[]
                         })
                     }
                     BindGroupType::BrickMap =>
@@ -318,7 +309,7 @@ impl RenderCache
                     PipelineType::ParallaxRaymarched =>
                     {
                         let shader = device.create_shader_module(wgpu::include_wgsl!(
-                            "renderable/res/parallax_raymarched/shader.wgsl"
+                            "renderable/res/parallax_raymarched/shader2.wgsl"
                         ));
 
                         GenericPipeline::Render(device.create_render_pipeline(
