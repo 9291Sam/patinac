@@ -147,27 +147,40 @@ impl gfx::Recordable for ParallaxRaymarched
         gfx::PipelineType::ParallaxRaymarched
     }
 
-    fn get_bind_groups(&self) -> [Option<&'_ wgpu::BindGroup>; 4]
+    fn pre_record_update(&self, renderer: &gfx::Renderer, camera: &gfx::Camera) -> gfx::RecordInfo
     {
-        [Some(&*self.brick_bind_group), None, None, None]
+        let mut guard = self.transform.lock().unwrap();
+
+        if self.camera_track
+        {
+            guard.translation = camera.get_position();
+        }
+
+        gfx::RecordInfo {
+            should_draw: true,
+            transform:   Some(guard.clone())
+        }
     }
 
-    fn should_render(&self) -> bool
+    fn get_bind_groups(
+        &self,
+        global_bind_group: &wgpu::BindGroup
+    ) -> [Option<&'_ wgpu::BindGroup>; 4]
     {
-        true
+        [
+            Some(global_bind_group),
+            Some(&*self.brick_bind_group),
+            None,
+            None
+        ]
     }
 
-    fn record<'s>(
-        &'s self,
-        render_pass: &mut gfx::GenericPass<'s>,
-        renderer: &gfx::Renderer,
-        camera: &gfx::Camera
-    ) // -> // matricies
+    fn record<'s>(&'s self, render_pass: &mut gfx::GenericPass<'s>, maybe_id: Option<u32>)
     {
-        let GenericPass::Render(ref mut pass) = render_pass
+        let (GenericPass::Render(ref mut pass), Some(id)) = (render_pass, maybe_id)
         else
         {
-            panic!("unexpected generic pass")
+            unreachable!();
         };
 
         pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
@@ -175,26 +188,7 @@ impl gfx::Recordable for ParallaxRaymarched
         {
             let mut guard = self.transform.lock().unwrap();
 
-            if self.camera_track
-            {
-                guard.translation = camera.get_position();
-            }
-
-            pass.set_push_constants(
-                wgpu::ShaderStages::VERTEX_FRAGMENT,
-                0,
-                bytes_of(&PushConstants {
-                    mvp:        camera.get_perspective(renderer, &guard),
-                    model:      guard.as_model_matrix(),
-                    vp:         camera.get_perspective(
-                        renderer,
-                        &Transform {
-                            ..Default::default()
-                        }
-                    ),
-                    camera_pos: camera.get_position()
-                })
-            );
+            pass.set_push_constants(wgpu::ShaderStages::VERTEX_FRAGMENT, 0, bytes_of(&id));
         }
 
         pass.draw_indexed(0..self.number_of_indices as u32, 0, 0..1);

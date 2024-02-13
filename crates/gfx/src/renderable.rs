@@ -8,37 +8,46 @@ use std::cmp::Ordering::*;
 use std::fmt::Debug;
 use std::num::NonZeroU64;
 
-use nalgebra_glm as glm;
-
 pub trait Recordable: Debug + Send + Sync
 {
+    /// Your state functions
     fn get_name(&self) -> Cow<'_, str>;
     fn get_uuid(&self) -> util::Uuid;
     fn get_pass_stage(&self) -> super::PassStage;
     fn get_pipeline_type(&self) -> super::PipelineType;
-    fn get_bind_groups(&self) -> [Option<&'_ wgpu::BindGroup>; 4];
-    fn get_bind_group_ids(&self) -> [Option<NonZeroU64>; 4]
-    {
-        std::array::from_fn(|i| {
-            self.get_bind_groups()[i]
-                .map(|group| NonZeroU64::new(group.global_id().inner()).unwrap())
-        })
-    }
 
-    fn should_render(&self) -> bool;
+    /// Called for all registered Recordable s
+    fn pre_record_update(&self, renderer: &crate::Renderer, camera: &crate::Camera) -> RecordInfo;
 
-    fn get_transform(&self) -> Option<crate::Transform>;
+    fn get_bind_groups<'s>(
+        &'s self,
+        global_bind_group: &'s wgpu::BindGroup
+    ) -> [Option<&'s wgpu::BindGroup>; 4];
 
-    fn ord(&self, other: &dyn Recordable) -> Ordering
+    fn record<'s>(&'s self, render_pass: &mut super::GenericPass<'s>, maybe_id: Option<u32>);
+
+    fn ord(&self, other: &dyn Recordable, global_bind_group: &wgpu::BindGroup) -> Ordering
     {
         Equal
             .then(self.get_pass_stage().cmp(&other.get_pass_stage()))
             .then(self.get_pipeline_type().cmp(&other.get_pipeline_type()))
-            .then(self.get_bind_group_ids().cmp(&other.get_bind_group_ids()))
+            .then(
+                get_bind_group_ids(&self.get_bind_groups(global_bind_group)).cmp(
+                    &get_bind_group_ids(&other.get_bind_groups(global_bind_group))
+                )
+            )
     }
-
-    fn record<'s>(&'s self, render_pass: &mut super::GenericPass<'s>, id: u32);
 }
 
-// trait Sealed {}
-// impl<T> Sealed for Arc<T> {}
+pub struct RecordInfo
+{
+    should_draw: bool,
+    transform:   Option<crate::Transform>
+}
+
+fn get_bind_group_ids(bind_groups: &[Option<&'_ wgpu::BindGroup>; 4]) -> [Option<NonZeroU64>; 4]
+{
+    std::array::from_fn(|i| {
+        bind_groups[i].map(|group| NonZeroU64::new(group.global_id().inner()).unwrap())
+    })
+}
