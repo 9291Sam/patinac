@@ -47,6 +47,9 @@ impl TestScene
             }
         }
 
+        tracking_buffer.unmap();
+        brick_buffer.unmap();
+
         let bind_group = Arc::new(
             game.get_renderer()
                 .create_bind_group(&wgpu::BindGroupDescriptor {

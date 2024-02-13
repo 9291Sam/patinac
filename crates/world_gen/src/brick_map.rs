@@ -1,6 +1,7 @@
 use std::array::from_fn;
 use std::num::{NonZeroU32, NonZeroUsize};
 use std::ops::RangeInclusive;
+use std::ptr::addr_of;
 use std::sync::Arc;
 
 use bytemuck::bytes_of;
@@ -166,34 +167,34 @@ impl BrickMap
         {
             Some(brick_ptr) =>
             {
-                // let gpu_offset_bytes = brick_ptr.get() as u64 * std::mem::size_of::<Brick>()
-                // as u64;
+                let gpu_offset_bytes = brick_ptr.get() as u64 * std::mem::size_of::<Brick>() as u64;
 
-                // let gpu_brick: &mut Brick = unsafe {
-                //     &mut *(self
-                //         .brick_buffer
-                //         .slice(
-                //             gpu_offset_bytes
-                //                 ..(gpu_offset_bytes + std::mem::size_of::<Brick>() as u64)
-                //         )
-                //         .get_mapped_range_mut()
-                //         .as_mut_ptr() as *mut Brick)
-                // };
+                let gpu_brick: &mut Brick = unsafe {
+                    &mut *(self
+                        .brick_buffer
+                        .slice(
+                            gpu_offset_bytes
+                                ..(gpu_offset_bytes + std::mem::size_of::<Brick>() as u64)
+                        )
+                        .get_mapped_range_mut()
+                        .as_mut_ptr() as *mut Brick)
+                };
 
-                // gpu_brick.set(voxel_pos, voxel);
+                gpu_brick.set(voxel_pos, voxel);
 
-                let v = voxel as u32;
-                let slice = bytes_of::<u32>(&v);
-                assert!(slice.len() == 4);
+                // let v = voxel as u32;
+                // let slice = bytes_of::<u32>(&v);
+                // assert!(slice.len() == 4);
 
-                let brick_offset_bytes =
-                    brick_ptr.get() as u64 * std::mem::size_of::<Brick>() as u64;
-                let voxel_offset_bytes = Brick::get_position_offset(&voxel_pos);
-                let buffer_offset = brick_offset_bytes + voxel_offset_bytes;
+                // let brick_offset_bytes =
+                //     brick_ptr.get() as u64 * std::mem::size_of::<Brick>() as
+                // u64; let voxel_offset_bytes =
+                // Brick::get_position_offset(&voxel_pos);
+                // let buffer_offset = brick_offset_bytes + voxel_offset_bytes;
 
-                self.renderer
-                    .queue
-                    .write_buffer(&self.brick_buffer, buffer_offset, slice);
+                // self.renderer
+                //     .queue
+                //     .write_buffer(&self.brick_buffer, buffer_offset, slice);
             }
             None =>
             {
@@ -207,28 +208,28 @@ impl BrickMap
 
                 *cpu_maybe_brick_ptr = Some(NonZeroU32::new(new_brick_ptr).unwrap());
 
-                // 1
-                self.renderer.queue.write_buffer(
-                    &self.tracking_buffer,
-                    brick_ptr_offset_elements as u64
-                        * std::mem::size_of::<Option<NonZeroU32>>() as u64,
-                    bytes_of(&new_brick_ptr)
-                );
+                // // 1
+                // self.renderer.queue.write_buffer(
+                //     &self.tracking_buffer,
+                //     brick_ptr_offset_elements as u64
+                //         * std::mem::size_of::<Option<NonZeroU32>>() as u64,
+                //     bytes_of(&new_brick_ptr)
+                // );
 
                 // 2
-                // unsafe {
-                //     self.tracking_buffer
-                //         .slice(..)
-                //         .get_mapped_range_mut()
-                //         .as_mut_ptr()
-                //         .wrapping_add(
-                //             brick_ptr_offset_elements *
-                // std::mem::size_of::<Option<NonZeroU32>>()         )
-                //         .copy_from_nonoverlapping(
-                //             addr_of!(new_brick_ptr) as *const u8,
-                //             std::mem::size_of_val(&new_brick_ptr)
-                //         );
-                // }
+                unsafe {
+                    self.tracking_buffer
+                        .slice(..)
+                        .get_mapped_range_mut()
+                        .as_mut_ptr()
+                        .wrapping_add(
+                            brick_ptr_offset_elements * std::mem::size_of::<Option<NonZeroU32>>()
+                        )
+                        .copy_from_nonoverlapping(
+                            addr_of!(new_brick_ptr) as *const u8,
+                            std::mem::size_of_val(&new_brick_ptr)
+                        );
+                }
 
                 self.set_voxel(voxel, position);
             }
@@ -250,13 +251,13 @@ impl BrickMap
                 size:               std::mem::size_of::<Option<NonZeroU32>>() as u64
                     * temp_fixed_size,
                 usage:              wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
-                mapped_at_creation: false
+                mapped_at_creation: true
             })),
             brick_buffer:    Arc::new(renderer.create_buffer(&wgpu::BufferDescriptor {
                 label:              Some("Brick Map storage buffer"),
                 size:               std::mem::size_of::<Brick>() as u64 * temp_fixed_size,
                 usage:              wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
-                mapped_at_creation: false
+                mapped_at_creation: true
             }))
         };
 

@@ -8,6 +8,8 @@ use std::cmp::Ordering::*;
 use std::fmt::Debug;
 use std::num::NonZeroU64;
 
+use nalgebra_glm as glm;
+
 pub trait Recordable: Debug + Send + Sync
 {
     fn get_name(&self) -> Cow<'_, str>;
@@ -25,6 +27,8 @@ pub trait Recordable: Debug + Send + Sync
 
     fn should_render(&self) -> bool;
 
+    fn get_transform(&self) -> Option<crate::Transform>;
+
     fn ord(&self, other: &dyn Recordable) -> Ordering
     {
         Equal
@@ -33,12 +37,7 @@ pub trait Recordable: Debug + Send + Sync
             .then(self.get_bind_group_ids().cmp(&other.get_bind_group_ids()))
     }
 
-    fn record<'s>(
-        &'s self,
-        render_pass: &mut super::GenericPass<'s>,
-        renderer: &super::Renderer,
-        camera: &super::Camera
-    );
+    fn record<'s>(&'s self, render_pass: &mut super::GenericPass<'s>, id: u32);
 }
 
 // trait Sealed {}

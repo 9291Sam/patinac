@@ -1,16 +1,16 @@
 var<private> Error: false = false;
 
 // TODO: pipeline overrideable constant
-var<private> EnableValidation: bool = true;
+override EnableValidation: bool = true;
 
-struct Voxel = u32;
-type Brick = array<u32, BrickSideVoxels * BrickSideVoxels * BrickSideVoxels / 2>;
-type BrickStorageBuffer = array<Brick, 131072>; // 128 MiB
-type BrickPointer = u32;
-type MaybeBrickPointer = u32;
-type Chunk = array<array<array<MaybeBrickPointer, ChunkSideBricks>, ChunkSideBricks>, ChunkSideBricks>;
-type ChunkStorageBuffer = array<Chunk, 128>; // 128MibB
-type ChunkPointer = u32;
+alias Voxel = u32;
+alias Brick = array<u32, (BrickSideVoxels * BrickSideVoxels * BrickSideVoxels / 2)>;
+alias BrickStorageBuffer = array<Brick, 131072>; // 128 MiB
+alias BrickPointer = u32;
+alias MaybeBrickPointer = u32;
+alias Chunk = array<array<array<MaybeBrickPointer, ChunkSideBricks>, ChunkSideBricks>, ChunkSideBricks>;
+alias ChunkStorageBuffer = array<Chunk, 128>; // 128MibB
+alias ChunkPointer = u32;
 
 const BrickSideVoxels = 8;
 const ChunkSideBricks = 64;
@@ -18,7 +18,7 @@ const ChunkSideBricks = 64;
 struct GlobalInfo
 {
     camera_pos: vec4<f32>,
-    
+    view_projection: mat4x4<f32>
 }
 
 struct Matricies
@@ -34,7 +34,6 @@ struct PushConstants
 @group(0) @binding(0) var<uniform> global_info: GlobalInfo;
 @group(0) @binding(1) var<uniform> global_model_view_projection: Matricies;
 @group(0) @binding(2) var<uniform> global_model: Matricies;
-@group(0) @binding(3) var<uniform> global_view_projection: Matricies;
 
 @group(1) @binding(0) var<storage> ChunkBuffer: ChunkStorageBuffer;
 @group(1) @binding(1) var<storage> BrickBuffer: BrickStorageBuffer;
@@ -92,7 +91,7 @@ struct FragmentOutput
     }
     else // camera is outside of chunk
     {
-        ray.origin = in.local_offset
+        ray.origin = in.local_offset;
     }
 
     // two for loops with two seperate traces
@@ -120,11 +119,11 @@ fn Voxel_get_material(v: Voxel) -> vec4<f32>
 {
     switch (v)
     {
-        case 0: return vec4<f32>(0.0);
-        case 1: return vec4<f32>(1.0, 0.0, 0.0, 1.0);
-        case 2: return vec4<f32>(0.0, 1.0, 0.0, 1.0);
-        case 3: return vec4<f32>(0.0, 0.0, 1.0, 1.0);
-        default: return vec4<f32>(0.0);
+        case 0:  { return vec4<f32>(0.0);                }
+        case 1:  { return vec4<f32>(1.0, 0.0, 0.0, 1.0); }
+        case 2:  { return vec4<f32>(0.0, 1.0, 0.0, 1.0); }
+        case 3:  { return vec4<f32>(0.0, 0.0, 1.0, 1.0); }
+        default: { Error = true;  return vec4<f32>(0.0); }
     }
 }
 
@@ -139,7 +138,7 @@ fn Voxel_isVisible(v)
 
 fn Brick_access(self: BrickPointer, pos: vec3<u32>) -> Voxel;
 {
-    if (any(pos >= BrickSideVoxels))
+    if (EnableValidation && any(pos >= BrickSideVoxels))
     {
         Error = true;
     }
@@ -155,6 +154,16 @@ fn Brick_access(self: BrickPointer, pos: vec3<u32>) -> Voxel;
         case 1: return extractBits(val, 16, 16);
         default: {Error = true; return 0;}
     }
+}
+
+fn Chunk_access(self: ChunkPointer, pos: vec3<u32>) -> MaybeBrickPointer
+{
+    if (EnableValidation && any(pos >= ChunkSideBricks))
+    {
+        Error = true;
+    }
+
+    return ChunkBuffer[pos.x][pos.y][pos.z];
 }
 
 struct VoxelTraceResult

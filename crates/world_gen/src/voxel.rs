@@ -118,5 +118,7 @@ mod test
     pub fn assert_sizes()
     {
         assert_eq!(std::mem::size_of::<Brick>(), 1024);
+        assert_eq!(std::mem::size_of::<BrickStorageBuffer>(), 128 * 1024 * 1024);
+        assert_eq!(std::mem::size_of::<ChunkStorageBuffer>(), 128 * 1024 * 1024);
     }
 }

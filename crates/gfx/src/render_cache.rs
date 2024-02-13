@@ -309,7 +309,7 @@ impl RenderCache
                     PipelineType::ParallaxRaymarched =>
                     {
                         let shader = device.create_shader_module(wgpu::include_wgsl!(
-                            "renderable/res/parallax_raymarched/shader2.wgsl"
+                            "renderable/res/parallax_raymarched/shader.wgsl"
                         ));
 
                         GenericPipeline::Render(device.create_render_pipeline(
