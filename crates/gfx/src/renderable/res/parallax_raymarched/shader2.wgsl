@@ -146,8 +146,8 @@ fn Brick_access(self: BrickPointer, pos: vec3<u32>) -> Voxel;
 
     switch (final)
     {
-        case 0: return val & 0x0000FFFFu;
-        case 1: return val & 0xFFFF0000u;
+        case 0: return extractBits(val, 0, 16);
+        case 1: return extractBits(val, 16, 16);
         default: {Error = true; return 0;}
     }
 }
