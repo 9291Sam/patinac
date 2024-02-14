@@ -6,6 +6,7 @@ use std::sync::atomic::{AtomicBool, AtomicU32};
 use std::sync::{Arc, Mutex, Weak};
 use std::thread::ThreadId;
 
+use bytemuck::{bytes_of, Pod, Zeroable};
 use nalgebra_glm as glm;
 use pollster::FutureExt;
 use strum::IntoEnumIterator;
@@ -29,11 +30,7 @@ pub struct Renderer
     pub queue:        wgpu::Queue,
     pub render_cache: super::RenderCache,
 
-    // pub camera:       Mutex<super::Camera>,
-
-    // gated publics
     device:      wgpu::Device,
-    // TODO: replace with UUIDs
     renderables: util::Registrar<util::Uuid, Weak<dyn super::Recordable>>,
 
     // Rendering views
@@ -289,6 +286,48 @@ impl Renderer
 
         let depth_buffer = RefCell::new(create_depth_buffer(&self.device, config));
 
+        let global_info_uniform_buffer = self.create_buffer(&wgpu::BufferDescriptor {
+            label:              Some("Global Uniform Buffer"),
+            size:               std::mem::size_of::<ShaderGlobalInfo>() as u64,
+            usage:              wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false
+        });
+
+        let global_mvp_buffer = self.create_buffer(&wgpu::BufferDescriptor {
+            label:              Some("Global Uniform Buffer"),
+            size:               std::mem::size_of::<ShaderMatrices>() as u64,
+            usage:              wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false
+        });
+
+        let global_model_buffer = self.create_buffer(&wgpu::BufferDescriptor {
+            label:              Some("Global Uniform Buffer"),
+            size:               std::mem::size_of::<ShaderMatrices>() as u64,
+            usage:              wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false
+        });
+
+        let global_bind_group = self.create_bind_group(&wgpu::BindGroupDescriptor {
+            label:   Some("Global Info Bind Group"),
+            layout:  self
+                .render_cache
+                .lookup_bind_group_layout(crate::BindGroupType::GlobalData),
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding:  0,
+                    resource: global_info_uniform_buffer.as_entire_binding()
+                },
+                wgpu::BindGroupEntry {
+                    binding:  1,
+                    resource: global_mvp_buffer.as_entire_binding()
+                },
+                wgpu::BindGroupEntry {
+                    binding:  2,
+                    resource: global_model_buffer.as_entire_binding()
+                }
+            ]
+        });
+
         // Because of a bug in winit, the first resize command that comes in is borked
         // on Windows https://github.com/rust-windowing/winit/issues/2094
         // we want to skip the first resize event
@@ -358,9 +397,29 @@ impl Renderer
                         .push(r);
                 });
 
-            renderables_map
-                .iter_mut()
-                .for_each(|(_, renderable_vec)| renderable_vec.sort_by(|l, r| l.ord(&**r)));
+            renderables_map.iter_mut().for_each(|(_, renderable_vec)| {
+                renderable_vec.sort_by(|l, r| l.ord(&**r, &global_bind_group))
+            });
+
+            let global_info = {
+                let guard = camera.borrow();
+
+                ShaderGlobalInfo {
+                    camera_pos:      guard.get_position(),
+                    _padding:        0.0,
+                    view_projection: guard.get_perspective(
+                        self,
+                        &crate::Transform {
+                            ..Default::default()
+                        }
+                    )
+                }
+            };
+
+            todo!("update matricies buffers");
+
+            self.queue
+                .write_buffer(&global_info_uniform_buffer, 0, bytes_of(&global_info));
 
             let mut encoder = self
                 .device
@@ -693,4 +752,18 @@ fn create_depth_buffer(
     });
 
     (texture, view, sampler)
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Pod, Zeroable)]
+pub(crate) struct ShaderGlobalInfo
+{
+    camera_pos:      glm::Vec3,
+    _padding:        f32,
+    view_projection: glm::Mat4
+}
+
+pub(crate) struct ShaderMatrices
+{
+    matrices: [glm::Mat4; 1024]
 }
