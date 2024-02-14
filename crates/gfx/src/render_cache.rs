@@ -207,9 +207,14 @@ impl RenderCache
                     {
                         device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                             label:                Some("FlatTextured"),
-                            bind_group_layouts:   &[bind_group_layout_cache
-                                .get(&BindGroupType::FlatSimpleTexture)
-                                .unwrap()],
+                            bind_group_layouts:   &[
+                                bind_group_layout_cache
+                                    .get(&BindGroupType::GlobalData)
+                                    .unwrap(),
+                                bind_group_layout_cache
+                                    .get(&BindGroupType::FlatSimpleTexture)
+                                    .unwrap()
+                            ],
                             push_constant_ranges: &[wgpu::PushConstantRange {
                                 stages: wgpu::ShaderStages::VERTEX,
                                 range:  0..(std::mem::size_of::<glm::Mat4>() as u32)
@@ -220,9 +225,14 @@ impl RenderCache
                     {
                         device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                             label:                Some("LitTextured"),
-                            bind_group_layouts:   &[bind_group_layout_cache
-                                .get(&BindGroupType::LitSimpleTexture)
-                                .unwrap()],
+                            bind_group_layouts:   &[
+                                bind_group_layout_cache
+                                    .get(&BindGroupType::GlobalData)
+                                    .unwrap(),
+                                bind_group_layout_cache
+                                    .get(&BindGroupType::LitSimpleTexture)
+                                    .unwrap()
+                            ],
                             push_constant_ranges: &[wgpu::PushConstantRange {
                                 stages: wgpu::ShaderStages::VERTEX,
                                 range:  0..(std::mem::size_of::<glm::Mat4>() as u32 * 2)
@@ -233,9 +243,14 @@ impl RenderCache
                     {
                         device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                             label:                Some("Parallax Raymarched Pipeline Layout"),
-                            bind_group_layouts:   &[bind_group_layout_cache
-                                .get(&BindGroupType::BrickMap)
-                                .unwrap()],
+                            bind_group_layouts:   &[
+                                bind_group_layout_cache
+                                    .get(&BindGroupType::GlobalData)
+                                    .unwrap(),
+                                bind_group_layout_cache
+                                    .get(&BindGroupType::BrickMap)
+                                    .unwrap()
+                            ],
                             push_constant_ranges: &[wgpu::PushConstantRange {
                                 stages: wgpu::ShaderStages::VERTEX_FRAGMENT,
                                 range:  0..(std::mem::size_of::<
