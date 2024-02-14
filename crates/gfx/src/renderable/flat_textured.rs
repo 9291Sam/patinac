@@ -174,37 +174,26 @@ impl gfx::Recordable for FlatTextured
         gfx::PipelineType::FlatTextured
     }
 
-    fn get_bind_groups(&self) -> [Option<&'_ wgpu::BindGroup>; 4]
-    {
-        [Some(&self.tree_bind_group), None, None, None]
-    }
-
-    fn should_render(&self) -> bool
-    {
-        true
-    }
-
-    fn record<'s>(
+    fn get_bind_groups<'s>(
         &'s self,
-        active_render_pass: &mut gfx::GenericPass<'s>,
-        renderer: &gfx::Renderer,
-        camera: &gfx::Camera
-    )
+        global_bind_group: &'s wgpu::BindGroup
+    ) -> [Option<&'s wgpu::BindGroup>; 4]
+    {
+        [
+            Some(global_bind_group),
+            Some(&self.tree_bind_group),
+            None,
+            None
+        ]
+    }
+
+    fn pre_record_update(&self, renderer: &gfx::Renderer, camera: &gfx::Camera) -> gfx::RecordInfo
     {
         let time_alive = {
             let mut guard = self.time_alive.lock().unwrap();
             *guard += renderer.get_delta_time();
             *guard
         };
-
-        let gfx::GenericPass::Render(ref mut pass) = active_render_pass
-        else
-        {
-            panic!("Generic RenderPass bound with incorrect type!")
-        };
-
-        pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-        pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
 
         let mut transform = gfx::Transform {
             translation: self.translation, // 2.0 + 2.0 * time_alive.sin()
@@ -221,8 +210,23 @@ impl gfx::Recordable for FlatTextured
 
         let matrix = camera.get_perspective(renderer, &transform);
 
-        pass.set_push_constants(wgpu::ShaderStages::VERTEX, 0, bytes_of(&matrix));
+        gfx::RecordInfo {
+            should_draw: true,
+            transform:   Some(transform)
+        }
+    }
 
+    fn record<'s>(&'s self, render_pass: &mut gfx::GenericPass<'s>, maybe_id: Option<gfx::DrawId>)
+    {
+        let (gfx::GenericPass::Render(ref mut pass), Some(id)) = (render_pass, maybe_id)
+        else
+        {
+            panic!("Generic RenderPass bound with incorrect type!")
+        };
+
+        pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+        pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+        pass.set_push_constants(wgpu::ShaderStages::VERTEX, 0, bytes_of(&id));
         pass.draw_indexed(0..self.number_of_indices, 0, 0..1);
     }
 }

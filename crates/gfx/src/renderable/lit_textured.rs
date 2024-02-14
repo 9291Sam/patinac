@@ -235,6 +235,11 @@ impl gfx::Recordable for LitTextured
         Cow::Borrowed("LitTextured")
     }
 
+    fn get_uuid(&self) -> util::Uuid
+    {
+        self.id
+    }
+
     fn get_pass_stage(&self) -> gfx::PassStage
     {
         gfx::PassStage::GraphicsSimpleColor
@@ -245,48 +250,38 @@ impl gfx::Recordable for LitTextured
         gfx::PipelineType::LitTextured
     }
 
-    fn get_bind_groups(&self) -> [Option<&'_ wgpu::BindGroup>; 4]
+    fn pre_record_update(&self, renderer: &gfx::Renderer, camera: &gfx::Camera) -> gfx::RecordInfo
     {
-        [Some(&self.texture_normal_bind_group), None, None, None]
+        gfx::RecordInfo {
+            should_draw: true,
+            transform:   Some(self.transform.lock().unwrap().clone())
+        }
     }
 
-    fn should_render(&self) -> bool
-    {
-        true
-    }
-
-    fn record<'s>(
+    fn get_bind_groups<'s>(
         &'s self,
-        render_pass: &mut gfx::GenericPass<'s>,
-        renderer: &gfx::Renderer,
-        camera: &gfx::Camera
-    )
+        global_bind_group: &'s wgpu::BindGroup
+    ) -> [Option<&'s wgpu::BindGroup>; 4]
     {
-        let gfx::GenericPass::Render(ref mut pass) = render_pass
+        [
+            Some(global_bind_group),
+            Some(&self.texture_normal_bind_group),
+            None,
+            None
+        ]
+    }
+
+    fn record<'s>(&'s self, render_pass: &mut gfx::GenericPass<'s>, maybe_id: Option<gfx::DrawId>)
+    {
+        let (gfx::GenericPass::Render(ref mut pass), Some(id)) = (render_pass, maybe_id)
         else
         {
-            panic!("Unexpected GenericPass")
+            unreachable!()
         };
 
         pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
         pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-        {
-            let guard = self.transform.lock().unwrap();
-
-            pass.set_push_constants(
-                wgpu::ShaderStages::VERTEX,
-                0,
-                bytes_of::<[glm::Mat4; 2]>(&[
-                    camera.get_perspective(renderer, &guard),
-                    guard.as_model_matrix()
-                ])
-            );
-        }
+        pass.set_push_constants(wgpu::ShaderStages::VERTEX, 0, bytes_of(&id));
         pass.draw_indexed(0..self.number_of_indices, 0, 0..1);
-    }
-
-    fn get_uuid(&self) -> util::Uuid
-    {
-        self.id
     }
 }

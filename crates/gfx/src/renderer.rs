@@ -16,7 +16,7 @@ use rayon::iter::{
     ParallelIterator
 };
 use strum::IntoEnumIterator;
-use util::Registrar;
+use util::{Registrar, SendSyncMutPtr};
 use winit::dpi::PhysicalSize;
 use winit::event::*;
 use winit::event_loop::{EventLoop, EventLoopWindowTarget};
@@ -382,7 +382,7 @@ impl Renderer
 
             let mut renderables_map: HashMap<
                 super::PassStage,
-                Vec<(Arc<dyn super::Recordable>, RecordInfo, Option<DrawId>)>
+                Vec<(Arc<dyn super::Recordable>, Option<DrawId>)>
             > = super::PassStage::iter().map(|s| (s, Vec::new())).collect();
 
             let mut shader_mvps = ShaderMatrices {
@@ -392,23 +392,26 @@ impl Renderer
                 ..Default::default()
             };
 
-            let shader_mvp_ptr: *mut glm::Mat4 = shader_mvps.matrices.as_mut_ptr();
-            let shader_model_ptr: *mut glm::Mat4 = shader_models.matrices.as_mut_ptr();
+            let shader_mvp_ptr: SendSyncMutPtr<glm::Mat4> =
+                shader_mvps.matrices.as_mut_ptr().into();
+
+            let shader_model_ptr: SendSyncMutPtr<glm::Mat4> =
+                shader_models.matrices.as_mut_ptr().into();
 
             let id_counter = AtomicU32::new(0);
             let get_next_id = || {
                 let maybe_new_id = id_counter.fetch_add(1, Ordering::Relaxed);
 
-                if maybe_new_id >= ShaderMatrices::SIZE as u32
+                if maybe_new_id >= SHADER_MATRICES_SIZE as u32
                 {
-                    panic!("Too many draw calls with matricies!");
+                    panic!("Too many draw calls with matrices!");
                 }
 
                 maybe_new_id
             };
 
             {
-                let camera_guard = camera.borrow();
+                let closure_camera = camera.borrow().clone();
 
                 self.renderables
                     .access()
@@ -418,7 +421,7 @@ impl Renderer
                         {
                             Some(r) =>
                             {
-                                let record_info = r.pre_record_update(self, &*camera_guard);
+                                let record_info = r.pre_record_update(self, &closure_camera);
 
                                 match record_info
                                 {
@@ -433,14 +436,16 @@ impl Renderer
                                         let this_id = get_next_id();
 
                                         unsafe {
-                                            shader_mvp_ptr.add(this_id as usize).write(mvpMatrix);
+                                            shader_mvp_ptr
+                                                .add(this_id as usize)
+                                                .write(closure_camera.get_perspective(self, &t));
 
                                             shader_model_ptr
                                                 .add(this_id as usize)
-                                                .write(modelMatric)
+                                                .write(t.as_model_matrix())
                                         };
 
-                                        Some((r, this_id))
+                                        Some((r, Some(this_id)))
                                     }
                                     RecordInfo {
                                         should_draw: true,
@@ -461,7 +466,7 @@ impl Renderer
                         renderables_map
                             .get_mut(&r.get_pass_stage())
                             .unwrap()
-                            .push((r, r_i, None));
+                            .push((r, r_i));
                     });
             }
 
@@ -543,7 +548,7 @@ impl Renderer
                     }
                 };
 
-                for renderable in renderables_map.get(&pass_type).unwrap()
+                for (renderable, maybe_id) in renderables_map.get(&pass_type).unwrap()
                 {
                     let desired_pipeline = self
                         .render_cache
@@ -569,7 +574,7 @@ impl Renderer
 
                     for (idx, (active_bind_group_id, maybe_new_bind_group)) in active_bind_groups
                         .iter_mut()
-                        .zip(renderable.get_bind_groups())
+                        .zip(renderable.get_bind_groups(&global_bind_group))
                         .enumerate()
                     {
                         if *active_bind_group_id != maybe_new_bind_group.map(|g| g.global_id())
@@ -592,7 +597,7 @@ impl Renderer
                         }
                     }
 
-                    renderable.record(&mut render_pass, self, &camera.borrow());
+                    renderable.record(&mut render_pass, *maybe_id);
                 }
 
                 active_pipeline = None;
@@ -833,11 +838,13 @@ pub(crate) struct ShaderGlobalInfo
     view_projection: glm::Mat4
 }
 
+const SHADER_MATRICES_SIZE: usize = 1024;
+
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable, Debug)]
 pub(crate) struct ShaderMatrices
 {
-    matrices: [glm::Mat4; Self::SIZE]
+    matrices: [glm::Mat4; SHADER_MATRICES_SIZE]
 }
 
 impl Default for ShaderMatrices
@@ -845,11 +852,7 @@ impl Default for ShaderMatrices
     fn default() -> Self
     {
         Self {
-            matrices: [Default::default(); Self::SIZE]
+            matrices: [Default::default(); SHADER_MATRICES_SIZE]
         }
     }
-}
-impl ShaderMatrices
-{
-    pub const SIZE: usize = 1024;
 }
