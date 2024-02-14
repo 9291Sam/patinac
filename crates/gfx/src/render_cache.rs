@@ -18,7 +18,7 @@ pub enum PipelineType
 {
     FlatTextured,
     LitTextured,
-    ParallaxRaymarched
+    ChunkedParallaxRaymarched
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash, EnumIter)]
