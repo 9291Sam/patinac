@@ -385,10 +385,30 @@ impl Renderer
                 Vec<(Arc<dyn super::Recordable>, RecordInfo, Option<DrawId>)>
             > = super::PassStage::iter().map(|s| (s, Vec::new())).collect();
 
+            let mut shader_mvps = ShaderMatrices {
+                ..Default::default()
+            };
+            let mut shader_models = ShaderMatrices {
+                ..Default::default()
+            };
+
+            let shader_mvp_ptr: *mut glm::Mat4 = shader_mvps.matrices.as_mut_ptr();
+            let shader_model_ptr: *mut glm::Mat4 = shader_models.matrices.as_mut_ptr();
+
+            let id_counter = AtomicU32::new(0);
+            let get_next_id = || {
+                let maybe_new_id = id_counter.fetch_add(1, Ordering::Relaxed);
+
+                if maybe_new_id >= ShaderMatrices::SIZE as u32
+                {
+                    panic!("Too many draw calls with matricies!");
+                }
+
+                maybe_new_id
+            };
+
             {
                 let camera_guard = camera.borrow();
-
-                let draw_id_counter = AtomicU32::new(0);
 
                 self.renderables
                     .access()
@@ -410,15 +430,22 @@ impl Renderer
                                         transform: Some(t)
                                     } =>
                                     {
-                                        draw_id_counter++
-                                        collect transform data into matrix
-                                        form into tuple (r, id)
+                                        let this_id = get_next_id();
+
+                                        unsafe {
+                                            shader_mvp_ptr.add(this_id as usize).write(mvpMatrix);
+
+                                            shader_model_ptr
+                                                .add(this_id as usize)
+                                                .write(modelMatric)
+                                        };
+
+                                        Some((r, this_id))
                                     }
                                     RecordInfo {
                                         should_draw: true,
                                         transform: None
-                                    } =>
-                                    {}
+                                    } => Some((r, None))
                                 }
                             }
                             None =>
@@ -457,10 +484,12 @@ impl Renderer
                 }
             };
 
-            todo!("update matricies buffers");
-
             self.queue
                 .write_buffer(&global_info_uniform_buffer, 0, bytes_of(&global_info));
+            self.queue
+                .write_buffer(&global_mvp_buffer, 0, bytes_of(&shader_mvps));
+            self.queue
+                .write_buffer(&global_model_buffer, 0, bytes_of(&shader_models));
 
             let mut encoder = self
                 .device
@@ -796,7 +825,7 @@ fn create_depth_buffer(
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, Pod, Zeroable)]
+#[derive(Clone, Copy, Pod, Zeroable, Debug, Default)]
 pub(crate) struct ShaderGlobalInfo
 {
     camera_pos:      glm::Vec3,
@@ -804,7 +833,23 @@ pub(crate) struct ShaderGlobalInfo
     view_projection: glm::Mat4
 }
 
+#[repr(C)]
+#[derive(Clone, Copy, Pod, Zeroable, Debug)]
 pub(crate) struct ShaderMatrices
 {
-    matrices: [glm::Mat4; 1024]
+    matrices: [glm::Mat4; Self::SIZE]
+}
+
+impl Default for ShaderMatrices
+{
+    fn default() -> Self
+    {
+        Self {
+            matrices: [Default::default(); Self::SIZE]
+        }
+    }
+}
+impl ShaderMatrices
+{
+    pub const SIZE: usize = 1024;
 }
