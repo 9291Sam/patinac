@@ -8,6 +8,8 @@ use std::cmp::Ordering::*;
 use std::fmt::Debug;
 use std::num::NonZeroU64;
 
+pub type DrawId = u32;
+
 pub trait Recordable: Debug + Send + Sync
 {
     /// Your state functions
@@ -24,7 +26,7 @@ pub trait Recordable: Debug + Send + Sync
         global_bind_group: &'s wgpu::BindGroup
     ) -> [Option<&'s wgpu::BindGroup>; 4];
 
-    fn record<'s>(&'s self, render_pass: &mut super::GenericPass<'s>, maybe_id: Option<u32>);
+    fn record<'s>(&'s self, render_pass: &mut super::GenericPass<'s>, maybe_id: Option<DrawId>);
 
     fn ord(&self, other: &dyn Recordable, global_bind_group: &wgpu::BindGroup) -> Ordering
     {
@@ -41,8 +43,8 @@ pub trait Recordable: Debug + Send + Sync
 
 pub struct RecordInfo
 {
-    should_draw: bool,
-    transform:   Option<crate::Transform>
+    pub should_draw: bool,
+    pub transform:   Option<crate::Transform>
 }
 
 fn get_bind_group_ids(bind_groups: &[Option<&'_ wgpu::BindGroup>; 4]) -> [Option<NonZeroU64>; 4]

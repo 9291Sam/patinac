@@ -9,6 +9,12 @@ use std::thread::ThreadId;
 use bytemuck::{bytes_of, Pod, Zeroable};
 use nalgebra_glm as glm;
 use pollster::FutureExt;
+use rayon::iter::{
+    IntoParallelIterator,
+    IntoParallelRefIterator,
+    ParallelBridge,
+    ParallelIterator
+};
 use strum::IntoEnumIterator;
 use util::Registrar;
 use winit::dpi::PhysicalSize;
@@ -20,6 +26,7 @@ use winit::window::{CursorGrabMode, Window, WindowBuilder};
 use winit_input_helper::WinitInputHelper;
 
 use super::GenericPass;
+use crate::{DrawId, RecordInfo};
 
 pub const SURFACE_TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8UnormSrgb;
 pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
@@ -373,32 +380,66 @@ impl Renderer
                 .texture
                 .create_view(&wgpu::TextureViewDescriptor::default());
 
-            let mut renderables_map: HashMap<super::PassStage, Vec<Arc<dyn super::Recordable>>> =
-                super::PassStage::iter().map(|s| (s, Vec::new())).collect();
+            let mut renderables_map: HashMap<
+                super::PassStage,
+                Vec<(Arc<dyn super::Recordable>, RecordInfo, Option<DrawId>)>
+            > = super::PassStage::iter().map(|s| (s, Vec::new())).collect();
 
-            self.renderables
-                .access()
-                .into_iter()
-                .filter_map(|(ptr, weak_renderable)| {
-                    match weak_renderable.upgrade()
-                    {
-                        Some(s) => Some(s),
-                        None =>
+            {
+                let camera_guard = camera.borrow();
+
+                let draw_id_counter = AtomicU32::new(0);
+
+                self.renderables
+                    .access()
+                    .into_par_iter()
+                    .filter_map(|(ptr, weak_renderable)| {
+                        match weak_renderable.upgrade()
                         {
-                            self.renderables.delete(ptr);
-                            None
+                            Some(r) =>
+                            {
+                                let record_info = r.pre_record_update(self, &*camera_guard);
+
+                                match record_info
+                                {
+                                    RecordInfo {
+                                        should_draw: false, ..
+                                    } => None,
+                                    RecordInfo {
+                                        should_draw: true,
+                                        transform: Some(t)
+                                    } =>
+                                    {
+                                        draw_id_counter++
+                                        collect transform data into matrix
+                                        form into tuple (r, id)
+                                    }
+                                    RecordInfo {
+                                        should_draw: true,
+                                        transform: None
+                                    } =>
+                                    {}
+                                }
+                            }
+                            None =>
+                            {
+                                self.renderables.delete(ptr);
+                                None
+                            }
                         }
-                    }
-                })
-                .for_each(|r| {
-                    renderables_map
-                        .get_mut(&r.get_pass_stage())
-                        .unwrap()
-                        .push(r);
-                });
+                    })
+                    .collect::<Vec<_>>()
+                    .into_iter()
+                    .for_each(|(r, r_i)| {
+                        renderables_map
+                            .get_mut(&r.get_pass_stage())
+                            .unwrap()
+                            .push((r, r_i, None));
+                    });
+            }
 
             renderables_map.iter_mut().for_each(|(_, renderable_vec)| {
-                renderable_vec.sort_by(|l, r| l.ord(&**r, &global_bind_group))
+                renderable_vec.sort_by(|l, r| l.0.ord(&*r.0, &global_bind_group))
             });
 
             let global_info = {

@@ -5,7 +5,7 @@ use bytemuck::{bytes_of, cast_slice, Pod, Zeroable};
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use {crate as gfx, nalgebra_glm as glm};
 
-use crate::{GenericPass, Transform};
+use crate::{DrawId, GenericPass, Transform};
 
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
@@ -162,10 +162,10 @@ impl gfx::Recordable for ParallaxRaymarched
         }
     }
 
-    fn get_bind_groups(
-        &self,
-        global_bind_group: &wgpu::BindGroup
-    ) -> [Option<&'_ wgpu::BindGroup>; 4]
+    fn get_bind_groups<'s>(
+        &'s self,
+        global_bind_group: &'s wgpu::BindGroup
+    ) -> [Option<&'s wgpu::BindGroup>; 4]
     {
         [
             Some(global_bind_group),
@@ -175,7 +175,7 @@ impl gfx::Recordable for ParallaxRaymarched
         ]
     }
 
-    fn record<'s>(&'s self, render_pass: &mut gfx::GenericPass<'s>, maybe_id: Option<u32>)
+    fn record<'s>(&'s self, render_pass: &mut gfx::GenericPass<'s>, maybe_id: Option<DrawId>)
     {
         let (GenericPass::Render(ref mut pass), Some(id)) = (render_pass, maybe_id)
         else
@@ -185,12 +185,7 @@ impl gfx::Recordable for ParallaxRaymarched
 
         pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
         pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-        {
-            let mut guard = self.transform.lock().unwrap();
-
-            pass.set_push_constants(wgpu::ShaderStages::VERTEX_FRAGMENT, 0, bytes_of(&id));
-        }
-
+        pass.set_push_constants(wgpu::ShaderStages::VERTEX_FRAGMENT, 0, bytes_of(&id));
         pass.draw_indexed(0..self.number_of_indices as u32, 0, 0..1);
     }
 }

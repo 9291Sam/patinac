@@ -14,5 +14,6 @@ nalgebra-glm = {version = "0.18.0", features = ["convert-bytemuck"] }
 nalgebra = "0.32.3"
 pollster = "0.3.0"
 tobj = "4.0.1"
+rayon = "1.8.1"
 winit_input_helper = "0.15.3"
 util = {path = "../util" }

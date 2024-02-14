@@ -582,6 +582,7 @@ dependencies = [
  "nalgebra",
  "nalgebra-glm",
  "pollster",
+ "rayon",
  "strum",
  "tobj",
  "util",
