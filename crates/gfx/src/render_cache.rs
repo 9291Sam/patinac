@@ -235,11 +235,11 @@ impl RenderCache
                             ],
                             push_constant_ranges: &[wgpu::PushConstantRange {
                                 stages: wgpu::ShaderStages::VERTEX,
-                                range:  0..(std::mem::size_of::<glm::Mat4>() as u32 * 2)
+                                range:  0..(std::mem::size_of::<u32>() as u32)
                             }]
                         })
                     }
-                    PipelineType::ParallaxRaymarched =>
+                    PipelineType::ChunkedParallaxRaymarched =>
                     {
                         device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                             label:                Some("Parallax Raymarched Pipeline Layout"),
@@ -253,9 +253,7 @@ impl RenderCache
                             ],
                             push_constant_ranges: &[wgpu::PushConstantRange {
                                 stages: wgpu::ShaderStages::VERTEX_FRAGMENT,
-                                range:  0..(std::mem::size_of::<
-                                    crate::renderable::parallax_raymarched::PushConstants
-                                >() as u32)
+                                range:  0..(std::mem::size_of::<u32>() as u32)
                             }]
                         })
                     }
@@ -363,22 +361,22 @@ impl RenderCache
                             }
                         ))
                     }
-                    PipelineType::ParallaxRaymarched =>
+                    PipelineType::ChunkedParallaxRaymarched =>
                     {
                         let shader = device.create_shader_module(wgpu::include_wgsl!(
-                            "renderable/res/parallax_raymarched/shader.wgsl"
+                            "renderable/res/chunked_parallax_raymarched/shader.wgsl"
                         ));
 
-                        GenericPipeline::Render(device.create_render_pipeline(
-                            &wgpu::RenderPipelineDescriptor {
+                        GenericPipeline::Render(
+                            device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
                                 label:         Some("Parallax Raymarched Pipeline"),
-                                layout:
-                                    pipeline_layout_cache.get(&PipelineType::ParallaxRaymarched),
+                                layout:        pipeline_layout_cache
+                                    .get(&PipelineType::ChunkedParallaxRaymarched),
                                 vertex:        wgpu::VertexState {
                                     module:      &shader,
                                     entry_point: "vs_main",
                                     buffers:     &[
-                                        super::renderable::parallax_raymarched::Vertex::desc()
+                                        super::renderable::chunked_parallax_raymarched::Vertex::desc()
                                     ]
                                 },
                                 fragment:      Some(wgpu::FragmentState {
@@ -402,8 +400,8 @@ impl RenderCache
                                 depth_stencil: default_depth_state,
                                 multisample:   default_multisample_state,
                                 multiview:     None
-                            }
-                        ))
+                            })
+                        )
                     }
                 };
 

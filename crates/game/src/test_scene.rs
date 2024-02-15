@@ -1,18 +1,15 @@
 use std::sync::Arc;
 
-use rand::Rng;
-use world_gen::BrickMapBuffers;
-
 use super::Entity;
 
 #[derive(Debug)]
 pub struct TestScene
 {
-    _objs:  Vec<Arc<dyn gfx::Recordable>>,
-    world:  world_gen::BrickMap,
+    _objs: Vec<Arc<dyn gfx::Recordable>>,
+    // world: world_gen::BrickMap,
     // cube:   Arc<gfx::lit_textured::LitTextured>,
-    voxels: Arc<gfx::parallax_raymarched::ParallaxRaymarched>,
-    id:     util::Uuid
+    // voxels: Arc<gfx::parallax_raymarched::ParallaxRaymarched>,
+    id:    util::Uuid
 }
 
 impl TestScene
@@ -22,65 +19,65 @@ impl TestScene
         let mut objs: Vec<Arc<dyn gfx::Recordable>> = Vec::new();
         let mut cube: Option<Arc<gfx::lit_textured::LitTextured>> = None;
 
-        let (
-            mut world,
-            BrickMapBuffers {
-                tracking_buffer,
-                brick_buffer
-            }
-        ) = world_gen::BrickMap::new(game.get_renderer().clone());
+        // let (
+        //     mut world,
+        //     BrickMapBuffers {
+        //         tracking_buffer,
+        //         brick_buffer
+        //     }
+        // ) = world_gen::BrickMap::new(game.get_renderer().clone());
 
-        let dim = 64;
+        // let dim = 64;
 
-        for x in -dim..dim
-        {
-            for y in -dim..dim
-            {
-                world.set_voxel(
-                    world_gen::Voxel::Blue,
-                    &gfx::I64Vec3::new(
-                        x,
-                        (9.0 * f32::sin(y as f32 / 8.0) + 13.0 * f32::cos(x as f32 / 8.0)) as i64,
-                        y
-                    )
-                );
-            }
-        }
+        // for x in -dim..dim
+        // {
+        //     for y in -dim..dim
+        //     {
+        //         world.set_voxel(
+        //             world_gen::Voxel::Blue,
+        //             &gfx::I64Vec3::new(
+        //                 x,
+        //                 (9.0 * f32::sin(y as f32 / 8.0) + 13.0 * f32::cos(x as f32 /
+        // 8.0)) as i64,                 y
+        //             )
+        //         );
+        //     }
+        // }
 
-        tracking_buffer.unmap();
-        brick_buffer.unmap();
+        // tracking_buffer.unmap();
+        // brick_buffer.unmap();
 
-        let bind_group = Arc::new(
-            game.get_renderer()
-                .create_bind_group(&wgpu::BindGroupDescriptor {
-                    label:   Some("Brick Map Bind Group"),
-                    layout:  game
-                        .get_renderer()
-                        .render_cache
-                        .lookup_bind_group_layout(gfx::BindGroupType::BrickMap),
-                    entries: &[
-                        wgpu::BindGroupEntry {
-                            binding:  0,
-                            resource: tracking_buffer.as_entire_binding()
-                        },
-                        wgpu::BindGroupEntry {
-                            binding:  1,
-                            resource: brick_buffer.as_entire_binding()
-                        }
-                    ]
-                })
-        );
+        // let bind_group = Arc::new(
+        //     game.get_renderer()
+        //         .create_bind_group(&wgpu::BindGroupDescriptor {
+        //             label:   Some("Brick Map Bind Group"),
+        //             layout:  game
+        //                 .get_renderer()
+        //                 .render_cache
+        //                 .lookup_bind_group_layout(gfx::BindGroupType::BrickMap),
+        //             entries: &[
+        //                 wgpu::BindGroupEntry {
+        //                     binding:  0,
+        //                     resource: tracking_buffer.as_entire_binding()
+        //                 },
+        //                 wgpu::BindGroupEntry {
+        //                     binding:  1,
+        //                     resource: brick_buffer.as_entire_binding()
+        //                 }
+        //             ]
+        //         })
+        // );
 
-        let voxels = gfx::parallax_raymarched::ParallaxRaymarched::new_cube(
-            game.get_renderer(),
-            gfx::Transform {
-                translation: gfx::Vec3::new(0.0, 0.0, 0.0),
-                scale: gfx::Vec3::repeat(1.25),
-                ..Default::default()
-            },
-            bind_group.clone(),
-            false
-        );
+        // let voxels = gfx::parallax_raymarched::ParallaxRaymarched::new_cube(
+        //     game.get_renderer(),
+        //     gfx::Transform {
+        //         translation: gfx::Vec3::new(0.0, 0.0, 0.0),
+        //         scale: gfx::Vec3::repeat(1.25),
+        //         ..Default::default()
+        //     },
+        //     bind_group.clone(),
+        //     false
+        // );
 
         // objs.push(gfx::parallax_raymarched::ParallaxRaymarched::new_cube(
         //     game.get_renderer(),
@@ -113,12 +110,12 @@ impl TestScene
         //     false
         // ));
 
-        objs.push(
-            gfx::parallax_raymarched::ParallaxRaymarched::new_camera_tracked(
-                game.get_renderer(),
-                bind_group.clone()
-            )
-        );
+        // objs.push(
+        //     gfx::parallax_raymarched::ParallaxRaymarched::new_camera_tracked(
+        //         game.get_renderer(),
+        //         bind_group.clone()
+        //     )
+        // );
 
         for x in -5..=5
         {
@@ -154,9 +151,9 @@ impl TestScene
 
         let this = Arc::new(TestScene {
             _objs: objs,
-            world,
-            voxels,
-            id: util::Uuid::new()
+            // world,
+            // voxels,
+            id:    util::Uuid::new()
         });
 
         game.register(this.clone());
