@@ -548,7 +548,6 @@ dependencies = [
  "rayon",
  "util",
  "wgpu",
- "world_gen",
 ]
 
 [[package]]
@@ -1203,7 +1202,6 @@ dependencies = [
  "gfx",
  "log",
  "util",
- "world_gen",
 ]
 
 [[package]]
@@ -2444,18 +2442,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a7cad8365489051ae9f054164e459304af2e7e9bb407c958076c8bf4aef52da5"
 dependencies = [
  "memchr",
-]
-
-[[package]]
-name = "world_gen"
-version = "0.0.0"
-dependencies = [
- "bytemuck",
- "gfx",
- "log",
- "strum",
- "util",
- "wgpu",
 ]
 
 [[package]]

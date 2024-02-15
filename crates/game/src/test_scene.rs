@@ -5,11 +5,9 @@ use super::Entity;
 #[derive(Debug)]
 pub struct TestScene
 {
-    _objs: Vec<Arc<dyn gfx::Recordable>>,
-    // world: world_gen::BrickMap,
-    // cube:   Arc<gfx::lit_textured::LitTextured>,
-    // voxels: Arc<gfx::parallax_raymarched::ParallaxRaymarched>,
-    id:    util::Uuid
+    objs:        Vec<Arc<dyn gfx::Recordable>>,
+    rotate_objs: Vec<Arc<gfx::lit_textured::LitTextured>>,
+    id:          util::Uuid
 }
 
 impl TestScene
@@ -17,113 +15,7 @@ impl TestScene
     pub fn new(game: &super::Game) -> Arc<Self>
     {
         let mut objs: Vec<Arc<dyn gfx::Recordable>> = Vec::new();
-        let mut cube: Option<Arc<gfx::lit_textured::LitTextured>> = None;
-
-        let world = gfx::chunked_parallax_raymarched::VoxelWorld::new(game.get_renderer());
-        let chunk = gfx::chunked_parallax_raymarched::ChunkedParallaxRaymarched::new(
-            game.get_renderer(),
-            world.clone()
-        );
-
-        objs.push(chunk);
-
-        // let (
-        //     mut world,
-        //     BrickMapBuffers {
-        //         tracking_buffer,
-        //         brick_buffer
-        //     }
-        // ) = world_gen::BrickMap::new(game.get_renderer().clone());
-
-        // let dim = 64;
-
-        // for x in -dim..dim
-        // {
-        //     for y in -dim..dim
-        //     {
-        //         world.set_voxel(
-        //             world_gen::Voxel::Blue,
-        //             &gfx::I64Vec3::new(
-        //                 x,
-        //                 (9.0 * f32::sin(y as f32 / 8.0) + 13.0 * f32::cos(x as f32 /
-        // 8.0)) as i64,                 y
-        //             )
-        //         );
-        //     }
-        // }
-
-        // tracking_buffer.unmap();
-        // brick_buffer.unmap();
-
-        // let bind_group = Arc::new(
-        //     game.get_renderer()
-        //         .create_bind_group(&wgpu::BindGroupDescriptor {
-        //             label:   Some("Brick Map Bind Group"),
-        //             layout:  game
-        //                 .get_renderer()
-        //                 .render_cache
-        //                 .lookup_bind_group_layout(gfx::BindGroupType::BrickMap),
-        //             entries: &[
-        //                 wgpu::BindGroupEntry {
-        //                     binding:  0,
-        //                     resource: tracking_buffer.as_entire_binding()
-        //                 },
-        //                 wgpu::BindGroupEntry {
-        //                     binding:  1,
-        //                     resource: brick_buffer.as_entire_binding()
-        //                 }
-        //             ]
-        //         })
-        // );
-
-        // let voxels = gfx::parallax_raymarched::ParallaxRaymarched::new_cube(
-        //     game.get_renderer(),
-        //     gfx::Transform {
-        //         translation: gfx::Vec3::new(0.0, 0.0, 0.0),
-        //         scale: gfx::Vec3::repeat(1.25),
-        //         ..Default::default()
-        //     },
-        //     bind_group.clone(),
-        //     false
-        // );
-
-        // objs.push(gfx::parallax_raymarched::ParallaxRaymarched::new_cube(
-        //     game.get_renderer(),
-        //     gfx::Transform {
-        //         translation: gfx::Vec3::repeat(0.0),
-        //         scale: gfx::Vec3::repeat(1.25),
-        //         ..Default::default()
-        //     }
-        // ));
-
-        // objs.push(gfx::parallax_raymarched::ParallaxRaymarched::new_cube(
-        //     game.get_renderer(),
-        //     gfx::Transform {
-        //         translation: gfx::Vec3::new(10.1, 2.0, 0.0),
-        //         scale: gfx::Vec3::repeat(4.0),
-        //         ..Default::default()
-        //     },
-        //     bind_group.clone(),
-        //     false
-        // ));
-
-        // objs.push(gfx::parallax_raymarched::ParallaxRaymarched::new_cube(
-        //     game.get_renderer(),
-        //     gfx::Transform {
-        //         translation: gfx::Vec3::new(-8.0, 2.0, 12.0),
-        //         scale: gfx::Vec3::repeat(5.99),
-        //         ..Default::default()
-        //     },
-        //     bind_group.clone(),
-        //     false
-        // ));
-
-        // objs.push(
-        //     gfx::parallax_raymarched::ParallaxRaymarched::new_camera_tracked(
-        //         game.get_renderer(),
-        //         bind_group.clone()
-        //     )
-        // );
+        let mut rotate_objs: Vec<Arc<gfx::lit_textured::LitTextured>> = Vec::new();
 
         for x in -5..=5
         {
@@ -150,7 +42,7 @@ impl TestScene
 
                 if x == 0 && z == 0
                 {
-                    cube = Some(a.clone());
+                    rotate_objs.push(a.clone());
                 }
 
                 objs.push(a);
@@ -158,10 +50,9 @@ impl TestScene
         }
 
         let this = Arc::new(TestScene {
-            _objs: objs,
-            // world,
-            // voxels,
-            id:    util::Uuid::new()
+            objs,
+            rotate_objs,
+            id: util::Uuid::new()
         });
 
         game.register(this.clone());
@@ -187,30 +78,19 @@ impl Entity for TestScene
         None
     }
 
-    fn tick(&self, _: &super::Game, _: super::TickTag)
+    fn tick(&self, game: &super::Game, _: super::TickTag)
     {
-        // {
-        //     let mut guard = self.cube.transform.lock().unwrap();
+        for o in &self.rotate_objs
+        {
+            let mut guard = o.transform.lock().unwrap();
 
-        //     let quat = guard.rotation
-        //         * *gfx::UnitQuaternion::from_axis_angle(
-        //           &gfx::Transform::global_up_vector(), 1.0 *
-        //           game.get_delta_time()
-        //         );
+            let quat = guard.rotation
+                * *gfx::UnitQuaternion::from_axis_angle(
+                    &gfx::Transform::global_up_vector(),
+                    1.0 * game.get_delta_time()
+                );
 
-        //     guard.rotation = quat.normalize();
-        // }
-
-        // {
-        //     let mut guard = self.voxels.transform.lock().unwrap();
-
-        //     let quat = guard.rotation
-        //         * *gfx::UnitQuaternion::from_axis_angle(
-        //           &gfx::Transform::global_up_vector(), -1.0 *
-        //           game.get_delta_time()
-        //         );
-
-        //     guard.rotation = quat.normalize();
-        // }
+            guard.rotation = quat.normalize();
+        }
     }
 }
