@@ -19,6 +19,14 @@ impl TestScene
         let mut objs: Vec<Arc<dyn gfx::Recordable>> = Vec::new();
         let mut cube: Option<Arc<gfx::lit_textured::LitTextured>> = None;
 
+        let world = gfx::chunked_parallax_raymarched::VoxelWorld::new(game.get_renderer());
+        let chunk = gfx::chunked_parallax_raymarched::ChunkedParallaxRaymarched::new(
+            game.get_renderer(),
+            world.clone()
+        );
+
+        objs.push(chunk);
+
         // let (
         //     mut world,
         //     BrickMapBuffers {

@@ -1,7 +1,14 @@
 {
-    "folders": [
-        {
-            "path": "."
-        }
-    ]
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"editor.rulers": [
+			80,
+			100,
+			120
+		]
+	}
 }
