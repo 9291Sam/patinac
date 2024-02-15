@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use std::num::NonZeroU32;
+use std::num::{NonZeroU32, NonZeroUsize};
 use std::sync::Arc;
 
 use bytemuck::{bytes_of, Pod, Zeroable};
@@ -133,9 +133,11 @@ impl super::Recordable for ChunkedParallaxRaymarched
 #[derive(Debug)]
 pub struct VoxelWorld
 {
-    brick_buffer: wgpu::Buffer,
-    chunk_buffer: wgpu::Buffer,
-    bind_group:   wgpu::BindGroup
+    brick_buffer:          wgpu::Buffer,
+    brick_allocator:       util::FreelistAllocator,
+    chunk_tracking_buffer: Box<ChunkStorageBuffer>,
+    chunk_buffer:          wgpu::Buffer,
+    bind_group:            wgpu::BindGroup
 }
 
 impl VoxelWorld
@@ -176,9 +178,15 @@ impl VoxelWorld
         Arc::new(VoxelWorld {
             brick_buffer,
             chunk_buffer,
-            bind_group
+            bind_group,
+            brick_allocator: util::FreelistAllocator::new(
+                NonZeroUsize::new(BRICK_STORAGE_BUFFER_LENGTH).unwrap()
+            ),
+            chunk_tracking_buffer: unsafe { Box::new_zeroed().assume_init() }
         })
     }
+
+    // pub fn write_voxel()
 }
 
 #[repr(C)]
@@ -192,7 +200,7 @@ pub struct Vertex
 
 impl Vertex
 {
-    const ATTRIBS: [wgpu::VertexAttribute; 3] =
+    const ATTRIBUTES: [wgpu::VertexAttribute; 3] =
         wgpu::vertex_attr_array![0 => Float32x3, 1 => Uint32 , 2 => Float32x2];
 
     pub fn desc() -> wgpu::VertexBufferLayout<'static>
@@ -200,7 +208,7 @@ impl Vertex
         wgpu::VertexBufferLayout {
             array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
             step_mode:    wgpu::VertexStepMode::Vertex,
-            attributes:   &Self::ATTRIBS
+            attributes:   &Self::ATTRIBUTES
         }
     }
 }
@@ -292,8 +300,8 @@ impl Brick
 {
     pub const SIDE_VOXELS: usize = 8;
 }
-
-pub type BrickStorageBuffer = [Brick; 131072];
+pub const BRICK_STORAGE_BUFFER_LENGTH: usize = 131072;
+pub type BrickStorageBuffer = [Brick; BRICK_STORAGE_BUFFER_LENGTH];
 pub type BrickPointer = NonZeroU32;
 pub type MaybeBrickPointer = Option<NonZeroU32>;
 
@@ -303,6 +311,8 @@ pub struct Chunk
 {
     data: [[[MaybeBrickPointer; Self::SIDE_BRICKS]; Self::SIDE_BRICKS]; Self::SIDE_BRICKS]
 }
+
+unsafe impl Zeroable for Chunk {}
 
 impl Chunk
 {
