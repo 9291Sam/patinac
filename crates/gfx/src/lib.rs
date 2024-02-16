@@ -9,7 +9,7 @@ mod renderer;
 
 pub use linalg::*;
 pub use nalgebra::UnitQuaternion;
-pub use nalgebra_glm::*;
+pub use recordables::lit_textured::LitTextured;
 pub use recordables::Recordable;
 pub use renderer::Renderer;
-pub use wgpu::*;
+pub use {nalgebra_glm as glm, wgpu};

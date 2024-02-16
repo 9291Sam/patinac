@@ -10,12 +10,7 @@ use std::thread::ThreadId;
 use bytemuck::{bytes_of, Pod, Zeroable};
 use nalgebra_glm as glm;
 use pollster::FutureExt;
-use rayon::iter::{
-    IntoParallelIterator,
-    IntoParallelRefIterator,
-    ParallelBridge,
-    ParallelIterator
-};
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use strum::IntoEnumIterator;
 use util::{Registrar, SendSyncMutPtr};
 use winit::dpi::PhysicalSize;
@@ -26,8 +21,8 @@ use winit::platform::run_on_demand::EventLoopExtRunOnDemand;
 use winit::window::{CursorGrabMode, Window, WindowBuilder};
 use winit_input_helper::WinitInputHelper;
 
-use crate::recordables::{DrawId, RecordInfo, Recordable};
-use crate::render_cache::{GenericPass, GenericPipeline, PassStage, RenderCache};
+use crate::recordables::{DrawId, PassStage, RecordInfo, Recordable};
+use crate::render_cache::{GenericPass, GenericPipeline};
 use crate::{Camera, Transform};
 
 pub const SURFACE_TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8UnormSrgb;
@@ -36,8 +31,8 @@ pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 #[derive(Debug)]
 pub struct Renderer
 {
-    pub queue:        wgpu::Queue,
-    pub render_cache: RenderCache,
+    pub queue:                    wgpu::Queue,
+    pub global_bind_group_layout: wgpu::BindGroupLayout,
 
     device:      Arc<wgpu::Device>,
     renderables: util::Registrar<util::Uuid, Weak<dyn Recordable>>,
@@ -223,7 +218,49 @@ impl Renderer
             ))
         };
 
-        let render_cache = RenderCache::new(device);
+        // let render_cache = RenderCache::new(device);
+        let global_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label:   Some("Global Bind Group Layout"),
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding:    0,
+                        visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+                        ty:         wgpu::BindingType::Buffer {
+                            ty:                 wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size:   NonZeroU64::new(
+                                std::mem::size_of::<ShaderGlobalInfo>() as u64
+                            )
+                        },
+                        count:      None
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding:    1,
+                        visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+                        ty:         wgpu::BindingType::Buffer {
+                            ty:                 wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size:   NonZeroU64::new(
+                                std::mem::size_of::<ShaderMatrices>() as u64
+                            )
+                        },
+                        count:      None
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding:    2,
+                        visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+                        ty:         wgpu::BindingType::Buffer {
+                            ty:                 wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size:   NonZeroU64::new(
+                                std::mem::size_of::<ShaderMatrices>() as u64
+                            )
+                        },
+                        count:      None
+                    }
+                ]
+            });
 
         Renderer {
             thread_id: std::thread::current().id(),
@@ -231,7 +268,7 @@ impl Renderer
             queue,
             device,
             critical_section: Mutex::new(critical_section),
-            render_cache,
+            global_bind_group_layout,
             window_size_x: AtomicU32::new(size.width),
             window_size_y: AtomicU32::new(size.height),
             float_delta_frame_time_s: AtomicU32::new(0.0f32.to_bits())
@@ -322,52 +359,9 @@ impl Renderer
             mapped_at_creation: false
         });
 
-        let global_bind_group_layout =
-            self.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label:   Some("Global Bind Group Layout"),
-                entries: &[
-                    wgpu::BindGroupLayoutEntry {
-                        binding:    0,
-                        visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
-                        ty:         wgpu::BindingType::Buffer {
-                            ty:                 wgpu::BufferBindingType::Uniform,
-                            has_dynamic_offset: false,
-                            min_binding_size:   NonZeroU64::new(
-                                std::mem::size_of::<ShaderGlobalInfo>() as u64
-                            )
-                        },
-                        count:      None
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding:    1,
-                        visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
-                        ty:         wgpu::BindingType::Buffer {
-                            ty:                 wgpu::BufferBindingType::Uniform,
-                            has_dynamic_offset: false,
-                            min_binding_size:   NonZeroU64::new(
-                                std::mem::size_of::<ShaderMatrices>() as u64
-                            )
-                        },
-                        count:      None
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding:    2,
-                        visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
-                        ty:         wgpu::BindingType::Buffer {
-                            ty:                 wgpu::BufferBindingType::Uniform,
-                            has_dynamic_offset: false,
-                            min_binding_size:   NonZeroU64::new(
-                                std::mem::size_of::<ShaderMatrices>() as u64
-                            )
-                        },
-                        count:      None
-                    }
-                ]
-            });
-
         let global_bind_group = self.create_bind_group(&wgpu::BindGroupDescriptor {
             label:   Some("Global Info Bind Group"),
-            layout:  &global_bind_group_layout,
+            layout:  &self.global_bind_group_layout,
             entries: &[
                 wgpu::BindGroupEntry {
                     binding:  0,

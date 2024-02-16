@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use gfx::{glm, wgpu};
+
 use super::Entity;
 
 #[derive(Debug)]
@@ -15,28 +17,28 @@ impl TestScene
     pub fn new(game: &super::Game) -> Arc<Self>
     {
         let mut objs: Vec<Arc<dyn gfx::Recordable>> = Vec::new();
-        let mut rotate_objs: Vec<Arc<gfx::lit_textured::LitTextured>> = Vec::new();
+        let mut rotate_objs: Vec<Arc<gfx::LitTextured>> = Vec::new();
 
         for x in -5..=5
         {
             for z in -5..=5
             {
-                objs.push(gfx::flat_textured::FlatTextured::new(
-                    game.get_renderer(),
-                    gfx::Vec3::new(x as f32, 0.0, z as f32),
-                    gfx::flat_textured::FlatTextured::PENTAGON_VERTICES,
-                    gfx::flat_textured::FlatTextured::PENTAGON_INDICES
-                ));
+                // objs.push(gfx::flat_textured::FlatTextured::new(
+                //     game.get_renderer(),
+                //     glm::Vec3::new(x as f32, 0.0, z as f32),
+                //     gfx::flat_textured::FlatTextured::PENTAGON_VERTICES,
+                //     gfx::flat_textured::FlatTextured::PENTAGON_INDICES
+                // ));
 
-                let a = gfx::lit_textured::LitTextured::new_cube(
+                let a = gfx::LitTextured::new_cube(
                     game.get_renderer(),
                     gfx::Transform {
-                        translation: gfx::Vec3::new(x as f32, 4.0, z as f32),
+                        translation: glm::Vec3::new(x as f32, 4.0, z as f32),
                         rotation:    *gfx::UnitQuaternion::from_axis_angle(
                             &gfx::Transform::global_up_vector(),
                             (x + z) as f32 / 4.0
                         ),
-                        scale:       gfx::Vec3::repeat(0.4)
+                        scale:       glm::Vec3::repeat(0.4)
                     }
                 );
 
@@ -73,7 +75,7 @@ impl Entity for TestScene
         self.id
     }
 
-    fn get_position(&self) -> Option<gfx::Vec3>
+    fn get_position(&self) -> Option<glm::Vec3>
     {
         None
     }

@@ -7,8 +7,9 @@ use image::GenericImageView;
 use nalgebra_glm as glm;
 use wgpu::util::DeviceExt;
 
-use super::{DrawId, RecordInfo, Recordable};
-use crate::render_cache::{BindGroupType, GenericPass, PassStage, PipelineType};
+use super::{DrawId, PassStage, RecordInfo, Recordable};
+use crate::render_cache::{GenericPass, GenericPipeline};
+use crate::renderer::{DEPTH_FORMAT, SURFACE_TEXTURE_FORMAT};
 use crate::{Camera, Renderer, Transform};
 
 #[repr(C)]
@@ -22,7 +23,7 @@ pub struct Vertex
 
 impl Vertex
 {
-    const ATTRIBS: [wgpu::VertexAttribute; 3] =
+    const ATTRIBUTES: [wgpu::VertexAttribute; 3] =
         wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x2, 2 => Float32x3];
 
     pub fn desc() -> wgpu::VertexBufferLayout<'static>
@@ -30,7 +31,7 @@ impl Vertex
         wgpu::VertexBufferLayout {
             array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
             step_mode:    wgpu::VertexStepMode::Vertex,
-            attributes:   &Self::ATTRIBS
+            attributes:   &Self::ATTRIBUTES
         }
     }
 }
@@ -42,6 +43,7 @@ pub struct LitTextured
     vertex_buffer:             wgpu::Buffer,
     index_buffer:              wgpu::Buffer,
     texture_normal_bind_group: wgpu::BindGroup,
+    pipeline:                  GenericPipeline,
     number_of_indices:         u32,
     pub transform:             Mutex<Transform>
 }
@@ -190,11 +192,45 @@ impl LitTextured
             usage:    wgpu::BufferUsages::INDEX
         });
 
+        let bind_layout = renderer.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label:   Some("Lit Textured BindGroup Layout"),
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding:    0,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty:         wgpu::BindingType::Texture {
+                        multisampled:   false,
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        sample_type:    wgpu::TextureSampleType::Float {
+                            filterable: true
+                        }
+                    },
+                    count:      None
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding:    1,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty:         wgpu::BindingType::Texture {
+                        multisampled:   false,
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        sample_type:    wgpu::TextureSampleType::Float {
+                            filterable: true
+                        }
+                    },
+                    count:      None
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding:    2,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty:         wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                    count:      None
+                }
+            ]
+        });
+
         let bind_group = renderer.create_bind_group(&wgpu::BindGroupDescriptor {
-            label:   Some("Lit Textured"),
-            layout:  renderer
-                .render_cache
-                .lookup_bind_group_layout(BindGroupType::LitSimpleTexture),
+            label:   Some("Lit Textured Bind Group"),
+            layout:  &bind_layout,
             entries: &[
                 wgpu::BindGroupEntry {
                     binding:  0,
@@ -217,13 +253,74 @@ impl LitTextured
             ]
         });
 
+        let pipeline_layout = renderer.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label:                Some("LitTextured"),
+            bind_group_layouts:   &[&renderer.global_bind_group_layout, &bind_layout],
+            push_constant_ranges: &[wgpu::PushConstantRange {
+                stages: wgpu::ShaderStages::VERTEX,
+                range:  0..(std::mem::size_of::<u32>() as u32)
+            }]
+        });
+
+        // let pipeline =
+        let shader = renderer
+            .create_shader_module(wgpu::include_wgsl!("res/lit_textured/lit_textured.wgsl"));
+
+        let default_depth_state = Some(wgpu::DepthStencilState {
+            format:              DEPTH_FORMAT,
+            depth_write_enabled: true,
+            depth_compare:       wgpu::CompareFunction::Less,
+            stencil:             wgpu::StencilState::default(),
+            bias:                wgpu::DepthBiasState::default()
+        });
+
+        let default_multisample_state = wgpu::MultisampleState {
+            count:                     1,
+            mask:                      !0,
+            alpha_to_coverage_enabled: false
+        };
+
+        let pipeline = GenericPipeline::Render(renderer.create_render_pipeline(
+            &wgpu::RenderPipelineDescriptor {
+                label:         Some("LitTextured"),
+                layout:        Some(&pipeline_layout),
+                vertex:        wgpu::VertexState {
+                    module:      &shader,
+                    entry_point: "vs_main",
+                    buffers:     &[Vertex::desc()]
+                },
+                fragment:      Some(wgpu::FragmentState {
+                    module:      &shader,
+                    entry_point: "fs_main",
+                    targets:     &[Some(wgpu::ColorTargetState {
+                        format:     SURFACE_TEXTURE_FORMAT,
+                        blend:      Some(wgpu::BlendState::REPLACE),
+                        write_mask: wgpu::ColorWrites::ALL
+                    })]
+                }),
+                primitive:     wgpu::PrimitiveState {
+                    topology:           wgpu::PrimitiveTopology::TriangleList,
+                    strip_index_format: None,
+                    front_face:         wgpu::FrontFace::Cw,
+                    cull_mode:          Some(wgpu::Face::Back),
+                    polygon_mode:       wgpu::PolygonMode::Fill,
+                    unclipped_depth:    false,
+                    conservative:       false
+                },
+                depth_stencil: default_depth_state,
+                multisample:   default_multisample_state,
+                multiview:     None
+            }
+        ));
+
         let this = Arc::new(Self {
             id: util::Uuid::new(),
             vertex_buffer,
             index_buffer,
             texture_normal_bind_group: bind_group,
             number_of_indices: indices.len() as u32,
-            transform: Mutex::new(transform)
+            transform: Mutex::new(transform),
+            pipeline
         });
 
         renderer.register(this.clone());
@@ -249,9 +346,9 @@ impl Recordable for LitTextured
         PassStage::GraphicsSimpleColor
     }
 
-    fn get_pipeline(&self) -> Arc<crate::render_cache::GenericPipeline>
+    fn get_pipeline(&self) -> &GenericPipeline
     {
-        self.pipeline
+        &self.pipeline
     }
 
     fn pre_record_update(&self, renderer: &Renderer, camera: &Camera) -> RecordInfo

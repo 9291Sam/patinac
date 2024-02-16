@@ -1,105 +1,119 @@
-use std::borrow::Borrow;
-use std::sync::Mutex;
-use std::{collections::HashMap, sync::Arc};
-use std::mem::size_of;
-use std::hash::Hash;
-use std::num::NonZeroU64;
+// use std::sync::Mutex;
+// use std::{collections::HashMap, sync::Arc};
+// use std::hash::Hash;
 
-use nalgebra_glm as glm;
-use strum::{EnumIter, IntoEnumIterator};
-
-use crate::renderer::{ShaderGlobalInfo, ShaderMatrices, DEPTH_FORMAT, SURFACE_TEXTURE_FORMAT};
-
-
-
-// #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash, EnumIter)]
-// pub enum PipelineType
+// #[derive(Debug)]
+// pub struct RenderCache
 // {
-//     FlatTextured,
-//     LitTextured
+//     device: Arc<wgpu::Device>,
+//     bind_group_layouts: Mutex<HashMap<CacheableBindGroupLayoutDescriptor, Arc<wgpu::BindGroupLayout>>>,
+//     pipeline_layout_cache: Mutex<HashMap<CacheablePipelineLayoutDescriptor, Arc<wgpu::PipelineLayout>>>
 // }
 
-// #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash, EnumIter)]
-// pub enum BindGroupType
+// impl Drop for RenderCache
 // {
-//     GlobalData,
-//     FlatSimpleTexture,
-//     LitSimpleTexture
+//     fn drop(&mut self) {
+//         self.trim();
+//     }
 // }
 
-#[derive(Debug)]
-pub struct RenderCache
-{
-    device: Arc<wgpu::Device>,
-    bind_group_layouts: Mutex<HashMap<CacheableBindGroupLayoutDescriptor, Arc<wgpu::BindGroupLayout>>>
-}
+// impl RenderCache
+// {
+//     pub(crate) fn new(device: Arc<wgpu::Device>) -> Self
+//     {
+//         Self
+//         {
+//             device,
+//             bind_group_layouts: Mutex::new(HashMap::new()),
+//             pipeline_layout_cache: Mutex::new(HashMap::new())
+//         }
+//     }
 
-impl Drop for RenderCache
-{
-    fn drop(&mut self) {
-        self.trim();
-    }
-}
+//     pub fn get_or_init_bind_group_layout(&self, layout: wgpu::BindGroupLayoutDescriptor<'static>)
+//         -> Arc<wgpu::BindGroupLayout>
+//     {
+//         self.bind_group_layouts.lock().unwrap().entry(CacheableBindGroupLayoutDescriptor(layout)).or_insert_with_key(|k| {
+//             Arc::new(self.device.create_bind_group_layout(&k.0))
+//         }).clone()
 
-impl RenderCache
-{
-    pub(crate) fn new(device: Arc<wgpu::Device>) -> Self
-    {
-        Self
-        {
-            device,
-            bind_group_layouts: Mutex::new(HashMap::new()),
-        }
-    }
+//     }
 
-    pub fn get_or_init_bind_group_layout(&self, layout: wgpu::BindGroupLayoutDescriptor<'static>)
-    -> Arc<wgpu::BindGroupLayout>
+//     pub fn get_or_init_pipeline_layout(&self, layout: wgpu::PipelineLayoutDescriptor<'static>)
+//         -> Arc<wgpu::PipelineLayout>
+//     {
 
-    {
-        let mut guard = self.bind_group_layouts.lock().unwrap();
-        let cache_val = CacheableBindGroupLayoutDescriptor(layout);
+//         self.pipeline_layout_cache.lock().unwrap().entry(CacheablePipelineLayoutDescriptor(layout)).or_insert_with_key(|k| {
+//             Arc::new(self.device.create_pipeline_layout(&k.0))
+//         }).clone()
+//     }
 
-        guard.entry(cache_val).or_insert_with_key(|k| {
-            Arc::new(self.device.create_bind_group_layout(&k.0))
-        }).clone()
-
-    }
-
-    pub(crate) fn trim(&self)
-    {
+//     pub(crate) fn trim(&self)
+//     {
 
 
-    }
-}
+//     }
+// }
+
+// fn get_or_init()
 
 
-#[derive(Debug)]
-struct CacheableBindGroupLayoutDescriptor(wgpu::BindGroupLayoutDescriptor<'static>);
+// #[derive(Debug)]
+// struct CacheableBindGroupLayoutDescriptor(wgpu::BindGroupLayoutDescriptor<'static>);
 
-impl PartialEq for CacheableBindGroupLayoutDescriptor
-{
-    fn eq(&self, other: &Self) -> bool
-    {
-        let l = self.0;
-        let r = other.0;
+// impl PartialEq for CacheableBindGroupLayoutDescriptor
+// {
+//     fn eq(&self, other: &Self) -> bool
+//     {
+//         let l = self.0;
+//         let r = other.0;
 
-        l.label == r.label
-        && l.entries.len() == r.entries.len()
-        && l.entries.iter().zip(r.entries.iter()).fold(true, |acc, (l, r)|  l == r && acc)
-    }
-}
+//         l.label == r.label
+//         && l.entries.len() == r.entries.len()
+//         && l.entries.iter().zip(r.entries.iter()).fold(true, |acc, (l, r)|  l == r && acc)
+//     }
+// }
 
-impl Eq for CacheableBindGroupLayoutDescriptor {}
+// impl Eq for CacheableBindGroupLayoutDescriptor {}
 
-impl Hash for CacheableBindGroupLayoutDescriptor
-{
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H)
-    {
-        state.write_str(self.0.label.unwrap_or(""));
+// impl Hash for CacheableBindGroupLayoutDescriptor
+// {
+//     fn hash<H: std::hash::Hasher>(&self, state: &mut H)
+//     {
+//         state.write_str(self.0.label.unwrap_or(""));
 
-        self.0.entries.iter().for_each(|e| e.hash(state));
-    }
-}
+//         self.0.entries.iter().for_each(|e| e.hash(state));
+//     }
+// }
+
+// #[derive(Debug)]
+// struct CacheablePipelineLayoutDescriptor(wgpu::PipelineLayoutDescriptor<'static>);
+
+// impl PartialEq for CacheablePipelineLayoutDescriptor
+// {
+//     fn eq(&self, other: &Self) -> bool
+//     {
+//         let l = self.0;
+//         let r = other.0;
+
+//         l.label == r.label
+//         && l.bind_group_layouts.len() == r.bind_group_layouts.len()
+//         && l.bind_group_layouts.iter().zip(r.bind_group_layouts.iter()).fold(true, |acc, (l, r)|  l.global_id() == r.global_id() && acc)
+//         && l.push_constant_ranges.len() == r.push_constant_ranges.len()
+//         && l.push_constant_ranges.iter().zip(r.push_constant_ranges.iter()).fold(true, |acc, (l, r)|  l == r && acc)
+//     }
+// }
+
+// impl Eq for CacheablePipelineLayoutDescriptor {}
+
+// impl Hash for CacheablePipelineLayoutDescriptor
+// {
+//     fn hash<H: std::hash::Hasher>(&self, state: &mut H)
+//     {
+//         self.0.label.hash(state);
+//         self.0.bind_group_layouts.iter().for_each(|l| l.global_id().hash(state));
+//         self.0.push_constant_ranges.iter().for_each(|r| r.hash(state));
+//     }
+// }
 
 // #[derive(Debug)]
 // pub struct RenderCache
@@ -159,40 +173,7 @@ impl Hash for CacheableBindGroupLayoutDescriptor
 //                         BindGroupType::LitSimpleTexture =>
 //                         {
 //                             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-//                                 entries: &[
-//                                     wgpu::BindGroupLayoutEntry {
-//                                         binding:    0,
-//                                         visibility: wgpu::ShaderStages::FRAGMENT,
-//                                         ty:         wgpu::BindingType::Texture {
-//                                             multisampled:   false,
-//                                             view_dimension: wgpu::TextureViewDimension::D2,
-//                                             sample_type:    wgpu::TextureSampleType::Float {
-//                                                 filterable: true
-//                                             }
-//                                         },
-//                                         count:      None
-//                                     },
-//                                     wgpu::BindGroupLayoutEntry {
-//                                         binding:    1,
-//                                         visibility: wgpu::ShaderStages::FRAGMENT,
-//                                         ty:         wgpu::BindingType::Texture {
-//                                             multisampled:   false,
-//                                             view_dimension: wgpu::TextureViewDimension::D2,
-//                                             sample_type:    wgpu::TextureSampleType::Float {
-//                                                 filterable: true
-//                                             }
-//                                         },
-//                                         count:      None
-//                                     },
-//                                     wgpu::BindGroupLayoutEntry {
-//                                         binding:    2,
-//                                         visibility: wgpu::ShaderStages::FRAGMENT,
-//                                         ty:         wgpu::BindingType::Sampler(
-//                                             wgpu::SamplerBindingType::Filtering
-//                                         ),
-//                                         count:      None
-//                                     }
-//                                 ],
+//                                
 //                                 label:   Some("texture_bind_group_layout")
 //                             })
 //                         }
@@ -226,21 +207,7 @@ impl Hash for CacheableBindGroupLayoutDescriptor
 //                     }
 //                     PipelineType::LitTextured =>
 //                     {
-//                         device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-//                             label:                Some("LitTextured"),
-//                             bind_group_layouts:   &[
-//                                 bind_group_layout_cache
-//                                     .get(&BindGroupType::GlobalData)
-//                                     .unwrap(),
-//                                 bind_group_layout_cache
-//                                     .get(&BindGroupType::LitSimpleTexture)
-//                                     .unwrap()
-//                             ],
-//                             push_constant_ranges: &[wgpu::PushConstantRange {
-//                                 stages: wgpu::ShaderStages::VERTEX,
-//                                 range:  0..(std::mem::size_of::<u32>() as u32)
-//                             }]
-//                         })
+//                         
 //                     }
 //                 };
 
@@ -310,43 +277,7 @@ impl Hash for CacheableBindGroupLayoutDescriptor
 //                     }
 //                     PipelineType::LitTextured =>
 //                     {
-//                         let shader = device.create_shader_module(wgpu::include_wgsl!(
-//                             "renderable/res/lit_textured/lit_textured.wgsl"
-//                         ));
-
-//                         GenericPipeline::Render(device.create_render_pipeline(
-//                             &wgpu::RenderPipelineDescriptor {
-//                                 label:         Some("LitTextured"),
-//                                 layout:
-//                                     pipeline_layout_cache.get(&PipelineType::LitTextured),
-//                                 vertex:        wgpu::VertexState {
-//                                     module:      &shader,
-//                                     entry_point: "vs_main",
-//                                     buffers:     &[super::recordables::lit_textured::Vertex::desc()]
-//                                 },
-//                                 fragment:      Some(wgpu::FragmentState {
-//                                     module:      &shader,
-//                                     entry_point: "fs_main",
-//                                     targets:     &[Some(wgpu::ColorTargetState {
-//                                         format:     SURFACE_TEXTURE_FORMAT,
-//                                         blend:      Some(wgpu::BlendState::REPLACE),
-//                                         write_mask: wgpu::ColorWrites::ALL
-//                                     })]
-//                                 }),
-//                                 primitive:     wgpu::PrimitiveState {
-//                                     topology:           wgpu::PrimitiveTopology::TriangleList,
-//                                     strip_index_format: None,
-//                                     front_face:         wgpu::FrontFace::Cw,
-//                                     cull_mode:          Some(wgpu::Face::Back),
-//                                     polygon_mode:       wgpu::PolygonMode::Fill,
-//                                     unclipped_depth:    false,
-//                                     conservative:       false
-//                                 },
-//                                 depth_stencil: default_depth_state,
-//                                 multisample:   default_multisample_state,
-//                                 multiview:     None
-//                             }
-//                         ))
+//                         
 //                     }
 //                 };
 
