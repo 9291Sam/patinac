@@ -6,12 +6,19 @@ use std::cmp::Ordering;
 use std::cmp::Ordering::*;
 use std::fmt::Debug;
 use std::num::NonZeroU64;
-use std::sync::Arc;
 
-use crate::render_cache::{GenericPass, GenericPipeline, PassStage};
+use strum::EnumIter;
+
+use crate::render_cache::{GenericPass, GenericPipeline};
 use crate::{Camera, Renderer, Transform};
 
 pub type DrawId = u32;
+
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash, EnumIter)]
+pub enum PassStage
+{
+    GraphicsSimpleColor
+}
 
 pub trait Recordable: Debug + Send + Sync
 {
@@ -19,7 +26,7 @@ pub trait Recordable: Debug + Send + Sync
     fn get_name(&self) -> Cow<'_, str>;
     fn get_uuid(&self) -> util::Uuid;
     fn get_pass_stage(&self) -> PassStage;
-    fn get_pipeline(&self) -> Arc<GenericPipeline>;
+    fn get_pipeline(&self) -> &GenericPipeline;
 
     /// Called for all registered Recordable s
     fn pre_record_update(&self, renderer: &Renderer, camera: &Camera) -> RecordInfo;
@@ -35,7 +42,7 @@ pub trait Recordable: Debug + Send + Sync
     {
         Equal
             .then(self.get_pass_stage().cmp(&other.get_pass_stage()))
-            .then(self.get_pipeline_type().cmp(&other.get_pipeline_type()))
+            .then(self.get_pipeline().cmp(&&other.get_pipeline()))
             .then(
                 get_bind_group_ids(&self.get_bind_groups(global_bind_group)).cmp(
                     &get_bind_group_ids(&other.get_bind_groups(global_bind_group))

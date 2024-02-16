@@ -6,7 +6,7 @@ use image::GenericImageView;
 use wgpu::util::DeviceExt;
 
 use super::{DrawId, RecordInfo, Recordable};
-use crate::render_cache::{BindGroupType, GenericPass, PassStage, PipelineType};
+use crate::render_cache::{GenericPass, PassStage};
 use crate::{Camera, Renderer, Transform};
 
 #[repr(C)]

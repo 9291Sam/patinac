@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::num::NonZeroU64;
 use std::ops::Deref;
 use std::sync::atomic::Ordering::{self, *};
 use std::sync::atomic::{AtomicBool, AtomicU32};
@@ -26,7 +27,7 @@ use winit::window::{CursorGrabMode, Window, WindowBuilder};
 use winit_input_helper::WinitInputHelper;
 
 use crate::recordables::{DrawId, RecordInfo, Recordable};
-use crate::render_cache::{BindGroupType, GenericPass, GenericPipeline, PassStage, RenderCache};
+use crate::render_cache::{GenericPass, GenericPipeline, PassStage, RenderCache};
 use crate::{Camera, Transform};
 
 pub const SURFACE_TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8UnormSrgb;
@@ -38,7 +39,7 @@ pub struct Renderer
     pub queue:        wgpu::Queue,
     pub render_cache: RenderCache,
 
-    device:      wgpu::Device,
+    device:      Arc<wgpu::Device>,
     renderables: util::Registrar<util::Uuid, Weak<dyn Recordable>>,
 
     // Rendering views
@@ -58,6 +59,11 @@ impl Drop for Renderer
         if std::thread::current().id() != self.thread_id
         {
             eprintln!("Dropping Renderer from a thread it was not created on!")
+        }
+
+        if Arc::strong_count(&self.device) != 1
+        {
+            log::warn!("Retained device! {}", Arc::strong_count(&self.device))
         }
     }
 }
@@ -163,6 +169,7 @@ impl Renderer
             )
             .block_on()
             .unwrap();
+        let device = Arc::new(device);
 
         let size = window.inner_size();
         let surface_caps = surface.get_capabilities(&adapter);
@@ -216,7 +223,7 @@ impl Renderer
             ))
         };
 
-        let render_cache = RenderCache::new(&device);
+        let render_cache = RenderCache::new(device);
 
         Renderer {
             thread_id: std::thread::current().id(),
@@ -315,11 +322,52 @@ impl Renderer
             mapped_at_creation: false
         });
 
+        let global_bind_group_layout =
+            self.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label:   Some("Global Bind Group Layout"),
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding:    0,
+                        visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+                        ty:         wgpu::BindingType::Buffer {
+                            ty:                 wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size:   NonZeroU64::new(
+                                std::mem::size_of::<ShaderGlobalInfo>() as u64
+                            )
+                        },
+                        count:      None
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding:    1,
+                        visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+                        ty:         wgpu::BindingType::Buffer {
+                            ty:                 wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size:   NonZeroU64::new(
+                                std::mem::size_of::<ShaderMatrices>() as u64
+                            )
+                        },
+                        count:      None
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding:    2,
+                        visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+                        ty:         wgpu::BindingType::Buffer {
+                            ty:                 wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size:   NonZeroU64::new(
+                                std::mem::size_of::<ShaderMatrices>() as u64
+                            )
+                        },
+                        count:      None
+                    }
+                ]
+            });
+
         let global_bind_group = self.create_bind_group(&wgpu::BindGroupDescriptor {
             label:   Some("Global Info Bind Group"),
-            layout:  self
-                .render_cache
-                .lookup_bind_group_layout(BindGroupType::GlobalData),
+            layout:  &global_bind_group_layout,
             entries: &[
                 wgpu::BindGroupEntry {
                     binding:  0,
@@ -503,7 +551,7 @@ impl Renderer
                     label: Some("Render Encoder")
                 });
 
-            let mut active_pipeline: Option<u64> = None;
+            let mut active_pipeline: Option<&GenericPipeline> = None;
             let mut active_bind_groups: [Option<wgpu::Id<wgpu::BindGroup>>; 4] = [None; 4];
 
             for pass_type in PassStage::iter()
@@ -551,11 +599,9 @@ impl Renderer
 
                 for (renderable, maybe_id) in renderables_map.get(&pass_type).unwrap()
                 {
-                    let desired_pipeline = self
-                        .render_cache
-                        .lookup_pipeline(renderable.get_pipeline_type());
+                    let desired_pipeline = renderable.get_pipeline();
 
-                    if active_pipeline != Some(desired_pipeline.global_id())
+                    if active_pipeline != Some(desired_pipeline)
                     {
                         match (desired_pipeline, &mut render_pass)
                         {
@@ -570,7 +616,7 @@ impl Renderer
                             (_, _) => panic!("Pass Pipeline Invariant Violated!")
                         }
 
-                        active_pipeline = Some(desired_pipeline.global_id());
+                        active_pipeline = Some(desired_pipeline);
                     }
 
                     for (idx, (active_bind_group_id, maybe_new_bind_group)) in active_bind_groups

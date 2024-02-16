@@ -10,11 +10,7 @@ use strum::{EnumIter, IntoEnumIterator};
 
 use crate::renderer::{ShaderGlobalInfo, ShaderMatrices, DEPTH_FORMAT, SURFACE_TEXTURE_FORMAT};
 
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash, EnumIter)]
-pub enum PassStage
-{
-    GraphicsSimpleColor
-}
+
 
 // #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash, EnumIter)]
 // pub enum PipelineType
@@ -31,6 +27,7 @@ pub enum PassStage
 //     LitSimpleTexture
 // }
 
+#[derive(Debug)]
 pub struct RenderCache
 {
     device: Arc<wgpu::Device>,
@@ -76,6 +73,7 @@ impl RenderCache
 }
 
 
+#[derive(Debug)]
 struct CacheableBindGroupLayoutDescriptor(wgpu::BindGroupLayoutDescriptor<'static>);
 
 impl PartialEq for CacheableBindGroupLayoutDescriptor
@@ -127,44 +125,7 @@ impl Hash for CacheableBindGroupLayoutDescriptor
 //                                 // camera
 //                                 // projection matricies
 //                                 // depth buffer
-//                                 entries: &[
-//                                     wgpu::BindGroupLayoutEntry {
-//                                         binding:    0,
-//                                         visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
-//                                         ty:         wgpu::BindingType::Buffer {
-//                                             ty:                 wgpu::BufferBindingType::Uniform,
-//                                             has_dynamic_offset: false,
-//                                             min_binding_size:   NonZeroU64::new(
-//                                                 std::mem::size_of::<ShaderGlobalInfo>() as u64
-//                                             )
-//                                         },
-//                                         count:      None
-//                                     },
-//                                     wgpu::BindGroupLayoutEntry {
-//                                         binding:    1,
-//                                         visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
-//                                         ty:         wgpu::BindingType::Buffer {
-//                                             ty:                 wgpu::BufferBindingType::Uniform,
-//                                             has_dynamic_offset: false,
-//                                             min_binding_size:   NonZeroU64::new(
-//                                                 std::mem::size_of::<ShaderMatrices>() as u64
-//                                             )
-//                                         },
-//                                         count:      None
-//                                     },
-//                                     wgpu::BindGroupLayoutEntry {
-//                                         binding:    2,
-//                                         visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
-//                                         ty:         wgpu::BindingType::Buffer {
-//                                             ty:                 wgpu::BufferBindingType::Uniform,
-//                                             has_dynamic_offset: false,
-//                                             min_binding_size:   NonZeroU64::new(
-//                                                 std::mem::size_of::<ShaderMatrices>() as u64
-//                                             )
-//                                         },
-//                                         count:      None
-//                                     }
-//                                 ]
+//                                 
 //                             })
 //                         }
 //                         BindGroupType::FlatSimpleTexture =>

@@ -249,9 +249,9 @@ impl Recordable for LitTextured
         PassStage::GraphicsSimpleColor
     }
 
-    fn get_pipeline_type(&self) -> PipelineType
+    fn get_pipeline(&self) -> Arc<crate::render_cache::GenericPipeline>
     {
-        PipelineType::LitTextured
+        self.pipeline
     }
 
     fn pre_record_update(&self, renderer: &Renderer, camera: &Camera) -> RecordInfo
