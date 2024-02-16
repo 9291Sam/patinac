@@ -17,15 +17,13 @@ pub enum PassStage
 pub enum PipelineType
 {
     FlatTextured,
-    LitTextured,
-    ChunkedParallaxRaymarched
+    LitTextured
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash, EnumIter)]
 pub enum BindGroupType
 {
     GlobalData,
-    BrickMap,
     FlatSimpleTexture,
     LitSimpleTexture
 }
@@ -87,38 +85,6 @@ impl RenderCache
                                             min_binding_size:   NonZeroU64::new(
                                                 std::mem::size_of::<ShaderMatrices>() as u64
                                             )
-                                        },
-                                        count:      None
-                                    }
-                                ]
-                            })
-                        }
-                        BindGroupType::BrickMap =>
-                        {
-                            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                                label:   Some("Brick Map Bind Group Layout"),
-                                entries: &[
-                                    wgpu::BindGroupLayoutEntry {
-                                        binding:    0,
-                                        visibility: wgpu::ShaderStages::FRAGMENT,
-                                        ty:         wgpu::BindingType::Buffer {
-                                            ty:                 wgpu::BufferBindingType::Storage {
-                                                read_only: true
-                                            },
-                                            has_dynamic_offset: false,
-                                            min_binding_size:   None
-                                        },
-                                        count:      None
-                                    },
-                                    wgpu::BindGroupLayoutEntry {
-                                        binding:    1,
-                                        visibility: wgpu::ShaderStages::FRAGMENT,
-                                        ty:         wgpu::BindingType::Buffer {
-                                            ty:                 wgpu::BufferBindingType::Storage {
-                                                read_only: true
-                                            },
-                                            has_dynamic_offset: false,
-                                            min_binding_size:   None
                                         },
                                         count:      None
                                     }
@@ -239,24 +205,6 @@ impl RenderCache
                             }]
                         })
                     }
-                    PipelineType::ChunkedParallaxRaymarched =>
-                    {
-                        device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                            label:                Some("Parallax Raymarched Pipeline Layout"),
-                            bind_group_layouts:   &[
-                                bind_group_layout_cache
-                                    .get(&BindGroupType::GlobalData)
-                                    .unwrap(),
-                                bind_group_layout_cache
-                                    .get(&BindGroupType::BrickMap)
-                                    .unwrap()
-                            ],
-                            push_constant_ranges: &[wgpu::PushConstantRange {
-                                stages: wgpu::ShaderStages::VERTEX_FRAGMENT,
-                                range:  0..(std::mem::size_of::<u32>() as u32)
-                            }]
-                        })
-                    }
                 };
 
                 (pipeline_type, new_pipeline_layout)
@@ -360,48 +308,6 @@ impl RenderCache
                                 multiview:     None
                             }
                         ))
-                    }
-                    PipelineType::ChunkedParallaxRaymarched =>
-                    {
-                        let shader = device.create_shader_module(wgpu::include_wgsl!(
-                            "renderable/res/chunked_parallax_raymarched/shader.wgsl"
-                        ));
-
-                        GenericPipeline::Render(
-                            device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-                                label:         Some("Parallax Raymarched Pipeline"),
-                                layout:        pipeline_layout_cache
-                                    .get(&PipelineType::ChunkedParallaxRaymarched),
-                                vertex:        wgpu::VertexState {
-                                    module:      &shader,
-                                    entry_point: "vs_main",
-                                    buffers:     &[
-                                        super::renderable::chunked_parallax_raymarched::Vertex::desc()
-                                    ]
-                                },
-                                fragment:      Some(wgpu::FragmentState {
-                                    module:      &shader,
-                                    entry_point: "fs_main",
-                                    targets:     &[Some(wgpu::ColorTargetState {
-                                        format:     super::SURFACE_TEXTURE_FORMAT,
-                                        blend:      Some(wgpu::BlendState::REPLACE),
-                                        write_mask: wgpu::ColorWrites::ALL
-                                    })]
-                                }),
-                                primitive:     wgpu::PrimitiveState {
-                                    topology:           wgpu::PrimitiveTopology::TriangleList,
-                                    strip_index_format: None,
-                                    front_face:         wgpu::FrontFace::Cw,
-                                    cull_mode:          None,
-                                    polygon_mode:       wgpu::PolygonMode::Fill,
-                                    unclipped_depth:    false,
-                                    conservative:       false
-                                },
-                                depth_stencil: default_depth_state,
-                                multisample:   default_multisample_state,
-                                multiview:     None
-                            })
-                        )
                     }
                 };
 

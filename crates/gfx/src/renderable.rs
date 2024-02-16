@@ -1,7 +1,5 @@
-pub mod chunked_parallax_raymarched;
 pub mod flat_textured;
 pub mod lit_textured;
-// pub mod parallax_raymarched;
 
 use std::borrow::Cow;
 use std::cmp::Ordering;

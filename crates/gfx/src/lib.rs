@@ -1,3 +1,5 @@
+#![feature(new_uninit)]
+
 mod linalg;
 mod render_cache;
 mod renderable;
