@@ -342,7 +342,7 @@ impl Ord for GenericPipeline
 
 impl GenericPipeline
 {
-     fn global_id(&self) -> u64
+    pub fn global_id(&self) -> u64
     {
         match self
         {

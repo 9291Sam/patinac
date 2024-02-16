@@ -59,6 +59,10 @@ impl TestScene
 
         game.register(this.clone());
 
+        this.objs
+            .iter()
+            .for_each(|o| log::info!("pipeline: {}", o.get_pipeline().global_id()));
+
         this
     }
 }
