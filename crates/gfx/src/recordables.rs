@@ -6,6 +6,10 @@ use std::cmp::Ordering;
 use std::cmp::Ordering::*;
 use std::fmt::Debug;
 use std::num::NonZeroU64;
+use std::sync::Arc;
+
+use crate::render_cache::{GenericPass, GenericPipeline, PassStage};
+use crate::{Camera, Renderer, Transform};
 
 pub type DrawId = u32;
 
@@ -14,18 +18,18 @@ pub trait Recordable: Debug + Send + Sync
     /// Your state functions
     fn get_name(&self) -> Cow<'_, str>;
     fn get_uuid(&self) -> util::Uuid;
-    fn get_pass_stage(&self) -> super::PassStage;
-    fn get_pipeline_type(&self) -> super::PipelineType;
+    fn get_pass_stage(&self) -> PassStage;
+    fn get_pipeline(&self) -> Arc<GenericPipeline>;
 
     /// Called for all registered Recordable s
-    fn pre_record_update(&self, renderer: &crate::Renderer, camera: &crate::Camera) -> RecordInfo;
+    fn pre_record_update(&self, renderer: &Renderer, camera: &Camera) -> RecordInfo;
 
     fn get_bind_groups<'s>(
         &'s self,
         global_bind_group: &'s wgpu::BindGroup
     ) -> [Option<&'s wgpu::BindGroup>; 4];
 
-    fn record<'s>(&'s self, render_pass: &mut super::GenericPass<'s>, maybe_id: Option<DrawId>);
+    fn record<'s>(&'s self, render_pass: &mut GenericPass<'s>, maybe_id: Option<DrawId>);
 
     fn ord(&self, other: &dyn Recordable, global_bind_group: &wgpu::BindGroup) -> Ordering
     {
@@ -43,7 +47,7 @@ pub trait Recordable: Debug + Send + Sync
 pub struct RecordInfo
 {
     pub should_draw: bool,
-    pub transform:   Option<crate::Transform>
+    pub transform:   Option<Transform>
 }
 
 fn get_bind_group_ids(bind_groups: &[Option<&'_ wgpu::BindGroup>; 4]) -> [Option<NonZeroU64>; 4]

@@ -13,6 +13,16 @@ pub use log::*;
 pub use registrar::*;
 pub use uuid::*;
 
+pub fn hash_combine(a_seed: u64, bytes: &[u8]) -> u64
+{
+    let mut seed = a_seed;
+    for b in bytes
+    {
+        seed = u64::from(*b) ^ 0x9E37_79B9_E377_9B9Eu64 ^ (seed << 12) ^ (seed >> 48);
+    }
+    seed
+}
+
 pub struct SendSyncMutPtr<T>(pub *mut T);
 
 unsafe impl<T> Send for SendSyncMutPtr<T> {}

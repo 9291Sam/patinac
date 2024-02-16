@@ -4,8 +4,12 @@ use std::sync::{Arc, Mutex};
 
 use bytemuck::{bytes_of, Pod, Zeroable};
 use image::GenericImageView;
+use nalgebra_glm as glm;
 use wgpu::util::DeviceExt;
-use {crate as gfx, nalgebra_glm as glm};
+
+use super::{DrawId, RecordInfo, Recordable};
+use crate::render_cache::{BindGroupType, GenericPass, PassStage, PipelineType};
+use crate::{Camera, Renderer, Transform};
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Pod, Zeroable)]
@@ -39,12 +43,12 @@ pub struct LitTextured
     index_buffer:              wgpu::Buffer,
     texture_normal_bind_group: wgpu::BindGroup,
     number_of_indices:         u32,
-    pub transform:             Mutex<gfx::Transform>
+    pub transform:             Mutex<Transform>
 }
 
 impl LitTextured
 {
-    pub fn new_cube(renderer: &gfx::Renderer, transform: gfx::Transform) -> Arc<Self>
+    pub fn new_cube(renderer: &Renderer, transform: Transform) -> Arc<Self>
     {
         let obj_data = include_bytes!("res/lit_textured/cube.obj");
         let mut obj_cursor = Cursor::new(obj_data);
@@ -167,12 +171,12 @@ impl LitTextured
     }
 
     pub fn new(
-        renderer: &gfx::Renderer,
+        renderer: &Renderer,
         diffuse_texture: wgpu::Texture,
         normal_texture: wgpu::Texture,
         vertices: &[Vertex],
         indices: &[u32],
-        transform: gfx::Transform
+        transform: Transform
     ) -> Arc<Self>
     {
         let vertex_buffer = renderer.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -190,7 +194,7 @@ impl LitTextured
             label:   Some("Lit Textured"),
             layout:  renderer
                 .render_cache
-                .lookup_bind_group_layout(gfx::BindGroupType::LitSimpleTexture),
+                .lookup_bind_group_layout(BindGroupType::LitSimpleTexture),
             entries: &[
                 wgpu::BindGroupEntry {
                     binding:  0,
@@ -228,7 +232,7 @@ impl LitTextured
     }
 }
 
-impl gfx::Recordable for LitTextured
+impl Recordable for LitTextured
 {
     fn get_name(&self) -> Cow<'_, str>
     {
@@ -240,19 +244,19 @@ impl gfx::Recordable for LitTextured
         self.id
     }
 
-    fn get_pass_stage(&self) -> gfx::PassStage
+    fn get_pass_stage(&self) -> PassStage
     {
-        gfx::PassStage::GraphicsSimpleColor
+        PassStage::GraphicsSimpleColor
     }
 
-    fn get_pipeline_type(&self) -> gfx::PipelineType
+    fn get_pipeline_type(&self) -> PipelineType
     {
-        gfx::PipelineType::LitTextured
+        PipelineType::LitTextured
     }
 
-    fn pre_record_update(&self, renderer: &gfx::Renderer, camera: &gfx::Camera) -> gfx::RecordInfo
+    fn pre_record_update(&self, renderer: &Renderer, camera: &Camera) -> RecordInfo
     {
-        gfx::RecordInfo {
+        RecordInfo {
             should_draw: true,
             transform:   Some(self.transform.lock().unwrap().clone())
         }
@@ -271,9 +275,9 @@ impl gfx::Recordable for LitTextured
         ]
     }
 
-    fn record<'s>(&'s self, render_pass: &mut gfx::GenericPass<'s>, maybe_id: Option<gfx::DrawId>)
+    fn record<'s>(&'s self, render_pass: &mut GenericPass<'s>, maybe_id: Option<DrawId>)
     {
-        let (gfx::GenericPass::Render(ref mut pass), Some(id)) = (render_pass, maybe_id)
+        let (GenericPass::Render(ref mut pass), Some(id)) = (render_pass, maybe_id)
         else
         {
             unreachable!()

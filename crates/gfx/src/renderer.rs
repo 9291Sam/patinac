@@ -25,8 +25,9 @@ use winit::platform::run_on_demand::EventLoopExtRunOnDemand;
 use winit::window::{CursorGrabMode, Window, WindowBuilder};
 use winit_input_helper::WinitInputHelper;
 
-use super::GenericPass;
-use crate::{DrawId, RecordInfo};
+use crate::recordables::{DrawId, RecordInfo, Recordable};
+use crate::render_cache::{BindGroupType, GenericPass, GenericPipeline, PassStage, RenderCache};
+use crate::{Camera, Transform};
 
 pub const SURFACE_TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8UnormSrgb;
 pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
@@ -35,10 +36,10 @@ pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 pub struct Renderer
 {
     pub queue:        wgpu::Queue,
-    pub render_cache: super::RenderCache,
+    pub render_cache: RenderCache,
 
     device:      wgpu::Device,
-    renderables: util::Registrar<util::Uuid, Weak<dyn super::Recordable>>,
+    renderables: util::Registrar<util::Uuid, Weak<dyn Recordable>>,
 
     // Rendering views
     window_size_x:            AtomicU32,
@@ -215,7 +216,7 @@ impl Renderer
             ))
         };
 
-        let render_cache = super::RenderCache::new(&device);
+        let render_cache = RenderCache::new(&device);
 
         Renderer {
             thread_id: std::thread::current().id(),
@@ -230,7 +231,7 @@ impl Renderer
         }
     }
 
-    pub fn register(&self, renderable: Arc<dyn super::Recordable>)
+    pub fn register(&self, renderable: Arc<dyn Recordable>)
     {
         self.renderables
             .insert(renderable.get_uuid(), Arc::downgrade(&renderable));
@@ -318,7 +319,7 @@ impl Renderer
             label:   Some("Global Info Bind Group"),
             layout:  self
                 .render_cache
-                .lookup_bind_group_layout(crate::BindGroupType::GlobalData),
+                .lookup_bind_group_layout(BindGroupType::GlobalData),
             entries: &[
                 wgpu::BindGroupEntry {
                     binding:  0,
@@ -381,9 +382,9 @@ impl Renderer
                 .create_view(&wgpu::TextureViewDescriptor::default());
 
             let mut renderables_map: HashMap<
-                super::PassStage,
-                Vec<(Arc<dyn super::Recordable>, Option<DrawId>)>
-            > = super::PassStage::iter().map(|s| (s, Vec::new())).collect();
+                PassStage,
+                Vec<(Arc<dyn Recordable>, Option<DrawId>)>
+            > = PassStage::iter().map(|s| (s, Vec::new())).collect();
 
             let mut shader_mvps = ShaderMatrices {
                 ..Default::default()
@@ -505,13 +506,13 @@ impl Renderer
             let mut active_pipeline: Option<u64> = None;
             let mut active_bind_groups: [Option<wgpu::Id<wgpu::BindGroup>>; 4] = [None; 4];
 
-            for pass_type in super::PassStage::iter()
+            for pass_type in PassStage::iter()
             {
                 let (_, ref depth_view, _) = *depth_buffer.borrow();
 
                 let mut render_pass: GenericPass = match pass_type
                 {
-                    super::PassStage::GraphicsSimpleColor =>
+                    PassStage::GraphicsSimpleColor =>
                     {
                         GenericPass::Render(encoder.begin_render_pass(
                             &wgpu::RenderPassDescriptor {
@@ -558,11 +559,11 @@ impl Renderer
                     {
                         match (desired_pipeline, &mut render_pass)
                         {
-                            (super::GenericPipeline::Compute(p), GenericPass::Compute(pass)) =>
+                            (GenericPipeline::Compute(p), GenericPass::Compute(pass)) =>
                             {
                                 pass.set_pipeline(p);
                             }
-                            (super::GenericPipeline::Render(p), GenericPass::Render(pass)) =>
+                            (GenericPipeline::Render(p), GenericPass::Render(pass)) =>
                             {
                                 pass.set_pipeline(p)
                             }
@@ -671,14 +672,14 @@ impl Renderer
 
             if input_helper.key_held(KeyCode::Space)
             {
-                let v = *super::Transform::global_up_vector() * move_scale;
+                let v = *Transform::global_up_vector() * move_scale;
 
                 camera.borrow_mut().add_position(v * self.get_delta_time());
             };
 
             if input_helper.key_held(KeyCode::ControlLeft)
             {
-                let v = *super::Transform::global_up_vector() * -move_scale;
+                let v = *Transform::global_up_vector() * -move_scale;
 
                 camera.borrow_mut().add_position(v * self.get_delta_time());
             };
@@ -783,7 +784,7 @@ struct CriticalSection
     window:     Window,
     event_loop: EventLoop<()>,
 
-    camera: RefCell<super::Camera>
+    camera: RefCell<Camera>
 }
 
 unsafe impl Sync for CriticalSection {}

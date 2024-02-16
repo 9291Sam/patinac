@@ -4,14 +4,17 @@ use std::sync::{Arc, Mutex};
 use bytemuck::{bytes_of, Pod, Zeroable};
 use image::GenericImageView;
 use wgpu::util::DeviceExt;
-use {crate as gfx, nalgebra_glm as glm};
+
+use super::{DrawId, RecordInfo, Recordable};
+use crate::render_cache::{BindGroupType, GenericPass, PassStage, PipelineType};
+use crate::{Camera, Renderer, Transform};
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Pod, Zeroable)]
 pub struct Vertex
 {
-    pub position:   glm::Vec3,
-    pub tex_coords: glm::Vec2
+    pub position:   crate::Vec3,
+    pub tex_coords: crate::Vec2
 }
 
 impl Vertex
@@ -38,7 +41,7 @@ pub struct FlatTextured
     tree_bind_group:   wgpu::BindGroup,
     time_alive:        Mutex<f32>,
     number_of_indices: u32,
-    translation:       glm::Vec3
+    translation:       crate::Vec3
 }
 
 impl FlatTextured
@@ -46,30 +49,30 @@ impl FlatTextured
     pub const PENTAGON_INDICES: &'static [u16] = &[0, 1, 4, 1, 2, 4, 2, 3, 4, /* padding */ 0];
     pub const PENTAGON_VERTICES: &'static [Vertex] = &[
         Vertex {
-            position:   glm::Vec3::new(-0.0868241, 0.49240386, 0.0),
-            tex_coords: glm::Vec2::new(0.4131759, 0.99240386)
+            position:   crate::Vec3::new(-0.0868241, 0.49240386, 0.0),
+            tex_coords: crate::Vec2::new(0.4131759, 0.99240386)
         },
         Vertex {
-            position:   glm::Vec3::new(-0.49513406, 0.06958647, 0.0),
-            tex_coords: glm::Vec2::new(0.0048659444, 0.56958647)
+            position:   crate::Vec3::new(-0.49513406, 0.06958647, 0.0),
+            tex_coords: crate::Vec2::new(0.0048659444, 0.56958647)
         },
         Vertex {
-            position:   glm::Vec3::new(-0.21918549, -0.44939706, 0.0),
-            tex_coords: glm::Vec2::new(0.28081453, 0.05060294)
+            position:   crate::Vec3::new(-0.21918549, -0.44939706, 0.0),
+            tex_coords: crate::Vec2::new(0.28081453, 0.05060294)
         },
         Vertex {
-            position:   glm::Vec3::new(0.35966998, -0.3473291, 0.0),
-            tex_coords: glm::Vec2::new(0.85967, 0.1526709)
+            position:   crate::Vec3::new(0.35966998, -0.3473291, 0.0),
+            tex_coords: crate::Vec2::new(0.85967, 0.1526709)
         },
         Vertex {
-            position:   glm::Vec3::new(0.44147372, 0.2347359, 0.0),
-            tex_coords: glm::Vec2::new(0.9414737, 0.7347359)
+            position:   crate::Vec3::new(0.44147372, 0.2347359, 0.0),
+            tex_coords: crate::Vec2::new(0.9414737, 0.7347359)
         }
     ];
 
     pub fn new(
-        renderer: &gfx::Renderer,
-        translation: glm::Vec3,
+        renderer: &Renderer,
+        translation: crate::Vec3,
         vertices: &[Vertex],
         indices: &[u16]
     ) -> Arc<Self>
@@ -118,7 +121,7 @@ impl FlatTextured
         let tree_bind_group = renderer.create_bind_group(&wgpu::BindGroupDescriptor {
             layout:  renderer
                 .render_cache
-                .lookup_bind_group_layout(gfx::BindGroupType::FlatSimpleTexture),
+                .lookup_bind_group_layout(BindGroupType::FlatSimpleTexture),
             entries: &[
                 wgpu::BindGroupEntry {
                     binding:  0,
@@ -152,7 +155,7 @@ impl FlatTextured
     }
 }
 
-impl gfx::Recordable for FlatTextured
+impl Recordable for FlatTextured
 {
     fn get_name(&self) -> Cow<'_, str>
     {
@@ -164,14 +167,14 @@ impl gfx::Recordable for FlatTextured
         self.id
     }
 
-    fn get_pass_stage(&self) -> gfx::PassStage
+    fn get_pass_stage(&self) -> PassStage
     {
-        gfx::PassStage::GraphicsSimpleColor
+        PassStage::GraphicsSimpleColor
     }
 
-    fn get_pipeline_type(&self) -> gfx::PipelineType
+    fn get_pipeline_type(&self) -> PipelineType
     {
-        gfx::PipelineType::FlatTextured
+        PipelineType::FlatTextured
     }
 
     fn get_bind_groups<'s>(
@@ -187,7 +190,7 @@ impl gfx::Recordable for FlatTextured
         ]
     }
 
-    fn pre_record_update(&self, renderer: &gfx::Renderer, camera: &gfx::Camera) -> gfx::RecordInfo
+    fn pre_record_update(&self, renderer: &Renderer, camera: &Camera) -> RecordInfo
     {
         let time_alive = {
             let mut guard = self.time_alive.lock().unwrap();
@@ -195,14 +198,14 @@ impl gfx::Recordable for FlatTextured
             *guard
         };
 
-        let mut transform = gfx::Transform {
+        let mut transform = Transform {
             translation: self.translation, // 2.0 + 2.0 * time_alive.sin()
-            rotation:    *nalgebra::UnitQuaternion::new_normalize(glm::quat(1.0, 0.0, 0.0, 0.0)),
-            scale:       glm::Vec3::new(1.0, 1.0, 1.0)
+            rotation:    *nalgebra::UnitQuaternion::new_normalize(crate::quat(1.0, 0.0, 0.0, 0.0)),
+            scale:       crate::Vec3::new(1.0, 1.0, 1.0)
         };
 
         transform.rotation *= *nalgebra::UnitQuaternion::from_axis_angle(
-            &gfx::Transform::global_up_vector(),
+            &Transform::global_up_vector(),
             5.0 * time_alive
         );
 
@@ -210,15 +213,15 @@ impl gfx::Recordable for FlatTextured
 
         let matrix = camera.get_perspective(renderer, &transform);
 
-        gfx::RecordInfo {
+        RecordInfo {
             should_draw: true,
             transform:   Some(transform)
         }
     }
 
-    fn record<'s>(&'s self, render_pass: &mut gfx::GenericPass<'s>, maybe_id: Option<gfx::DrawId>)
+    fn record<'s>(&'s self, render_pass: &mut GenericPass<'s>, maybe_id: Option<DrawId>)
     {
-        let (gfx::GenericPass::Render(ref mut pass), Some(id)) = (render_pass, maybe_id)
+        let (GenericPass::Render(ref mut pass), Some(id)) = (render_pass, maybe_id)
         else
         {
             panic!("Generic RenderPass bound with incorrect type!")

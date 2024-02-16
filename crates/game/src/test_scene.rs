@@ -6,7 +6,7 @@ use super::Entity;
 pub struct TestScene
 {
     objs:        Vec<Arc<dyn gfx::Recordable>>,
-    rotate_objs: Vec<Arc<gfx::lit_textured::LitTextured>>,
+    rotate_objs: Vec<Arc<gfx::LitTextured>>,
     id:          util::Uuid
 }
 
