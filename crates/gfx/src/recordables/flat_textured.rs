@@ -5,16 +5,21 @@ use bytemuck::{bytes_of, Pod, Zeroable};
 use image::GenericImageView;
 use wgpu::util::DeviceExt;
 
-use super::{DrawId, RecordInfo, Recordable};
-use crate::render_cache::{GenericPass, PassStage};
-use crate::{Camera, Renderer, Transform};
+use super::{DrawId, PassStage, RecordInfo, Recordable};
+use crate::render_cache::{
+    CacheableFragmentState,
+    CacheablePipelineLayoutDescriptor,
+    CacheableRenderPipelineDescriptor
+};
+use crate::renderer::{GenericPass, GenericPipeline, SURFACE_TEXTURE_FORMAT};
+use crate::{glm, Camera, Renderer, Transform};
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Pod, Zeroable)]
 pub struct Vertex
 {
-    pub position:   crate::Vec3,
-    pub tex_coords: crate::Vec2
+    pub position:   glm::Vec3,
+    pub tex_coords: glm::Vec2
 }
 
 impl Vertex
@@ -35,13 +40,16 @@ impl Vertex
 #[derive(Debug)]
 pub struct FlatTextured
 {
-    id:                util::Uuid,
-    vertex_buffer:     wgpu::Buffer,
-    index_buffer:      wgpu::Buffer,
-    tree_bind_group:   wgpu::BindGroup,
+    id:            util::Uuid,
+    vertex_buffer: wgpu::Buffer,
+    index_buffer:  wgpu::Buffer,
+
+    tree_bind_group: wgpu::BindGroup,
+    pipeline:        Arc<GenericPipeline>,
+
     time_alive:        Mutex<f32>,
     number_of_indices: u32,
-    translation:       crate::Vec3
+    translation:       glm::Vec3
 }
 
 impl FlatTextured
@@ -49,30 +57,30 @@ impl FlatTextured
     pub const PENTAGON_INDICES: &'static [u16] = &[0, 1, 4, 1, 2, 4, 2, 3, 4, /* padding */ 0];
     pub const PENTAGON_VERTICES: &'static [Vertex] = &[
         Vertex {
-            position:   crate::Vec3::new(-0.0868241, 0.49240386, 0.0),
-            tex_coords: crate::Vec2::new(0.4131759, 0.99240386)
+            position:   glm::Vec3::new(-0.0868241, 0.49240386, 0.0),
+            tex_coords: glm::Vec2::new(0.4131759, 0.99240386)
         },
         Vertex {
-            position:   crate::Vec3::new(-0.49513406, 0.06958647, 0.0),
-            tex_coords: crate::Vec2::new(0.0048659444, 0.56958647)
+            position:   glm::Vec3::new(-0.49513406, 0.06958647, 0.0),
+            tex_coords: glm::Vec2::new(0.0048659444, 0.56958647)
         },
         Vertex {
-            position:   crate::Vec3::new(-0.21918549, -0.44939706, 0.0),
-            tex_coords: crate::Vec2::new(0.28081453, 0.05060294)
+            position:   glm::Vec3::new(-0.21918549, -0.44939706, 0.0),
+            tex_coords: glm::Vec2::new(0.28081453, 0.05060294)
         },
         Vertex {
-            position:   crate::Vec3::new(0.35966998, -0.3473291, 0.0),
-            tex_coords: crate::Vec2::new(0.85967, 0.1526709)
+            position:   glm::Vec3::new(0.35966998, -0.3473291, 0.0),
+            tex_coords: glm::Vec2::new(0.85967, 0.1526709)
         },
         Vertex {
-            position:   crate::Vec3::new(0.44147372, 0.2347359, 0.0),
-            tex_coords: crate::Vec2::new(0.9414737, 0.7347359)
+            position:   glm::Vec3::new(0.44147372, 0.2347359, 0.0),
+            tex_coords: glm::Vec2::new(0.9414737, 0.7347359)
         }
     ];
 
     pub fn new(
         renderer: &Renderer,
-        translation: crate::Vec3,
+        translation: glm::Vec3,
         vertices: &[Vertex],
         indices: &[u16]
     ) -> Arc<Self>
@@ -118,10 +126,37 @@ impl FlatTextured
 
         let tree_texture_view = tree_texture.create_view(&wgpu::TextureViewDescriptor::default());
 
-        let tree_bind_group = renderer.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout:  renderer
+        let bind_group_layout =
+            renderer
                 .render_cache
-                .lookup_bind_group_layout(BindGroupType::FlatSimpleTexture),
+                .cache_bind_group_layout(wgpu::BindGroupLayoutDescriptor {
+                    entries: &[
+                        wgpu::BindGroupLayoutEntry {
+                            binding:    0,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty:         wgpu::BindingType::Texture {
+                                multisampled:   false,
+                                view_dimension: wgpu::TextureViewDimension::D2,
+                                sample_type:    wgpu::TextureSampleType::Float {
+                                    filterable: true
+                                }
+                            },
+                            count:      None
+                        },
+                        wgpu::BindGroupLayoutEntry {
+                            binding:    1,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty:         wgpu::BindingType::Sampler(
+                                wgpu::SamplerBindingType::Filtering
+                            ),
+                            count:      None
+                        }
+                    ],
+                    label:   Some("texture_bind_group_layout")
+                });
+
+        let tree_bind_group = renderer.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout:  &bind_group_layout,
             entries: &[
                 wgpu::BindGroupEntry {
                     binding:  0,
@@ -139,6 +174,61 @@ impl FlatTextured
             label:   Some("tree_bind_group")
         });
 
+        let pipeline_layout =
+            renderer
+                .render_cache
+                .cache_pipeline_layout(CacheablePipelineLayoutDescriptor {
+                    label:                "Flat Textured Pipeline Layout".into(),
+                    bind_group_layouts:   vec![
+                        renderer.global_bind_group_layout.clone(),
+                        bind_group_layout,
+                    ],
+                    push_constant_ranges: vec![wgpu::PushConstantRange {
+                        stages: wgpu::ShaderStages::VERTEX,
+                        range:  0..(std::mem::size_of::<glm::Mat4>() as u32)
+                    }]
+                });
+
+        let shader = renderer
+            .render_cache
+            .cache_shader_module(wgpu::include_wgsl!("res/flat_textured/flat_textured.wgsl"));
+
+        let pipeline =
+            renderer
+                .render_cache
+                .cache_render_pipeline(CacheableRenderPipelineDescriptor {
+                    label:                 "Flat Textured Pipeline".into(),
+                    layout:                Some(pipeline_layout),
+                    vertex_module:         shader.clone(),
+                    vertex_entry_point:    "vs_main".into(),
+                    vertex_buffer_layouts: vec![Vertex::desc()],
+                    fragment_state:        Some(CacheableFragmentState {
+                        module:      shader,
+                        entry_point: "fs_main".into(),
+                        targets:     vec![Some(wgpu::ColorTargetState {
+                            format:     SURFACE_TEXTURE_FORMAT,
+                            blend:      Some(wgpu::BlendState::REPLACE),
+                            write_mask: wgpu::ColorWrites::ALL
+                        })]
+                    }),
+                    primitive_state:       wgpu::PrimitiveState {
+                        topology:           wgpu::PrimitiveTopology::TriangleStrip,
+                        strip_index_format: None,
+                        front_face:         wgpu::FrontFace::Ccw,
+                        cull_mode:          None,
+                        polygon_mode:       wgpu::PolygonMode::Fill,
+                        unclipped_depth:    false,
+                        conservative:       false
+                    },
+                    depth_stencil_state:   Some(Renderer::get_default_depth_state()),
+                    multisample_state:     wgpu::MultisampleState {
+                        count:                     1,
+                        mask:                      !0,
+                        alpha_to_coverage_enabled: false
+                    },
+                    multiview:             None
+                });
+
         let this = Arc::new(Self {
             id: util::Uuid::new(),
             vertex_buffer,
@@ -146,7 +236,8 @@ impl FlatTextured
             tree_bind_group,
             time_alive: Mutex::new(0.0),
             number_of_indices: indices.len() as u32,
-            translation
+            translation,
+            pipeline
         });
 
         renderer.register(this.clone());
@@ -172,9 +263,36 @@ impl Recordable for FlatTextured
         PassStage::GraphicsSimpleColor
     }
 
-    fn get_pipeline_type(&self) -> PipelineType
+    fn get_pipeline(&self) -> &GenericPipeline
     {
-        PipelineType::FlatTextured
+        &self.pipeline
+    }
+
+    fn pre_record_update(&self, renderer: &Renderer, _: &Camera) -> RecordInfo
+    {
+        let time_alive = {
+            let mut guard = self.time_alive.lock().unwrap();
+            *guard += renderer.get_delta_time();
+            *guard
+        };
+
+        let mut transform = Transform {
+            translation: self.translation, // 2.0 + 2.0 * time_alive.sin()
+            rotation:    *nalgebra::UnitQuaternion::new_normalize(glm::quat(1.0, 0.0, 0.0, 0.0)),
+            scale:       glm::Vec3::new(1.0, 1.0, 1.0)
+        };
+
+        transform.rotation *= *nalgebra::UnitQuaternion::from_axis_angle(
+            &Transform::global_up_vector(),
+            5.0 * time_alive
+        );
+
+        transform.rotation.normalize_mut();
+
+        RecordInfo {
+            should_draw: true,
+            transform:   Some(transform)
+        }
     }
 
     fn get_bind_groups<'s>(
@@ -188,35 +306,6 @@ impl Recordable for FlatTextured
             None,
             None
         ]
-    }
-
-    fn pre_record_update(&self, renderer: &Renderer, camera: &Camera) -> RecordInfo
-    {
-        let time_alive = {
-            let mut guard = self.time_alive.lock().unwrap();
-            *guard += renderer.get_delta_time();
-            *guard
-        };
-
-        let mut transform = Transform {
-            translation: self.translation, // 2.0 + 2.0 * time_alive.sin()
-            rotation:    *nalgebra::UnitQuaternion::new_normalize(crate::quat(1.0, 0.0, 0.0, 0.0)),
-            scale:       crate::Vec3::new(1.0, 1.0, 1.0)
-        };
-
-        transform.rotation *= *nalgebra::UnitQuaternion::from_axis_angle(
-            &Transform::global_up_vector(),
-            5.0 * time_alive
-        );
-
-        transform.rotation.normalize_mut();
-
-        let matrix = camera.get_perspective(renderer, &transform);
-
-        RecordInfo {
-            should_draw: true,
-            transform:   Some(transform)
-        }
     }
 
     fn record<'s>(&'s self, render_pass: &mut GenericPass<'s>, maybe_id: Option<DrawId>)

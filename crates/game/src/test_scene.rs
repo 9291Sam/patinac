@@ -1,13 +1,13 @@
 use std::sync::Arc;
 
-use gfx::{glm, wgpu};
+use gfx::glm;
 
 use super::Entity;
 
 #[derive(Debug)]
 pub struct TestScene
 {
-    objs:        Vec<Arc<dyn gfx::Recordable>>,
+    _objs:       Vec<Arc<dyn gfx::Recordable>>,
     rotate_objs: Vec<Arc<gfx::LitTextured>>,
     id:          util::Uuid
 }
@@ -23,18 +23,18 @@ impl TestScene
         {
             for z in -5..=5
             {
-                // objs.push(gfx::flat_textured::FlatTextured::new(
-                //     game.get_renderer(),
-                //     glm::Vec3::new(x as f32, 0.0, z as f32),
-                //     gfx::flat_textured::FlatTextured::PENTAGON_VERTICES,
-                //     gfx::flat_textured::FlatTextured::PENTAGON_INDICES
-                // ));
+                objs.push(gfx::FlatTextured::new(
+                    game.get_renderer(),
+                    glm::Vec3::new(x as f32, 0.0, z as f32),
+                    gfx::FlatTextured::PENTAGON_VERTICES,
+                    gfx::FlatTextured::PENTAGON_INDICES
+                ));
 
                 let a = gfx::LitTextured::new_cube(
                     game.get_renderer(),
                     gfx::Transform {
                         translation: glm::Vec3::new(x as f32, 4.0, z as f32),
-                        rotation:    *gfx::UnitQuaternion::from_axis_angle(
+                        rotation:    *glm::UnitQuaternion::from_axis_angle(
                             &gfx::Transform::global_up_vector(),
                             (x + z) as f32 / 4.0
                         ),
@@ -52,16 +52,12 @@ impl TestScene
         }
 
         let this = Arc::new(TestScene {
-            objs,
+            _objs: objs,
             rotate_objs,
             id: util::Uuid::new()
         });
 
         game.register(this.clone());
-
-        this.objs
-            .iter()
-            .for_each(|o| log::info!("pipeline: {}", o.get_pipeline().global_id()));
 
         this
     }
@@ -91,7 +87,7 @@ impl Entity for TestScene
             let mut guard = o.transform.lock().unwrap();
 
             let quat = guard.rotation
-                * *gfx::UnitQuaternion::from_axis_angle(
+                * *glm::UnitQuaternion::from_axis_angle(
                     &gfx::Transform::global_up_vector(),
                     1.0 * game.get_delta_time()
                 );

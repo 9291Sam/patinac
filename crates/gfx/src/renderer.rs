@@ -813,7 +813,7 @@ impl Renderer
                         _ => ()
                     }
                 }
-
+                Event::MemoryWarning => self.render_cache.trim(),
                 _ => ()
             }
 

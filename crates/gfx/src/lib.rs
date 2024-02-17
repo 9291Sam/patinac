@@ -8,8 +8,14 @@ mod render_cache;
 mod renderer;
 
 pub use linalg::*;
-pub use nalgebra::UnitQuaternion;
+pub use recordables::flat_textured::FlatTextured;
 pub use recordables::lit_textured::LitTextured;
 pub use recordables::Recordable;
 pub use renderer::Renderer;
-pub use {nalgebra_glm as glm, wgpu};
+pub use wgpu;
+
+pub mod glm
+{
+    pub use nalgebra::UnitQuaternion;
+    pub use nalgebra_glm::*;
+}

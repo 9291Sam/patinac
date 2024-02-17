@@ -13,7 +13,7 @@ use crate::render_cache::{
     CacheablePipelineLayoutDescriptor,
     CacheableRenderPipelineDescriptor
 };
-use crate::renderer::{GenericPass, GenericPipeline, DEPTH_FORMAT, SURFACE_TEXTURE_FORMAT};
+use crate::renderer::{GenericPass, GenericPipeline};
 use crate::{Camera, Renderer, Transform};
 
 #[derive(Debug)]
@@ -333,7 +333,7 @@ impl Recordable for LitTextured
         &self.pipeline
     }
 
-    fn pre_record_update(&self, renderer: &Renderer, camera: &Camera) -> RecordInfo
+    fn pre_record_update(&self, _: &Renderer, _: &Camera) -> RecordInfo
     {
         RecordInfo {
             should_draw: true,
