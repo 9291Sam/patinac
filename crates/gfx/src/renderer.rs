@@ -279,7 +279,7 @@ impl Renderer
             queue,
             device,
             critical_section: Mutex::new(critical_section),
-            global_bind_group_layout,
+            global_bind_group_layout: Arc::new(global_bind_group_layout),
             window_size_x: AtomicU32::new(size.width),
             window_size_y: AtomicU32::new(size.height),
             float_delta_frame_time_s: AtomicU32::new(0.0f32.to_bits()),
@@ -1018,41 +1018,6 @@ impl Hash for CacheablePipelineLayoutDescriptor
             .push_constant_ranges
             .iter()
             .for_each(|r| r.hash(state));
-    }
-}
-
-#[derive(Debug)]
-struct CacheableShaderModuleDescriptor(wgpu::ShaderModuleDescriptor<'static>);
-
-impl PartialEq for CacheableShaderModuleDescriptor
-{
-    fn eq(&self, other: &Self) -> bool
-    {
-        let l = &self.0;
-        let r = &other.0;
-
-        l.label == r.label
-            && match (&l.source, &r.source)
-            {
-                (wgpu::ShaderSource::Wgsl(l_s), wgpu::ShaderSource::Wgsl(r_s)) => l_s == r_s,
-                _ => unimplemented!()
-            }
-    }
-}
-
-impl Eq for CacheableShaderModuleDescriptor {}
-
-impl Hash for CacheableShaderModuleDescriptor
-{
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H)
-    {
-        self.0.label.hash(state);
-
-        match &self.0.source
-        {
-            wgpu::ShaderSource::Wgsl(s) => s.hash(state),
-            _ => unimplemented!()
-        }
     }
 }
 
