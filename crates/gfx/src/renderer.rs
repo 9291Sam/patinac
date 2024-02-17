@@ -1,6 +1,5 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::hash::Hash;
 use std::num::NonZeroU64;
 use std::ops::Deref;
 use std::sync::atomic::Ordering::{self, *};
@@ -36,14 +35,6 @@ pub struct Renderer
     pub render_cache:             RenderCache,
     pub global_bind_group_layout: Arc<wgpu::BindGroupLayout>,
 
-    // Render Cache
-    // pipeline_layout_cache:
-    //     Mutex<HashMap<CacheablePipelineLayoutDescriptor, Arc<wgpu::PipelineLayout>>>,
-    // shader_module_cache: Mutex<HashMap<CacheableShaderModuleDescriptor,
-    // Arc<wgpu::ShaderModule>>>, compute_pipeline_cache:
-    //     Mutex<HashMap<CacheableComputePipelineDescriptor, Arc<GenericPipeline>>>,
-    // render_pipeline_cache: Mutex<HashMap<CacheableRenderPipelineDescriptor,
-    // Arc<GenericPipeline>>>,
     device:      Arc<wgpu::Device>,
     renderables: util::Registrar<util::Uuid, Weak<dyn Recordable>>,
 
@@ -63,10 +54,10 @@ impl Drop for Renderer
     {
         if std::thread::current().id() != self.thread_id
         {
-            eprintln!("Dropping Renderer from a thread it was not created on!")
+            log::error!("Dropping Renderer from a thread it was not created on!")
         }
 
-        if Arc::strong_count(&self.device) != 1
+        if Arc::strong_count(&self.device) != 2
         {
             log::warn!("Retained device! {}", Arc::strong_count(&self.device))
         }
@@ -974,173 +965,5 @@ impl GenericPipeline
             GenericPipeline::Compute(p) => p.global_id().inner(),
             GenericPipeline::Render(p) => p.global_id().inner()
         }
-    }
-}
-
-#[derive(Debug)]
-struct CacheablePipelineLayoutDescriptor(wgpu::PipelineLayoutDescriptor<'static>);
-
-impl PartialEq for CacheablePipelineLayoutDescriptor
-{
-    fn eq(&self, other: &Self) -> bool
-    {
-        let l = &self.0;
-        let r = &other.0;
-
-        l.label == r.label
-            && l.bind_group_layouts.len() == r.bind_group_layouts.len()
-            && l.bind_group_layouts
-                .iter()
-                .zip(r.bind_group_layouts.iter())
-                .fold(true, |acc, (l, r)| l.global_id() == r.global_id() && acc)
-            && l.push_constant_ranges.len() == r.push_constant_ranges.len()
-            && l.push_constant_ranges
-                .iter()
-                .zip(r.push_constant_ranges.iter())
-                .fold(true, |acc, (l, r)| l == r && acc)
-    }
-}
-
-impl Eq for CacheablePipelineLayoutDescriptor {}
-
-impl Hash for CacheablePipelineLayoutDescriptor
-{
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H)
-    {
-        self.0.label.hash(state);
-
-        self.0
-            .bind_group_layouts
-            .iter()
-            .for_each(|l| l.global_id().hash(state));
-
-        self.0
-            .push_constant_ranges
-            .iter()
-            .for_each(|r| r.hash(state));
-    }
-}
-
-#[derive(Debug)]
-struct CacheableComputePipelineDescriptor(wgpu::ComputePipelineDescriptor<'static>);
-
-impl PartialEq for CacheableComputePipelineDescriptor
-{
-    fn eq(&self, other: &Self) -> bool
-    {
-        let l = &self.0;
-        let r = &other.0;
-
-        l.label == r.label
-            && l.layout.map(|l| l.global_id()) == r.layout.map(|l| l.global_id())
-            && l.module.global_id() == r.module.global_id()
-            && l.entry_point == r.entry_point
-    }
-}
-
-impl Eq for CacheableComputePipelineDescriptor {}
-
-impl Hash for CacheableComputePipelineDescriptor
-{
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H)
-    {
-        self.0.label.hash(state);
-
-        match self.0.layout
-        {
-            Some(l) => l.global_id().hash(state),
-            None => state.write_i8(-34) // value, fresh from my ass!
-        }
-
-        self.0.module.global_id().hash(state);
-
-        self.0.entry_point.hash(state);
-    }
-}
-
-#[derive(Debug)]
-struct CacheableRenderPipelineDescriptor(wgpu::RenderPipelineDescriptor<'static>);
-
-impl PartialEq for CacheableRenderPipelineDescriptor
-{
-    fn eq(&self, other: &Self) -> bool
-    {
-        let l = &self.0;
-        let r = &other.0;
-
-        let eq = l.label == r.label
-            && l.layout.map(|l| l.global_id()) == r.layout.map(|l| l.global_id())
-            && l.vertex.module.global_id() == r.vertex.module.global_id()
-            && l.vertex.entry_point == r.vertex.entry_point
-            && l.vertex.buffers.len() == r.vertex.buffers.len()
-            && l.vertex
-                .buffers
-                .iter()
-                .zip(r.vertex.buffers.iter())
-                .fold(true, |acc, (l, r)| l == r && acc)
-            && l.primitive == r.primitive
-            && l.depth_stencil == r.depth_stencil
-            && l.multisample == r.multisample
-            && l.fragment.as_ref().map(|s| s.module.global_id())
-                == r.fragment.as_ref().map(|s| s.module.global_id())
-            && l.fragment.as_ref().map(|s| s.entry_point)
-                == r.fragment.as_ref().map(|s| s.entry_point)
-            && l.fragment.as_ref().map(|s| s.targets.len())
-                == r.fragment.as_ref().map(|s| s.targets.len())
-            && l.multiview == r.multiview;
-
-        if !eq
-        {
-            return false;
-        }
-
-        match (l.fragment.as_ref(), r.fragment.as_ref())
-        {
-            (None, None) => true,
-            (Some(l), Some(r)) =>
-            {
-                for (s_l, s_r) in l.targets.iter().zip(r.targets.iter())
-                {
-                    if s_l != s_r
-                    {
-                        return false;
-                    }
-                }
-
-                true
-            }
-            _ => false
-        }
-    }
-}
-
-impl Eq for CacheableRenderPipelineDescriptor {}
-
-impl Hash for CacheableRenderPipelineDescriptor
-{
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H)
-    {
-        self.0.label.hash(state);
-
-        match self.0.layout
-        {
-            Some(l) => l.global_id().hash(state),
-            None => state.write_i8(-34) // value, fresh from my ass!
-        }
-
-        self.0.vertex.module.global_id().hash(state);
-        self.0.vertex.entry_point.hash(state);
-        self.0.vertex.buffers.hash(state);
-
-        self.0.primitive.hash(state);
-        self.0.depth_stencil.hash(state);
-        self.0.multisample.hash(state);
-        self.0.fragment.as_ref().map(|f| {
-            f.entry_point.hash(state);
-            f.module.global_id().hash(state);
-            f.targets.hash(state);
-        });
-
-        self.0.multiview.hash(state);
     }
 }

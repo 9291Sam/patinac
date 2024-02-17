@@ -35,7 +35,7 @@ fn main()
 
     if Arc::into_inner(renderer).is_none()
     {
-        log::error!("Renderer was retained via Arc cycle!");
+        log::warn!("Renderer was retained via Arc cycle!");
     }
 
     LOGGER.get().unwrap().stop_worker();
