@@ -23,6 +23,7 @@ use winit::window::{CursorGrabMode, Window, WindowBuilder};
 use winit_input_helper::WinitInputHelper;
 
 use crate::recordables::{DrawId, PassStage, RecordInfo, Recordable};
+use crate::render_cache::RenderCache;
 use crate::{Camera, Transform};
 
 pub const SURFACE_TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8UnormSrgb;
@@ -32,18 +33,17 @@ pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 pub struct Renderer
 {
     pub queue:                    wgpu::Queue,
-    pub global_bind_group_layout: wgpu::BindGroupLayout,
+    pub render_cache:             RenderCache,
+    pub global_bind_group_layout: Arc<wgpu::BindGroupLayout>,
 
     // Render Cache
-    bind_group_layout_cache:
-        Mutex<HashMap<CacheableBindGroupLayoutDescriptor, Arc<wgpu::BindGroupLayout>>>,
-    pipeline_layout_cache:
-        Mutex<HashMap<CacheablePipelineLayoutDescriptor, Arc<wgpu::PipelineLayout>>>,
-    shader_module_cache: Mutex<HashMap<CacheableShaderModuleDescriptor, Arc<wgpu::ShaderModule>>>,
-    compute_pipeline_cache:
-        Mutex<HashMap<CacheableComputePipelineDescriptor, Arc<GenericPipeline>>>,
-    render_pipeline_cache: Mutex<HashMap<CacheableRenderPipelineDescriptor, Arc<GenericPipeline>>>,
-
+    // pipeline_layout_cache:
+    //     Mutex<HashMap<CacheablePipelineLayoutDescriptor, Arc<wgpu::PipelineLayout>>>,
+    // shader_module_cache: Mutex<HashMap<CacheableShaderModuleDescriptor,
+    // Arc<wgpu::ShaderModule>>>, compute_pipeline_cache:
+    //     Mutex<HashMap<CacheableComputePipelineDescriptor, Arc<GenericPipeline>>>,
+    // render_pipeline_cache: Mutex<HashMap<CacheableRenderPipelineDescriptor,
+    // Arc<GenericPipeline>>>,
     device:      Arc<wgpu::Device>,
     renderables: util::Registrar<util::Uuid, Weak<dyn Recordable>>,
 
@@ -271,6 +271,8 @@ impl Renderer
                 ]
             });
 
+        let render_cache = RenderCache::new(device.clone());
+
         Renderer {
             thread_id: std::thread::current().id(),
             renderables: Registrar::new(),
@@ -281,11 +283,7 @@ impl Renderer
             window_size_x: AtomicU32::new(size.width),
             window_size_y: AtomicU32::new(size.height),
             float_delta_frame_time_s: AtomicU32::new(0.0f32.to_bits()),
-            bind_group_layout_cache: Mutex::new(HashMap::new()),
-            pipeline_layout_cache: Mutex::new(HashMap::new()),
-            shader_module_cache: Mutex::new(HashMap::new()),
-            compute_pipeline_cache: Mutex::new(HashMap::new()),
-            render_pipeline_cache: Mutex::new(HashMap::new())
+            render_cache
         }
     }
 
@@ -321,79 +319,6 @@ impl Renderer
     pub fn get_delta_time(&self) -> f32
     {
         f32::from_bits(self.float_delta_frame_time_s.load(Ordering::Acquire))
-    }
-
-    pub fn cache_bind_group_layout(
-        &self,
-        create_info: wgpu::BindGroupLayoutDescriptor<'static>
-    ) -> Arc<wgpu::BindGroupLayout>
-    {
-        self.bind_group_layout_cache
-            .lock()
-            .unwrap()
-            .entry(CacheableBindGroupLayoutDescriptor(create_info))
-            .or_insert_with_key(|k| Arc::new(self.device.create_bind_group_layout(&k.0)))
-            .clone()
-    }
-
-    pub fn cache_pipeline_layout(
-        &self,
-        create_info: wgpu::PipelineLayoutDescriptor<'static>
-    ) -> Arc<wgpu::PipelineLayout>
-    {
-        self.pipeline_layout_cache
-            .lock()
-            .unwrap()
-            .entry(CacheablePipelineLayoutDescriptor(create_info))
-            .or_insert_with_key(|k| Arc::new(self.device.create_pipeline_layout(&k.0)))
-            .clone()
-    }
-
-    pub fn cache_shader_module(
-        &self,
-        create_info: wgpu::ShaderModuleDescriptor<'static>
-    ) -> Arc<wgpu::ShaderModule>
-    {
-        self.shader_module_cache
-            .lock()
-            .unwrap()
-            .entry(CacheableShaderModuleDescriptor(create_info))
-            .or_insert_with_key(|k| Arc::new(self.device.create_shader_module(k.0.clone())))
-            .clone()
-    }
-
-    pub fn cache_compute_pipeline(
-        &self,
-        create_info: wgpu::ComputePipelineDescriptor<'static>
-    ) -> Arc<GenericPipeline>
-    {
-        self.compute_pipeline_cache
-            .lock()
-            .unwrap()
-            .entry(CacheableComputePipelineDescriptor(create_info))
-            .or_insert_with_key(|k| {
-                Arc::new(GenericPipeline::Compute(
-                    self.device.create_compute_pipeline(&k.0)
-                ))
-            })
-            .clone()
-    }
-
-    pub fn cache_render_pipeline(
-        &self,
-        create_info: wgpu::RenderPipelineDescriptor<'static>
-    ) -> Arc<GenericPipeline>
-    {
-        self.render_pipeline_cache
-            .lock()
-            .unwrap()
-            .entry(CacheableRenderPipelineDescriptor(create_info))
-            .or_insert_with_key(|k| {
-                Arc::new(GenericPipeline::Render(
-                    self.device.create_render_pipeline(&k.0)
-                ))
-            })
-            .clone()
     }
 
     fn set_framebuffer_size(&self, new_size: glm::UVec2)
@@ -1049,37 +974,6 @@ impl GenericPipeline
             GenericPipeline::Compute(p) => p.global_id().inner(),
             GenericPipeline::Render(p) => p.global_id().inner()
         }
-    }
-}
-
-#[derive(Debug)]
-struct CacheableBindGroupLayoutDescriptor(wgpu::BindGroupLayoutDescriptor<'static>);
-
-impl PartialEq for CacheableBindGroupLayoutDescriptor
-{
-    fn eq(&self, other: &Self) -> bool
-    {
-        let l = &self.0;
-        let r = &other.0;
-
-        l.label == r.label
-            && l.entries.len() == r.entries.len()
-            && l.entries
-                .iter()
-                .zip(r.entries.iter())
-                .fold(true, |acc, (l, r)| l == r && acc)
-    }
-}
-
-impl Eq for CacheableBindGroupLayoutDescriptor {}
-
-impl Hash for CacheableBindGroupLayoutDescriptor
-{
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H)
-    {
-        state.write_str(self.0.label.unwrap_or(""));
-
-        self.0.entries.iter().for_each(|e| e.hash(state));
     }
 }
 

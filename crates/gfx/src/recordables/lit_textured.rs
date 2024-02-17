@@ -8,6 +8,7 @@ use nalgebra_glm as glm;
 use wgpu::util::DeviceExt;
 
 use super::{DrawId, PassStage, RecordInfo, Recordable};
+use crate::render_cache::CacheablePipelineLayoutDescriptor;
 use crate::renderer::{GenericPass, GenericPipeline, DEPTH_FORMAT, SURFACE_TEXTURE_FORMAT};
 use crate::{Camera, Renderer, Transform};
 
@@ -171,41 +172,46 @@ impl LitTextured
             usage:    wgpu::BufferUsages::INDEX
         });
 
-        let bind_group_layout = renderer.cache_bind_group_layout(wgpu::BindGroupLayoutDescriptor {
-            label:   Some("Lit Textured BindGroup Layout"),
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding:    0,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty:         wgpu::BindingType::Texture {
-                        multisampled:   false,
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        sample_type:    wgpu::TextureSampleType::Float {
-                            filterable: true
+        let bind_group_layout =
+            renderer
+                .render_cache
+                .cache_bind_group_layout(wgpu::BindGroupLayoutDescriptor {
+                    label:   Some("Lit Textured BindGroup Layout"),
+                    entries: &[
+                        wgpu::BindGroupLayoutEntry {
+                            binding:    0,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty:         wgpu::BindingType::Texture {
+                                multisampled:   false,
+                                view_dimension: wgpu::TextureViewDimension::D2,
+                                sample_type:    wgpu::TextureSampleType::Float {
+                                    filterable: true
+                                }
+                            },
+                            count:      None
+                        },
+                        wgpu::BindGroupLayoutEntry {
+                            binding:    1,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty:         wgpu::BindingType::Texture {
+                                multisampled:   false,
+                                view_dimension: wgpu::TextureViewDimension::D2,
+                                sample_type:    wgpu::TextureSampleType::Float {
+                                    filterable: true
+                                }
+                            },
+                            count:      None
+                        },
+                        wgpu::BindGroupLayoutEntry {
+                            binding:    2,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty:         wgpu::BindingType::Sampler(
+                                wgpu::SamplerBindingType::Filtering
+                            ),
+                            count:      None
                         }
-                    },
-                    count:      None
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding:    1,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty:         wgpu::BindingType::Texture {
-                        multisampled:   false,
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        sample_type:    wgpu::TextureSampleType::Float {
-                            filterable: true
-                        }
-                    },
-                    count:      None
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding:    2,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty:         wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                    count:      None
-                }
-            ]
-        });
+                    ]
+                });
 
         let bind_group = renderer.create_bind_group(&wgpu::BindGroupDescriptor {
             label:   Some("Lit Textured Bind Group"),
@@ -232,70 +238,78 @@ impl LitTextured
             ]
         });
 
-        let pipeline_layout = renderer.cache_pipeline_layout(wgpu::PipelineLayoutDescriptor {
-            label:                Some("LitTextured"),
-            bind_group_layouts:   &[&renderer.global_bind_group_layout, &bind_group_layout],
-            push_constant_ranges: &[wgpu::PushConstantRange {
-                stages: wgpu::ShaderStages::VERTEX,
-                range:  0..(std::mem::size_of::<u32>() as u32)
-            }]
-        });
+        let pipeline_layout =
+            renderer
+                .render_cache
+                .cache_pipeline_layout(CacheablePipelineLayoutDescriptor {
+                    label:                "Lit Textured Pipeline Layout",
+                    bind_group_layouts:   vec![
+                        renderer.global_bind_group_layout.clone(),
+                        bind_group_layout,
+                    ],
+                    push_constant_ranges: vec![wgpu::PushConstantRange {
+                        stages: wgpu::ShaderStages::VERTEX,
+                        range:  0..(std::mem::size_of::<u32>() as u32)
+                    }]
+                });
 
-        let shader =
-            renderer.cache_shader_module(wgpu::include_wgsl!("res/lit_textured/lit_textured.wgsl"));
+        // TODO: bad!!!!
+        let shader = renderer
+            .create_shader_module(wgpu::include_wgsl!("res/lit_textured/lit_textured.wgsl"));
 
         let pipeline = todo!();
 
-        // renderer.cache_render_pipeline(wgpu::RenderPipelineDescriptor {
-        //     label:         Some("LitTextured"),
-        //     layout:        Some(&pipeline_layout),
-        //     vertex:        wgpu::VertexState {
-        //         module:      &shader,
-        //         entry_point: "vs_main",
-        //         buffers:     &[Vertex::desc()]
-        //     },
-        //     fragment:      Some(wgpu::FragmentState {
-        //         module:      &shader,
-        //         entry_point: "fs_main",
-        //         targets:     &[Some(wgpu::ColorTargetState {
-        //             format:     Renderer::get_surface_format(),
-        //             blend:      Some(wgpu::BlendState::REPLACE),
-        //             write_mask: wgpu::ColorWrites::ALL
-        //         })]
-        //     }),
-        //     primitive:     wgpu::PrimitiveState {
-        //         topology:           wgpu::PrimitiveTopology::TriangleList,
-        //         strip_index_format: None,
-        //         front_face:         wgpu::FrontFace::Cw,
-        //         cull_mode:          Some(wgpu::Face::Back),
-        //         polygon_mode:       wgpu::PolygonMode::Fill,
-        //         unclipped_depth:    false,
-        //         conservative:       false
-        //     },
-        //     depth_stencil: Some(Renderer::get_default_depth_state()),
-        //     multisample:   wgpu::MultisampleState {
-        //         count:                     1,
-        //         mask:                      !0,
-        //         alpha_to_coverage_enabled: false
-        //     },
-        //     multiview:     None
-        // });
-
-        let this = Arc::new(Self {
-            id: util::Uuid::new(),
-            vertex_buffer,
-            index_buffer,
-            texture_normal_bind_group: bind_group,
-            number_of_indices: indices.len() as u32,
-            transform: Mutex::new(transform),
-            pipeline,
-            bind_group_layout,
-            pipeline_layout
+        renderer.cache_render_pipeline(wgpu::RenderPipelineDescriptor {
+            label:         Some("LitTextured"),
+            layout:        Some(&pipeline_layout),
+            vertex:        wgpu::VertexState {
+                module:      &shader,
+                entry_point: "vs_main",
+                buffers:     &[Vertex::desc()]
+            },
+            fragment:      Some(wgpu::FragmentState {
+                module:      &shader,
+                entry_point: "fs_main",
+                targets:     &[Some(wgpu::ColorTargetState {
+                    format:     Renderer::get_surface_format(),
+                    blend:      Some(wgpu::BlendState::REPLACE),
+                    write_mask: wgpu::ColorWrites::ALL
+                })]
+            }),
+            primitive:     wgpu::PrimitiveState {
+                topology:           wgpu::PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face:         wgpu::FrontFace::Cw,
+                cull_mode:          Some(wgpu::Face::Back),
+                polygon_mode:       wgpu::PolygonMode::Fill,
+                unclipped_depth:    false,
+                conservative:       false
+            },
+            depth_stencil: Some(Renderer::get_default_depth_state()),
+            multisample:   wgpu::MultisampleState {
+                count:                     1,
+                mask:                      !0,
+                alpha_to_coverage_enabled: false
+            },
+            multiview:     None
         });
 
-        renderer.register(this.clone());
+        todo!()
+        // let this = Arc::new(Self {
+        //     id: util::Uuid::new(),
+        //     vertex_buffer,
+        //     index_buffer,
+        //     texture_normal_bind_group: bind_group,
+        //     number_of_indices: indices.len() as u32,
+        //     transform: Mutex::new(transform),
+        //     pipeline,
+        //     bind_group_layout,
+        //     pipeline_layout
+        // });
 
-        this
+        // renderer.register(this.clone());
+
+        // this
     }
 }
 
