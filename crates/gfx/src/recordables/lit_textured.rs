@@ -8,44 +8,23 @@ use nalgebra_glm as glm;
 use wgpu::util::DeviceExt;
 
 use super::{DrawId, PassStage, RecordInfo, Recordable};
-use crate::render_cache::{GenericPass, GenericPipeline};
-use crate::renderer::{DEPTH_FORMAT, SURFACE_TEXTURE_FORMAT};
+use crate::renderer::{GenericPass, GenericPipeline, DEPTH_FORMAT, SURFACE_TEXTURE_FORMAT};
 use crate::{Camera, Renderer, Transform};
-
-#[repr(C)]
-#[derive(Copy, Clone, Debug, Pod, Zeroable)]
-pub struct Vertex
-{
-    pub position:   glm::Vec3,
-    pub tex_coords: glm::Vec2,
-    pub normal:     glm::Vec3
-}
-
-impl Vertex
-{
-    const ATTRIBUTES: [wgpu::VertexAttribute; 3] =
-        wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x2, 2 => Float32x3];
-
-    pub fn desc() -> wgpu::VertexBufferLayout<'static>
-    {
-        wgpu::VertexBufferLayout {
-            array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
-            step_mode:    wgpu::VertexStepMode::Vertex,
-            attributes:   &Self::ATTRIBUTES
-        }
-    }
-}
 
 #[derive(Debug)]
 pub struct LitTextured
 {
-    id:                        util::Uuid,
+    pub transform: Mutex<Transform>,
+    id:            util::Uuid,
+
     vertex_buffer:             wgpu::Buffer,
     index_buffer:              wgpu::Buffer,
     texture_normal_bind_group: wgpu::BindGroup,
-    pipeline:                  GenericPipeline,
-    number_of_indices:         u32,
-    pub transform:             Mutex<Transform>
+    pipeline:                  Arc<GenericPipeline>,
+
+    bind_group_layout: Arc<wgpu::BindGroupLayout>,
+    pipeline_layout:   Arc<wgpu::PipelineLayout>,
+    number_of_indices: u32
 }
 
 impl LitTextured
@@ -192,7 +171,7 @@ impl LitTextured
             usage:    wgpu::BufferUsages::INDEX
         });
 
-        let bind_layout = renderer.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        let bind_group_layout = renderer.cache_bind_group_layout(wgpu::BindGroupLayoutDescriptor {
             label:   Some("Lit Textured BindGroup Layout"),
             entries: &[
                 wgpu::BindGroupLayoutEntry {
@@ -230,7 +209,7 @@ impl LitTextured
 
         let bind_group = renderer.create_bind_group(&wgpu::BindGroupDescriptor {
             label:   Some("Lit Textured Bind Group"),
-            layout:  &bind_layout,
+            layout:  &bind_group_layout,
             entries: &[
                 wgpu::BindGroupEntry {
                     binding:  0,
@@ -253,65 +232,52 @@ impl LitTextured
             ]
         });
 
-        let pipeline_layout = renderer.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        let pipeline_layout = renderer.cache_pipeline_layout(wgpu::PipelineLayoutDescriptor {
             label:                Some("LitTextured"),
-            bind_group_layouts:   &[&renderer.global_bind_group_layout, &bind_layout],
+            bind_group_layouts:   &[&renderer.global_bind_group_layout, &bind_group_layout],
             push_constant_ranges: &[wgpu::PushConstantRange {
                 stages: wgpu::ShaderStages::VERTEX,
                 range:  0..(std::mem::size_of::<u32>() as u32)
             }]
         });
 
-        // let pipeline =
-        let shader = renderer
-            .create_shader_module(wgpu::include_wgsl!("res/lit_textured/lit_textured.wgsl"));
+        let shader =
+            renderer.cache_shader_module(wgpu::include_wgsl!("res/lit_textured/lit_textured.wgsl"));
 
-        let default_depth_state = Some(wgpu::DepthStencilState {
-            format:              DEPTH_FORMAT,
-            depth_write_enabled: true,
-            depth_compare:       wgpu::CompareFunction::Less,
-            stencil:             wgpu::StencilState::default(),
-            bias:                wgpu::DepthBiasState::default()
+        let pipeline = renderer.cache_render_pipeline(wgpu::RenderPipelineDescriptor {
+            label:         Some("LitTextured"),
+            layout:        Some(&pipeline_layout),
+            vertex:        wgpu::VertexState {
+                module:      &shader,
+                entry_point: "vs_main",
+                buffers:     &[Vertex::desc()]
+            },
+            fragment:      Some(wgpu::FragmentState {
+                module:      &shader,
+                entry_point: "fs_main",
+                targets:     &[Some(wgpu::ColorTargetState {
+                    format:     Renderer::get_surface_format(),
+                    blend:      Some(wgpu::BlendState::REPLACE),
+                    write_mask: wgpu::ColorWrites::ALL
+                })]
+            }),
+            primitive:     wgpu::PrimitiveState {
+                topology:           wgpu::PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face:         wgpu::FrontFace::Cw,
+                cull_mode:          Some(wgpu::Face::Back),
+                polygon_mode:       wgpu::PolygonMode::Fill,
+                unclipped_depth:    false,
+                conservative:       false
+            },
+            depth_stencil: Some(Renderer::get_default_depth_state()),
+            multisample:   wgpu::MultisampleState {
+                count:                     1,
+                mask:                      !0,
+                alpha_to_coverage_enabled: false
+            },
+            multiview:     None
         });
-
-        let default_multisample_state = wgpu::MultisampleState {
-            count:                     1,
-            mask:                      !0,
-            alpha_to_coverage_enabled: false
-        };
-
-        let pipeline = GenericPipeline::Render(renderer.create_render_pipeline(
-            &wgpu::RenderPipelineDescriptor {
-                label:         Some("LitTextured"),
-                layout:        Some(&pipeline_layout),
-                vertex:        wgpu::VertexState {
-                    module:      &shader,
-                    entry_point: "vs_main",
-                    buffers:     &[Vertex::desc()]
-                },
-                fragment:      Some(wgpu::FragmentState {
-                    module:      &shader,
-                    entry_point: "fs_main",
-                    targets:     &[Some(wgpu::ColorTargetState {
-                        format:     SURFACE_TEXTURE_FORMAT,
-                        blend:      Some(wgpu::BlendState::REPLACE),
-                        write_mask: wgpu::ColorWrites::ALL
-                    })]
-                }),
-                primitive:     wgpu::PrimitiveState {
-                    topology:           wgpu::PrimitiveTopology::TriangleList,
-                    strip_index_format: None,
-                    front_face:         wgpu::FrontFace::Cw,
-                    cull_mode:          Some(wgpu::Face::Back),
-                    polygon_mode:       wgpu::PolygonMode::Fill,
-                    unclipped_depth:    false,
-                    conservative:       false
-                },
-                depth_stencil: default_depth_state,
-                multisample:   default_multisample_state,
-                multiview:     None
-            }
-        ));
 
         let this = Arc::new(Self {
             id: util::Uuid::new(),
@@ -320,7 +286,9 @@ impl LitTextured
             texture_normal_bind_group: bind_group,
             number_of_indices: indices.len() as u32,
             transform: Mutex::new(transform),
-            pipeline
+            pipeline,
+            bind_group_layout,
+            pipeline_layout
         });
 
         renderer.register(this.clone());
@@ -384,5 +352,29 @@ impl Recordable for LitTextured
         pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
         pass.set_push_constants(wgpu::ShaderStages::VERTEX, 0, bytes_of(&id));
         pass.draw_indexed(0..self.number_of_indices, 0, 0..1);
+    }
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug, Pod, Zeroable)]
+pub struct Vertex
+{
+    pub position:   glm::Vec3,
+    pub tex_coords: glm::Vec2,
+    pub normal:     glm::Vec3
+}
+
+impl Vertex
+{
+    const ATTRIBUTES: [wgpu::VertexAttribute; 3] =
+        wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x2, 2 => Float32x3];
+
+    pub fn desc() -> wgpu::VertexBufferLayout<'static>
+    {
+        wgpu::VertexBufferLayout {
+            array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
+            step_mode:    wgpu::VertexStepMode::Vertex,
+            attributes:   &Self::ATTRIBUTES
+        }
     }
 }

@@ -9,7 +9,7 @@ use std::num::NonZeroU64;
 
 use strum::EnumIter;
 
-use crate::render_cache::{GenericPass, GenericPipeline};
+use crate::renderer::{GenericPass, GenericPipeline};
 use crate::{Camera, Renderer, Transform};
 
 pub type DrawId = u32;

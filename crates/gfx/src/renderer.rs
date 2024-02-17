@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::hash::Hash;
 use std::num::NonZeroU64;
 use std::ops::Deref;
 use std::sync::atomic::Ordering::{self, *};
@@ -22,7 +23,6 @@ use winit::window::{CursorGrabMode, Window, WindowBuilder};
 use winit_input_helper::WinitInputHelper;
 
 use crate::recordables::{DrawId, PassStage, RecordInfo, Recordable};
-use crate::render_cache::{GenericPass, GenericPipeline};
 use crate::{Camera, Transform};
 
 pub const SURFACE_TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8UnormSrgb;
@@ -33,6 +33,16 @@ pub struct Renderer
 {
     pub queue:                    wgpu::Queue,
     pub global_bind_group_layout: wgpu::BindGroupLayout,
+
+    // Render Cache
+    bind_group_layout_cache:
+        Mutex<HashMap<CacheableBindGroupLayoutDescriptor, Arc<wgpu::BindGroupLayout>>>,
+    pipeline_layout_cache:
+        Mutex<HashMap<CacheablePipelineLayoutDescriptor, Arc<wgpu::PipelineLayout>>>,
+    shader_module_cache: Mutex<HashMap<CacheableShaderModuleDescriptor, Arc<wgpu::ShaderModule>>>,
+    compute_pipeline_cache:
+        Mutex<HashMap<CacheableComputePipelineDescriptor, Arc<GenericPipeline>>>,
+    render_pipeline_cache: Mutex<HashMap<CacheableRenderPipelineDescriptor, Arc<GenericPipeline>>>,
 
     device:      Arc<wgpu::Device>,
     renderables: util::Registrar<util::Uuid, Weak<dyn Recordable>>,
@@ -218,7 +228,6 @@ impl Renderer
             ))
         };
 
-        // let render_cache = RenderCache::new(device);
         let global_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label:   Some("Global Bind Group Layout"),
@@ -271,7 +280,12 @@ impl Renderer
             global_bind_group_layout,
             window_size_x: AtomicU32::new(size.width),
             window_size_y: AtomicU32::new(size.height),
-            float_delta_frame_time_s: AtomicU32::new(0.0f32.to_bits())
+            float_delta_frame_time_s: AtomicU32::new(0.0f32.to_bits()),
+            bind_group_layout_cache: Mutex::new(HashMap::new()),
+            pipeline_layout_cache: Mutex::new(HashMap::new()),
+            shader_module_cache: Mutex::new(HashMap::new()),
+            compute_pipeline_cache: Mutex::new(HashMap::new()),
+            render_pipeline_cache: Mutex::new(HashMap::new())
         }
     }
 
@@ -307,6 +321,79 @@ impl Renderer
     pub fn get_delta_time(&self) -> f32
     {
         f32::from_bits(self.float_delta_frame_time_s.load(Ordering::Acquire))
+    }
+
+    pub fn cache_bind_group_layout(
+        &self,
+        create_info: wgpu::BindGroupLayoutDescriptor<'static>
+    ) -> Arc<wgpu::BindGroupLayout>
+    {
+        self.bind_group_layout_cache
+            .lock()
+            .unwrap()
+            .entry(CacheableBindGroupLayoutDescriptor(create_info))
+            .or_insert_with_key(|k| Arc::new(self.device.create_bind_group_layout(&k.0)))
+            .clone()
+    }
+
+    pub fn cache_pipeline_layout(
+        &self,
+        create_info: wgpu::PipelineLayoutDescriptor<'_>
+    ) -> Arc<wgpu::PipelineLayout>
+    {
+        self.pipeline_layout_cache
+            .lock()
+            .unwrap()
+            .entry(CacheablePipelineLayoutDescriptor(create_info))
+            .or_insert_with_key(|k| Arc::new(self.device.create_pipeline_layout(&k.0)))
+            .clone()
+    }
+
+    pub fn cache_shader_module(
+        &self,
+        create_info: wgpu::ShaderModuleDescriptor<'static>
+    ) -> Arc<wgpu::ShaderModule>
+    {
+        self.shader_module_cache
+            .lock()
+            .unwrap()
+            .entry(CacheableShaderModuleDescriptor(create_info))
+            .or_insert_with_key(|k| Arc::new(self.device.create_shader_module(k.0)))
+            .clone()
+    }
+
+    pub fn cache_compute_pipeline(
+        &self,
+        create_info: wgpu::ComputePipelineDescriptor<'static>
+    ) -> Arc<GenericPipeline>
+    {
+        self.compute_pipeline_cache
+            .lock()
+            .unwrap()
+            .entry(CacheableComputePipelineDescriptor(create_info))
+            .or_insert_with_key(|k| {
+                Arc::new(GenericPipeline::Compute(
+                    self.device.create_compute_pipeline(&k.0)
+                ))
+            })
+            .clone()
+    }
+
+    pub fn cache_render_pipeline(
+        &self,
+        create_info: wgpu::RenderPipelineDescriptor<'static>
+    ) -> Arc<GenericPipeline>
+    {
+        self.render_pipeline_cache
+            .lock()
+            .unwrap()
+            .entry(CacheableRenderPipelineDescriptor(create_info))
+            .or_insert_with_key(|k| {
+                Arc::new(GenericPipeline::Render(
+                    self.device.create_render_pipeline(&k.0)
+                ))
+            })
+            .clone()
     }
 
     fn set_framebuffer_size(&self, new_size: glm::UVec2)
@@ -813,6 +900,22 @@ impl Renderer
 
         log::info!("event loop returned");
     }
+
+    pub fn get_default_depth_state() -> wgpu::DepthStencilState
+    {
+        wgpu::DepthStencilState {
+            format:              DEPTH_FORMAT,
+            depth_write_enabled: true,
+            depth_compare:       wgpu::CompareFunction::Less,
+            stencil:             wgpu::StencilState::default(),
+            bias:                wgpu::DepthBiasState::default()
+        }
+    }
+
+    pub fn get_surface_format() -> wgpu::TextureFormat
+    {
+        SURFACE_TEXTURE_FORMAT
+    }
 }
 
 #[derive(Debug)]
@@ -895,5 +998,287 @@ impl Default for ShaderMatrices
         Self {
             matrices: [Default::default(); SHADER_MATRICES_SIZE]
         }
+    }
+}
+
+pub enum GenericPass<'p>
+{
+    Compute(wgpu::ComputePass<'p>),
+    Render(wgpu::RenderPass<'p>)
+}
+
+#[derive(Debug)]
+pub enum GenericPipeline
+{
+    Compute(wgpu::ComputePipeline),
+    Render(wgpu::RenderPipeline)
+}
+
+impl PartialEq for GenericPipeline
+{
+    fn eq(&self, other: &Self) -> bool
+    {
+        self.global_id() == other.global_id()
+    }
+}
+
+impl Eq for GenericPipeline {}
+
+impl PartialOrd for GenericPipeline
+{
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering>
+    {
+        self.global_id().partial_cmp(&other.global_id())
+    }
+}
+
+impl Ord for GenericPipeline
+{
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering
+    {
+        self.global_id().cmp(&other.global_id())
+    }
+}
+
+impl GenericPipeline
+{
+    pub fn global_id(&self) -> u64
+    {
+        match self
+        {
+            GenericPipeline::Compute(p) => p.global_id().inner(),
+            GenericPipeline::Render(p) => p.global_id().inner()
+        }
+    }
+}
+
+#[derive(Debug)]
+struct CacheableBindGroupLayoutDescriptor(wgpu::BindGroupLayoutDescriptor<'static>);
+
+impl PartialEq for CacheableBindGroupLayoutDescriptor
+{
+    fn eq(&self, other: &Self) -> bool
+    {
+        let l = self.0;
+        let r = other.0;
+
+        l.label == r.label
+            && l.entries.len() == r.entries.len()
+            && l.entries
+                .iter()
+                .zip(r.entries.iter())
+                .fold(true, |acc, (l, r)| l == r && acc)
+    }
+}
+
+impl Eq for CacheableBindGroupLayoutDescriptor {}
+
+impl Hash for CacheableBindGroupLayoutDescriptor
+{
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H)
+    {
+        state.write_str(self.0.label.unwrap_or(""));
+
+        self.0.entries.iter().for_each(|e| e.hash(state));
+    }
+}
+
+#[derive(Debug)]
+struct CacheablePipelineLayoutDescriptor(wgpu::PipelineLayoutDescriptor<'static>);
+
+impl PartialEq for CacheablePipelineLayoutDescriptor
+{
+    fn eq(&self, other: &Self) -> bool
+    {
+        let l = self.0;
+        let r = other.0;
+
+        l.label == r.label
+            && l.bind_group_layouts.len() == r.bind_group_layouts.len()
+            && l.bind_group_layouts
+                .iter()
+                .zip(r.bind_group_layouts.iter())
+                .fold(true, |acc, (l, r)| l.global_id() == r.global_id() && acc)
+            && l.push_constant_ranges.len() == r.push_constant_ranges.len()
+            && l.push_constant_ranges
+                .iter()
+                .zip(r.push_constant_ranges.iter())
+                .fold(true, |acc, (l, r)| l == r && acc)
+    }
+}
+
+impl Eq for CacheablePipelineLayoutDescriptor {}
+
+impl Hash for CacheablePipelineLayoutDescriptor
+{
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H)
+    {
+        self.0.label.hash(state);
+
+        self.0
+            .bind_group_layouts
+            .iter()
+            .for_each(|l| l.global_id().hash(state));
+
+        self.0
+            .push_constant_ranges
+            .iter()
+            .for_each(|r| r.hash(state));
+    }
+}
+
+#[derive(Debug)]
+struct CacheableShaderModuleDescriptor(wgpu::ShaderModuleDescriptor<'static>);
+
+impl PartialEq for CacheableShaderModuleDescriptor
+{
+    fn eq(&self, other: &Self) -> bool
+    {
+        let l = self.0;
+        let r = other.0;
+
+        l.label == r.label
+            && match (l.source, r.source)
+            {
+                (wgpu::ShaderSource::Wgsl(l_s), wgpu::ShaderSource::Wgsl(r_s)) => l_s == r_s,
+                _ => unimplemented!()
+            }
+    }
+}
+
+impl Eq for CacheableShaderModuleDescriptor {}
+
+impl Hash for CacheableShaderModuleDescriptor
+{
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H)
+    {
+        self.0.label.hash(state);
+
+        match self.0.source
+        {
+            wgpu::ShaderSource::Wgsl(s) => s.hash(state),
+            _ => unimplemented!()
+        }
+    }
+}
+
+#[derive(Debug)]
+struct CacheableComputePipelineDescriptor(wgpu::ComputePipelineDescriptor<'static>);
+
+impl PartialEq for CacheableComputePipelineDescriptor
+{
+    fn eq(&self, other: &Self) -> bool
+    {
+        let l = self.0;
+        let r = other.0;
+
+        l.label == r.label
+            && l.layout.map(|l| l.global_id()) == r.layout.map(|l| l.global_id())
+            && l.module.global_id() == r.module.global_id()
+            && l.entry_point == r.entry_point
+    }
+}
+
+impl Eq for CacheableComputePipelineDescriptor {}
+
+impl Hash for CacheableComputePipelineDescriptor
+{
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H)
+    {
+        self.0.label.hash(state);
+
+        match self.0.layout
+        {
+            Some(l) => l.global_id().hash(state),
+            None => state.write_i8(-34) // value, fresh from my ass!
+        }
+
+        self.0.module.global_id().hash(state);
+
+        self.0.entry_point.hash(state);
+    }
+}
+
+#[derive(Debug)]
+struct CacheableRenderPipelineDescriptor(wgpu::RenderPipelineDescriptor<'static>);
+
+impl PartialEq for CacheableRenderPipelineDescriptor
+{
+    fn eq(&self, other: &Self) -> bool
+    {
+        let l = self.0;
+        let r = other.0;
+
+        let eq = l.label == r.label
+            && l.layout.map(|l| l.global_id()) == r.layout.map(|l| l.global_id())
+            && l.vertex.module.global_id() == r.vertex.module.global_id()
+            && l.vertex.entry_point == r.vertex.entry_point
+            && l.vertex.buffers.len() == r.vertex.buffers.len()
+            && l.vertex
+                .buffers
+                .iter()
+                .zip(r.vertex.buffers.iter())
+                .fold(true, |acc, (l, r)| l == r && acc)
+            && l.primitive == r.primitive
+            && l.depth_stencil == r.depth_stencil
+            && l.multisample == r.multisample
+            && l.fragment.map(|s| s.module.global_id()) == r.fragment.map(|s| s.module.global_id())
+            && l.fragment.map(|s| s.entry_point) == r.fragment.map(|s| s.entry_point)
+            && l.fragment.map(|s| s.targets.len()) == r.fragment.map(|s| s.targets.len())
+            && l.multiview == r.multiview;
+
+        if !eq
+        {
+            return false;
+        }
+
+        match (l.fragment, r.fragment)
+        {
+            (None, None) => true,
+            (Some(l), Some(r)) =>
+            {
+                for (s_l, s_r) in l.targets.iter().zip(r.targets.iter())
+                {
+                    if s_l != s_r
+                    {
+                        return false;
+                    }
+                }
+
+                true
+            }
+            _ => false
+        }
+    }
+}
+
+impl Eq for CacheableRenderPipelineDescriptor {}
+
+impl Hash for CacheableRenderPipelineDescriptor
+{
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H)
+    {
+        self.0.label.hash(state);
+
+        match self.0.layout
+        {
+            Some(l) => l.global_id().hash(state),
+            None => state.write_i8(-34) // value, fresh from my ass!
+        }
+
+        self.0.vertex.module.global_id().hash(state);
+        self.0.vertex.entry_point.hash(state);
+        self.0.vertex.buffers.hash(state);
+
+        self.0.primitive.hash(state);
+        self.0.depth_stencil.hash(state);
+        self.0.multisample.hash(state);
+        self.0.fragment.map(|f| {
+            f.entry_point.hash(state);
+            f.module.global_id().hash(state);
+            f.targets.hash(state);
+        });
+
+        self.0.multiview.hash(state);
     }
 }
