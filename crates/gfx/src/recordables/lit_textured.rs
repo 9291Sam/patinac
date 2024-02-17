@@ -244,40 +244,42 @@ impl LitTextured
         let shader =
             renderer.cache_shader_module(wgpu::include_wgsl!("res/lit_textured/lit_textured.wgsl"));
 
-        let pipeline = renderer.cache_render_pipeline(wgpu::RenderPipelineDescriptor {
-            label:         Some("LitTextured"),
-            layout:        Some(&pipeline_layout),
-            vertex:        wgpu::VertexState {
-                module:      &shader,
-                entry_point: "vs_main",
-                buffers:     &[Vertex::desc()]
-            },
-            fragment:      Some(wgpu::FragmentState {
-                module:      &shader,
-                entry_point: "fs_main",
-                targets:     &[Some(wgpu::ColorTargetState {
-                    format:     Renderer::get_surface_format(),
-                    blend:      Some(wgpu::BlendState::REPLACE),
-                    write_mask: wgpu::ColorWrites::ALL
-                })]
-            }),
-            primitive:     wgpu::PrimitiveState {
-                topology:           wgpu::PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-                front_face:         wgpu::FrontFace::Cw,
-                cull_mode:          Some(wgpu::Face::Back),
-                polygon_mode:       wgpu::PolygonMode::Fill,
-                unclipped_depth:    false,
-                conservative:       false
-            },
-            depth_stencil: Some(Renderer::get_default_depth_state()),
-            multisample:   wgpu::MultisampleState {
-                count:                     1,
-                mask:                      !0,
-                alpha_to_coverage_enabled: false
-            },
-            multiview:     None
-        });
+        let pipeline = todo!();
+
+        // renderer.cache_render_pipeline(wgpu::RenderPipelineDescriptor {
+        //     label:         Some("LitTextured"),
+        //     layout:        Some(&pipeline_layout),
+        //     vertex:        wgpu::VertexState {
+        //         module:      &shader,
+        //         entry_point: "vs_main",
+        //         buffers:     &[Vertex::desc()]
+        //     },
+        //     fragment:      Some(wgpu::FragmentState {
+        //         module:      &shader,
+        //         entry_point: "fs_main",
+        //         targets:     &[Some(wgpu::ColorTargetState {
+        //             format:     Renderer::get_surface_format(),
+        //             blend:      Some(wgpu::BlendState::REPLACE),
+        //             write_mask: wgpu::ColorWrites::ALL
+        //         })]
+        //     }),
+        //     primitive:     wgpu::PrimitiveState {
+        //         topology:           wgpu::PrimitiveTopology::TriangleList,
+        //         strip_index_format: None,
+        //         front_face:         wgpu::FrontFace::Cw,
+        //         cull_mode:          Some(wgpu::Face::Back),
+        //         polygon_mode:       wgpu::PolygonMode::Fill,
+        //         unclipped_depth:    false,
+        //         conservative:       false
+        //     },
+        //     depth_stencil: Some(Renderer::get_default_depth_state()),
+        //     multisample:   wgpu::MultisampleState {
+        //         count:                     1,
+        //         mask:                      !0,
+        //         alpha_to_coverage_enabled: false
+        //     },
+        //     multiview:     None
+        // });
 
         let this = Arc::new(Self {
             id: util::Uuid::new(),

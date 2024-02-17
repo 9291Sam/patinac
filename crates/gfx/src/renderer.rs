@@ -338,7 +338,7 @@ impl Renderer
 
     pub fn cache_pipeline_layout(
         &self,
-        create_info: wgpu::PipelineLayoutDescriptor<'_>
+        create_info: wgpu::PipelineLayoutDescriptor<'static>
     ) -> Arc<wgpu::PipelineLayout>
     {
         self.pipeline_layout_cache
@@ -358,7 +358,7 @@ impl Renderer
             .lock()
             .unwrap()
             .entry(CacheableShaderModuleDescriptor(create_info))
-            .or_insert_with_key(|k| Arc::new(self.device.create_shader_module(k.0)))
+            .or_insert_with_key(|k| Arc::new(self.device.create_shader_module(k.0.clone())))
             .clone()
     }
 
@@ -1059,8 +1059,8 @@ impl PartialEq for CacheableBindGroupLayoutDescriptor
 {
     fn eq(&self, other: &Self) -> bool
     {
-        let l = self.0;
-        let r = other.0;
+        let l = &self.0;
+        let r = &other.0;
 
         l.label == r.label
             && l.entries.len() == r.entries.len()
@@ -1090,8 +1090,8 @@ impl PartialEq for CacheablePipelineLayoutDescriptor
 {
     fn eq(&self, other: &Self) -> bool
     {
-        let l = self.0;
-        let r = other.0;
+        let l = &self.0;
+        let r = &other.0;
 
         l.label == r.label
             && l.bind_group_layouts.len() == r.bind_group_layouts.len()
@@ -1134,11 +1134,11 @@ impl PartialEq for CacheableShaderModuleDescriptor
 {
     fn eq(&self, other: &Self) -> bool
     {
-        let l = self.0;
-        let r = other.0;
+        let l = &self.0;
+        let r = &other.0;
 
         l.label == r.label
-            && match (l.source, r.source)
+            && match (&l.source, &r.source)
             {
                 (wgpu::ShaderSource::Wgsl(l_s), wgpu::ShaderSource::Wgsl(r_s)) => l_s == r_s,
                 _ => unimplemented!()
@@ -1154,7 +1154,7 @@ impl Hash for CacheableShaderModuleDescriptor
     {
         self.0.label.hash(state);
 
-        match self.0.source
+        match &self.0.source
         {
             wgpu::ShaderSource::Wgsl(s) => s.hash(state),
             _ => unimplemented!()
@@ -1169,8 +1169,8 @@ impl PartialEq for CacheableComputePipelineDescriptor
 {
     fn eq(&self, other: &Self) -> bool
     {
-        let l = self.0;
-        let r = other.0;
+        let l = &self.0;
+        let r = &other.0;
 
         l.label == r.label
             && l.layout.map(|l| l.global_id()) == r.layout.map(|l| l.global_id())
@@ -1206,8 +1206,8 @@ impl PartialEq for CacheableRenderPipelineDescriptor
 {
     fn eq(&self, other: &Self) -> bool
     {
-        let l = self.0;
-        let r = other.0;
+        let l = &self.0;
+        let r = &other.0;
 
         let eq = l.label == r.label
             && l.layout.map(|l| l.global_id()) == r.layout.map(|l| l.global_id())
@@ -1222,9 +1222,12 @@ impl PartialEq for CacheableRenderPipelineDescriptor
             && l.primitive == r.primitive
             && l.depth_stencil == r.depth_stencil
             && l.multisample == r.multisample
-            && l.fragment.map(|s| s.module.global_id()) == r.fragment.map(|s| s.module.global_id())
-            && l.fragment.map(|s| s.entry_point) == r.fragment.map(|s| s.entry_point)
-            && l.fragment.map(|s| s.targets.len()) == r.fragment.map(|s| s.targets.len())
+            && l.fragment.as_ref().map(|s| s.module.global_id())
+                == r.fragment.as_ref().map(|s| s.module.global_id())
+            && l.fragment.as_ref().map(|s| s.entry_point)
+                == r.fragment.as_ref().map(|s| s.entry_point)
+            && l.fragment.as_ref().map(|s| s.targets.len())
+                == r.fragment.as_ref().map(|s| s.targets.len())
             && l.multiview == r.multiview;
 
         if !eq
@@ -1232,7 +1235,7 @@ impl PartialEq for CacheableRenderPipelineDescriptor
             return false;
         }
 
-        match (l.fragment, r.fragment)
+        match (l.fragment.as_ref(), r.fragment.as_ref())
         {
             (None, None) => true,
             (Some(l), Some(r)) =>
@@ -1273,7 +1276,7 @@ impl Hash for CacheableRenderPipelineDescriptor
         self.0.primitive.hash(state);
         self.0.depth_stencil.hash(state);
         self.0.multisample.hash(state);
-        self.0.fragment.map(|f| {
+        self.0.fragment.as_ref().map(|f| {
             f.entry_point.hash(state);
             f.module.global_id().hash(state);
             f.targets.hash(state);
