@@ -541,15 +541,11 @@ checksum = "aa9a19cbb55df58761df49b23516a86d432839add4af60fc256da840f66ed35b"
 name = "game"
 version = "0.0.0"
 dependencies = [
- "bytemuck",
  "gfx",
- "image",
  "log",
  "rand",
  "rayon",
- "tobj",
  "util",
- "voxel",
 ]
 
 [[package]]
@@ -1198,10 +1194,14 @@ checksum = "de3145af08024dea9fa9914f381a17b8fc6034dfb00f3a84013f7ff43f29ed4c"
 name = "patinac"
 version = "0.0.0-0"
 dependencies = [
+ "bytemuck",
  "game",
  "gfx",
+ "image",
  "log",
+ "tobj",
  "util",
+ "voxel",
 ]
 
 [[package]]
@@ -1790,7 +1790,10 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 name = "voxel"
 version = "0.1.0"
 dependencies = [
+ "bytemuck",
+ "game",
  "gfx",
+ "util",
 ]
 
 [[package]]

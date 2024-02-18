@@ -5,3 +5,6 @@ edition = "2021"
 
 [dependencies]
 gfx = {path = "../gfx"}
+game = {path = "../game"}
+util = {path = "../util" }
+bytemuck = { version = "1.14.1", features = [ "derive" ] }

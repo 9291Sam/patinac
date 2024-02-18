@@ -1,12 +1,13 @@
 use core::fmt::Debug;
+use std::borrow::Cow;
 
 use gfx::glm;
 
-use crate::TickTag;
+use crate::game::TickTag;
 
 pub trait Entity: Debug + Send + Sync
 {
-    fn get_name(&self) -> &str;
+    fn get_name(&self) -> Cow<'_, str>;
     fn get_uuid(&self) -> util::Uuid;
     fn get_position(&self) -> Option<glm::Vec3>;
 

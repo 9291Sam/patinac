@@ -7,6 +7,9 @@
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, OnceLock};
 
+mod recordables;
+mod test_scene;
+
 static LOGGER: OnceLock<util::AsyncLogger> = OnceLock::new();
 
 fn main()
@@ -27,6 +30,8 @@ fn main()
         let should_stop = AtomicBool::new(false);
 
         std::thread::scope(|s| {
+            let _scene_guard = test_scene::TestScene::new(&game);
+
             s.spawn(|| game.enter_tick_loop(&should_stop));
 
             renderer.enter_gfx_loop(&should_stop);
@@ -35,7 +40,7 @@ fn main()
 
     if Arc::into_inner(renderer).is_none()
     {
-        log::warn!("Renderer was retained via Arc cycle!");
+        log::warn!("Renderer was retained via Arc cycle! Drop is not possible");
     }
 
     LOGGER.get().unwrap().stop_worker();

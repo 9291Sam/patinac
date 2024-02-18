@@ -58,6 +58,12 @@ impl Drop for Renderer
         {
             log::warn!("Retained device! {}", Arc::strong_count(&self.device))
         }
+
+        self.renderables
+            .access()
+            .into_iter()
+            .filter_map(|(_, weak)| weak.upgrade())
+            .for_each(|strong| log::warn!("Retained Renderable! {:?}", &*strong));
     }
 }
 

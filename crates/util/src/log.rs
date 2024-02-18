@@ -1,6 +1,6 @@
 use std::io::Write;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::{self, Sender, TryRecvError};
+use std::sync::mpsc::{self, SendError, Sender, TryRecvError};
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 
@@ -73,6 +73,11 @@ impl AsyncLogger
         let stolen_worker: JoinHandle<()> = self.worker_thread.lock().unwrap().take().unwrap();
 
         stolen_worker.join().unwrap();
+
+        assert_eq!(
+            self.thread_sender.send("".into()),
+            Err(SendError("".into()))
+        )
     }
 }
 
