@@ -10,3 +10,4 @@ write a proper crash handler.
 what if you just completely ditch the idea of chunks at all and just have CPU allocated bricks?
 on the cpu side you can just use some fancy 3d hash table and store brick positions
 
+TODO: remove render_cache and just put the cache directly inside the renderer

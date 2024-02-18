@@ -1,8 +1,10 @@
 use std::borrow::Cow;
 use std::sync::Arc;
 
-use bytemuck::bytes_of;
-use gfx::{glm, wgpu, Recordable};
+use bytemuck::{bytes_of, cast_slice, Pod, Zeroable};
+use gfx::wgpu::util::{BufferInitDescriptor, DeviceExt};
+use gfx::wgpu::{self};
+use gfx::{glm, CacheableRenderPipelineDescriptor};
 
 #[derive(Debug)]
 struct Chunk
@@ -14,22 +16,62 @@ struct Chunk
     vertex_buffer:     wgpu::Buffer,
     index_buffer:      wgpu::Buffer,
     number_of_indices: u32,
-    pipeline:          Arc<gfx::GenericPipeline>,
-    voxel_bind_group:  wgpu::BindGroup
+
+    pipeline: Arc<gfx::GenericPipeline>,
+
+    brick_buffer:     wgpu::Buffer,
+    voxel_bind_group: wgpu::BindGroup
 }
 
 impl Chunk
 {
     pub fn new(game: &game::Game) -> Self
     {
+        let uuid = util::Uuid::new();
+
+        let vertex_buffer_label = format!("Chunk {} Vertex Buffer", uuid);
+        let index_buffer_label = format!("Chunk {} Index Buffer", uuid);
+
+        let renderer = &**game.get_renderer();
+
+        let shader = renderer
+            .render_cache
+            .cache_shader_module(wgpu::include_wgsl!("voxel_shader.wgsl"));
+
         Self {
-            uuid:              todo!(),
-            position:          todo!(),
-            name:              todo!(),
-            vertex_buffer:     todo!(),
-            index_buffer:      todo!(),
-            number_of_indices: todo!(),
-            pipeline:          todo!(),
+            uuid:              uuid,
+            position:          glm::Vec3::repeat(0.0),
+            name:              "Voxel Chunk".into(),
+            vertex_buffer:     game
+                .get_renderer()
+                .create_buffer_init(&BufferInitDescriptor {
+                    label:    Some(&vertex_buffer_label),
+                    contents: cast_slice(&CUBE_VERTICES),
+                    usage:    wgpu::BufferUsages::VERTEX
+                }),
+            index_buffer:      game
+                .get_renderer()
+                .create_buffer_init(&BufferInitDescriptor {
+                    label:    Some(&index_buffer_label),
+                    contents: cast_slice(&CUBE_INDICES),
+                    usage:    wgpu::BufferUsages::INDEX
+                }),
+            number_of_indices: CUBE_INDICES.len() as u32,
+            pipeline:          game.get_renderer().render_cache.cache_render_pipeline(
+                CacheableRenderPipelineDescriptor {
+                    label:                 todo!(),
+                    layout:                todo!(),
+                    vertex_module:         todo!(),
+                    vertex_entry_point:    todo!(),
+                    vertex_buffer_layouts: todo!(),
+                    fragment_state:        todo!(),
+                    primitive_state:       todo!(),
+                    depth_stencil_state:   todo!(),
+                    multisample_state:     todo!(),
+                    multiview:             todo!()
+                }
+            ),
+            brick_buffer:      todo!(),
             voxel_bind_group:  todo!()
         }
     }
@@ -118,3 +160,53 @@ impl game::Entity for Chunk
         todo!()
     }
 }
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Zeroable, Pod)]
+struct Vertex
+{
+    position: glm::Vec3
+}
+
+const CUBE_VERTICES: [Vertex; 8] = [
+    Vertex {
+        position: glm::Vec3::new(0.0, 0.0, 0.0)
+    },
+    Vertex {
+        position: glm::Vec3::new(0.0, 0.0, 8.0)
+    },
+    Vertex {
+        position: glm::Vec3::new(0.0, 8.0, 0.0)
+    },
+    Vertex {
+        position: glm::Vec3::new(0.0, 8.0, 8.0)
+    },
+    Vertex {
+        position: glm::Vec3::new(8.0, 0.0, 0.0)
+    },
+    Vertex {
+        position: glm::Vec3::new(8.0, 0.0, 8.0)
+    },
+    Vertex {
+        position: glm::Vec3::new(8.0, 8.0, 0.0)
+    },
+    Vertex {
+        position: glm::Vec3::new(8.0, 8.0, 8.0)
+    }
+];
+
+#[rustfmt::skip]
+const CUBE_INDICES: [u32; 36] = [
+    6, 2, 7,
+    2, 3, 7,
+    0, 4, 5,
+    1, 0, 5,
+    0, 2, 6,
+    4, 0, 6,
+    3, 1, 7,
+    1, 5, 7,
+    2, 0, 3,
+    0, 1, 3,
+    4, 6, 7,
+    5, 4, 7
+];
