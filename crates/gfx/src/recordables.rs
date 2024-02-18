@@ -1,6 +1,3 @@
-pub mod flat_textured;
-pub mod lit_textured;
-
 use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::cmp::Ordering::*;
@@ -9,8 +6,8 @@ use std::num::NonZeroU64;
 
 use strum::EnumIter;
 
-use crate::renderer::{GenericPass, GenericPipeline};
-use crate::{Camera, Renderer, Transform};
+use crate::render_cache::GenericPass;
+use crate::{Camera, GenericPipeline, Renderer, Transform};
 
 pub type DrawId = u32;
 

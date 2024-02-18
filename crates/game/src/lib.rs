@@ -5,6 +5,7 @@ use std::sync::{Arc, Weak};
 use rayon::iter::{ParallelBridge, ParallelIterator};
 
 mod entity;
+mod recordables;
 mod test_scene;
 
 use entity::Entity;

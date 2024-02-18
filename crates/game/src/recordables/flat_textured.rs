@@ -2,17 +2,9 @@ use std::borrow::Cow;
 use std::sync::{Arc, Mutex};
 
 use bytemuck::{bytes_of, Pod, Zeroable};
+use gfx::{glm, wgpu};
 use image::GenericImageView;
 use wgpu::util::DeviceExt;
-
-use super::{DrawId, PassStage, RecordInfo, Recordable};
-use crate::render_cache::{
-    CacheableFragmentState,
-    CacheablePipelineLayoutDescriptor,
-    CacheableRenderPipelineDescriptor
-};
-use crate::renderer::{GenericPass, GenericPipeline, SURFACE_TEXTURE_FORMAT};
-use crate::{glm, Camera, Renderer, Transform};
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Pod, Zeroable)]
@@ -45,7 +37,7 @@ pub struct FlatTextured
     index_buffer:  wgpu::Buffer,
 
     tree_bind_group: wgpu::BindGroup,
-    pipeline:        Arc<GenericPipeline>,
+    pipeline:        Arc<gfx::GenericPipeline>,
 
     time_alive:        Mutex<f32>,
     number_of_indices: u32,
@@ -79,7 +71,7 @@ impl FlatTextured
     ];
 
     pub fn new(
-        renderer: &Renderer,
+        renderer: &gfx::Renderer,
         translation: glm::Vec3,
         vertices: &[Vertex],
         indices: &[u16]
@@ -177,7 +169,7 @@ impl FlatTextured
         let pipeline_layout =
             renderer
                 .render_cache
-                .cache_pipeline_layout(CacheablePipelineLayoutDescriptor {
+                .cache_pipeline_layout(gfx::CacheablePipelineLayoutDescriptor {
                     label:                "Flat Textured Pipeline Layout".into(),
                     bind_group_layouts:   vec![
                         renderer.global_bind_group_layout.clone(),
@@ -196,17 +188,17 @@ impl FlatTextured
         let pipeline =
             renderer
                 .render_cache
-                .cache_render_pipeline(CacheableRenderPipelineDescriptor {
+                .cache_render_pipeline(gfx::CacheableRenderPipelineDescriptor {
                     label:                 "Flat Textured Pipeline".into(),
                     layout:                Some(pipeline_layout),
                     vertex_module:         shader.clone(),
                     vertex_entry_point:    "vs_main".into(),
                     vertex_buffer_layouts: vec![Vertex::desc()],
-                    fragment_state:        Some(CacheableFragmentState {
+                    fragment_state:        Some(gfx::CacheableFragmentState {
                         module:      shader,
                         entry_point: "fs_main".into(),
                         targets:     vec![Some(wgpu::ColorTargetState {
-                            format:     SURFACE_TEXTURE_FORMAT,
+                            format:     gfx::Renderer::SURFACE_TEXTURE_FORMAT,
                             blend:      Some(wgpu::BlendState::REPLACE),
                             write_mask: wgpu::ColorWrites::ALL
                         })]
@@ -220,7 +212,7 @@ impl FlatTextured
                         unclipped_depth:    false,
                         conservative:       false
                     },
-                    depth_stencil_state:   Some(Renderer::get_default_depth_state()),
+                    depth_stencil_state:   Some(gfx::Renderer::get_default_depth_state()),
                     multisample_state:     wgpu::MultisampleState {
                         count:                     1,
                         mask:                      !0,
@@ -246,7 +238,7 @@ impl FlatTextured
     }
 }
 
-impl Recordable for FlatTextured
+impl gfx::Recordable for FlatTextured
 {
     fn get_name(&self) -> Cow<'_, str>
     {
@@ -258,17 +250,17 @@ impl Recordable for FlatTextured
         self.id
     }
 
-    fn get_pass_stage(&self) -> PassStage
+    fn get_pass_stage(&self) -> gfx::PassStage
     {
-        PassStage::GraphicsSimpleColor
+        gfx::PassStage::GraphicsSimpleColor
     }
 
-    fn get_pipeline(&self) -> &GenericPipeline
+    fn get_pipeline(&self) -> &gfx::GenericPipeline
     {
         &self.pipeline
     }
 
-    fn pre_record_update(&self, renderer: &Renderer, _: &Camera) -> RecordInfo
+    fn pre_record_update(&self, renderer: &gfx::Renderer, _: &gfx::Camera) -> gfx::RecordInfo
     {
         let time_alive = {
             let mut guard = self.time_alive.lock().unwrap();
@@ -276,20 +268,20 @@ impl Recordable for FlatTextured
             *guard
         };
 
-        let mut transform = Transform {
+        let mut transform = gfx::Transform {
             translation: self.translation, // 2.0 + 2.0 * time_alive.sin()
-            rotation:    *nalgebra::UnitQuaternion::new_normalize(glm::quat(1.0, 0.0, 0.0, 0.0)),
+            rotation:    *glm::UnitQuaternion::new_normalize(glm::quat(1.0, 0.0, 0.0, 0.0)),
             scale:       glm::Vec3::new(1.0, 1.0, 1.0)
         };
 
-        transform.rotation *= *nalgebra::UnitQuaternion::from_axis_angle(
-            &Transform::global_up_vector(),
+        transform.rotation *= *glm::UnitQuaternion::from_axis_angle(
+            &gfx::Transform::global_up_vector(),
             5.0 * time_alive
         );
 
         transform.rotation.normalize_mut();
 
-        RecordInfo {
+        gfx::RecordInfo {
             should_draw: true,
             transform:   Some(transform)
         }
@@ -308,9 +300,9 @@ impl Recordable for FlatTextured
         ]
     }
 
-    fn record<'s>(&'s self, render_pass: &mut GenericPass<'s>, maybe_id: Option<DrawId>)
+    fn record<'s>(&'s self, render_pass: &mut gfx::GenericPass<'s>, maybe_id: Option<gfx::DrawId>)
     {
-        let (GenericPass::Render(ref mut pass), Some(id)) = (render_pass, maybe_id)
+        let (gfx::GenericPass::Render(ref mut pass), Some(id)) = (render_pass, maybe_id)
         else
         {
             panic!("Generic RenderPass bound with incorrect type!")

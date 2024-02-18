@@ -543,9 +543,11 @@ version = "0.0.0"
 dependencies = [
  "bytemuck",
  "gfx",
+ "image",
  "log",
  "rand",
  "rayon",
+ "tobj",
  "util",
 ]
 
@@ -575,14 +577,12 @@ name = "gfx"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
- "image",
  "log",
  "nalgebra",
  "nalgebra-glm",
  "pollster",
  "rayon",
  "strum",
- "tobj",
  "util",
  "wgpu",
  "winit",

@@ -11,3 +11,5 @@ rayon = "1.8.1"
 log = { version = "0.4.20", features = ["std"]}
 rand = "0.8.5"
 bytemuck = { version = "1.14.1", features = [ "derive" ] }
+image = { version = "0.24", default-features = false, features = ["png", "jpeg"] }
+tobj = "4.0.1"

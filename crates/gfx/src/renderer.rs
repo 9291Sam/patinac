@@ -22,11 +22,8 @@ use winit::window::{CursorGrabMode, Window, WindowBuilder};
 use winit_input_helper::WinitInputHelper;
 
 use crate::recordables::{DrawId, PassStage, RecordInfo, Recordable};
-use crate::render_cache::RenderCache;
-use crate::{Camera, Transform};
-
-pub const SURFACE_TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8UnormSrgb;
-pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
+use crate::render_cache::{GenericPass, RenderCache};
+use crate::{Camera, GenericPipeline, Transform};
 
 #[derive(Debug)]
 pub struct Renderer
@@ -82,6 +79,9 @@ unsafe impl Send for Renderer {}
 
 impl Renderer
 {
+    pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
+    pub const SURFACE_TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8UnormSrgb;
+
     #[allow(clippy::new_without_default)]
 
     /// # Safety
@@ -173,7 +173,7 @@ impl Renderer
         let surface_format = surface_caps
             .formats
             .into_iter()
-            .find(|f| *f == SURFACE_TEXTURE_FORMAT)
+            .find(|f| *f == Self::SURFACE_TEXTURE_FORMAT)
             .unwrap();
 
         let desired_present_modes = [
@@ -820,17 +820,12 @@ impl Renderer
     pub fn get_default_depth_state() -> wgpu::DepthStencilState
     {
         wgpu::DepthStencilState {
-            format:              DEPTH_FORMAT,
+            format:              Self::DEPTH_FORMAT,
             depth_write_enabled: true,
             depth_compare:       wgpu::CompareFunction::Less,
             stencil:             wgpu::StencilState::default(),
             bias:                wgpu::DepthBiasState::default()
         }
-    }
-
-    pub fn get_surface_format() -> wgpu::TextureFormat
-    {
-        SURFACE_TEXTURE_FORMAT
     }
 }
 
@@ -865,7 +860,7 @@ fn create_depth_buffer(
         mip_level_count: 1,
         sample_count: 1,
         dimension: wgpu::TextureDimension::D2,
-        format: DEPTH_FORMAT,
+        format: Renderer::DEPTH_FORMAT,
         usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
         view_formats: &[]
     };
@@ -913,57 +908,6 @@ impl Default for ShaderMatrices
     {
         Self {
             matrices: [Default::default(); SHADER_MATRICES_SIZE]
-        }
-    }
-}
-
-pub enum GenericPass<'p>
-{
-    Compute(wgpu::ComputePass<'p>),
-    Render(wgpu::RenderPass<'p>)
-}
-
-#[derive(Debug)]
-pub enum GenericPipeline
-{
-    Compute(wgpu::ComputePipeline),
-    Render(wgpu::RenderPipeline)
-}
-
-impl PartialEq for GenericPipeline
-{
-    fn eq(&self, other: &Self) -> bool
-    {
-        self.global_id() == other.global_id()
-    }
-}
-
-impl Eq for GenericPipeline {}
-
-impl PartialOrd for GenericPipeline
-{
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering>
-    {
-        self.global_id().partial_cmp(&other.global_id())
-    }
-}
-
-impl Ord for GenericPipeline
-{
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering
-    {
-        self.global_id().cmp(&other.global_id())
-    }
-}
-
-impl GenericPipeline
-{
-    pub fn global_id(&self) -> u64
-    {
-        match self
-        {
-            GenericPipeline::Compute(p) => p.global_id().inner(),
-            GenericPipeline::Render(p) => p.global_id().inner()
         }
     }
 }

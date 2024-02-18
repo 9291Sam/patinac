@@ -8,9 +8,15 @@ mod render_cache;
 mod renderer;
 
 pub use linalg::*;
-pub use recordables::flat_textured::FlatTextured;
-pub use recordables::lit_textured::LitTextured;
-pub use recordables::Recordable;
+pub use recordables::{DrawId, PassStage, RecordInfo, Recordable};
+pub use render_cache::{
+    CacheableComputePipelineDescriptor,
+    CacheableFragmentState,
+    CacheablePipelineLayoutDescriptor,
+    CacheableRenderPipelineDescriptor,
+    GenericPass,
+    GenericPipeline
+};
 pub use renderer::Renderer;
 pub use wgpu;
 

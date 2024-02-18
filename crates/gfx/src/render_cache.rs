@@ -6,8 +6,6 @@ use std::sync::{Arc, Mutex};
 
 use wgpu::PipelineLayout;
 
-use crate::renderer::GenericPipeline;
-
 #[derive(Debug)]
 pub struct RenderCache
 {
@@ -434,5 +432,56 @@ impl Hash for CacheableComputePipelineDescriptor
         self.layout.as_ref().map(|l| Arc::as_ptr(&l).hash(state));
         Arc::as_ptr(&self.module).hash(state);
         self.entry_point.hash(state);
+    }
+}
+
+pub enum GenericPass<'p>
+{
+    Compute(wgpu::ComputePass<'p>),
+    Render(wgpu::RenderPass<'p>)
+}
+
+#[derive(Debug)]
+pub enum GenericPipeline
+{
+    Compute(wgpu::ComputePipeline),
+    Render(wgpu::RenderPipeline)
+}
+
+impl PartialEq for GenericPipeline
+{
+    fn eq(&self, other: &Self) -> bool
+    {
+        self.global_id() == other.global_id()
+    }
+}
+
+impl Eq for GenericPipeline {}
+
+impl PartialOrd for GenericPipeline
+{
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering>
+    {
+        self.global_id().partial_cmp(&other.global_id())
+    }
+}
+
+impl Ord for GenericPipeline
+{
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering
+    {
+        self.global_id().cmp(&other.global_id())
+    }
+}
+
+impl GenericPipeline
+{
+    pub fn global_id(&self) -> u64
+    {
+        match self
+        {
+            GenericPipeline::Compute(p) => p.global_id().inner(),
+            GenericPipeline::Render(p) => p.global_id().inner()
+        }
     }
 }

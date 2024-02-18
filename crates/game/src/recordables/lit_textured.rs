@@ -3,35 +3,25 @@ use std::io::Cursor;
 use std::sync::{Arc, Mutex};
 
 use bytemuck::{bytes_of, Pod, Zeroable};
+use gfx::{glm, wgpu};
 use image::GenericImageView;
-use nalgebra_glm as glm;
 use wgpu::util::DeviceExt;
-
-use super::{DrawId, PassStage, RecordInfo, Recordable};
-use crate::render_cache::{
-    CacheableFragmentState,
-    CacheablePipelineLayoutDescriptor,
-    CacheableRenderPipelineDescriptor
-};
-use crate::renderer::{GenericPass, GenericPipeline};
-use crate::{Camera, Renderer, Transform};
-
 #[derive(Debug)]
 pub struct LitTextured
 {
-    pub transform: Mutex<Transform>,
+    pub transform: Mutex<gfx::Transform>,
     id:            util::Uuid,
 
     vertex_buffer:             wgpu::Buffer,
     index_buffer:              wgpu::Buffer,
     texture_normal_bind_group: wgpu::BindGroup,
-    pipeline:                  Arc<GenericPipeline>,
+    pipeline:                  Arc<gfx::GenericPipeline>,
     number_of_indices:         u32
 }
 
 impl LitTextured
 {
-    pub fn new_cube(renderer: &Renderer, transform: Transform) -> Arc<Self>
+    pub fn new_cube(renderer: &gfx::Renderer, transform: gfx::Transform) -> Arc<Self>
     {
         let obj_data = include_bytes!("res/lit_textured/cube.obj");
         let mut obj_cursor = Cursor::new(obj_data);
@@ -154,12 +144,12 @@ impl LitTextured
     }
 
     pub fn new(
-        renderer: &Renderer,
+        renderer: &gfx::Renderer,
         diffuse_texture: wgpu::Texture,
         normal_texture: wgpu::Texture,
         vertices: &[Vertex],
         indices: &[u32],
-        transform: Transform
+        transform: gfx::Transform
     ) -> Arc<Self>
     {
         let vertex_buffer = renderer.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -242,7 +232,7 @@ impl LitTextured
         let pipeline_layout =
             renderer
                 .render_cache
-                .cache_pipeline_layout(CacheablePipelineLayoutDescriptor {
+                .cache_pipeline_layout(gfx::CacheablePipelineLayoutDescriptor {
                     label:                "Lit Textured Pipeline Layout".into(),
                     bind_group_layouts:   vec![
                         renderer.global_bind_group_layout.clone(),
@@ -262,17 +252,17 @@ impl LitTextured
         let pipeline =
             renderer
                 .render_cache
-                .cache_render_pipeline(CacheableRenderPipelineDescriptor {
+                .cache_render_pipeline(gfx::CacheableRenderPipelineDescriptor {
                     label:                 "Lit Textured Pipeline".into(),
                     layout:                Some(pipeline_layout),
                     vertex_module:         shader.clone(),
                     vertex_entry_point:    "vs_main".into(),
                     vertex_buffer_layouts: vec![Vertex::desc()],
-                    fragment_state:        Some(CacheableFragmentState {
+                    fragment_state:        Some(gfx::CacheableFragmentState {
                         module:      shader,
                         entry_point: "fs_main".into(),
                         targets:     vec![Some(wgpu::ColorTargetState {
-                            format:     Renderer::get_surface_format(),
+                            format:     gfx::Renderer::SURFACE_TEXTURE_FORMAT,
                             blend:      Some(wgpu::BlendState::REPLACE),
                             write_mask: wgpu::ColorWrites::ALL
                         })]
@@ -286,7 +276,7 @@ impl LitTextured
                         unclipped_depth:    false,
                         conservative:       false
                     },
-                    depth_stencil_state:   Some(Renderer::get_default_depth_state()),
+                    depth_stencil_state:   Some(gfx::Renderer::get_default_depth_state()),
                     multisample_state:     wgpu::MultisampleState {
                         count:                     1,
                         mask:                      !0,
@@ -311,7 +301,7 @@ impl LitTextured
     }
 }
 
-impl Recordable for LitTextured
+impl gfx::Recordable for LitTextured
 {
     fn get_name(&self) -> Cow<'_, str>
     {
@@ -323,19 +313,19 @@ impl Recordable for LitTextured
         self.id
     }
 
-    fn get_pass_stage(&self) -> PassStage
+    fn get_pass_stage(&self) -> gfx::PassStage
     {
-        PassStage::GraphicsSimpleColor
+        gfx::PassStage::GraphicsSimpleColor
     }
 
-    fn get_pipeline(&self) -> &GenericPipeline
+    fn get_pipeline(&self) -> &gfx::GenericPipeline
     {
         &self.pipeline
     }
 
-    fn pre_record_update(&self, _: &Renderer, _: &Camera) -> RecordInfo
+    fn pre_record_update(&self, _: &gfx::Renderer, _: &gfx::Camera) -> gfx::RecordInfo
     {
-        RecordInfo {
+        gfx::RecordInfo {
             should_draw: true,
             transform:   Some(self.transform.lock().unwrap().clone())
         }
@@ -354,9 +344,9 @@ impl Recordable for LitTextured
         ]
     }
 
-    fn record<'s>(&'s self, render_pass: &mut GenericPass<'s>, maybe_id: Option<DrawId>)
+    fn record<'s>(&'s self, render_pass: &mut gfx::GenericPass<'s>, maybe_id: Option<gfx::DrawId>)
     {
-        let (GenericPass::Render(ref mut pass), Some(id)) = (render_pass, maybe_id)
+        let (gfx::GenericPass::Render(ref mut pass), Some(id)) = (render_pass, maybe_id)
         else
         {
             unreachable!()
