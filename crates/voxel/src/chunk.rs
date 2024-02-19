@@ -102,7 +102,7 @@ impl Chunk
                         topology:           wgpu::PrimitiveTopology::TriangleStrip,
                         strip_index_format: None,
                         front_face:         wgpu::FrontFace::Ccw,
-                        cull_mode:          None,
+                        cull_mode:          Some(wgpu::Face::Front),
                         polygon_mode:       wgpu::PolygonMode::Fill,
                         unclipped_depth:    false,
                         conservative:       false
@@ -115,8 +115,7 @@ impl Chunk
                     },
                     multiview:             None
                 }
-            ) /* brick_buffer:      todo!(),
-               * voxel_bind_group:  todo!() */
+            )
         });
 
         game.register(this.clone());
