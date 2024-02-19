@@ -99,10 +99,10 @@ impl Chunk
                         })]
                     }),
                     primitive_state:       wgpu::PrimitiveState {
-                        topology:           wgpu::PrimitiveTopology::TriangleStrip,
+                        topology:           wgpu::PrimitiveTopology::TriangleList,
                         strip_index_format: None,
-                        front_face:         wgpu::FrontFace::Ccw,
-                        cull_mode:          Some(wgpu::Face::Front),
+                        front_face:         wgpu::FrontFace::Cw,
+                        cull_mode:          None,
                         polygon_mode:       wgpu::PolygonMode::Fill,
                         unclipped_depth:    false,
                         conservative:       false

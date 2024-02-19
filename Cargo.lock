@@ -1793,6 +1793,7 @@ dependencies = [
  "bytemuck",
  "game",
  "gfx",
+ "log",
  "util",
 ]
 
