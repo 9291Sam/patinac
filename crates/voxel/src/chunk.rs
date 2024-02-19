@@ -199,11 +199,6 @@ impl game::Entity for Chunk
         gfx::Recordable::get_uuid(self)
     }
 
-    fn get_position(&self) -> Option<glm::Vec3>
-    {
-        Some(self.alive_and_position.lock().unwrap().position)
-    }
-
     fn tick(&self, game: &game::Game, _: game::TickTag)
     {
         let ChunkPositionCriticalSection {

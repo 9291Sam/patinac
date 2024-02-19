@@ -1,15 +1,12 @@
 use core::fmt::Debug;
 use std::borrow::Cow;
 
-use gfx::glm;
-
 use crate::game::TickTag;
 
 pub trait Entity: Debug + Send + Sync
 {
     fn get_name(&self) -> Cow<'_, str>;
     fn get_uuid(&self) -> util::Uuid;
-    fn get_position(&self) -> Option<glm::Vec3>;
 
     fn tick(&self, game: &super::Game, _: TickTag);
 
@@ -19,4 +16,15 @@ pub trait Entity: Debug + Send + Sync
     {
         std::ptr::eq(self as *const dyn Entity, other as *const dyn Entity)
     }
+}
+
+pub trait Positionable: Entity
+{
+    fn get_position<R>(&self, func: impl FnOnce(Option<&gfx::Transform>) -> R) -> R;
+    fn get_position_mut<R>(&self, func: impl FnOnce(Option<&mut gfx::Transform>) -> R) -> R;
+}
+pub trait Transformable: Positionable
+{
+    fn get_position<R>(&self, func: impl FnOnce(Option<&gfx::Transform>) -> R) -> R;
+    fn get_position_mut<R>(&self, func: impl FnOnce(Option<&mut gfx::Transform>) -> R) -> R;
 }
