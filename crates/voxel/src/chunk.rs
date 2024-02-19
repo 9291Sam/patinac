@@ -214,11 +214,11 @@ impl game::Entity for Chunk
 
         *time_alive += game.get_delta_time() as f64;
 
-        *position = glm::Vec3::new(
-            time_alive.sin() as f32,
-            (time_alive.cos() * time_alive.sin()) as f32,
-            time_alive.cos() as f32
-        );
+        // *position = glm::Vec3::new(
+        //     time_alive.sin() as f32,
+        //     (time_alive.cos() * time_alive.sin()) as f32,
+        //     time_alive.cos() as f32
+        // );
     }
 }
 

@@ -47,7 +47,13 @@ var<push_constant> push_constant_id: u32;
     return out;
 }
 
-@fragment fn fs_main(in: VertexOutput) -> @location(0) vec4<f32>
+struct FragmentOutput
+{
+    // @builtin(frag_depth) depth: f32,
+    @location(0) color: vec4<f32>
+}
+
+@fragment fn fs_main(in: VertexOutput) -> FragmentOutput
 {
     
 	let rayDir: vec3<f32> = normalize(in.camera_dir);
@@ -121,7 +127,24 @@ var<push_constant> push_constant_id: u32;
 	}
 	// fragColor.rgb = color;
 
-    return vec4<f32>(color, 1.0);
+    var out: FragmentOutput;
+    out.color = vec4<f32>(color, 1.0);
+
+    // var c: Cube;
+    // c.center = vec3<f32>(mapPos) + 0.5;
+    // c.edge_length = 1.0;
+
+    // var r: Ray;
+    // r.origin = rayPos;
+    // r.direction = rayDir;
+
+    // let strike_pos_world: vec3<f32> = Cube_tryIntersect(c, r).maybe_hit_point - 0.5;
+    
+    // // TODO: this is wrong, as of now this is all in the local 0->8 space when this needs to be in world space
+    // let depth_intercalc = global_info.view_projection * vec4<f32>(strike_pos_world, 1.0);
+    // out.depth = depth_intercalc.z / depth_intercalc.w;
+
+    return out;
 }
 
 //The raycasting code is somewhat based around a 2D raycasting toutorial found here: 
@@ -225,3 +248,100 @@ fn getVoxel(c: vec3<i32>) -> bool
 // 	fragColor.rgb = color;
 // 	//fragColor.rgb = vec3(0.1 * noiseDeriv);
 // }
+
+
+struct Cube {
+    center: vec3<f32>,
+    edge_length: f32,
+};
+
+fn Cube_contains(me: Cube, point: vec3<f32>) -> bool {
+    let p0 = me.center - (me.edge_length / 2.0);
+    let p1 = me.center + (me.edge_length / 2.0);
+
+    if (all(p0 < point) && all(point < p1)) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
+struct Ray {
+    origin: vec3<f32>,
+    direction: vec3<f32>,
+};
+
+struct IntersectionResult {
+    intersection_occurred: bool,
+    maybe_distance: f32,
+    maybe_hit_point: vec3<f32>,
+    maybe_normal: vec3<f32>,
+    maybe_color: vec4<f32>,
+};
+
+fn Cube_tryIntersect(me: Cube, ray: Ray) -> IntersectionResult {
+    let p0 = me.center - (me.edge_length / 2.0);
+    let p1 = me.center + (me.edge_length / 2.0);
+
+    if (Cube_contains(me, ray.origin)) {
+        var res: IntersectionResult;
+        
+        res.intersection_occurred = true;
+        res.maybe_distance = 0.0;
+        res.maybe_hit_point = ray.origin;
+        res.maybe_normal = vec3<f32>(0.0);
+        res.maybe_color = vec4<f32>(0.0, 0.0, 0.0, 0.0);
+
+        return res; 
+    }
+
+    let t1 = (p0 - ray.origin) / ray.direction;
+    let t2 = (p1 - ray.origin) / ray.direction;
+
+    let vMax = max(t1, t2);
+    let vMin = min(t1, t2);
+
+    let tMax = min(min(vMax.x, vMax.y), vMax.z);
+    let tMin = max(max(vMin.x, vMin.y), vMin.z);
+
+    let hit = tMin <= tMax && tMax > 0.0;
+
+    if (!hit) {
+
+        var res: IntersectionResult;
+        
+        res.intersection_occurred = false;
+        
+        return res;
+    }
+
+    let hitPoint = ray.origin + tMin * ray.direction;
+
+    var normal: vec3<f32>;
+
+    if (abs(hitPoint.x - p1.x) < 0.0001) {
+        normal = vec3<f32>(-1.0, 0.0, 0.0); // Hit right face
+    } else if (abs(hitPoint.x - p0.x) < 0.0001) {
+        normal = vec3<f32>(1.0, 0.0, 0.0); // Hit left face
+    } else if (abs(hitPoint.y - p1.y) < 0.0001) {
+        normal = vec3<f32>(0.0, -1.0, 0.0); // Hit top face
+    } else if (abs(hitPoint.y - p0.y) < 0.0001) {
+        normal = vec3<f32>(0.0, 1.0, 0.0); // Hit bottom face
+    } else if (abs(hitPoint.z - p1.z) < 0.0001) {
+        normal = vec3<f32>(0.0, 0.0, -1.0); // Hit front face
+    } else if (abs(hitPoint.z - p0.z) < 0.0001) {
+        normal = vec3<f32>(0.0, 0.0, 1.0); // Hit back face
+    } else {
+        normal = vec3<f32>(0.0, 0.0, 0.0); // null case
+    }
+
+    var res: IntersectionResult;
+        
+    res.intersection_occurred = true;
+    res.maybe_distance = length(ray.origin - hitPoint);
+    res.maybe_hit_point = hitPoint;
+    res.maybe_normal = normal;
+    res.maybe_color = vec4<f32>(0.0, 1.0, 1.0, 1.0);
+
+    return res; 
+}
