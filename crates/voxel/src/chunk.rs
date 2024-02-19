@@ -1,31 +1,41 @@
 use std::borrow::Cow;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use bytemuck::{bytes_of, cast_slice, Pod, Zeroable};
 use gfx::wgpu::util::{BufferInitDescriptor, DeviceExt};
 use gfx::wgpu::{self};
-use gfx::{glm, CacheableRenderPipelineDescriptor};
+use gfx::{
+    glm,
+    CacheableFragmentState,
+    CacheablePipelineLayoutDescriptor,
+    CacheableRenderPipelineDescriptor
+};
 
 #[derive(Debug)]
-struct Chunk
+pub struct Chunk
 {
-    uuid:     util::Uuid,
-    position: glm::Vec3,
-    name:     String,
+    uuid:               util::Uuid,
+    alive_and_position: Mutex<ChunkPositionCriticalSection>,
+    name:               String,
 
     vertex_buffer:     wgpu::Buffer,
     index_buffer:      wgpu::Buffer,
     number_of_indices: u32,
 
-    pipeline: Arc<gfx::GenericPipeline>,
+    pipeline: Arc<gfx::GenericPipeline> /* brick_buffer:     wgpu::Buffer,
+                                         * voxel_bind_group: wgpu::BindGroup */
+}
 
-    brick_buffer:     wgpu::Buffer,
-    voxel_bind_group: wgpu::BindGroup
+#[derive(Debug)]
+struct ChunkPositionCriticalSection
+{
+    position:   glm::Vec3,
+    time_alive: f64
 }
 
 impl Chunk
 {
-    pub fn new(game: &game::Game) -> Self
+    pub fn new(game: &game::Game) -> Arc<Self>
     {
         let uuid = util::Uuid::new();
 
@@ -38,42 +48,81 @@ impl Chunk
             .render_cache
             .cache_shader_module(wgpu::include_wgsl!("voxel_shader.wgsl"));
 
-        Self {
-            uuid:              uuid,
-            position:          glm::Vec3::repeat(0.0),
-            name:              "Voxel Chunk".into(),
-            vertex_buffer:     game
+        let pipeline_layout =
+            renderer
+                .render_cache
+                .cache_pipeline_layout(CacheablePipelineLayoutDescriptor {
+                    label:                "Voxel Chunk Pipeline Layout".into(),
+                    bind_group_layouts:   vec![renderer.global_bind_group_layout.clone()],
+                    push_constant_ranges: vec![wgpu::PushConstantRange {
+                        stages: wgpu::ShaderStages::VERTEX,
+                        range:  0..(std::mem::size_of::<u32>() as u32)
+                    }]
+                });
+
+        let this = Arc::new(Self {
+            uuid:               uuid,
+            alive_and_position: Mutex::new(ChunkPositionCriticalSection {
+                position:   glm::Vec3::repeat(0.0),
+                time_alive: 0.0
+            }),
+            name:               "Voxel Chunk".into(),
+            vertex_buffer:      game
                 .get_renderer()
                 .create_buffer_init(&BufferInitDescriptor {
                     label:    Some(&vertex_buffer_label),
                     contents: cast_slice(&CUBE_VERTICES),
                     usage:    wgpu::BufferUsages::VERTEX
                 }),
-            index_buffer:      game
+            index_buffer:       game
                 .get_renderer()
                 .create_buffer_init(&BufferInitDescriptor {
                     label:    Some(&index_buffer_label),
                     contents: cast_slice(&CUBE_INDICES),
                     usage:    wgpu::BufferUsages::INDEX
                 }),
-            number_of_indices: CUBE_INDICES.len() as u32,
-            pipeline:          game.get_renderer().render_cache.cache_render_pipeline(
+            number_of_indices:  CUBE_INDICES.len() as u32,
+            pipeline:           game.get_renderer().render_cache.cache_render_pipeline(
                 CacheableRenderPipelineDescriptor {
-                    label:                 todo!(),
-                    layout:                todo!(),
-                    vertex_module:         todo!(),
-                    vertex_entry_point:    todo!(),
-                    vertex_buffer_layouts: todo!(),
-                    fragment_state:        todo!(),
-                    primitive_state:       todo!(),
-                    depth_stencil_state:   todo!(),
-                    multisample_state:     todo!(),
-                    multiview:             todo!()
+                    label:                 "Voxel Chunk Pipeline".into(),
+                    layout:                Some(pipeline_layout),
+                    vertex_module:         shader.clone(),
+                    vertex_entry_point:    "vs_main".into(),
+                    vertex_buffer_layouts: vec![Vertex::describe_layout()],
+                    fragment_state:        Some(CacheableFragmentState {
+                        module:      shader,
+                        entry_point: "fs_main".into(),
+                        targets:     vec![Some(wgpu::ColorTargetState {
+                            format:     gfx::Renderer::SURFACE_TEXTURE_FORMAT,
+                            blend:      Some(wgpu::BlendState::REPLACE),
+                            write_mask: wgpu::ColorWrites::ALL
+                        })]
+                    }),
+                    primitive_state:       wgpu::PrimitiveState {
+                        topology:           wgpu::PrimitiveTopology::TriangleStrip,
+                        strip_index_format: None,
+                        front_face:         wgpu::FrontFace::Ccw,
+                        cull_mode:          None,
+                        polygon_mode:       wgpu::PolygonMode::Fill,
+                        unclipped_depth:    false,
+                        conservative:       false
+                    },
+                    depth_stencil_state:   Some(gfx::Renderer::get_default_depth_state()),
+                    multisample_state:     wgpu::MultisampleState {
+                        count:                     1,
+                        mask:                      !0,
+                        alpha_to_coverage_enabled: false
+                    },
+                    multiview:             None
                 }
-            ),
-            brick_buffer:      todo!(),
-            voxel_bind_group:  todo!()
-        }
+            ) /* brick_buffer:      todo!(),
+               * voxel_bind_group:  todo!() */
+        });
+
+        game.register(this.clone());
+        renderer.register(this.clone());
+
+        this
     }
 }
 
@@ -104,7 +153,7 @@ impl gfx::Recordable for Chunk
         gfx::RecordInfo {
             should_draw: true,
             transform:   Some(gfx::Transform {
-                translation: self.position,
+                translation: self.alive_and_position.lock().unwrap().position,
                 ..Default::default()
             })
         }
@@ -117,7 +166,8 @@ impl gfx::Recordable for Chunk
     {
         [
             Some(global_bind_group),
-            Some(&self.voxel_bind_group),
+            None,
+            // Some(&self.voxel_bind_group),
             None,
             None
         ]
@@ -152,12 +202,23 @@ impl game::Entity for Chunk
 
     fn get_position(&self) -> Option<glm::Vec3>
     {
-        Some(self.position)
+        Some(self.alive_and_position.lock().unwrap().position)
     }
 
     fn tick(&self, game: &game::Game, _: game::TickTag)
     {
-        todo!()
+        let ChunkPositionCriticalSection {
+            ref mut position,
+            ref mut time_alive
+        } = *self.alive_and_position.lock().unwrap();
+
+        *time_alive += game.get_delta_time() as f64;
+
+        *position = glm::Vec3::new(
+            time_alive.sin() as f32,
+            (time_alive.cos() * time_alive.sin()) as f32,
+            time_alive.cos() as f32
+        );
     }
 }
 
@@ -166,6 +227,20 @@ impl game::Entity for Chunk
 struct Vertex
 {
     position: glm::Vec3
+}
+
+impl Vertex
+{
+    const ATTRIBS: [wgpu::VertexAttribute; 1] = wgpu::vertex_attr_array![0 => Float32x3];
+
+    pub fn describe_layout() -> wgpu::VertexBufferLayout<'static>
+    {
+        wgpu::VertexBufferLayout {
+            array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
+            step_mode:    wgpu::VertexStepMode::Vertex,
+            attributes:   &Self::ATTRIBS
+        }
+    }
 }
 
 const CUBE_VERTICES: [Vertex; 8] = [

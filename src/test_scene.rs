@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::sync::Arc;
 
 use gfx::glm;
@@ -19,6 +20,8 @@ impl TestScene
     {
         let mut objs: Vec<Arc<dyn gfx::Recordable>> = Vec::new();
         let mut rotate_objs: Vec<Arc<LitTextured>> = Vec::new();
+
+        objs.push(voxel::Chunk::new(game));
 
         for x in -5..=5
         {
@@ -66,9 +69,9 @@ impl TestScene
 
 impl game::Entity for TestScene
 {
-    fn get_name(&self) -> &str
+    fn get_name(&self) -> Cow<'_, str>
     {
-        "Test Scene"
+        "Test Scene".into()
     }
 
     fn get_uuid(&self) -> util::Uuid
