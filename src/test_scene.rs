@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 use std::sync::Arc;
 
+use game::EntityCastable;
 use gfx::glm;
 
 use crate::recordables::flat_textured::FlatTextured;
@@ -21,7 +22,11 @@ impl TestScene
         let mut objs: Vec<Arc<dyn gfx::Recordable>> = Vec::new();
         let mut rotate_objs: Vec<Arc<LitTextured>> = Vec::new();
 
-        objs.push(voxel::Chunk::new(game));
+        let voxel_chunk: Arc<voxel::Chunk> = voxel::Chunk::new(game);
+
+        log::info!("name: {:?}", voxel_chunk.cast::<voxel::Chunk>().unwrap());
+
+        objs.push(voxel_chunk.clone());
 
         for x in -5..=5
         {
@@ -77,11 +82,6 @@ impl game::Entity for TestScene
     fn get_uuid(&self) -> util::Uuid
     {
         self.id
-    }
-
-    fn get_position(&self) -> Option<glm::Vec3>
-    {
-        None
     }
 
     fn tick(&self, game: &game::Game, _: game::TickTag)

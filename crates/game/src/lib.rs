@@ -1,5 +1,7 @@
+#![feature(trait_upcasting)]
+
 mod entity;
 mod game;
 
-pub use entity::{Entity, Positionable, Transformable};
+pub use entity::{Entity, EntityCastable, Positionable, Transformable};
 pub use game::{Game, TickTag};

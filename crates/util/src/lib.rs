@@ -6,6 +6,7 @@ mod log;
 mod registrar;
 mod uuid;
 
+use std::any::Any;
 use std::ops::Deref;
 
 pub use allocator::*;
