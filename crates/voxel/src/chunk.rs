@@ -1,7 +1,9 @@
+use std::any::Any;
 use std::borrow::Cow;
 use std::sync::{Arc, Mutex};
 
 use bytemuck::{bytes_of, cast_slice, Pod, Zeroable};
+use game::{Entity, Positionable};
 use gfx::wgpu::util::{BufferInitDescriptor, DeviceExt};
 use gfx::wgpu::{self};
 use gfx::{
@@ -22,8 +24,7 @@ pub struct Chunk
     index_buffer:      wgpu::Buffer,
     number_of_indices: u32,
 
-    pipeline: Arc<gfx::GenericPipeline> /* brick_buffer:     wgpu::Buffer,
-                                         * voxel_bind_group: wgpu::BindGroup */
+    pipeline: Arc<gfx::GenericPipeline>
 }
 
 #[derive(Debug)]

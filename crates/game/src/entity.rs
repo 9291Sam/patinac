@@ -1,10 +1,12 @@
 use core::fmt::Debug;
+use std::any::Any;
 use std::borrow::Cow;
 
 use crate::game::TickTag;
 
-pub trait Entity: Debug + Send + Sync
+pub trait Entity: Debug + Send + Sync + Any
 {
+    fn as_any(&self) -> &dyn Any;
     fn get_name(&self) -> Cow<'_, str>;
     fn get_uuid(&self) -> util::Uuid;
 
