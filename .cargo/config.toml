@@ -1,7 +1,7 @@
-[build]
-rustflags = ["-Zsanitizer=address"]
-target = ["aarch64-apple-darwin"]
+# [build]
+# rustflags = ["-Zsanitizer=thread"]
+# target = ["aarch64-apple-darwin"]
 
-[unstable]
-build-std = ["core", "std", "alloc", "test", "proc_macro"]
-build-std-features = ["backtrace", "panic-unwind"]
+# [unstable]
+# build-std = ["core", "std", "alloc", "test", "proc_macro"]
+# build-std-features = ["backtrace", "panic-unwind"]

@@ -182,7 +182,7 @@ impl gfx::Recordable for Chunk
     }
 }
 
-impl game::EntityCast for Chunk
+impl game::EntityCastDepot for Chunk
 {
     fn as_entity(&self) -> Option<&dyn Entity>
     {
@@ -202,11 +202,6 @@ impl game::EntityCast for Chunk
 
 impl game::Entity for Chunk
 {
-    fn as_any(&self) -> &dyn Any
-    {
-        self
-    }
-
     fn get_name(&self) -> Cow<'_, str>
     {
         gfx::Recordable::get_name(self)
@@ -242,7 +237,7 @@ impl game::Transformable for Chunk
 
     fn get_transform_mut(&self, func: &dyn Fn(&mut gfx::Transform))
     {
-        func(&mut self.transform.lock().unwrap())
+        func(&mut self.transform.lock().unwrap());
     }
 }
 

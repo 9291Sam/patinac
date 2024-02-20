@@ -69,6 +69,7 @@ impl Game
 
             let thread_entities = &self.entities;
 
+            // TODO: deadlock and too long detection
             self.entities
                 .access()
                 .into_iter()

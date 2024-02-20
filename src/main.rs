@@ -29,8 +29,7 @@ fn main()
 
     let should_stop = AtomicBool::new(false);
 
-    // TODO: crash handler and a custom scoped tread thing
-    if let Err(e) = std::panic::catch_unwind(|| {
+    let run = || {
         let game = game::Game::new(renderer.clone());
 
         std::thread::scope(|s| {
@@ -40,7 +39,9 @@ fn main()
 
             renderer.enter_gfx_loop(&should_stop);
         });
-    })
+    };
+
+    if std::panic::catch_unwind(run).is_err()
     {
         should_stop.store(true, SeqCst);
     }
