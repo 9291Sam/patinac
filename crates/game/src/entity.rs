@@ -21,6 +21,29 @@ pub trait Entity: Debug + Send + Sync + EntityCastDepot
     }
 }
 
+// ! If you add a new trait, don't forget to add it to `EntityCastDepot` and
+// ! extend `EntityCastTarget`
+pub trait EntityCastDepot
+{
+    fn as_entity(&self) -> Option<&dyn Entity>;
+    fn as_positionable(&self) -> Option<&dyn Positionable>;
+    fn as_transformable(&self) -> Option<&dyn Transformable>;
+}
+
+pub trait Positionable: Entity
+{
+    fn get_position(&self, func: &dyn Fn(glm::Vec3));
+    fn get_position_mut(&self, func: &dyn Fn(&mut glm::Vec3));
+}
+
+pub trait Transformable: Positionable
+{
+    fn get_transform(&self, func: &dyn Fn(&gfx::Transform));
+    fn get_transform_mut(&self, func: &dyn Fn(&mut gfx::Transform));
+}
+
+/// Entity::cast implementation
+
 impl<'a> dyn Entity + 'a
 {
     pub fn cast<T: EntityCastTarget<'a> + ?Sized>(&'a self) -> Option<&'a T>
@@ -53,23 +76,4 @@ impl<'a> EntityCastTarget<'a> for dyn Transformable + 'a
     {
         this.as_transformable()
     }
-}
-
-pub trait EntityCastDepot
-{
-    fn as_entity(&self) -> Option<&dyn Entity>;
-    fn as_positionable(&self) -> Option<&dyn Positionable>;
-    fn as_transformable(&self) -> Option<&dyn Transformable>;
-}
-
-pub trait Positionable: Entity
-{
-    fn get_position(&self, func: &dyn Fn(glm::Vec3));
-    fn get_position_mut(&self, func: &dyn Fn(&mut glm::Vec3));
-}
-
-pub trait Transformable: Positionable
-{
-    fn get_transform(&self, func: &dyn Fn(&gfx::Transform));
-    fn get_transform_mut(&self, func: &dyn Fn(&mut gfx::Transform));
 }
