@@ -2,7 +2,7 @@ use std::any::Any;
 use std::borrow::Cow;
 use std::sync::Arc;
 
-use game::Transformable;
+use game::{DowncastEntity, Transformable};
 use gfx::glm;
 
 use crate::recordables::flat_textured::FlatTextured;
@@ -73,6 +73,24 @@ impl TestScene
     }
 }
 
+impl game::EntityCast for TestScene
+{
+    fn as_entity(&self) -> Option<&dyn game::Entity>
+    {
+        Some(self)
+    }
+
+    fn as_positionable(&self) -> Option<&dyn game::Positionable>
+    {
+        None
+    }
+
+    fn as_transformable(&self) -> Option<&dyn game::Transformable>
+    {
+        None
+    }
+}
+
 impl game::Entity for TestScene
 {
     fn as_any(&self) -> &dyn Any
@@ -104,10 +122,10 @@ impl game::Entity for TestScene
 
             guard.rotation = quat.normalize();
         }
+        log::info!("rot");
 
         self.voxel_chunk
-            .as_any()
-            .downcast_ref::<voxel::Chunk>()
+            .downcast_ref::<dyn game::Transformable>()
             .unwrap()
             .get_transform_mut(&|t| {
                 *t.rotation = *(t.rotation

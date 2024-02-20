@@ -182,6 +182,24 @@ impl gfx::Recordable for Chunk
     }
 }
 
+impl game::EntityCast for Chunk
+{
+    fn as_entity(&self) -> Option<&dyn Entity>
+    {
+        Some(self)
+    }
+
+    fn as_positionable(&self) -> Option<&dyn Positionable>
+    {
+        Some(self)
+    }
+
+    fn as_transformable(&self) -> Option<&dyn game::Transformable>
+    {
+        Some(self)
+    }
+}
+
 impl game::Entity for Chunk
 {
     fn as_any(&self) -> &dyn Any
