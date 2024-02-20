@@ -1,4 +1,3 @@
-use std::any::Any;
 use std::borrow::Cow;
 use std::sync::{Arc, Mutex};
 
@@ -25,13 +24,6 @@ pub struct Chunk
     number_of_indices: u32,
 
     pipeline: Arc<gfx::GenericPipeline>
-}
-
-#[derive(Debug)]
-struct ChunkPositionCriticalSection
-{
-    position:   glm::Vec3,
-    time_alive: f64
 }
 
 impl Chunk
@@ -158,13 +150,7 @@ impl gfx::Recordable for Chunk
         global_bind_group: &'s gfx::wgpu::BindGroup
     ) -> [Option<&'s gfx::wgpu::BindGroup>; 4]
     {
-        [
-            Some(global_bind_group),
-            None,
-            // Some(&self.voxel_bind_group),
-            None,
-            None
-        ]
+        [Some(global_bind_group), None, None, None]
     }
 
     fn record<'s>(&'s self, render_pass: &mut gfx::GenericPass<'s>, maybe_id: Option<gfx::DrawId>)
@@ -212,14 +198,14 @@ impl game::Entity for Chunk
         gfx::Recordable::get_uuid(self)
     }
 
-    fn tick(&self, game: &game::Game, _: game::TickTag) {}
+    fn tick(&self, _: &game::Game, _: game::TickTag) {}
 }
 
 impl game::Positionable for Chunk
 {
-    fn get_position(&self, func: &dyn Fn(glm::Vec3))
+    fn get_position(&self) -> glm::Vec3
     {
-        func(self.transform.lock().unwrap().translation)
+        self.transform.lock().unwrap().translation
     }
 
     fn get_position_mut(&self, func: &dyn Fn(&mut glm::Vec3))
@@ -230,9 +216,9 @@ impl game::Positionable for Chunk
 
 impl game::Transformable for Chunk
 {
-    fn get_transform(&self, func: &dyn Fn(&gfx::Transform))
+    fn get_transform(&self) -> gfx::Transform
     {
-        func(&self.transform.lock().unwrap())
+        self.transform.lock().unwrap().clone()
     }
 
     fn get_transform_mut(&self, func: &dyn Fn(&mut gfx::Transform))
