@@ -2,10 +2,13 @@ use core::fmt::Debug;
 use std::any::Any;
 use std::borrow::Cow;
 
+use gfx::glm;
+
 use crate::game::TickTag;
 
-pub trait Entity: Debug + Send + Sync + Any
+pub trait Entity: Debug + Send + Sync
 {
+    fn as_any(&self) -> &dyn Any;
     fn get_name(&self) -> Cow<'_, str>;
     fn get_uuid(&self) -> util::Uuid;
 
@@ -21,30 +24,11 @@ pub trait Entity: Debug + Send + Sync + Any
 
 pub trait Positionable: Entity
 {
-    fn get_position<R>(&self, func: impl FnOnce(Option<&gfx::Transform>) -> R) -> R;
-    fn get_position_mut<R>(&self, func: impl FnOnce(Option<&mut gfx::Transform>) -> R) -> R;
+    fn get_position(&self, func: &dyn Fn(glm::Vec3));
+    fn get_position_mut(&self, func: &dyn Fn(&mut glm::Vec3));
 }
 pub trait Transformable: Positionable
 {
-    fn get_position<R>(&self, func: impl FnOnce(Option<&gfx::Transform>) -> R) -> R;
-    fn get_position_mut<R>(&self, func: impl FnOnce(Option<&mut gfx::Transform>) -> R) -> R;
+    fn get_transform(&self, func: &dyn Fn(&gfx::Transform));
+    fn get_transform_mut(&self, func: &dyn Fn(&mut gfx::Transform));
 }
-
-pub trait EntityCastable
-{
-    fn cast<T: Entity>(&self) -> Option<&T>
-    where
-        Self: Sized + 'static
-    {
-        (self as &dyn Any).downcast_ref::<T>()
-    }
-
-    fn cast_mut<T: Entity>(&mut self) -> Option<&mut T>
-    where
-        Self: Sized + 'static
-    {
-        (self as &mut dyn Any).downcast_mut::<T>()
-    }
-}
-
-impl<E: Entity> EntityCastable for E {}

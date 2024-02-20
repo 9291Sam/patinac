@@ -1,7 +1,8 @@
+use std::any::Any;
 use std::borrow::Cow;
 use std::sync::Arc;
 
-use game::EntityCastable;
+use game::Transformable;
 use gfx::glm;
 
 use crate::recordables::flat_textured::FlatTextured;
@@ -12,6 +13,7 @@ pub struct TestScene
 {
     _objs:       Vec<Arc<dyn gfx::Recordable>>,
     rotate_objs: Vec<Arc<LitTextured>>,
+    voxel_chunk: Arc<dyn game::Entity>,
     id:          util::Uuid
 }
 
@@ -22,9 +24,7 @@ impl TestScene
         let mut objs: Vec<Arc<dyn gfx::Recordable>> = Vec::new();
         let mut rotate_objs: Vec<Arc<LitTextured>> = Vec::new();
 
-        let voxel_chunk: Arc<voxel::Chunk> = voxel::Chunk::new(game);
-
-        log::info!("name: {:?}", voxel_chunk.cast::<voxel::Chunk>().unwrap());
+        let voxel_chunk: Arc<voxel::Chunk> = voxel::Chunk::new(game, gfx::Transform::default());
 
         objs.push(voxel_chunk.clone());
 
@@ -63,7 +63,8 @@ impl TestScene
         let this = Arc::new(TestScene {
             _objs: objs,
             rotate_objs,
-            id: util::Uuid::new()
+            id: util::Uuid::new(),
+            voxel_chunk
         });
 
         game.register(this.clone());
@@ -74,6 +75,11 @@ impl TestScene
 
 impl game::Entity for TestScene
 {
+    fn as_any(&self) -> &dyn Any
+    {
+        self
+    }
+
     fn get_name(&self) -> Cow<'_, str>
     {
         "Test Scene".into()
@@ -98,5 +104,18 @@ impl game::Entity for TestScene
 
             guard.rotation = quat.normalize();
         }
+
+        self.voxel_chunk
+            .as_any()
+            .downcast_ref::<voxel::Chunk>()
+            .unwrap()
+            .get_transform_mut(&|t| {
+                *t.rotation = *(t.rotation
+                    * *glm::UnitQuaternion::from_axis_angle(
+                        &gfx::Transform::global_up_vector(),
+                        1.0 * game.get_delta_time()
+                    ))
+                .normalize();
+            });
     }
 }

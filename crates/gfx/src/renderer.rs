@@ -2,6 +2,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::num::NonZeroU64;
 use std::ops::Deref;
+use std::panic::{RefUnwindSafe, UnwindSafe};
 use std::sync::atomic::Ordering::{self, *};
 use std::sync::atomic::{AtomicBool, AtomicU32};
 use std::sync::{Arc, Mutex, Weak};
@@ -82,6 +83,8 @@ impl Deref for Renderer
 // We also verify this with a threadID
 unsafe impl Sync for Renderer {}
 unsafe impl Send for Renderer {}
+impl UnwindSafe for Renderer {}
+impl RefUnwindSafe for Renderer {}
 
 impl Renderer
 {

@@ -16,9 +16,9 @@ use gfx::{
 #[derive(Debug)]
 pub struct Chunk
 {
-    uuid:               util::Uuid,
-    alive_and_position: Mutex<ChunkPositionCriticalSection>,
-    name:               String,
+    uuid:      util::Uuid,
+    transform: Mutex<gfx::Transform>,
+    name:      String,
 
     vertex_buffer:     wgpu::Buffer,
     index_buffer:      wgpu::Buffer,
@@ -36,7 +36,7 @@ struct ChunkPositionCriticalSection
 
 impl Chunk
 {
-    pub fn new(game: &game::Game) -> Arc<Self>
+    pub fn new(game: &game::Game, transform: gfx::Transform) -> Arc<Self>
     {
         let uuid = util::Uuid::new();
 
@@ -62,28 +62,25 @@ impl Chunk
                 });
 
         let this = Arc::new(Self {
-            uuid:               uuid,
-            alive_and_position: Mutex::new(ChunkPositionCriticalSection {
-                position:   glm::Vec3::repeat(0.0),
-                time_alive: 0.0
-            }),
-            name:               "Voxel Chunk".into(),
-            vertex_buffer:      game
+            uuid:              uuid,
+            transform:         Mutex::new(transform),
+            name:              "Voxel Chunk".into(),
+            vertex_buffer:     game
                 .get_renderer()
                 .create_buffer_init(&BufferInitDescriptor {
                     label:    Some(&vertex_buffer_label),
                     contents: cast_slice(&CUBE_VERTICES),
                     usage:    wgpu::BufferUsages::VERTEX
                 }),
-            index_buffer:       game
+            index_buffer:      game
                 .get_renderer()
                 .create_buffer_init(&BufferInitDescriptor {
                     label:    Some(&index_buffer_label),
                     contents: cast_slice(&CUBE_INDICES),
                     usage:    wgpu::BufferUsages::INDEX
                 }),
-            number_of_indices:  CUBE_INDICES.len() as u32,
-            pipeline:           game.get_renderer().render_cache.cache_render_pipeline(
+            number_of_indices: CUBE_INDICES.len() as u32,
+            pipeline:          game.get_renderer().render_cache.cache_render_pipeline(
                 CacheableRenderPipelineDescriptor {
                     label:                 "Voxel Chunk Pipeline".into(),
                     layout:                Some(pipeline_layout),
@@ -152,10 +149,7 @@ impl gfx::Recordable for Chunk
     {
         gfx::RecordInfo {
             should_draw: true,
-            transform:   Some(gfx::Transform {
-                translation: self.alive_and_position.lock().unwrap().position,
-                ..Default::default()
-            })
+            transform:   Some(self.transform.lock().unwrap().clone())
         }
     }
 
@@ -190,6 +184,11 @@ impl gfx::Recordable for Chunk
 
 impl game::Entity for Chunk
 {
+    fn as_any(&self) -> &dyn Any
+    {
+        self
+    }
+
     fn get_name(&self) -> Cow<'_, str>
     {
         gfx::Recordable::get_name(self)
@@ -200,20 +199,32 @@ impl game::Entity for Chunk
         gfx::Recordable::get_uuid(self)
     }
 
-    fn tick(&self, game: &game::Game, _: game::TickTag)
+    fn tick(&self, game: &game::Game, _: game::TickTag) {}
+}
+
+impl game::Positionable for Chunk
+{
+    fn get_position(&self, func: &dyn Fn(glm::Vec3))
     {
-        let ChunkPositionCriticalSection {
-            ref mut position,
-            ref mut time_alive
-        } = *self.alive_and_position.lock().unwrap();
+        func(self.transform.lock().unwrap().translation)
+    }
 
-        *time_alive += game.get_delta_time() as f64;
+    fn get_position_mut(&self, func: &dyn Fn(&mut glm::Vec3))
+    {
+        func(&mut self.transform.lock().unwrap().translation)
+    }
+}
 
-        // *position = glm::Vec3::new(
-        //     time_alive.sin() as f32,
-        //     (time_alive.cos() * time_alive.sin()) as f32,
-        //     time_alive.cos() as f32
-        // );
+impl game::Transformable for Chunk
+{
+    fn get_transform(&self, func: &dyn Fn(&gfx::Transform))
+    {
+        func(&self.transform.lock().unwrap())
+    }
+
+    fn get_transform_mut(&self, func: &dyn Fn(&mut gfx::Transform))
+    {
+        func(&mut self.transform.lock().unwrap())
     }
 }
 
@@ -240,28 +251,28 @@ impl Vertex
 
 const CUBE_VERTICES: [Vertex; 8] = [
     Vertex {
-        position: glm::Vec3::new(0.0, 0.0, 0.0)
+        position: glm::Vec3::new(-12.0, -12.0, -12.0)
     },
     Vertex {
-        position: glm::Vec3::new(0.0, 0.0, 8.0)
+        position: glm::Vec3::new(-12.0, -12.0, 12.0)
     },
     Vertex {
-        position: glm::Vec3::new(0.0, 8.0, 0.0)
+        position: glm::Vec3::new(-12.0, 12.0, -12.0)
     },
     Vertex {
-        position: glm::Vec3::new(0.0, 8.0, 8.0)
+        position: glm::Vec3::new(-12.0, 12.0, 12.0)
     },
     Vertex {
-        position: glm::Vec3::new(8.0, 0.0, 0.0)
+        position: glm::Vec3::new(12.0, -12.0, -12.0)
     },
     Vertex {
-        position: glm::Vec3::new(8.0, 0.0, 8.0)
+        position: glm::Vec3::new(12.0, -12.0, 12.0)
     },
     Vertex {
-        position: glm::Vec3::new(8.0, 8.0, 0.0)
+        position: glm::Vec3::new(12.0, 12.0, -12.0)
     },
     Vertex {
-        position: glm::Vec3::new(8.0, 8.0, 8.0)
+        position: glm::Vec3::new(12.0, 12.0, 12.0)
     }
 ];
 

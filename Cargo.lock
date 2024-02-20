@@ -1195,6 +1195,7 @@ name = "patinac"
 version = "0.0.0-0"
 dependencies = [
  "bytemuck",
+ "downcast-rs",
  "game",
  "gfx",
  "image",

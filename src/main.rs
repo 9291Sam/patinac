@@ -6,6 +6,7 @@
 #![feature(effects)]
 
 use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering::*;
 use std::sync::{Arc, OnceLock};
 
 mod recordables;
@@ -25,10 +26,12 @@ fn main()
 
     // Safety: we try our best to drop the Renderer on this thread
     let renderer = Arc::new(unsafe { gfx::Renderer::new() });
-    {
-        let game = game::Game::new(renderer.clone());
 
-        let should_stop = AtomicBool::new(false);
+    let should_stop = AtomicBool::new(false);
+
+    // TODO: crash handler and a custom scoped tread thing
+    if let Err(e) = std::panic::catch_unwind(|| {
+        let game = game::Game::new(renderer.clone());
 
         std::thread::scope(|s| {
             let _scene_guard = test_scene::TestScene::new(&game);
@@ -37,6 +40,9 @@ fn main()
 
             renderer.enter_gfx_loop(&should_stop);
         });
+    })
+    {
+        should_stop.store(true, SeqCst);
     }
 
     if Arc::into_inner(renderer).is_none()
