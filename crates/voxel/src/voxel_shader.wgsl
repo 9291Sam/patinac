@@ -132,6 +132,11 @@ fn sdBox(p: vec3<f32>, b: vec3<f32>) -> f32 {
 
 fn getVoxel(c: vec3<i32>) -> bool
 {
+    if (any(c == vec3<i32>(0)))
+    {
+        return false;
+    }
+
     if (length(vec3<f32>(c)) > 27.5)
     {
         return false;

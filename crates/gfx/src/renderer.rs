@@ -160,6 +160,8 @@ impl Renderer
             adapter.get_info().backend
         );
 
+        log::info!("limits: {:?}", adapter.limits());
+
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
