@@ -132,6 +132,11 @@ fn sdBox(p: vec3<f32>, b: vec3<f32>) -> f32 {
 
 fn getVoxel(c: vec3<i32>) -> bool
 {
+    if (length(vec3<f32>(c)) > 27.5)
+    {
+        return false;
+    }
+
 	let p: vec3<f32> = vec3<f32>(c) + vec3<f32>(0.5);
 	let d: f32 = min(max(-sdSphere(p, 7.5), sdBox(p, vec3<f32>(6.0))), -sdSphere(p, 25.0));
 	return d < 0.0;

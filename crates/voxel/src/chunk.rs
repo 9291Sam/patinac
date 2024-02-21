@@ -15,20 +15,23 @@ use gfx::{
 #[derive(Debug)]
 pub struct Chunk
 {
-    uuid:      util::Uuid,
-    transform: Mutex<gfx::Transform>,
-    name:      String,
+    uuid:           util::Uuid,
+    transform:      Mutex<gfx::Transform>,
+    name:           String,
+    camera_tracked: bool,
 
     vertex_buffer:     wgpu::Buffer,
     index_buffer:      wgpu::Buffer,
     number_of_indices: u32,
 
+    // instance_buffer:     wgpu::Buffer,
+    // number_of_instances: u32,
     pipeline: Arc<gfx::GenericPipeline>
 }
 
 impl Chunk
 {
-    pub fn new(game: &game::Game, transform: gfx::Transform) -> Arc<Self>
+    pub fn new(game: &game::Game, transform: gfx::Transform, tracked: bool) -> Arc<Self>
     {
         let uuid = util::Uuid::new();
 
@@ -54,6 +57,7 @@ impl Chunk
                 });
 
         let this = Arc::new(Self {
+            camera_tracked:    tracked,
             uuid:              uuid,
             transform:         Mutex::new(transform),
             name:              "Voxel Chunk".into(),
@@ -137,11 +141,18 @@ impl gfx::Recordable for Chunk
         &self.pipeline
     }
 
-    fn pre_record_update(&self, _: &gfx::Renderer, _: &gfx::Camera) -> gfx::RecordInfo
+    fn pre_record_update(&self, _: &gfx::Renderer, camera: &gfx::Camera) -> gfx::RecordInfo
     {
+        let mut guard = self.transform.lock().unwrap();
+
+        if self.camera_tracked
+        {
+            guard.translation = camera.get_position();
+        }
+
         gfx::RecordInfo {
             should_draw: true,
-            transform:   Some(self.transform.lock().unwrap().clone())
+            transform:   Some(guard.clone())
         }
     }
 
@@ -250,28 +261,28 @@ impl Vertex
 
 const CUBE_VERTICES: [Vertex; 8] = [
     Vertex {
-        position: glm::Vec3::new(-12.0, -12.0, -12.0)
+        position: glm::Vec3::new(-0.5, -0.5, -0.5)
     },
     Vertex {
-        position: glm::Vec3::new(-12.0, -12.0, 12.0)
+        position: glm::Vec3::new(-0.5, -0.5, 0.5)
     },
     Vertex {
-        position: glm::Vec3::new(-12.0, 12.0, -12.0)
+        position: glm::Vec3::new(-0.5, 0.5, -0.5)
     },
     Vertex {
-        position: glm::Vec3::new(-12.0, 12.0, 12.0)
+        position: glm::Vec3::new(-0.5, 0.5, 0.5)
     },
     Vertex {
-        position: glm::Vec3::new(12.0, -12.0, -12.0)
+        position: glm::Vec3::new(0.5, -0.5, -0.5)
     },
     Vertex {
-        position: glm::Vec3::new(12.0, -12.0, 12.0)
+        position: glm::Vec3::new(0.5, -0.5, 0.5)
     },
     Vertex {
-        position: glm::Vec3::new(12.0, 12.0, -12.0)
+        position: glm::Vec3::new(0.5, 0.5, -0.5)
     },
     Vertex {
-        position: glm::Vec3::new(12.0, 12.0, 12.0)
+        position: glm::Vec3::new(0.5, 0.5, 0.5)
     }
 ];
 

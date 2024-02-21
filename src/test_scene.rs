@@ -22,7 +22,14 @@ impl TestScene
         let mut objs: Vec<Arc<dyn gfx::Recordable>> = Vec::new();
         let mut rotate_objs: Vec<Arc<LitTextured>> = Vec::new();
 
-        let voxel_chunk: Arc<voxel::Chunk> = voxel::Chunk::new(game, gfx::Transform::default());
+        let voxel_chunk: Arc<voxel::Chunk> = voxel::Chunk::new(
+            game,
+            gfx::Transform {
+                scale: glm::Vec3::repeat(0.1),
+                ..Default::default()
+            },
+            true
+        );
 
         objs.push(voxel_chunk.clone());
 
@@ -53,6 +60,19 @@ impl TestScene
                 {
                     rotate_objs.push(a.clone());
                 }
+
+                // objs.push(voxel::Chunk::new(
+                //     game,
+                //     gfx::Transform {
+                //         translation: glm::Vec3::new(x as f32, 8.0, z as f32),
+                //         rotation:    *glm::UnitQuaternion::from_axis_angle(
+                //             &gfx::Transform::global_up_vector(),
+                //             (x + z) as f32 / 4.0
+                //         ),
+                //         scale:       glm::Vec3::repeat(1.1)
+                //     },
+                //     false
+                // ));
 
                 objs.push(a);
             }
