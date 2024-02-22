@@ -69,6 +69,9 @@ fn fs_main(in: VertexOutput) -> FragmentOutput
             break;
         }
 
+
+        // TODO: if out of this bounds destroy
+
         mask = sideDist.xyz <= min(sideDist.yzx, sideDist.zxy);
         sideDist = sideDist + vec3<f32>(mask) * deltaDist;
         mapPos = mapPos + vec3<i32>(vec3<f32>(mask)) * rayStep;
@@ -118,7 +121,7 @@ fn fs_main(in: VertexOutput) -> FragmentOutput
 
 // Constants
 const USE_BRANCHLESS_DDA : bool = true;
-const MAX_RAY_STEPS : i32 = 384;
+const MAX_RAY_STEPS : i32 = 25;
 const ERROR_COLOR: vec4<f32> = vec4<f32>(1.0, 0.0, 1.0, 1.0);
 
 // Sphere distance function
