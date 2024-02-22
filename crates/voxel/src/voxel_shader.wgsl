@@ -1,5 +1,10 @@
 struct VertexInput {
-    @location(0) position: vec3<f32>
+    @location(0) position: vec3<f32>,
+
+    @location(1) model_0: vec4<f32>,
+    @location(2) model_1: vec4<f32>,
+    @location(3) model_2: vec4<f32>,
+    @location(4) model_3: vec4<f32>,
 }
 
 struct VertexOutput {
@@ -20,19 +25,17 @@ alias Matricies = array<mat4x4<f32>, 1024>;
 @group(0) @binding(1) var<uniform> global_model_view_projection: Matricies;
 @group(0) @binding(2) var<uniform> global_model: Matricies;
 
-var<push_constant> push_constant_id: u32;
-
 @vertex
 fn vs_main(input: VertexInput) -> VertexOutput
 {
+    let model = mat4x4<f32>(input.model_0, input.model_1, input.model_2, input.model_3);
+
     var out: VertexOutput;
 
-    out.clip_position = global_model_view_projection[push_constant_id] * vec4<f32>(input.position, 1.0);
+    out.clip_position = global_info.view_projection * model * vec4<f32>(input.position, 1.0);
 
-    let world_pos_intercalc = global_model[push_constant_id] * vec4<f32>(input.position, 1.0);
+    let world_pos_intercalc = model * vec4<f32>(input.position, 1.0);
     out.world_pos = world_pos_intercalc.xyz / world_pos_intercalc.w;
-
-    // out.color = input.color;
 
     return out;
 }

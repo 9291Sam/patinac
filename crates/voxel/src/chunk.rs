@@ -15,28 +15,40 @@ use gfx::{
 #[derive(Debug)]
 pub struct Chunk
 {
-    uuid:           util::Uuid,
-    transform:      Mutex<gfx::Transform>,
-    name:           String,
-    camera_tracked: bool,
+    uuid: util::Uuid,
+    name: String,
 
-    vertex_buffer:     wgpu::Buffer,
-    index_buffer:      wgpu::Buffer,
-    number_of_indices: u32,
+    vertex_buffer:       wgpu::Buffer,
+    index_buffer:        wgpu::Buffer,
+    number_of_indices:   u32,
+    instance_buffer:     wgpu::Buffer,
+    number_of_instances: u32,
 
-    // instance_buffer:     wgpu::Buffer,
-    // number_of_instances: u32,
     pipeline: Arc<gfx::GenericPipeline>
 }
 
 impl Chunk
 {
-    pub fn new(game: &game::Game, transform: gfx::Transform, tracked: bool) -> Arc<Self>
+    pub fn new(game: &game::Game, transforms: impl IntoIterator<Item = gfx::Transform>)
+    -> Arc<Self>
     {
         let uuid = util::Uuid::new();
 
         let vertex_buffer_label = format!("Chunk {} Vertex Buffer", uuid);
         let index_buffer_label = format!("Chunk {} Index Buffer", uuid);
+        let instance_buffer_label = format!("Chunk {} Instance Buffer", uuid);
+
+        let models: Vec<glm::Mat4> = transforms
+            .into_iter()
+            .map(|t| {
+                log::trace!("{}", t.as_model_matrix());
+                t.as_model_matrix()
+            })
+            .collect();
+
+        let models_slice: &[u8] = cast_slice::<glm::Mat4, u8>(&models[..]);
+
+        assert!(models_slice.len() == 64);
 
         let renderer = &**game.get_renderer();
 
@@ -57,32 +69,35 @@ impl Chunk
                 });
 
         let this = Arc::new(Self {
-            camera_tracked:    tracked,
-            uuid:              uuid,
-            transform:         Mutex::new(transform),
-            name:              "Voxel Chunk".into(),
-            vertex_buffer:     game
-                .get_renderer()
-                .create_buffer_init(&BufferInitDescriptor {
-                    label:    Some(&vertex_buffer_label),
-                    contents: cast_slice(&CUBE_VERTICES),
-                    usage:    wgpu::BufferUsages::VERTEX
-                }),
-            index_buffer:      game
-                .get_renderer()
-                .create_buffer_init(&BufferInitDescriptor {
-                    label:    Some(&index_buffer_label),
-                    contents: cast_slice(&CUBE_INDICES),
-                    usage:    wgpu::BufferUsages::INDEX
-                }),
-            number_of_indices: CUBE_INDICES.len() as u32,
-            pipeline:          game.get_renderer().render_cache.cache_render_pipeline(
+            uuid:                uuid,
+            name:                "Voxel Chunk".into(),
+            vertex_buffer:       renderer.create_buffer_init(&BufferInitDescriptor {
+                label:    Some(&vertex_buffer_label),
+                contents: cast_slice(&CUBE_VERTICES),
+                usage:    wgpu::BufferUsages::VERTEX
+            }),
+            index_buffer:        renderer.create_buffer_init(&BufferInitDescriptor {
+                label:    Some(&index_buffer_label),
+                contents: cast_slice(&CUBE_INDICES),
+                usage:    wgpu::BufferUsages::INDEX
+            }),
+            number_of_indices:   CUBE_INDICES.len() as u32,
+            instance_buffer:     renderer.create_buffer_init(&BufferInitDescriptor {
+                label:    Some(&instance_buffer_label),
+                contents: models_slice,
+                usage:    wgpu::BufferUsages::VERTEX
+            }),
+            number_of_instances: models.len() as u32,
+            pipeline:            game.get_renderer().render_cache.cache_render_pipeline(
                 CacheableRenderPipelineDescriptor {
                     label:                 "Voxel Chunk Pipeline".into(),
                     layout:                Some(pipeline_layout),
                     vertex_module:         shader.clone(),
                     vertex_entry_point:    "vs_main".into(),
-                    vertex_buffer_layouts: vec![Vertex::describe_layout()],
+                    vertex_buffer_layouts: vec![
+                        Vertex::describe_layout(),
+                        describe_instance_layout(),
+                    ],
                     fragment_state:        Some(CacheableFragmentState {
                         module:      shader,
                         entry_point: "fs_main".into(),
@@ -141,18 +156,11 @@ impl gfx::Recordable for Chunk
         &self.pipeline
     }
 
-    fn pre_record_update(&self, _: &gfx::Renderer, camera: &gfx::Camera) -> gfx::RecordInfo
+    fn pre_record_update(&self, _: &gfx::Renderer, _: &gfx::Camera) -> gfx::RecordInfo
     {
-        let mut guard = self.transform.lock().unwrap();
-
-        if self.camera_tracked
-        {
-            guard.translation = camera.get_position();
-        }
-
         gfx::RecordInfo {
             should_draw: true,
-            transform:   Some(guard.clone())
+            transform:   None
         }
     }
 
@@ -166,16 +174,23 @@ impl gfx::Recordable for Chunk
 
     fn record<'s>(&'s self, render_pass: &mut gfx::GenericPass<'s>, maybe_id: Option<gfx::DrawId>)
     {
-        let (gfx::GenericPass::Render(ref mut pass), Some(id)) = (render_pass, maybe_id)
+        let (gfx::GenericPass::Render(ref mut pass), None) = (render_pass, maybe_id)
         else
         {
             unreachable!()
         };
 
         pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+        pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
+        // TODO: switch to u16
         pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-        pass.set_push_constants(wgpu::ShaderStages::VERTEX, 0, bytes_of(&id));
-        pass.draw_indexed(0..self.number_of_indices, 0, 0..1);
+
+        log::trace!(
+            "drawing Chunk {} with {}",
+            self.uuid,
+            self.number_of_instances
+        );
+        pass.draw_indexed(0..self.number_of_indices, 0, 0..self.number_of_instances);
     }
 }
 
@@ -188,12 +203,12 @@ impl game::EntityCastDepot for Chunk
 
     fn as_positionable(&self) -> Option<&dyn Positionable>
     {
-        Some(self)
+        None
     }
 
     fn as_transformable(&self) -> Option<&dyn game::Transformable>
     {
-        Some(self)
+        None
     }
 }
 
@@ -212,32 +227,6 @@ impl game::Entity for Chunk
     fn tick(&self, _: &game::Game, _: game::TickTag) {}
 }
 
-impl game::Positionable for Chunk
-{
-    fn get_position(&self) -> glm::Vec3
-    {
-        self.transform.lock().unwrap().translation
-    }
-
-    fn get_position_mut(&self, func: &dyn Fn(&mut glm::Vec3))
-    {
-        func(&mut self.transform.lock().unwrap().translation)
-    }
-}
-
-impl game::Transformable for Chunk
-{
-    fn get_transform(&self) -> gfx::Transform
-    {
-        self.transform.lock().unwrap().clone()
-    }
-
-    fn get_transform_mut(&self, func: &dyn Fn(&mut gfx::Transform))
-    {
-        func(&mut self.transform.lock().unwrap());
-    }
-}
-
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Zeroable, Pod)]
 struct Vertex
@@ -247,15 +236,45 @@ struct Vertex
 
 impl Vertex
 {
-    const ATTRIBS: [wgpu::VertexAttribute; 1] = wgpu::vertex_attr_array![0 => Float32x3];
+    const ATTRIBUTES: [wgpu::VertexAttribute; 1] = wgpu::vertex_attr_array![0 => Float32x3];
 
     pub fn describe_layout() -> wgpu::VertexBufferLayout<'static>
     {
         wgpu::VertexBufferLayout {
             array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
             step_mode:    wgpu::VertexStepMode::Vertex,
-            attributes:   &Self::ATTRIBS
+            attributes:   &Self::ATTRIBUTES
         }
+    }
+}
+
+fn describe_instance_layout() -> wgpu::VertexBufferLayout<'static>
+{
+    wgpu::VertexBufferLayout {
+        array_stride: std::mem::size_of::<glm::Mat4>() as wgpu::BufferAddress,
+        step_mode:    wgpu::VertexStepMode::Instance,
+        attributes:   &[
+            wgpu::VertexAttribute {
+                offset:          0,
+                shader_location: 1,
+                format:          wgpu::VertexFormat::Float32x4
+            },
+            wgpu::VertexAttribute {
+                offset:          std::mem::size_of::<[f32; 4]>() as wgpu::BufferAddress,
+                shader_location: 2,
+                format:          wgpu::VertexFormat::Float32x4
+            },
+            wgpu::VertexAttribute {
+                offset:          std::mem::size_of::<[f32; 8]>() as wgpu::BufferAddress,
+                shader_location: 3,
+                format:          wgpu::VertexFormat::Float32x4
+            },
+            wgpu::VertexAttribute {
+                offset:          std::mem::size_of::<[f32; 12]>() as wgpu::BufferAddress,
+                shader_location: 4,
+                format:          wgpu::VertexFormat::Float32x4
+            }
+        ]
     }
 }
 

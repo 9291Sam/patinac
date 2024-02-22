@@ -24,11 +24,11 @@ impl TestScene
 
         let voxel_chunk: Arc<voxel::Chunk> = voxel::Chunk::new(
             game,
-            gfx::Transform {
-                scale: glm::Vec3::repeat(0.1),
+            [gfx::Transform {
+                scale: glm::Vec3::repeat(2.3),
+                translation: glm::Vec3::repeat(3.0),
                 ..Default::default()
-            },
-            true
+            }]
         );
 
         objs.push(voxel_chunk.clone());
@@ -136,16 +136,16 @@ impl game::Entity for TestScene
             guard.rotation = quat.normalize();
         }
 
-        self.voxel_chunk
-            .cast::<dyn game::Transformable>()
-            .unwrap()
-            .get_transform_mut(&|t| {
-                *t.rotation = *(t.rotation
-                    * *glm::UnitQuaternion::from_axis_angle(
-                        &gfx::Transform::global_up_vector(),
-                        1.0 * game.get_delta_time()
-                    ))
-                .normalize();
-            });
+        // self.voxel_chunk
+        //     .cast::<dyn game::Transformable>()
+        //     .unwrap()
+        //     .get_transform_mut(&|t| {
+        //         *t.rotation = *(t.rotation
+        //             * *glm::UnitQuaternion::from_axis_angle(
+        //               &gfx::Transform::global_up_vector(), 1.0 *
+        //               game.get_delta_time()
+        //             ))
+        //         .normalize();
+        //     });
     }
 }
