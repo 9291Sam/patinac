@@ -40,15 +40,8 @@ impl Chunk
 
         let models: Vec<glm::Mat4> = transforms
             .into_iter()
-            .map(|t| {
-                log::trace!("{}", t.as_model_matrix());
-                t.as_model_matrix()
-            })
+            .map(|t| t.as_model_matrix())
             .collect();
-
-        let models_slice: &[u8] = cast_slice::<glm::Mat4, u8>(&models[..]);
-
-        assert!(models_slice.len() == 64);
 
         let renderer = &**game.get_renderer();
 
@@ -84,7 +77,7 @@ impl Chunk
             number_of_indices:   CUBE_INDICES.len() as u32,
             instance_buffer:     renderer.create_buffer_init(&BufferInitDescriptor {
                 label:    Some(&instance_buffer_label),
-                contents: models_slice,
+                contents: cast_slice(&models),
                 usage:    wgpu::BufferUsages::VERTEX
             }),
             number_of_instances: models.len() as u32,
