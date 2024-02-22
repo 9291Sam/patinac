@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::num::NonZeroU64;
@@ -144,32 +145,25 @@ impl Renderer
 
         let maybe_driver_version = adapter.get_info().driver_info;
 
-        let version_string: String = if maybe_driver_version.is_empty()
-        {
-            "".into()
-        }
-        else
-        {
-            format!("with version {} ", maybe_driver_version)
-        };
-
         log::info!(
             "Selected Device {} {}using backend {:?}",
             adapter.get_info().name,
-            version_string,
+            if maybe_driver_version.is_empty()
+            {
+                Cow::Borrowed("")
+            }
+            else
+            {
+                format!("with version {} ", maybe_driver_version).into()
+            },
             adapter.get_info().backend
         );
-
-        log::info!("limits: {:?}", adapter.limits());
 
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
                     label:             Some("Device"),
-                    required_features: wgpu::Features::PUSH_CONSTANTS
-                        | wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES
-                        | wgpu::Features::TEXTURE_BINDING_ARRAY
-                        | wgpu::Features::STORAGE_RESOURCE_BINDING_ARRAY,
+                    required_features: wgpu::Features::PUSH_CONSTANTS,
                     required_limits:   adapter.limits()
                 },
                 None

@@ -175,14 +175,7 @@ impl gfx::Recordable for Chunk
 
         pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
         pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
-        // TODO: switch to u16
-        pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-
-        log::trace!(
-            "drawing Chunk {} with {}",
-            self.uuid,
-            self.number_of_instances
-        );
+        pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
         pass.draw_indexed(0..self.number_of_indices, 0, 0..self.number_of_instances);
     }
 }
@@ -299,7 +292,7 @@ const CUBE_VERTICES: [Vertex; 8] = [
 ];
 
 #[rustfmt::skip]
-const CUBE_INDICES: [u32; 36] = [
+const CUBE_INDICES: [u16; 36] = [
     6, 2, 7,
     2, 3, 7,
     0, 4, 5,
