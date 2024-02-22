@@ -687,7 +687,11 @@ impl Renderer
             let rotate_scale = 1000.0;
             if input_helper.key_held(KeyCode::KeyK)
             {
-                log::info!("position: {:?}", camera.borrow().get_position())
+                log::info!(
+                    "position: {:?} | frametime: {}",
+                    camera.borrow().get_position(),
+                    self.get_delta_time()
+                );
             }
 
             if input_helper.key_held(KeyCode::KeyW)

@@ -81,19 +81,19 @@ impl TestScene
         //     });
         // }
 
-        let b = 3i32;
+        // let b = 3i32;
 
-        for (x, y, z) in itertools::iproduct!(-b..=b, -b..=b, -b..=b)
-        {
-            // if x.abs() == b || y.abs() == b || z.abs() == b
-            // {
-            voxel_transforms.push(gfx::Transform {
-                translation: glm::Vec3::new(x as f32 * 8.0, y as f32 * 8.0, z as f32 * 8.0),
-                scale: glm::Vec3::repeat(8.0),
-                ..Default::default()
-            });
-            // }
-        }
+        // for (x, y, z) in itertools::iproduct!(-b..=b, -b..=b, -b..=b)
+        // {
+        // if x.abs() == b || y.abs() == b || z.abs() == b
+        // {
+        voxel_transforms.push(gfx::Transform {
+            translation: glm::Vec3::new(0.0, 0.0, 0.0),
+            scale: glm::Vec3::repeat(64.0),
+            ..Default::default()
+        });
+        // }
+        // }
 
         let voxel_chunk = voxel::Chunk::new(game, voxel_transforms);
 
