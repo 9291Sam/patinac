@@ -1,5 +1,5 @@
-mod brick_map;
 mod chunk;
+mod gpu_data;
 mod voxel;
 
 pub use chunk::Chunk;

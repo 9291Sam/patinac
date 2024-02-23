@@ -3,14 +3,20 @@ name = "patinac"
 version = "0.0.0-0"
 edition = "2021"
 
+[workspace]
+members = ["crates/util", "crates/gfx", "crates/game", "crates/voxel"]
+
 [dependencies]
-util = {path = "crates/util"}
-gfx = {path = "crates/gfx"}
-game = {path = "crates/game"}
-log = { version = "0.4.20", features = ["std"]}
-voxel = {path = "crates/voxel"}
-bytemuck = { version = "1.14.1", features = [ "derive" ] }
-image = { version = "0.24", default-features = false, features = ["png", "jpeg"] }
+util = { path = "crates/util" }
+gfx = { path = "crates/gfx" }
+game = { path = "crates/game" }
+log = { version = "0.4.20", features = ["std"] }
+voxel = { path = "crates/voxel" }
+bytemuck = { version = "1.14.1", features = ["derive"] }
+image = { version = "0.24", default-features = false, features = [
+    "png",
+    "jpeg",
+] }
 tobj = "4.0.1"
 itertools = "0.12.1"
 

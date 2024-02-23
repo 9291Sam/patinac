@@ -12,4 +12,4 @@ on the cpu side you can just use some fancy 3d hash table and store brick positi
 
 TODO: remove render_cache and just put the cache directly inside the renderer
 
-TODO: the plan
+Inside chunk camera rendering
