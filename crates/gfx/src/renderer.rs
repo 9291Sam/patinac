@@ -184,7 +184,7 @@ impl Renderer
         let desired_present_modes = [
             wgpu::PresentMode::Mailbox,
             wgpu::PresentMode::FifoRelaxed,
-            // wgpu::PresentMode::Fifo,
+            // wgpu::PresentMode::Fifo
             wgpu::PresentMode::Immediate
         ];
 
@@ -685,7 +685,7 @@ impl Renderer
                 {
                     1.0
                 };
-            let rotate_scale = 1000.0;
+            let rotate_scale = 10.0;
             if input_helper.key_held(KeyCode::KeyK)
             {
                 log::info!(
@@ -759,8 +759,8 @@ impl Renderer
             {
                 let mut camera_guard = camera.borrow_mut();
 
-                camera_guard.add_yaw(delta_rads.x * rotate_scale * self.get_delta_time());
-                camera_guard.add_pitch(delta_rads.y * rotate_scale * self.get_delta_time());
+                camera_guard.add_yaw(delta_rads.x * rotate_scale); // * self.get_delta_time());
+                camera_guard.add_pitch(delta_rads.y * rotate_scale); //  * self.get_delta_time());
             }
 
             if input_helper.key_pressed(KeyCode::Escape)
