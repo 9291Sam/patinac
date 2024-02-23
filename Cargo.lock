@@ -1556,7 +1556,6 @@ name = "patinac"
 version = "0.0.0-0"
 dependencies = [
  "bytemuck",
- "egui_winit_platform",
  "game",
  "gfx",
  "image",
