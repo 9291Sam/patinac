@@ -13,6 +13,7 @@ bytemuck = { version = "1.14.1", features = [ "derive" ] }
 image = { version = "0.24", default-features = false, features = ["png", "jpeg"] }
 tobj = "4.0.1"
 itertools = "0.12.1"
+egui_winit_platform = "0.20.0"
 
 [profile.dev]
 opt-level = 2
