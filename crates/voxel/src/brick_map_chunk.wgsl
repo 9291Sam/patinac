@@ -62,10 +62,31 @@ struct FragmentOutput
 }
 
 @fragment
-fn fs_main(in: VertexOutput, @builtin(front_facing) front: bool) -> FragmentOutput
+fn fs_main(in: VertexOutput, @builtin(front_facing) is_front_face: bool) -> FragmentOutput
 {    
     let rayDir: vec3<f32> = normalize(in.world_pos - global_info.camera_pos.xyz); //normalize(in.world_pos - global_info.camera_pos.xyz );
-    var rayPos: vec3<f32> =  in.local_pos + 0.5;
+    
+    var rayPos: vec3<f32>;
+
+    let camera_pos_local: vec3<f32> = global_info.camera_pos.xyz - in.local_to_world_offset_pos;
+
+    let camera_in_chunk: bool = all(camera_pos_local > vec3<f32>(0.0)) && all(camera_pos_local < vec3<f32>(1024.0));
+
+    if ((camera_in_chunk && is_front_face) || (!camera_in_chunk && !is_front_face))
+    {
+        discard;
+    }
+
+    if camera_in_chunk
+    {
+        rayPos = camera_pos_local + 0.5;
+    }
+    else
+    {
+        rayPos = in.local_pos + 0.5;
+    }
+
+    
 
     // TODO: convert to u32
     var mapPos: vec3<i32> = vec3<i32>(floor(rayPos + vec3<f32>(0.0)));
@@ -137,7 +158,7 @@ fn fs_main(in: VertexOutput, @builtin(front_facing) front: bool) -> FragmentOutp
 
 // Constants
 const USE_BRANCHLESS_DDA : bool = true;
-const MAX_RAY_STEPS : i32 = 384;
+const MAX_RAY_STEPS : i32 = 128;
 const ERROR_COLOR: vec4<f32> = vec4<f32>(1.0, 0.0, 1.0, 1.0);
 
 // Sphere distance function
