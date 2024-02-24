@@ -129,10 +129,8 @@ fn fs_main(in: VertexOutput, @builtin(front_facing) front: bool) -> FragmentOutp
         return out;
     }
 
-    // // out.color = vec4<f32>(1.0);
     out.depth = maybe_depth;
-    // out.depth = 0.999999;
-    
+
     // out.color = vec4<f32>(strike_pos_world.xyz / 8, 1.0); //  vec4<f32>(rand(in.world_pos.xy), rand(in.world_pos.yz), rand(in.world_pos.zx), 1.0);
     return out;
 }

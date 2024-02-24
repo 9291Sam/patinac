@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::num::NonZeroU64;
 use std::sync::{Arc, Mutex};
 
 use bytemuck::{bytes_of, cast_slice, Pod, Zeroable};
@@ -12,26 +13,27 @@ use gfx::{
     CacheableRenderPipelineDescriptor
 };
 
-use crate::gpu_data::VoxelChunkDataManager;
+use crate::gpu_data::{BrickMap, VoxelChunkDataManager};
 
 #[derive(Debug)]
 pub struct BrickMapChunk
 {
-    uuid:      util::Uuid,
-    name:      String,
-    transform: Mutex<gfx::Transform>,
+    uuid:     util::Uuid,
+    name:     String,
+    position: Mutex<glm::Vec3>,
 
     vertex_buffer:     wgpu::Buffer,
     index_buffer:      wgpu::Buffer,
     number_of_indices: u32,
 
-    // voxel_chunk_data: VoxelChunkDataManager,
-    pipeline: Arc<gfx::GenericPipeline>
+    voxel_chunk_data: VoxelChunkDataManager,
+    voxel_bind_group: wgpu::BindGroup,
+    pipeline:         Arc<gfx::GenericPipeline>
 }
 
 impl BrickMapChunk
 {
-    pub fn new(game: &game::Game, transform: gfx::Transform) -> Arc<Self>
+    pub fn new(game: &game::Game, center_position: glm::Vec3) -> Arc<Self>
     {
         let uuid = util::Uuid::new();
 
@@ -44,22 +46,81 @@ impl BrickMapChunk
             .render_cache
             .cache_shader_module(wgpu::include_wgsl!("brick_map_chunk.wgsl"));
 
+        static MIN_0_BINDING_SIZE: Option<NonZeroU64> =
+            unsafe { Some(NonZeroU64::new_unchecked(2 * 1024 * 1024)) };
+
+        static BINDINGS: &[wgpu::BindGroupLayoutEntry] = &[
+            wgpu::BindGroupLayoutEntry {
+                binding:    0,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty:         wgpu::BindingType::Buffer {
+                    ty:                 wgpu::BufferBindingType::Storage {
+                        read_only: true
+                    },
+                    has_dynamic_offset: false,
+                    min_binding_size:   MIN_0_BINDING_SIZE
+                },
+                count:      None
+            },
+            wgpu::BindGroupLayoutEntry {
+                binding:    1,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty:         wgpu::BindingType::Buffer {
+                    ty:                 wgpu::BufferBindingType::Storage {
+                        read_only: true
+                    },
+                    has_dynamic_offset: false,
+                    min_binding_size:   MIN_0_BINDING_SIZE
+                },
+                count:      None
+            }
+        ];
+
+        let voxel_bind_group_layout =
+            renderer
+                .render_cache
+                .cache_bind_group_layout(wgpu::BindGroupLayoutDescriptor {
+                    label:   Some("Brick Map Chunk BinGroup Layouts"),
+                    entries: BINDINGS
+                });
+
         let pipeline_layout =
             renderer
                 .render_cache
                 .cache_pipeline_layout(CacheablePipelineLayoutDescriptor {
                     label:                "Voxel BrickMapChunk Pipeline Layout".into(),
-                    bind_group_layouts:   vec![renderer.global_bind_group_layout.clone()],
+                    bind_group_layouts:   vec![
+                        renderer.global_bind_group_layout.clone(),
+                        voxel_bind_group_layout.clone(),
+                    ],
                     push_constant_ranges: vec![wgpu::PushConstantRange {
                         stages: wgpu::ShaderStages::VERTEX,
                         range:  0..(std::mem::size_of::<u32>() as u32)
                     }]
                 });
 
+        let voxel_data_manager = VoxelChunkDataManager::new(game.get_renderer().clone());
+        let voxel_bind_group = renderer.create_bind_group(&wgpu::BindGroupDescriptor {
+            label:   Some("Voxel Bind Group"),
+            layout:  &voxel_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding:  0,
+                    resource: voxel_data_manager.gpu_brick_map.as_entire_binding()
+                },
+                wgpu::BindGroupEntry {
+                    binding:  1,
+                    resource: voxel_data_manager.gpu_brick_buffer.as_entire_binding()
+                }
+            ]
+        });
+
         let this = Arc::new(Self {
+            voxel_chunk_data: voxel_data_manager,
+            voxel_bind_group,
             uuid,
             name: "Voxel BrickMapChunk".into(),
-            transform: Mutex::new(transform),
+            position: Mutex::new(center_position),
             vertex_buffer: renderer.create_buffer_init(&BufferInitDescriptor {
                 label:    Some(&vertex_buffer_label),
                 contents: cast_slice(&CUBE_VERTICES),
@@ -140,7 +201,10 @@ impl gfx::Recordable for BrickMapChunk
     {
         gfx::RecordInfo {
             should_draw: true,
-            transform:   Some(self.transform.lock().unwrap().clone())
+            transform:   Some(gfx::Transform {
+                translation: *self.position.lock().unwrap(),
+                ..Default::default()
+            })
         }
     }
 
@@ -151,8 +215,7 @@ impl gfx::Recordable for BrickMapChunk
     {
         [
             Some(global_bind_group),
-            // Some(&self.voxel_bind_group),
-            None,
+            Some(&self.voxel_bind_group),
             None,
             None
         ]
@@ -187,7 +250,7 @@ impl game::EntityCastDepot for BrickMapChunk
 
     fn as_transformable(&self) -> Option<&dyn game::Transformable>
     {
-        Some(self)
+        None
     }
 }
 
@@ -210,25 +273,12 @@ impl game::Positionable for BrickMapChunk
 {
     fn get_position(&self) -> glm::Vec3
     {
-        self.transform.lock().unwrap().translation
+        *self.position.lock().unwrap()
     }
 
     fn get_position_mut(&self, func: &dyn Fn(&mut glm::Vec3))
     {
-        func(&mut self.transform.lock().unwrap().translation)
-    }
-}
-
-impl game::Transformable for BrickMapChunk
-{
-    fn get_transform(&self) -> gfx::Transform
-    {
-        self.transform.lock().unwrap().clone()
-    }
-
-    fn get_transform_mut(&self, func: &dyn Fn(&mut gfx::Transform))
-    {
-        func(&mut self.transform.lock().unwrap())
+        func(&mut self.position.lock().unwrap())
     }
 }
 

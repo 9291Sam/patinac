@@ -1,5 +1,6 @@
+use std::ops::Add;
 use std::sync::atomic::Ordering::*;
-use std::sync::atomic::{AtomicBool, AtomicU32};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64};
 use std::sync::{Arc, Weak};
 
 use rayon::iter::{ParallelBridge, ParallelIterator};
@@ -12,7 +13,8 @@ pub struct Game
 {
     renderer:         Arc<gfx::Renderer>,
     entities:         util::Registrar<util::Uuid, Weak<dyn Entity>>,
-    float_delta_time: AtomicU32 // event_dispatcher: /* */
+    float_delta_time: AtomicU32,
+    float_time_alive: AtomicU64
 }
 
 impl Drop for Game
@@ -34,13 +36,20 @@ impl Game
         Game {
             renderer,
             entities: util::Registrar::new(),
-            float_delta_time: AtomicU32::new(0.0f32.to_bits())
+            float_delta_time: AtomicU32::new(0.0f32.to_bits()),
+            float_time_alive: AtomicU64::new(0.0f64.to_bits())
         }
     }
 
     pub fn get_renderer(&self) -> &Arc<gfx::Renderer>
     {
         &self.renderer
+    }
+
+    #[deprecated]
+    pub fn get_time_alive(&self) -> f64
+    {
+        f64::from_bits(self.float_time_alive.load(Acquire))
     }
 
     pub fn get_delta_time(&self) -> f32
@@ -57,15 +66,20 @@ impl Game
     pub fn enter_tick_loop(&self, should_stop: &AtomicBool)
     {
         let mut prev = std::time::Instant::now();
-        let mut delta_time: f32;
+        let mut delta_time: f64;
 
         while !should_stop.load(Acquire)
         {
             let now = std::time::Instant::now();
 
-            delta_time = (now - prev).as_secs_f32();
+            delta_time = (now - prev).as_secs_f64();
             prev = now;
-            self.float_delta_time.store(delta_time.to_bits(), Release);
+            self.float_delta_time
+                .store((delta_time as f32).to_bits(), Release);
+            self.float_time_alive.store(
+                (f64::from_bits(self.float_time_alive.load(Acquire)) + delta_time).to_bits(),
+                Release
+            );
 
             let thread_entities = &self.entities;
 

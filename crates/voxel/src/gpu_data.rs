@@ -30,7 +30,7 @@ pub struct VoxelBrick
 
 type BrickPointer = NonZeroU32;
 
-type BrickMap =
+pub(crate) type BrickMap =
     [[[Option<BrickPointer>; BRICK_MAP_EDGE_SIZE]; BRICK_MAP_EDGE_SIZE]; BRICK_MAP_EDGE_SIZE];
 
 const VOXEL_BRICK_SIZE: usize = 8;
@@ -42,12 +42,12 @@ pub struct VoxelChunkDataManager
 {
     renderer: Arc<gfx::Renderer>,
 
-    cpu_brick_map: Box<BrickMap>,
-    gpu_brick_map: wgpu::Buffer,
+    cpu_brick_map:            Box<BrickMap>,
+    pub(crate) gpu_brick_map: wgpu::Buffer,
 
-    number_of_bricks: usize,
-    gpu_brick_buffer: wgpu::Buffer,
-    brick_allocator:  util::FreelistAllocator
+    number_of_bricks:            usize,
+    pub(crate) gpu_brick_buffer: wgpu::Buffer,
+    brick_allocator:             util::FreelistAllocator
 }
 
 pub type ChunkPosition = glm::U16Vec3;

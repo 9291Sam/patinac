@@ -1,6 +1,8 @@
 use std::borrow::Cow;
+use std::ops::{Add, Mul};
 use std::sync::Arc;
 
+use game::{Positionable, Transformable};
 use gfx::glm;
 
 use crate::recordables::flat_textured::FlatTextured;
@@ -101,13 +103,7 @@ impl TestScene
         let this = Arc::new(TestScene {
             _objs: objs,
             rotate_objs,
-            brick_map_chunk: voxel::BrickMapChunk::new(
-                game,
-                gfx::Transform {
-                    translation: glm::Vec3::new(507.0, 507.0, 507.0),
-                    ..Default::default()
-                }
-            ),
+            brick_map_chunk: voxel::BrickMapChunk::new(game, glm::Vec3::new(507.0, 507.0, 507.0)),
             id: util::Uuid::new(),
             voxel_chunk
         });
@@ -163,16 +159,12 @@ impl game::Entity for TestScene
             guard.rotation = quat.normalize();
         }
 
-        // self.voxel_chunk
-        //     .cast::<dyn game::Transformable>()
-        //     .unwrap()
-        //     .get_transform_mut(&|t| {
-        //         *t.rotation = *(t.rotation
-        //             * *glm::UnitQuaternion::from_axis_angle(
-        //               &gfx::Transform::global_up_vector(), 1.0 *
-        //               game.get_delta_time()
-        //             ))
-        //         .normalize();
-        //     });
+        self.brick_map_chunk.get_position_mut(&|t| {
+            *t = glm::Vec3::new(
+                (507.0 + 2.0 * game.get_time_alive().add(std::f64::consts::PI / 4.0).cos() as f32),
+                (507.0 + 2.0 * game.get_time_alive().add(std::f64::consts::FRAC_PI_2).sin()) as f32,
+                (507.0 + -2.0 * game.get_time_alive().mul(2.0).cos()) as f32
+            );
+        });
     }
 }
