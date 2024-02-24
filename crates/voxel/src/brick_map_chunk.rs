@@ -26,7 +26,7 @@ pub struct BrickMapChunk
     index_buffer:      wgpu::Buffer,
     number_of_indices: u32,
 
-    voxel_chunk_data: VoxelChunkDataManager,
+    voxel_chunk_data: Mutex<VoxelChunkDataManager>,
     voxel_bind_group: wgpu::BindGroup,
     pipeline:         Arc<gfx::GenericPipeline>
 }
@@ -46,8 +46,9 @@ impl BrickMapChunk
             .render_cache
             .cache_shader_module(wgpu::include_wgsl!("brick_map_chunk.wgsl"));
 
+        // TODO: optimize this...
         static MIN_0_BINDING_SIZE: Option<NonZeroU64> =
-            unsafe { Some(NonZeroU64::new_unchecked(2 * 1024 * 1024)) };
+            unsafe { Some(NonZeroU64::new_unchecked(2 * 1024)) };
 
         static BINDINGS: &[wgpu::BindGroupLayoutEntry] = &[
             wgpu::BindGroupLayoutEntry {
@@ -58,7 +59,7 @@ impl BrickMapChunk
                         read_only: true
                     },
                     has_dynamic_offset: false,
-                    min_binding_size:   MIN_0_BINDING_SIZE
+                    min_binding_size:   None // MIN_0_BINDING_SIZE
                 },
                 count:      None
             },
@@ -70,7 +71,7 @@ impl BrickMapChunk
                         read_only: true
                     },
                     has_dynamic_offset: false,
-                    min_binding_size:   MIN_0_BINDING_SIZE
+                    min_binding_size:   None //  MIN_0_BINDING_SIZE
                 },
                 count:      None
             }
@@ -116,7 +117,7 @@ impl BrickMapChunk
         });
 
         let this = Arc::new(Self {
-            voxel_chunk_data: voxel_data_manager,
+            voxel_chunk_data: Mutex::new(voxel_data_manager),
             voxel_bind_group,
             uuid,
             name: "Voxel BrickMapChunk".into(),
@@ -172,6 +173,11 @@ impl BrickMapChunk
         renderer.register(this.clone());
 
         this
+    }
+
+    pub fn access_data_manager(&self) -> &Mutex<VoxelChunkDataManager>
+    {
+        &self.voxel_chunk_data
     }
 }
 

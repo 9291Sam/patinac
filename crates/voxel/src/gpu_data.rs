@@ -73,7 +73,7 @@ impl VoxelChunkDataManager
                 label:              Some("Voxel Chunk Data Manager Brick Map Buffer"),
                 usage:              wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::STORAGE,
                 size:               std::mem::size_of::<BrickMap>() as u64,
-                mapped_at_creation: false
+                mapped_at_creation: true
             }),
             number_of_bricks: number_of_starting_bricks,
             gpu_brick_buffer: r.create_buffer(&wgpu::BufferDescriptor {
@@ -81,7 +81,7 @@ impl VoxelChunkDataManager
                 usage:              wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::STORAGE,
                 size:               std::mem::size_of::<VoxelBrick>() as u64
                     * number_of_starting_bricks as u64,
-                mapped_at_creation: false
+                mapped_at_creation: true
             }),
             brick_allocator: util::FreelistAllocator::new(
                 number_of_starting_bricks.try_into().unwrap()
@@ -124,12 +124,30 @@ impl VoxelChunkDataManager
                         + (voxel_pos.y as u64 * VOXEL_BRICK_SIZE as u64)
                         + voxel_pos.z as u64);
 
-                self.renderer.queue.write_buffer(
-                    &self.gpu_brick_buffer,
-                    std::mem::size_of::<VoxelBrick>() as u64 * brick_ptr.into_integer() as u64
-                        + voxel_offset_bytes,
-                    &v.as_bytes()
-                );
+                let mapped_ptr = self
+                    .gpu_brick_buffer
+                    .slice(..)
+                    .get_mapped_range_mut()
+                    .as_mut_ptr();
+
+                let voxel_bytes = &v.as_bytes();
+
+                unsafe {
+                    mapped_ptr
+                        .add(
+                            std::mem::size_of::<VoxelBrick>() * brick_ptr.into_integer() as usize
+                                + voxel_offset_bytes as usize
+                        )
+                        .copy_from_nonoverlapping(voxel_bytes.as_ptr(), voxel_bytes.len())
+                }
+
+                // self.renderer.queue.write_buffer(
+                //     &self.gpu_brick_buffer,
+                //     std::mem::size_of::<VoxelBrick>() as u64 *
+                // brick_ptr.into_integer() as u64
+                //         + voxel_offset_bytes,
+                //     &v.as_bytes()
+                // );
             }
             None =>
             {
@@ -141,11 +159,25 @@ impl VoxelChunkDataManager
                 *this_brick = Some(new_brick_ptr);
 
                 // update gpu side
-                self.renderer.queue.write_buffer(
-                    &self.gpu_brick_map,
-                    this_brick_byte_offset as u64,
-                    bytes_of(&new_brick_ptr)
-                );
+                let mapped_ptr = self
+                    .gpu_brick_map
+                    .slice(..)
+                    .get_mapped_range_mut()
+                    .as_mut_ptr();
+
+                let brick_ptr_bytes = bytes_of(&new_brick_ptr);
+
+                unsafe {
+                    mapped_ptr
+                        .add(this_brick_byte_offset.try_into().unwrap())
+                        .copy_from_nonoverlapping(brick_ptr_bytes.as_ptr(), brick_ptr_bytes.len())
+                }
+
+                // self.renderer.queue.write_buffer(
+                //     &self.gpu_brick_map,
+                //     this_brick_byte_offset as u64,
+                //     bytes_of(&new_brick_ptr)
+                // );
 
                 //
                 self.write_voxel(v, pos);
@@ -153,6 +185,12 @@ impl VoxelChunkDataManager
         }
 
         // update gpu side
+    }
+
+    pub fn stop_writes(&mut self)
+    {
+        self.gpu_brick_buffer.unmap();
+        self.gpu_brick_map.unmap();
     }
 }
 

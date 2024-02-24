@@ -102,7 +102,7 @@ fn fs_main(in: VertexOutput, @builtin(front_facing) is_front_face: bool) -> Frag
 
     var i: i32 = 0;
     for (; i < MAX_RAY_STEPS; i = i + 1) {
-        if (getVoxel(mapPos)) {
+        if (getVoxelStorage(mapPos)) {
             break;
         }
 
@@ -182,7 +182,7 @@ fn sdBox(p: vec3<f32>, b: vec3<f32>) -> f32 {
     return min(max(d.x, max(d.y, d.z)), 0.0) + length(max(d, vec3<f32>(0.0)));
 }
 
-fn getVoxel(c: vec3<i32>) -> bool
+fn getVoxelGen(c: vec3<i32>) -> bool
 {
     if (any(c == vec3<i32>(0)))
     {
@@ -197,6 +197,49 @@ fn getVoxel(c: vec3<i32>) -> bool
 	let p: vec3<f32> = vec3<f32>(c) + vec3<f32>(0.5);
 	let d: f32 = min(max(-sdSphere(p, 7.5), sdBox(p, vec3<f32>(6.0))), -sdSphere(p, 25.0));
 	return d < 0.0;
+}
+
+fn getVoxelStorage(c: vec3<i32>) -> bool
+{
+    if (any(c < vec3<i32>(0)) || any(c > vec3<i32>(1024)))
+    {
+        discard;
+    }
+
+    let brick_pos = c / vec3<i32>(8);
+    let voxel_pos = c % vec3<i32>(8);
+
+    let brick_ptr = brick_map[brick_pos.x][brick_pos.y][brick_pos.z];
+
+    if (brick_ptr == 0)
+    {
+        return false;
+    }
+
+    return true;
+
+
+    // return Brick_access(brick_ptr, vec3<u32>(voxel_pos)) != 0;
+}
+
+fn Brick_access(me: BrickPointer, pos: vec3<u32>) -> u32
+{
+    // if (EnableValidation && any(pos >= BrickSideVoxels))
+    // {
+    //     Error = true;
+    // }
+
+    let inital: u32 = (BrickEdgeLength * BrickEdgeLength * pos.x + BrickEdgeLength * pos.y + pos.z) / 2;
+    let last: u32 = pos.z % 2;
+
+    let val: u32 = brick_buffer[me].u16_brick_data[inital];
+
+    switch (last)
+    {
+        case 0u: { return extractBits(val, 0u, 16u);  }
+        case 1u: { return extractBits(val, 16u, 16u); }
+        default: { return 0u; }
+    }
 }
 
 

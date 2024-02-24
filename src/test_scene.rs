@@ -108,6 +108,22 @@ impl TestScene
             voxel_chunk
         });
 
+        {
+            let data_manager: &mut voxel::VoxelChunkDataManager =
+                &mut this.brick_map_chunk.access_data_manager().lock().unwrap();
+
+            for (x, y, z) in itertools::iproduct!(0..16, 0..16, 0..16)
+            {
+                if x % 3 == z || x == y || y == z
+                {
+                    data_manager
+                        .write_voxel(voxel::Voxel::Green, voxel::ChunkPosition::new(x, y, z));
+                }
+            }
+
+            data_manager.stop_writes();
+        }
+
         game.register(this.clone());
 
         this
