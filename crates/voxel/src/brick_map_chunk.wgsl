@@ -142,14 +142,14 @@ fn fs_main(in: VertexOutput, @builtin(front_facing) is_front_face: bool) -> Frag
 
     if (cube_contains_ray)
     {
-        strike_pos_world = r.origin;
+        strike_pos_world = global_info.camera_pos.xyz + r.direction * 0.001;
     }
     else
     {
         strike_pos_world = res.maybe_hit_point - 0.5 + in.local_to_world_offset_pos;
     }
 
-    
+
     let depth_intercalc = global_info.view_projection * vec4<f32>(strike_pos_world, 1.0);
     let maybe_depth = depth_intercalc.z / depth_intercalc.w;
 
