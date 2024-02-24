@@ -4,8 +4,9 @@ struct VertexInput {
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
+    @location(0) local_pos: vec3<f32>,
     @location(1) world_pos: vec3<f32>,
-    // @location(2) color: vec3<f32>
+    @location(2) camera_dir: vec3<f32>,
 }
 
 struct GlobalInfo
@@ -43,8 +44,12 @@ fn vs_main(input: VertexInput) -> VertexOutput
 
     out.clip_position = global_model_view_projection[id] * vec4<f32>(input.position, 1.0);
 
+    out.local_pos = input.position + vec3<f32>(512.0);
+
     let world_pos_intercalc = global_model[id] * vec4<f32>(input.position, 1.0);
     out.world_pos = world_pos_intercalc.xyz / world_pos_intercalc.w;
+
+    out.camera_dir = normalize(out.world_pos - global_info.camera_pos.xyz);
 
     return out;
 }
@@ -58,9 +63,10 @@ struct FragmentOutput
 @fragment
 fn fs_main(in: VertexOutput, @builtin(front_facing) front: bool) -> FragmentOutput
 {    
-    let rayDir: vec3<f32> = normalize(in.world_pos - global_info.camera_pos.xyz );
-    var rayPos: vec3<f32> =  in.world_pos + 0.5;
+    let rayDir: vec3<f32> = normalize(in.world_pos - global_info.camera_pos.xyz); //normalize(in.world_pos - global_info.camera_pos.xyz );
+    var rayPos: vec3<f32> =  in.local_pos + 0.5;
 
+    // TODO: convert to u32
     var mapPos: vec3<i32> = vec3<i32>(floor(rayPos + vec3<f32>(0.0)));
 
     let deltaDist: vec3<f32> = abs(vec3<f32>(length(rayDir)) / rayDir);
@@ -122,10 +128,10 @@ fn fs_main(in: VertexOutput, @builtin(front_facing) front: bool) -> FragmentOutp
         return out;
     }
 
-    out.color = vec4<f32>(1.0);
+    // out.color = vec4<f32>(1.0);
     out.depth = maybe_depth;
     
-    // out.color = vec4<f32>(in.world_pos.xyz / 8, 1.0); //  vec4<f32>(rand(in.world_pos.xy), rand(in.world_pos.yz), rand(in.world_pos.zx), 1.0);
+    // out.color = vec4<f32>(rayPos.xyz / 8, 1.0); //  vec4<f32>(rand(in.world_pos.xy), rand(in.world_pos.yz), rand(in.world_pos.zx), 1.0);
     return out;
 }
 
