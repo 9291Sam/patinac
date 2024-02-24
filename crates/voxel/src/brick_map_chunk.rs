@@ -12,20 +12,22 @@ use gfx::{
     CacheableRenderPipelineDescriptor
 };
 
+use crate::VoxelChunkDataManager;
+
+// TODO: turn voxel into a two posedtioned, one world and one local positin. do
+// the inter calcs
+
 #[derive(Debug)]
 pub struct BrickMapChunk
 {
     uuid: util::Uuid,
     name: String,
 
-    vertex_buffer:       wgpu::Buffer,
-    index_buffer:        wgpu::Buffer,
-    number_of_indices:   u32,
-    instance_buffer:     wgpu::Buffer,
-    number_of_instances: u32,
+    vertex_buffer: wgpu::Buffer,
+    index_buffer:  wgpu::Buffer,
 
-    voxel_chunk_data: VoxelChunkDataManager,
-
+    // voxel_chunk_data: Mutex<VoxelChunkDataManager>,
+    // voxel_bind_group: wgpu::BindGroup,
     pipeline: Arc<gfx::GenericPipeline>
 }
 
@@ -49,7 +51,7 @@ impl BrickMapChunk
 
         let shader = renderer
             .render_cache
-            .cache_shader_module(wgpu::include_wgsl!("voxel_shader.wgsl"));
+            .cache_shader_module(wgpu::include_wgsl!("brick_map_chunk.wgsl"));
 
         let pipeline_layout =
             renderer
@@ -64,26 +66,21 @@ impl BrickMapChunk
                 });
 
         let this = Arc::new(Self {
-            uuid:                uuid,
-            name:                "Voxel BrickMapChunk".into(),
-            vertex_buffer:       renderer.create_buffer_init(&BufferInitDescriptor {
+            uuid,
+            name: "Voxel BrickMapChunk".into(),
+            vertex_buffer: renderer.create_buffer_init(&BufferInitDescriptor {
                 label:    Some(&vertex_buffer_label),
                 contents: cast_slice(&CUBE_VERTICES),
                 usage:    wgpu::BufferUsages::VERTEX
             }),
-            index_buffer:        renderer.create_buffer_init(&BufferInitDescriptor {
+            index_buffer: renderer.create_buffer_init(&BufferInitDescriptor {
                 label:    Some(&index_buffer_label),
                 contents: cast_slice(&CUBE_INDICES),
                 usage:    wgpu::BufferUsages::INDEX
             }),
-            number_of_indices:   CUBE_INDICES.len() as u32,
-            instance_buffer:     renderer.create_buffer_init(&BufferInitDescriptor {
-                label:    Some(&instance_buffer_label),
-                contents: cast_slice(&models),
-                usage:    wgpu::BufferUsages::VERTEX
-            }),
-            number_of_instances: models.len() as u32,
-            pipeline:            game.get_renderer().render_cache.cache_render_pipeline(
+            // voxel_chunk_data:
+            // Mutex::new(VoxelChunkDataManager::new(game.get_renderer().clone())),
+            pipeline: game.get_renderer().render_cache.cache_render_pipeline(
                 CacheableRenderPipelineDescriptor {
                     label:                 "Voxel BrickMapChunk Pipeline".into(),
                     layout:                Some(pipeline_layout),
@@ -129,7 +126,7 @@ impl BrickMapChunk
     }
 }
 
-impl gfx::Recordable for Chunk
+impl gfx::Recordable for BrickMapChunk
 {
     fn get_name(&self) -> Cow<'_, str>
     {
@@ -164,7 +161,13 @@ impl gfx::Recordable for Chunk
         global_bind_group: &'s gfx::wgpu::BindGroup
     ) -> [Option<&'s gfx::wgpu::BindGroup>; 4]
     {
-        [Some(global_bind_group), None, None, None]
+        [
+            Some(global_bind_group),
+            // Some(&self.voxel_bind_group),
+            None,
+            None,
+            None
+        ]
     }
 
     fn record<'s>(&'s self, render_pass: &mut gfx::GenericPass<'s>, maybe_id: Option<gfx::DrawId>)
@@ -182,7 +185,7 @@ impl gfx::Recordable for Chunk
     }
 }
 
-impl game::EntityCastDepot for Chunk
+impl game::EntityCastDepot for BrickMapChunk
 {
     fn as_entity(&self) -> Option<&dyn Entity>
     {
@@ -200,7 +203,7 @@ impl game::EntityCastDepot for Chunk
     }
 }
 
-impl game::Entity for Chunk
+impl game::Entity for BrickMapChunk
 {
     fn get_name(&self) -> Cow<'_, str>
     {
@@ -268,28 +271,28 @@ fn describe_instance_layout() -> wgpu::VertexBufferLayout<'static>
 
 const CUBE_VERTICES: [Vertex; 8] = [
     Vertex {
-        position: glm::Vec3::new(-0.5, -0.5, -0.5)
+        position: glm::Vec3::new(-512.0, -512.0, -512.0)
     },
     Vertex {
-        position: glm::Vec3::new(-0.5, -0.5, 0.5)
+        position: glm::Vec3::new(-512.0, -512.0, 512.0)
     },
     Vertex {
-        position: glm::Vec3::new(-0.5, 0.5, -0.5)
+        position: glm::Vec3::new(-512.0, 512.0, -512.0)
     },
     Vertex {
-        position: glm::Vec3::new(-0.5, 0.5, 0.5)
+        position: glm::Vec3::new(-512.0, 512.0, 512.0)
     },
     Vertex {
-        position: glm::Vec3::new(0.5, -0.5, -0.5)
+        position: glm::Vec3::new(512.0, -512.0, -512.0)
     },
     Vertex {
-        position: glm::Vec3::new(0.5, -0.5, 0.5)
+        position: glm::Vec3::new(512.0, -512.0, 512.0)
     },
     Vertex {
-        position: glm::Vec3::new(0.5, 0.5, -0.5)
+        position: glm::Vec3::new(512.0, 512.0, -512.0)
     },
     Vertex {
-        position: glm::Vec3::new(0.5, 0.5, 0.5)
+        position: glm::Vec3::new(512.0, 512.0, 512.0)
     }
 ];
 

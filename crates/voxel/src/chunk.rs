@@ -47,7 +47,7 @@ impl Chunk
 
         let shader = renderer
             .render_cache
-            .cache_shader_module(wgpu::include_wgsl!("voxel_shader.wgsl"));
+            .cache_shader_module(wgpu::include_wgsl!("sphere_chunk.wgsl"));
 
         let pipeline_layout =
             renderer

@@ -23,7 +23,7 @@ impl Voxel
     }
 }
 
-struct VoxelBrick
+pub struct VoxelBrick
 {
     data: [[[Voxel; VOXEL_BRICK_SIZE]; VOXEL_BRICK_SIZE]; VOXEL_BRICK_SIZE]
 }
@@ -37,7 +37,8 @@ const VOXEL_BRICK_SIZE: usize = 8;
 const BRICK_MAP_EDGE_SIZE: usize = 128;
 const CHUNK_VOXEL_SIZE: usize = VOXEL_BRICK_SIZE * BRICK_MAP_EDGE_SIZE;
 
-struct VoxelChunkDataManager
+#[derive(Debug)]
+pub struct VoxelChunkDataManager
 {
     renderer: Arc<gfx::Renderer>,
 
