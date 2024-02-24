@@ -159,12 +159,13 @@ impl game::Entity for TestScene
             guard.rotation = quat.normalize();
         }
 
-        self.brick_map_chunk.get_position_mut(&|t| {
-            *t = glm::Vec3::new(
-                (507.0 + 2.0 * game.get_time_alive().add(std::f64::consts::PI / 4.0).cos() as f32),
-                (507.0 + 2.0 * game.get_time_alive().add(std::f64::consts::FRAC_PI_2).sin()) as f32,
-                (507.0 + -2.0 * game.get_time_alive().mul(2.0).cos()) as f32
-            );
-        });
+        // self.brick_map_chunk.get_position_mut(&|t| {
+        //     *t = glm::Vec3::new(
+        //         (507.0 + 2.0 * game.get_time_alive().add(std::f64::consts::PI
+        // / 4.0).cos() as f32),         (507.0 + 2.0 *
+        // game.get_time_alive().add(std::f64::consts::FRAC_PI_2).sin()) as f32,
+        //         (507.0 + -2.0 * game.get_time_alive().mul(2.0).cos()) as f32
+        //     );
+        // });
     }
 }

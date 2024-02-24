@@ -106,9 +106,6 @@ fn fs_main(in: VertexOutput, @builtin(front_facing) is_front_face: bool) -> Frag
             break;
         }
 
-
-        // TODO: if out of this bounds destroy
-
         mask = sideDist.xyz <= min(sideDist.yzx, sideDist.zxy);
         sideDist = sideDist + vec3<f32>(mask) * deltaDist;
         mapPos = mapPos + vec3<i32>(vec3<f32>(mask)) * rayStep;
@@ -133,22 +130,34 @@ fn fs_main(in: VertexOutput, @builtin(front_facing) is_front_face: bool) -> Frag
     
     let res = Cube_tryIntersect(c, r);
 
-    if (!res.intersection_occurred)
+    var strike_pos_world: vec3<f32>; 
+
+    let cube_contains_ray = Cube_contains(c, r.origin);
+
+    if (!res.intersection_occurred && !cube_contains_ray)
     {
         out.color = ERROR_COLOR;
         return out;
     }
 
-    let strike_pos_world: vec3<f32> = res.maybe_hit_point - 0.5 + in.local_to_world_offset_pos;
+    if (cube_contains_ray)
+    {
+        strike_pos_world = r.origin;
+    }
+    else
+    {
+        strike_pos_world = res.maybe_hit_point - 0.5 + in.local_to_world_offset_pos;
+    }
+
     
     let depth_intercalc = global_info.view_projection * vec4<f32>(strike_pos_world, 1.0);
     let maybe_depth = depth_intercalc.z / depth_intercalc.w;
 
-    if (maybe_depth > 1.0 || maybe_depth < 0.0)
-    {
-        out.color = ERROR_COLOR;
-        return out;
-    }
+    // if (maybe_depth > 1.0 || maybe_depth < 0.0)
+    // {
+    //     out.color = ERROR_COLOR;
+    //     return out;
+    // }
 
     out.depth = maybe_depth;
 
