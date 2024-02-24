@@ -104,7 +104,7 @@ impl TestScene
             brick_map_chunk: voxel::BrickMapChunk::new(
                 game,
                 gfx::Transform {
-                    translation: glm::Vec3::new(522.0, 522.0, 522.0),
+                    translation: glm::Vec3::new(507.0, 507.0, 507.0),
                     ..Default::default()
                 }
             ),

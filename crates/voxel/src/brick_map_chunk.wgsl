@@ -6,7 +6,6 @@ struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
     @location(0) local_pos: vec3<f32>,
     @location(1) world_pos: vec3<f32>,
-    @location(2) camera_dir: vec3<f32>,
 }
 
 struct GlobalInfo
@@ -48,8 +47,6 @@ fn vs_main(input: VertexInput) -> VertexOutput
 
     let world_pos_intercalc = global_model[id] * vec4<f32>(input.position, 1.0);
     out.world_pos = world_pos_intercalc.xyz / world_pos_intercalc.w;
-
-    out.camera_dir = normalize(out.world_pos - global_info.camera_pos.xyz);
 
     return out;
 }
@@ -117,19 +114,19 @@ fn fs_main(in: VertexOutput, @builtin(front_facing) front: bool) -> FragmentOutp
         return out;
     }
 
-    let strike_pos_world: vec3<f32> = res.maybe_hit_point - 0.5;
+    // let strike_pos_world: vec3<f32> = res.maybe_hit_point - 0.5;
     
-    let depth_intercalc = global_info.view_projection * vec4<f32>(strike_pos_world, 1.0);
-    let maybe_depth = depth_intercalc.z / depth_intercalc.w;
+    // let depth_intercalc = global_info.view_projection * vec4<f32>(strike_pos_world, 1.0);
+    // let maybe_depth = depth_intercalc.z / depth_intercalc.w;
 
-    if (maybe_depth > 1.0 || maybe_depth < 0.0)
-    {
-        out.color = ERROR_COLOR;
-        return out;
-    }
+    // if (maybe_depth > 1.0 || maybe_depth < 0.0)
+    // {
+    //     out.color = ERROR_COLOR;
+    //     return out;
+    // }
 
-    // out.color = vec4<f32>(1.0);
-    out.depth = maybe_depth;
+    // // out.color = vec4<f32>(1.0);
+    // out.depth = maybe_depth;
     
     // out.color = vec4<f32>(rayPos.xyz / 8, 1.0); //  vec4<f32>(rand(in.world_pos.xy), rand(in.world_pos.yz), rand(in.world_pos.zx), 1.0);
     return out;
