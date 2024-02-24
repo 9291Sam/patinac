@@ -31,7 +31,7 @@ pub struct BrickMapChunk
 
 impl BrickMapChunk
 {
-    pub fn new<'a>(game: &game::Game, transform: gfx::Transform) -> Arc<Self>
+    pub fn new(game: &game::Game, transform: gfx::Transform) -> Arc<Self>
     {
         let uuid = util::Uuid::new();
 
@@ -77,10 +77,7 @@ impl BrickMapChunk
                     layout:                Some(pipeline_layout),
                     vertex_module:         shader.clone(),
                     vertex_entry_point:    "vs_main".into(),
-                    vertex_buffer_layouts: vec![
-                        Vertex::describe_layout(),
-                        describe_instance_layout(),
-                    ],
+                    vertex_buffer_layouts: vec![Vertex::describe_layout()],
                     fragment_state:        Some(CacheableFragmentState {
                         module:      shader,
                         entry_point: "fs_main".into(),

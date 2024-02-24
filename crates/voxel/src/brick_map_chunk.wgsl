@@ -1,10 +1,5 @@
 struct VertexInput {
     @location(0) position: vec3<f32>,
-
-    @location(1) model_0: vec4<f32>,
-    @location(2) model_1: vec4<f32>,
-    @location(3) model_2: vec4<f32>,
-    @location(4) model_3: vec4<f32>,
 }
 
 struct VertexOutput {
@@ -25,10 +20,11 @@ alias BrickPointer = u32;
 
 const BrickEdgeLength: u32 = 8;
 const BrickMapEdgeLength: u32 = 128;
+const VoxelBricku32Length = (BrickMapEdgeLength * BrickMapEdgeLength * BrickMapEdgeLength / 2);
 
 struct Brick
 {
-    u16_brick_data: array<u16, BrickMapEdgeLength * BrickMapEdgeLength * BrickMapEdgeLength / 2>,
+    u16_brick_data: array<u32, VoxelBricku32Length>,
 }
 
 @group(0) @binding(0) var<uniform> global_info: GlobalInfo;
@@ -36,18 +32,18 @@ struct Brick
 @group(0) @binding(2) var<uniform> global_model: Matricies;
 
 @group(1) @binding(0) var<storage> brick_map: array<array<array<MaybeBrickPointer, BrickMapEdgeLength>, BrickMapEdgeLength>, BrickMapEdgeLength>;
-@group(1) @binding(1) var<storage> brick_buffer: array<Brick>
+@group(1) @binding(1) var<storage> brick_buffer: array<Brick>;
+
+var<push_constant> id: u32;
 
 @vertex
 fn vs_main(input: VertexInput) -> VertexOutput
 {
-    let model = mat4x4<f32>(input.model_0, input.model_1, input.model_2, input.model_3);
-
     var out: VertexOutput;
 
-    out.clip_position = global_info.view_projection * model * vec4<f32>(input.position, 1.0);
+    out.clip_position = global_model_view_projection[id] * vec4<f32>(input.position, 1.0);
 
-    let world_pos_intercalc = model * vec4<f32>(input.position, 1.0);
+    let world_pos_intercalc = global_model[id] * vec4<f32>(input.position, 1.0);
     out.world_pos = world_pos_intercalc.xyz / world_pos_intercalc.w;
 
     return out;
@@ -126,6 +122,7 @@ fn fs_main(in: VertexOutput, @builtin(front_facing) front: bool) -> FragmentOutp
         return out;
     }
 
+    out.color = vec4<f32>(1.0);
     out.depth = maybe_depth;
     
     // out.color = vec4<f32>(in.world_pos.xyz / 8, 1.0); //  vec4<f32>(rand(in.world_pos.xy), rand(in.world_pos.yz), rand(in.world_pos.zx), 1.0);

@@ -88,11 +88,11 @@ impl TestScene
         // {
         // if x.abs() == b || y.abs() == b || z.abs() == b
         // {
-        voxel_transforms.push(gfx::Transform {
-            translation: glm::Vec3::new(0.0, 0.0, 0.0),
-            scale: glm::Vec3::repeat(64.0),
-            ..Default::default()
-        });
+        // voxel_transforms.push(gfx::Transform {
+        //     translation: glm::Vec3::new(0.0, 0.0, 0.0),
+        //     scale: glm::Vec3::repeat(64.0),
+        //     ..Default::default()
+        // });
         // }
         // }
 
