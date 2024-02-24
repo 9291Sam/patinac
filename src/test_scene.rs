@@ -9,10 +9,11 @@ use crate::recordables::lit_textured::LitTextured;
 #[derive(Debug)]
 pub struct TestScene
 {
-    _objs:       Vec<Arc<dyn gfx::Recordable>>,
-    rotate_objs: Vec<Arc<LitTextured>>,
-    voxel_chunk: Arc<dyn game::Entity>,
-    id:          util::Uuid
+    _objs:           Vec<Arc<dyn gfx::Recordable>>,
+    rotate_objs:     Vec<Arc<LitTextured>>,
+    voxel_chunk:     Arc<dyn game::Entity>,
+    brick_map_chunk: Arc<voxel::BrickMapChunk>,
+    id:              util::Uuid
 }
 
 impl TestScene
@@ -100,6 +101,13 @@ impl TestScene
         let this = Arc::new(TestScene {
             _objs: objs,
             rotate_objs,
+            brick_map_chunk: voxel::BrickMapChunk::new(
+                game,
+                gfx::Transform {
+                    translation: glm::Vec3::new(512.0, 512.0, 512.0),
+                    ..Default::default()
+                }
+            ),
             id: util::Uuid::new(),
             voxel_chunk
         });

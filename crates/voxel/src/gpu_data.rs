@@ -1,7 +1,7 @@
 use std::num::NonZeroU32;
 use std::sync::Arc;
 
-use bytemuck::bytes_of;
+use bytemuck::{bytes_of, Contiguous};
 use gfx::glm;
 use gfx::wgpu::{self};
 
@@ -37,7 +37,7 @@ const VOXEL_BRICK_SIZE: usize = 8;
 const BRICK_MAP_EDGE_SIZE: usize = 128;
 const CHUNK_VOXEL_SIZE: usize = VOXEL_BRICK_SIZE * BRICK_MAP_EDGE_SIZE;
 
-struct VoxelChunkDataManager
+pub(crate) struct VoxelChunkDataManager
 {
     renderer: Arc<gfx::Renderer>,
 
@@ -49,7 +49,7 @@ struct VoxelChunkDataManager
     brick_allocator:  util::FreelistAllocator
 }
 
-type ChunkPosition = glm::U16Vec3;
+pub type ChunkPosition = glm::U16Vec3;
 
 impl VoxelChunkDataManager
 {
@@ -118,14 +118,15 @@ impl VoxelChunkDataManager
         {
             Some(brick_ptr) =>
             {
-                let voxel_offset_bytes: wgpu::BufferAddress = std::mem::size_of::<Voxel> as u64
+                let voxel_offset_bytes: wgpu::BufferAddress = std::mem::size_of::<Voxel>() as u64
                     * ((voxel_pos.x as u64 * VOXEL_BRICK_SIZE as u64 * VOXEL_BRICK_SIZE as u64)
                         + (voxel_pos.y as u64 * VOXEL_BRICK_SIZE as u64)
                         + voxel_pos.z as u64);
 
                 self.renderer.queue.write_buffer(
                     &self.gpu_brick_buffer,
-                    voxel_offset_bytes,
+                    std::mem::size_of::<VoxelBrick>() as u64 * brick_ptr.into_integer() as u64
+                        + voxel_offset_bytes,
                     &v.as_bytes()
                 );
             }
