@@ -132,7 +132,7 @@ fn fs_main(in: VertexOutput, @builtin(front_facing) is_front_face: bool) -> Frag
 
     var strike_pos_world: vec3<f32>; 
 
-    let cube_contains_ray = Cube_contains(c, r.origin);
+    let cube_contains_ray = Cube_contains(c, camera_pos_local + 0.5);
 
     if (!res.intersection_occurred && !cube_contains_ray)
     {
@@ -140,6 +140,7 @@ fn fs_main(in: VertexOutput, @builtin(front_facing) is_front_face: bool) -> Frag
         return out;
     }
 
+    // TODO: fix this shit
     if (cube_contains_ray)
     {
         strike_pos_world = global_info.camera_pos.xyz + r.direction * 0.001;
@@ -206,15 +207,15 @@ fn getVoxelStorage(c: vec3<i32>) -> bool
         discard;
     }
 
-    let brick_pos = c / vec3<i32>(8);
-    let voxel_pos = c % vec3<i32>(8);
+    // let brick_pos = c / vec3<i32>(8);
+    // let voxel_pos = c % vec3<i32>(8);
 
-    let brick_ptr = brick_map[brick_pos.x][brick_pos.y][brick_pos.z];
+    // let brick_ptr = brick_map[brick_pos.x][brick_pos.y][brick_pos.z];
 
-    if (brick_ptr == 0)
-    {
-        return false;
-    }
+    // if (brick_ptr == 0)
+    // {
+    //     return false;
+    // }
 
     return true;
 
@@ -224,22 +225,25 @@ fn getVoxelStorage(c: vec3<i32>) -> bool
 
 fn Brick_access(me: BrickPointer, pos: vec3<u32>) -> u32
 {
+    return 1u;
     // if (EnableValidation && any(pos >= BrickSideVoxels))
     // {
     //     Error = true;
     // }
 
-    let inital: u32 = (BrickEdgeLength * BrickEdgeLength * pos.x + BrickEdgeLength * pos.y + pos.z) / 2;
-    let last: u32 = pos.z % 2;
+    // let inital: u32 = BrickEdgeLength * BrickEdgeLength * pos.x + BrickEdgeLength * pos.y + pos.z / 2;
+    // // let last: u32 = pos.z % 2;
 
-    let val: u32 = brick_buffer[me].u16_brick_data[inital];
+    // let val: u32 = brick_buffer[me].u16_brick_data[inital];
 
-    switch (last)
-    {
-        case 0u: { return extractBits(val, 0u, 16u);  }
-        case 1u: { return extractBits(val, 16u, 16u); }
-        default: { return 0u; }
-    }
+    // return val;
+
+    // switch (last)
+    // {
+    //     case 0u: { return extractBits(val, 0u, 16u);  }
+    //     case 1u: { return extractBits(val, 16u, 16u); }
+    //     default: { return 0u; }
+    // }
 }
 
 

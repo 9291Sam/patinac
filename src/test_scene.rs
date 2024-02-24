@@ -103,7 +103,7 @@ impl TestScene
         let this = Arc::new(TestScene {
             _objs: objs,
             rotate_objs,
-            brick_map_chunk: voxel::BrickMapChunk::new(game, glm::Vec3::new(507.0, 507.0, 507.0)),
+            brick_map_chunk: voxel::BrickMapChunk::new(game, glm::Vec3::new(512.0, 512.0, 512.0)),
             id: util::Uuid::new(),
             voxel_chunk
         });
