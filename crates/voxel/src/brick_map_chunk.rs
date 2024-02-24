@@ -253,36 +253,6 @@ impl Vertex
     }
 }
 
-fn describe_instance_layout() -> wgpu::VertexBufferLayout<'static>
-{
-    wgpu::VertexBufferLayout {
-        array_stride: std::mem::size_of::<glm::Mat4>() as wgpu::BufferAddress,
-        step_mode:    wgpu::VertexStepMode::Instance,
-        attributes:   &[
-            wgpu::VertexAttribute {
-                offset:          0,
-                shader_location: 1,
-                format:          wgpu::VertexFormat::Float32x4
-            },
-            wgpu::VertexAttribute {
-                offset:          std::mem::size_of::<[f32; 4]>() as wgpu::BufferAddress,
-                shader_location: 2,
-                format:          wgpu::VertexFormat::Float32x4
-            },
-            wgpu::VertexAttribute {
-                offset:          std::mem::size_of::<[f32; 8]>() as wgpu::BufferAddress,
-                shader_location: 3,
-                format:          wgpu::VertexFormat::Float32x4
-            },
-            wgpu::VertexAttribute {
-                offset:          std::mem::size_of::<[f32; 12]>() as wgpu::BufferAddress,
-                shader_location: 4,
-                format:          wgpu::VertexFormat::Float32x4
-            }
-        ]
-    }
-}
-
 const CUBE_VERTICES: [Vertex; 8] = [
     Vertex {
         position: glm::Vec3::new(-512.0, -512.0, -512.0)
