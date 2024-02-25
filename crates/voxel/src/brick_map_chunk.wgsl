@@ -168,7 +168,7 @@ fn fs_main(in: VertexOutput, @builtin(front_facing) is_front_face: bool) -> Frag
 
 // Constants
 const USE_BRANCHLESS_DDA : bool = true;
-const MAX_RAY_STEPS : i32 = 384;
+const MAX_RAY_STEPS : i32 = 768 * 2;
 const ERROR_COLOR: vec4<f32> = vec4<f32>(1.0, 0.0, 1.0, 1.0);
 
 // Sphere distance function

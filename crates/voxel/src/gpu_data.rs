@@ -66,7 +66,7 @@ impl VoxelChunkDataManager
 {
     pub fn new(renderer: Arc<gfx::Renderer>) -> Self
     {
-        let number_of_starting_bricks = BRICK_MAP_EDGE_SIZE * BRICK_MAP_EDGE_SIZE;
+        let number_of_starting_bricks = BRICK_MAP_EDGE_SIZE * BRICK_MAP_EDGE_SIZE * 8;
 
         let r = renderer.clone();
 

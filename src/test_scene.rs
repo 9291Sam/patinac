@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use game::{Positionable, Transformable};
 use gfx::glm;
+use noise::NoiseFn;
 
 use crate::recordables::flat_textured::FlatTextured;
 use crate::recordables::lit_textured::LitTextured;
@@ -112,16 +113,19 @@ impl TestScene
             let data_manager: &mut voxel::VoxelChunkDataManager =
                 &mut this.brick_map_chunk.access_data_manager().lock().unwrap();
 
-            for (x, y, z) in itertools::iproduct!(0..128u16, 0..128u16, 0..128u16)
+            let perlin = noise::Perlin::new(1347234789);
+
+            let noise_func = |x: u16, z: u16| -> u16 {
+                let value = perlin.get([x as f64 / 128.0, 0.0, z as f64 / 128.0]) * 48.0 + 32.9;
+                (value as u16).clamp(0, 1024)
+            };
+
+            for (x, z) in itertools::iproduct!(0..1024u16, 0..1024u16)
             {
-                if x % 3 == z
-                    || x == y
-                    || y == z
-                    || util::Uuid::new().to_integer().0 % 15 == (7 as u64) % 8u64
-                {
-                    data_manager
-                        .write_voxel(voxel::Voxel::Green, voxel::ChunkPosition::new(x, y, z));
-                }
+                data_manager.write_voxel(
+                    voxel::Voxel::Green,
+                    voxel::ChunkPosition::new(x, noise_func(x, z), z)
+                );
             }
 
             data_manager.stop_writes();

@@ -19,6 +19,7 @@ image = { version = "0.24", default-features = false, features = [
 ] }
 tobj = "4.0.1"
 itertools = "0.12.1"
+noise = "0.8.2"
 
 [profile.dev]
 opt-level = 2
