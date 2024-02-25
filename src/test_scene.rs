@@ -112,12 +112,16 @@ impl TestScene
             let data_manager: &mut voxel::VoxelChunkDataManager =
                 &mut this.brick_map_chunk.access_data_manager().lock().unwrap();
 
-            for (x, y, z) in itertools::iproduct!(0..16, 0..16, 0..16)
+            for (x, y, z) in itertools::iproduct!(0..128u16, 0..128u16, 0..128u16)
             {
-                // if x % 3 == z || x == y || y == z
-                // {
-                data_manager.write_voxel(voxel::Voxel::Green, voxel::ChunkPosition::new(x, y, z));
-                // }
+                if x % 3 == z
+                    || x == y
+                    || y == z
+                    || util::Uuid::new().to_integer().0 % 15 == (7 as u64) % 8u64
+                {
+                    data_manager
+                        .write_voxel(voxel::Voxel::Green, voxel::ChunkPosition::new(x, y, z));
+                }
             }
 
             data_manager.stop_writes();

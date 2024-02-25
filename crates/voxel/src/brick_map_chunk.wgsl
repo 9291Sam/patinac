@@ -25,7 +25,7 @@ const VoxelBricku32Length = (BrickMapEdgeLength * BrickMapEdgeLength * BrickMapE
 
 struct Brick
 {
-    u16_brick_data: array<array<array<u32, 64>, 128>, 128>,
+    u16_brick_data: array<array<array<u32, 4>, 8>, 8>,
 }
 
 @group(0) @binding(0) var<uniform> global_info: GlobalInfo;
@@ -168,7 +168,7 @@ fn fs_main(in: VertexOutput, @builtin(front_facing) is_front_face: bool) -> Frag
 
 // Constants
 const USE_BRANCHLESS_DDA : bool = true;
-const MAX_RAY_STEPS : i32 = 128;
+const MAX_RAY_STEPS : i32 = 384;
 const ERROR_COLOR: vec4<f32> = vec4<f32>(1.0, 0.0, 1.0, 1.0);
 
 // Sphere distance function
@@ -217,26 +217,25 @@ fn getVoxelStorage(c: vec3<i32>) -> bool
         return false;
     }
 
-    return true;
+    // return true;
 
 
-    // return Brick_access(brick_ptr, vec3<u32>(voxel_pos)) != 0;
+    return Brick_access(brick_ptr, vec3<u32>(voxel_pos)) != 0;
 }
 
 fn Brick_access(me: BrickPointer, pos: vec3<u32>) -> u32
 {
     // return select(0u, 1u, pos.x == pos.y);
-    // let last: u32 = pos.z % 2;
+    let last: u32 = pos.z % 2;
 
     let val: u32 = brick_buffer[me].u16_brick_data[pos.x][pos.y][pos.z / 2];
 
-    return val;
-    // switch (last)
-    // {
-    //     case 0u: { return extractBits(val, 0u, 16u);  }
-    //     case 1u: { return extractBits(val, 16u, 16u); }
-    //     default: { return 0u; }
-    // }
+    switch (last)
+    {
+        case 0u: { return extractBits(val, 0u, 16u);  }
+        case 1u: { return extractBits(val, 16u, 16u); }
+        default: { return 0u; }
+    }
 }
 
 

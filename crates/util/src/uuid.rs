@@ -28,6 +28,11 @@ impl Uuid
             time_stamp: seahash::hash(bytes_of(&raw_time_stamp))
         }
     }
+
+    pub fn to_integer(&self) -> (u64, u64)
+    {
+        (self.data, self.time_stamp)
+    }
 }
 
 impl Display for Uuid
