@@ -25,7 +25,7 @@ const VoxelBricku32Length = (BrickMapEdgeLength * BrickMapEdgeLength * BrickMapE
 
 struct Brick
 {
-    u16_brick_data: array<u32, VoxelBricku32Length>,
+    u16_brick_data: array<array<array<u32, 64>, 128>, 128>,
 }
 
 @group(0) @binding(0) var<uniform> global_info: GlobalInfo;
@@ -225,8 +225,18 @@ fn getVoxelStorage(c: vec3<i32>) -> bool
 
 fn Brick_access(me: BrickPointer, pos: vec3<u32>) -> u32
 {
-    // TODO: rewrite this and the cpu side!
-    return 1u;
+    // return select(0u, 1u, pos.x == pos.y);
+    // let last: u32 = pos.z % 2;
+
+    let val: u32 = brick_buffer[me].u16_brick_data[pos.x][pos.y][pos.z / 2];
+
+    return val;
+    // switch (last)
+    // {
+    //     case 0u: { return extractBits(val, 0u, 16u);  }
+    //     case 1u: { return extractBits(val, 16u, 16u); }
+    //     default: { return 0u; }
+    // }
 }
 
 

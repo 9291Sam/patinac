@@ -28,6 +28,16 @@ pub struct VoxelBrick
     data: [[[Voxel; VOXEL_BRICK_SIZE]; VOXEL_BRICK_SIZE]; VOXEL_BRICK_SIZE]
 }
 
+impl VoxelBrick
+{
+    pub fn write(
+        &mut self
+    ) -> &mut [[[Voxel; VOXEL_BRICK_SIZE]; VOXEL_BRICK_SIZE]; VOXEL_BRICK_SIZE]
+    {
+        &mut self.data
+    }
+}
+
 type BrickPointer = NonZeroU32;
 
 pub(crate) type BrickMap =
@@ -119,27 +129,21 @@ impl VoxelChunkDataManager
         {
             Some(brick_ptr) =>
             {
-                let voxel_offset_bytes: wgpu::BufferAddress = std::mem::size_of::<Voxel>() as u64
-                    * ((voxel_pos.x as u64 * VOXEL_BRICK_SIZE as u64 * VOXEL_BRICK_SIZE as u64)
-                        + (voxel_pos.y as u64 * VOXEL_BRICK_SIZE as u64)
-                        + voxel_pos.z as u64);
+                let mapped_ptr = unsafe {
+                    (self
+                        .gpu_brick_buffer
+                        .slice(..)
+                        .get_mapped_range_mut()
+                        .as_mut_ptr() as *mut VoxelBrick)
+                        .add(brick_ptr.into_integer() as usize)
+                };
 
-                let mapped_ptr = self
-                    .gpu_brick_buffer
-                    .slice(..)
-                    .get_mapped_range_mut()
-                    .as_mut_ptr();
+                VoxelBrick::write(unsafe { &mut *mapped_ptr })[voxel_pos.x as usize]
+                    [voxel_pos.y as usize][voxel_pos.z as usize] = Voxel::Blue;
 
-                let voxel_bytes = &v.as_bytes();
+                // let voxel_bytes = &v.as_bytes();
 
-                unsafe {
-                    mapped_ptr
-                        .add(
-                            std::mem::size_of::<VoxelBrick>() * brick_ptr.into_integer() as usize
-                                + voxel_offset_bytes as usize
-                        )
-                        .copy_from_nonoverlapping(voxel_bytes.as_ptr(), voxel_bytes.len())
-                }
+                // unsafe { (*mapped_ptr) }.data
 
                 // self.renderer.queue.write_buffer(
                 //     &self.gpu_brick_buffer,
