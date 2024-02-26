@@ -121,7 +121,7 @@ impl TestScene
                     + 32.9;
                 (value as u16).clamp(0, 1024)
             };
-            let b: u16 = 16;
+            let b: u16 = 1023;
 
             for (x, y, z) in itertools::iproduct!(0..b, 0..b, 0..b)
             {
