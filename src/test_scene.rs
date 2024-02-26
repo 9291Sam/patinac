@@ -121,14 +121,16 @@ impl TestScene
                     + 32.9;
                 (value as u16).clamp(0, 1024)
             };
-            let b: u16 = 1023;
+            let b: u16 = 1024;
 
-            for (x, y, z) in itertools::iproduct!(0..b, 0..b, 0..b)
+            for l in 0..10
             {
-                if x == 0 || y == 0 || z == 0
+                for (x, z) in itertools::iproduct!(0..b, 0..b)
                 {
-                    data_manager
-                        .write_voxel(voxel::Voxel::Green, voxel::ChunkPosition::new(x, y, z));
+                    data_manager.write_voxel(
+                        voxel::Voxel::Green,
+                        voxel::ChunkPosition::new(x, noise_func(x, z, l) + (l * 96), z)
+                    );
                 }
             }
 

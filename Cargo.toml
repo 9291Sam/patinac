@@ -22,7 +22,7 @@ itertools = "0.12.1"
 noise = "0.8.2"
 
 [profile.dev]
-opt-level = 2
+opt-level = 3
 
 [profile.deploy]
 inherits = "release"
