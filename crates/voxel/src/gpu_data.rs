@@ -66,7 +66,7 @@ impl VoxelChunkDataManager
 {
     pub fn new(renderer: Arc<gfx::Renderer>) -> Self
     {
-        let number_of_starting_bricks = BRICK_MAP_EDGE_SIZE * BRICK_MAP_EDGE_SIZE * 8;
+        let number_of_starting_bricks = BRICK_MAP_EDGE_SIZE * BRICK_MAP_EDGE_SIZE * 64;
 
         let r = renderer.clone();
 
@@ -94,14 +94,14 @@ impl VoxelChunkDataManager
                 mapped_at_creation: true
             }),
             brick_allocator: util::FreelistAllocator::new(
-                number_of_starting_bricks.try_into().unwrap()
+                (number_of_starting_bricks - 2).try_into().unwrap()
             )
         }
     }
 
     pub fn write_voxel(&mut self, v: Voxel, pos: ChunkPosition)
     {
-        let voxel_bound = BRICK_MAP_EDGE_SIZE * VOXEL_BRICK_SIZE * 2;
+        let voxel_bound = BRICK_MAP_EDGE_SIZE * VOXEL_BRICK_SIZE;
 
         assert!((pos.x as usize) < voxel_bound);
         assert!((pos.y as usize) < voxel_bound);

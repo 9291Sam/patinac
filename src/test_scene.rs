@@ -115,17 +115,22 @@ impl TestScene
 
             let perlin = noise::Perlin::new(1347234789);
 
-            let noise_func = |x: u16, z: u16| -> u16 {
-                let value = perlin.get([x as f64 / 128.0, 0.0, z as f64 / 128.0]) * 48.0 + 32.9;
+            let noise_func = |x: u16, z: u16, layer: u16| -> u16 {
+                let value = perlin.get([x as f64 / 64.0, layer as f64 / 32.0, z as f64 / 64.0])
+                    * 48.0
+                    + 32.9;
                 (value as u16).clamp(0, 1024)
             };
 
-            for (x, z) in itertools::iproduct!(0..1024u16, 0..1024u16)
+            for l in 0..10
             {
-                data_manager.write_voxel(
-                    voxel::Voxel::Green,
-                    voxel::ChunkPosition::new(x, noise_func(x, z), z)
-                );
+                for (x, z) in itertools::iproduct!(0..1024u16, 0..1024u16)
+                {
+                    data_manager.write_voxel(
+                        voxel::Voxel::Green,
+                        voxel::ChunkPosition::new(x, noise_func(x, z, l) + (l * 96), z)
+                    );
+                }
             }
 
             data_manager.stop_writes();

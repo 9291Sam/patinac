@@ -252,8 +252,9 @@ fn triple32(i_x: u32) -> u32
     return x;
 }
 
-fn rand(co: vec2<f32>) -> f32 {
-    return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453);
+fn rand(co: vec2<f32>) -> f32
+{   
+    return fract(sin(dot(co / (2.71 * log(length(co))), vec2(12.9898, 78.233))) * 43758.5453);
 }
 
 fn get_spherical_coords(point: vec3<f32>) -> vec3<f32>
