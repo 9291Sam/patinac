@@ -202,7 +202,7 @@ fn getVoxelGen(c: vec3<i32>) -> bool
 
 fn getVoxelStorage(c: vec3<i32>) -> bool
 {
-    if (any(c < vec3<i32>(0)) || any(c > vec3<i32>(1024)))
+    if (any(c < vec3<i32>(0)) || any(c >= vec3<i32>(1024)))
     {
         discard;
     }
