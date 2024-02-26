@@ -311,28 +311,28 @@ impl Vertex
 
 const CUBE_VERTICES: [Vertex; 8] = [
     Vertex {
-        position: glm::Vec3::new(-512.0, -512.0, -512.0)
+        position: glm::Vec3::new(-512.5, -512.5, -512.5)
     },
     Vertex {
-        position: glm::Vec3::new(-512.0, -512.0, 512.0)
+        position: glm::Vec3::new(-512.5, -512.5, 511.5)
     },
     Vertex {
-        position: glm::Vec3::new(-512.0, 512.0, -512.0)
+        position: glm::Vec3::new(-512.5, 511.5, -512.5)
     },
     Vertex {
-        position: glm::Vec3::new(-512.0, 512.0, 512.0)
+        position: glm::Vec3::new(-512.5, 511.5, 511.5)
     },
     Vertex {
-        position: glm::Vec3::new(512.0, -512.0, -512.0)
+        position: glm::Vec3::new(511.5, -512.5, -512.5)
     },
     Vertex {
-        position: glm::Vec3::new(512.0, -512.0, 512.0)
+        position: glm::Vec3::new(511.5, -512.5, 511.5)
     },
     Vertex {
-        position: glm::Vec3::new(512.0, 512.0, -512.0)
+        position: glm::Vec3::new(511.5, 511.5, -512.5)
     },
     Vertex {
-        position: glm::Vec3::new(512.0, 512.0, 512.0)
+        position: glm::Vec3::new(511.5, 511.5, 511.5)
     }
 ];
 

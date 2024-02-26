@@ -204,6 +204,11 @@ fn getVoxelStorage(c: vec3<i32>) -> bool
 {
     if (any(c < vec3<i32>(0)) || any(c >= vec3<i32>(1024)))
     {
+        return false;
+    }
+
+    if (any(c < vec3<i32>(-1)) || any(c >= vec3<i32>(1025)))
+    {
         discard;
     }
 
