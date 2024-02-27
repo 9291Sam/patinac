@@ -1,15 +1,17 @@
-make your own linear algebra lib
+Brick traversal
 
-use a nested lot of deques for allocating all of the bricks t
+World gen
 
-modify render cache so that Renderables can be created and implemented outside of the gfx crate
+Make a UI
 
-write a proper crash handler.
-    Spawn all threads yourself, set panic hooks on them and make it generate proper crash hooks
+Make a spell
 
-what if you just completely ditch the idea of chunks at all and just have CPU allocated bricks?
-on the cpu side you can just use some fancy 3d hash table and store brick positions
+buffer streaming system
 
-TODO: remove render_cache and just put the cache directly inside the renderer
 
-Inside chunk camera rendering
+
+
+Misc:
+    - Custom Linear Algebra library?
+    - A proper crash handler?
+    - Put cache directly in renderer
