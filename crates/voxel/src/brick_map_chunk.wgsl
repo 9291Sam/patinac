@@ -202,15 +202,20 @@ fn getVoxelGen(c: vec3<i32>) -> bool
 
 fn getVoxelStorage(c: vec3<i32>) -> bool
 {
+    // because of inaccuracy reasons, asking for a position one outside of the
+    // chunk isn't an immediate discard. This only occurs when youre outisde of
+    // the chunk looking in. 
+    if (any(c < vec3<i32>(-1)) || any(c >= vec3<i32>(1025)))
+    {
+        discard;
+    }
+    
     if (any(c < vec3<i32>(0)) || any(c >= vec3<i32>(1024)))
     {
         return false;
     }
 
-    if (any(c < vec3<i32>(-1)) || any(c >= vec3<i32>(1025)))
-    {
-        discard;
-    }
+    
 
     let brick_pos = c / vec3<i32>(8);
     let voxel_pos = c % vec3<i32>(8);

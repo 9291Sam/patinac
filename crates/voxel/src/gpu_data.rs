@@ -103,9 +103,12 @@ impl VoxelChunkDataManager
     {
         let voxel_bound = BRICK_MAP_EDGE_SIZE * VOXEL_BRICK_SIZE;
 
-        assert!((pos.x as usize) < voxel_bound);
-        assert!((pos.y as usize) < voxel_bound);
-        assert!((pos.z as usize) < voxel_bound);
+        if ((pos.x as usize) >= voxel_bound)
+            || ((pos.y as usize) >= voxel_bound)
+            || ((pos.z as usize) >= voxel_bound)
+        {
+            panic!("Out of bounds write on chunk {}", pos);
+        }
 
         let voxel_pos = glm::U16Vec3::new(
             pos.x % VOXEL_BRICK_SIZE as u16,
