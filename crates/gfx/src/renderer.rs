@@ -686,12 +686,13 @@ impl Renderer
                     1.0
                 };
             let rotate_scale = 10.0;
+
             if input_helper.key_held(KeyCode::KeyK)
             {
                 log::info!(
-                    "position: {:?} | frametime: {} | FPS: {}",
+                    "Camera Position: {:?} | Frame Time (ms): {:.03} | FPS: {:.03}",
                     camera.borrow().get_position(),
-                    self.get_delta_time(),
+                    self.get_delta_time() * 1000.0,
                     1.0 / self.get_delta_time()
                 );
             }

@@ -21,7 +21,6 @@ alias BrickPointer = u32;
 
 const BrickEdgeLength: u32 = 8;
 const BrickMapEdgeLength: u32 = 128;
-const VoxelBricku32Length = (BrickMapEdgeLength * BrickMapEdgeLength * BrickMapEdgeLength / 2);
 
 struct Brick
 {
@@ -64,13 +63,12 @@ struct FragmentOutput
 @fragment
 fn fs_main(in: VertexOutput, @builtin(front_facing) is_front_face: bool) -> FragmentOutput
 {    
-    let rayDir: vec3<f32> = normalize(in.world_pos - global_info.camera_pos.xyz); //normalize(in.world_pos - global_info.camera_pos.xyz );
-    
-    var rayPos: vec3<f32>;
+    var ray: Ray;
+    ray.direction = normalize(in.world_pos - global_info.camera_pos.xyz);
 
     let camera_pos_local: vec3<f32> = global_info.camera_pos.xyz - in.local_to_world_offset_pos;
 
-    let camera_in_chunk: bool = all(camera_pos_local > vec3<f32>(0.0)) && all(camera_pos_local < vec3<f32>(1024.0));
+    let camera_in_chunk: bool = all(camera_pos_local > vec3<f32>(-0.5)) && all(camera_pos_local < vec3<f32>(1024.0));
 
     if ((camera_in_chunk && is_front_face) || (!camera_in_chunk && !is_front_face))
     {
@@ -79,24 +77,21 @@ fn fs_main(in: VertexOutput, @builtin(front_facing) is_front_face: bool) -> Frag
 
     if camera_in_chunk
     {
-        rayPos = camera_pos_local + 0.5;
+        ray.origin = camera_pos_local + 0.5;
     }
     else
     {
-        rayPos = in.local_pos + 0.5;
+        ray.origin = in.local_pos + 0.5;
     }
 
-    
+    var mapPos: vec3<i32> = vec3<i32>(floor(ray.origin + vec3<f32>(0.0)));
 
-    // TODO: convert to u32
-    var mapPos: vec3<i32> = vec3<i32>(floor(rayPos + vec3<f32>(0.0)));
+    let deltaDist: vec3<f32> = abs(vec3<f32>(length(ray.direction)) / ray.direction);
 
-    let deltaDist: vec3<f32> = abs(vec3<f32>(length(rayDir)) / rayDir);
-
-    let rayStep: vec3<i32> = vec3<i32>(sign(rayDir));
+    let rayStep: vec3<i32> = vec3<i32>(sign(ray.direction));
 
     var sideDist: vec3<f32> =
-        (sign(rayDir) * (vec3<f32>(mapPos) - rayPos) + (sign(rayDir) * 0.5) + 0.5) * deltaDist;
+        (sign(ray.direction) * (vec3<f32>(mapPos) - ray.origin) + (sign(ray.direction) * 0.5) + 0.5) * deltaDist;
 
     var mask: vec3<bool> = vec3<bool>(false, false, false);
 
@@ -123,12 +118,8 @@ fn fs_main(in: VertexOutput, @builtin(front_facing) is_front_face: bool) -> Frag
     var c: Cube;
     c.center = vec3<f32>(mapPos) + 0.5;
     c.edge_length = 1.0;
-
-    var r: Ray;
-    r.origin = rayPos;
-    r.direction = rayDir;
     
-    let res = Cube_tryIntersect(c, r);
+    let res = Cube_tryIntersect(c, ray);
 
     var strike_pos_world: vec3<f32>; 
 
@@ -143,7 +134,7 @@ fn fs_main(in: VertexOutput, @builtin(front_facing) is_front_face: bool) -> Frag
     // TODO: fix this shit
     if (cube_contains_ray)
     {
-        strike_pos_world = global_info.camera_pos.xyz + r.direction * 0.001;
+        strike_pos_world = global_info.camera_pos.xyz + ray.direction * 0.001;
     }
     else
     {
