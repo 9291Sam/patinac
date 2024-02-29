@@ -23,7 +23,7 @@ use winit::platform::run_on_demand::EventLoopExtRunOnDemand;
 use winit::window::{CursorGrabMode, Window, WindowBuilder};
 use winit_input_helper::WinitInputHelper;
 
-use crate::recordables::{DrawId, PassStage, RecordInfo, Recordable};
+use crate::recordables::{PassStage, RecordInfo, Recordable};
 use crate::render_cache::{GenericPass, RenderCache};
 use crate::{Camera, GenericPipeline, Transform};
 
@@ -432,10 +432,9 @@ impl Renderer
                 .texture
                 .create_view(&wgpu::TextureViewDescriptor::default());
 
-            let mut renderables_map: HashMap<
-                PassStage,
-                Vec<(Arc<dyn Recordable>, Option<DrawId>)>
-            > = PassStage::iter().map(|s| (s, Vec::new())).collect();
+            let mut renderables_map = PassStage::iter()
+                .map(|s| (s, Vec::new()))
+                .collect::<HashMap<PassStage, _>>();
 
             let mut shader_mvps = ShaderMatrices {
                 ..Default::default()

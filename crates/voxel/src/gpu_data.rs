@@ -142,7 +142,7 @@ impl VoxelChunkDataManager
                 };
 
                 VoxelBrick::write(unsafe { &mut *mapped_ptr })[voxel_pos.x as usize]
-                    [voxel_pos.y as usize][voxel_pos.z as usize] = Voxel::Blue;
+                    [voxel_pos.y as usize][voxel_pos.z as usize] = v;
 
                 // let voxel_bytes = &v.as_bytes();
 

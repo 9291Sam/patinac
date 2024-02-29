@@ -1,8 +1,7 @@
 use std::borrow::Cow;
-use std::num::NonZeroU64;
 use std::sync::{Arc, Mutex};
 
-use bytemuck::{bytes_of, cast_slice, Pod, Zeroable};
+use bytemuck::{cast_slice, Pod, Zeroable};
 use game::{Entity, Positionable};
 use gfx::wgpu::util::{BufferInitDescriptor, DeviceExt};
 use gfx::wgpu::{self};
@@ -13,7 +12,7 @@ use gfx::{
     CacheableRenderPipelineDescriptor
 };
 
-use crate::gpu_data::{BrickMap, VoxelChunkDataManager};
+use crate::gpu_data::VoxelChunkDataManager;
 
 #[derive(Debug)]
 pub struct BrickMapChunk
@@ -46,10 +45,7 @@ impl BrickMapChunk
             .render_cache
             .cache_shader_module(wgpu::include_wgsl!("brick_map_chunk.wgsl"));
 
-        // TODO: optimize this...
-        static MIN_0_BINDING_SIZE: Option<NonZeroU64> =
-            unsafe { Some(NonZeroU64::new_unchecked(2 * 1024)) };
-
+        // TODO: FIX THIS
         static BINDINGS: &[wgpu::BindGroupLayoutEntry] = &[
             wgpu::BindGroupLayoutEntry {
                 binding:    0,

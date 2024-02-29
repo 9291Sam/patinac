@@ -1,7 +1,7 @@
 use std::borrow::Cow;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
-use bytemuck::{bytes_of, cast_slice, Pod, Zeroable};
+use bytemuck::{cast_slice, Pod, Zeroable};
 use game::{Entity, Positionable};
 use gfx::wgpu::util::{BufferInitDescriptor, DeviceExt};
 use gfx::wgpu::{self};
@@ -62,26 +62,26 @@ impl Chunk
                 });
 
         let this = Arc::new(Self {
-            uuid:                uuid,
-            name:                "Voxel Chunk".into(),
-            vertex_buffer:       renderer.create_buffer_init(&BufferInitDescriptor {
+            uuid,
+            name: "Voxel Chunk".into(),
+            vertex_buffer: renderer.create_buffer_init(&BufferInitDescriptor {
                 label:    Some(&vertex_buffer_label),
                 contents: cast_slice(&CUBE_VERTICES),
                 usage:    wgpu::BufferUsages::VERTEX
             }),
-            index_buffer:        renderer.create_buffer_init(&BufferInitDescriptor {
+            index_buffer: renderer.create_buffer_init(&BufferInitDescriptor {
                 label:    Some(&index_buffer_label),
                 contents: cast_slice(&CUBE_INDICES),
                 usage:    wgpu::BufferUsages::INDEX
             }),
-            number_of_indices:   CUBE_INDICES.len() as u32,
-            instance_buffer:     renderer.create_buffer_init(&BufferInitDescriptor {
+            number_of_indices: CUBE_INDICES.len() as u32,
+            instance_buffer: renderer.create_buffer_init(&BufferInitDescriptor {
                 label:    Some(&instance_buffer_label),
                 contents: cast_slice(&models),
                 usage:    wgpu::BufferUsages::VERTEX
             }),
             number_of_instances: models.len() as u32,
-            pipeline:            game.get_renderer().render_cache.cache_render_pipeline(
+            pipeline: game.get_renderer().render_cache.cache_render_pipeline(
                 CacheableRenderPipelineDescriptor {
                     label:                 "Voxel Chunk Pipeline".into(),
                     layout:                Some(pipeline_layout),

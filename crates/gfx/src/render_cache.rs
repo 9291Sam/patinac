@@ -37,30 +37,33 @@ impl RenderCache
 
     pub(crate) fn trim(&self)
     {
-        self.bind_group_layout_cache
-            .lock()
-            .unwrap()
-            .retain(|_, arc| Arc::strong_count(&arc) > 1);
+        for _ in 0..10
+        {
+            self.bind_group_layout_cache
+                .lock()
+                .unwrap()
+                .retain(|_, arc| Arc::strong_count(arc) > 1);
 
-        self.pipeline_layout_cache
-            .lock()
-            .unwrap()
-            .retain(|_, arc| Arc::strong_count(&arc) > 1);
+            self.pipeline_layout_cache
+                .lock()
+                .unwrap()
+                .retain(|_, arc| Arc::strong_count(arc) > 1);
 
-        self.shader_module_cache
-            .lock()
-            .unwrap()
-            .retain(|_, arc| Arc::strong_count(&arc) > 1);
+            self.shader_module_cache
+                .lock()
+                .unwrap()
+                .retain(|_, arc| Arc::strong_count(arc) > 1);
 
-        self.render_pipeline_cache
-            .lock()
-            .unwrap()
-            .retain(|_, arc| Arc::strong_count(&arc) > 1);
+            self.render_pipeline_cache
+                .lock()
+                .unwrap()
+                .retain(|_, arc| Arc::strong_count(arc) > 1);
 
-        self.compute_pipeline_cache
-            .lock()
-            .unwrap()
-            .retain(|_, arc| Arc::strong_count(&arc) > 1);
+            self.compute_pipeline_cache
+                .lock()
+                .unwrap()
+                .retain(|_, arc| Arc::strong_count(arc) > 1);
+        }
     }
 
     pub fn cache_bind_group_layout(
@@ -207,9 +210,7 @@ impl PartialEq for CacheablePipelineLayoutDescriptor
                 .bind_group_layouts
                 .iter()
                 .zip(other.bind_group_layouts.iter())
-                .fold(true, |acc, (l, r)| {
-                    acc && Arc::as_ptr(&l) == Arc::as_ptr(&r)
-                })
+                .fold(true, |acc, (l, r)| acc && Arc::as_ptr(l) == Arc::as_ptr(r))
             && self.push_constant_ranges == other.push_constant_ranges
     }
 }
@@ -223,7 +224,7 @@ impl Hash for CacheablePipelineLayoutDescriptor
         self.label.hash(state);
         self.bind_group_layouts
             .iter()
-            .for_each(|l| Arc::as_ptr(&l).hash(state));
+            .for_each(|l| Arc::as_ptr(l).hash(state));
         self.push_constant_ranges.hash(state);
     }
 }
@@ -312,20 +313,16 @@ impl CacheableRenderPipelineDescriptor
 {
     fn access<R>(&self, access_func: impl FnOnce(&wgpu::RenderPipelineDescriptor<'_>) -> R) -> R
     {
-        let ref_layout = self.layout.as_ref().map(|l| &**l);
+        let ref_layout = self.layout.as_deref();
 
-        let ref_fragment_state: Option<wgpu::FragmentState> = match &self.fragment_state
-        {
-            Some(c) =>
-            {
-                Some(wgpu::FragmentState {
+        let ref_fragment_state: Option<wgpu::FragmentState> =
+            self.fragment_state.as_ref().map(|c| {
+                wgpu::FragmentState {
                     module:      &c.module,
                     entry_point: &c.entry_point,
                     targets:     &c.targets
-                })
-            }
-            None => None
-        };
+                }
+            });
 
         let descriptor = wgpu::RenderPipelineDescriptor {
             label:         Some(&self.label),
@@ -351,8 +348,7 @@ impl PartialEq for CacheableRenderPipelineDescriptor
     fn eq(&self, other: &Self) -> bool
     {
         self.label == other.label
-            && self.layout.as_ref().map(|l| Arc::as_ptr(&l))
-                == other.layout.as_ref().map(|r| Arc::as_ptr(&r))
+            && self.layout.as_ref().map(Arc::as_ptr) == other.layout.as_ref().map(Arc::as_ptr)
             && Arc::as_ptr(&self.vertex_module) == Arc::as_ptr(&other.vertex_module)
             && self.vertex_entry_point == other.vertex_entry_point
             && self.vertex_buffer_layouts == other.vertex_buffer_layouts
@@ -371,7 +367,7 @@ impl Hash for CacheableRenderPipelineDescriptor
     fn hash<H: std::hash::Hasher>(&self, state: &mut H)
     {
         self.label.hash(state);
-        self.layout.as_ref().map(|l| Arc::as_ptr(&l)).hash(state);
+        self.layout.as_ref().map(Arc::as_ptr).hash(state);
         Arc::as_ptr(&self.vertex_module).hash(state);
         self.vertex_entry_point.hash(state);
         self.vertex_buffer_layouts.hash(state);
@@ -401,7 +397,7 @@ impl CacheableComputePipelineDescriptor
     {
         let descriptor = wgpu::ComputePipelineDescriptor {
             label:       Some(&self.label),
-            layout:      self.layout.as_ref().map(|l| &**l),
+            layout:      self.layout.as_deref(),
             module:      &self.module,
             entry_point: &self.entry_point
         };
@@ -415,8 +411,7 @@ impl PartialEq for CacheableComputePipelineDescriptor
     fn eq(&self, other: &Self) -> bool
     {
         self.label == other.label
-            && self.layout.as_ref().map(|l| Arc::as_ptr(&*l))
-                == other.layout.as_ref().map(|l| Arc::as_ptr(&*l))
+            && self.layout.as_ref().map(Arc::as_ptr) == other.layout.as_ref().map(Arc::as_ptr)
             && Arc::as_ptr(&self.module) == Arc::as_ptr(&other.module)
             && self.entry_point == other.entry_point
     }
@@ -429,7 +424,10 @@ impl Hash for CacheableComputePipelineDescriptor
     fn hash<H: std::hash::Hasher>(&self, state: &mut H)
     {
         self.label.hash(state);
-        self.layout.as_ref().map(|l| Arc::as_ptr(&l).hash(state));
+        if let Some(l) = self.layout.as_ref()
+        {
+            Arc::as_ptr(l).hash(state)
+        }
         Arc::as_ptr(&self.module).hash(state);
         self.entry_point.hash(state);
     }
@@ -462,7 +460,7 @@ impl PartialOrd for GenericPipeline
 {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering>
     {
-        self.global_id().partial_cmp(&other.global_id())
+        Some(self.cmp(other))
     }
 }
 

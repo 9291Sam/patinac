@@ -1,8 +1,6 @@
 use std::borrow::Cow;
-use std::ops::{Add, Mul};
 use std::sync::Arc;
 
-use game::{Positionable, Transformable};
 use gfx::glm;
 use noise::NoiseFn;
 

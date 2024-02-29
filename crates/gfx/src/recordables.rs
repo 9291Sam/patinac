@@ -39,7 +39,7 @@ pub trait Recordable: Debug + Send + Sync
     {
         Equal
             .then(self.get_pass_stage().cmp(&other.get_pass_stage()))
-            .then(self.get_pipeline().cmp(&&other.get_pipeline()))
+            .then(self.get_pipeline().cmp(other.get_pipeline()))
             .then(
                 get_bind_group_ids(&self.get_bind_groups(global_bind_group)).cmp(
                     &get_bind_group_ids(&other.get_bind_groups(global_bind_group))
