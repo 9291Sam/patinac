@@ -2,6 +2,7 @@
 #![feature(maybe_uninit_as_bytes)]
 
 mod allocator;
+mod global_allocator;
 mod log;
 mod registrar;
 mod uuid;
@@ -9,6 +10,7 @@ mod uuid;
 use std::ops::Deref;
 
 pub use allocator::*;
+pub use global_allocator::*;
 pub use log::*;
 pub use registrar::*;
 pub use uuid::*;
