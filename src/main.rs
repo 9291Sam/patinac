@@ -53,7 +53,7 @@ fn main()
 
     log::trace!(
         "{} leaked | {} allocated",
-        human_bytes::human_bytes(util::get_bytes_of_active_allocations() as f64),
+        human_bytes::human_bytes((util::get_bytes_of_active_allocations() as f64 - 1e6).max(0.0)),
         human_bytes::human_bytes(util::get_bytes_allocated_total() as f64)
     );
 

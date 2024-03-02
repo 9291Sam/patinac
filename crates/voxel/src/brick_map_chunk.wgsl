@@ -84,32 +84,7 @@ fn fs_main(in: VertexOutput, @builtin(front_facing) is_front_face: bool) -> Frag
         ray.origin = in.local_pos + 0.5;
     }
 
-    var mapPos: vec3<i32> = vec3<i32>(floor(ray.origin + vec3<f32>(0.0)));
-
-    let deltaDist: vec3<f32> = abs(vec3<f32>(length(ray.direction)) / ray.direction);
-
-    let rayStep: vec3<i32> = vec3<i32>(sign(ray.direction));
-
-    var sideDist: vec3<f32> =
-        (sign(ray.direction) * (vec3<f32>(mapPos) - ray.origin) + (sign(ray.direction) * 0.5) + 0.5) * deltaDist;
-
-    var mask: vec3<bool> = vec3<bool>(false, false, false);
-
-    var i: i32 = 0;
-    for (; i < MAX_RAY_STEPS; i = i + 1) {
-        if (getVoxelStorage(mapPos)) {
-            break;
-        }
-
-        mask = sideDist.xyz <= min(sideDist.yzx, sideDist.zxy);
-        sideDist = sideDist + vec3<f32>(mask) * deltaDist;
-        mapPos = mapPos + vec3<i32>(vec3<f32>(mask)) * rayStep;
-    }
-
-    if (i == MAX_RAY_STEPS)
-    {
-        discard;
-    }
+    let mapPos: vec3<i32> = traverse(ray);
 
     var out: FragmentOutput;
 
@@ -155,6 +130,44 @@ fn fs_main(in: VertexOutput, @builtin(front_facing) is_front_face: bool) -> Frag
 
     // out.color = vec4<f32>(strike_pos_world.xyz / 8, 1.0); //  vec4<f32>(rand(in.world_pos.xy), rand(in.world_pos.yz), rand(in.world_pos.zx), 1.0);
     return out;
+}
+
+fn traverse(ray: Ray) -> vec3<i32>
+{
+    var mapPos: vec3<i32> = vec3<i32>(floor(ray.origin + vec3<f32>(0.0)));
+
+    let deltaDist: vec3<f32> = abs(vec3<f32>(length(ray.direction)) / ray.direction);
+
+    let rayStep: vec3<i32> = vec3<i32>(sign(ray.direction));
+
+    var sideDist: vec3<f32> =
+        (sign(ray.direction) * (vec3<f32>(mapPos) - ray.origin) + (sign(ray.direction) * 0.5) + 0.5) * deltaDist;
+
+    var mask: vec3<bool> = vec3<bool>(false, false, false);
+
+    var i: i32 = 0;
+    for (; i < MAX_RAY_STEPS; i = i + 1) {
+        if (getVoxelStorage(mapPos)) {
+            break;
+        }
+
+        mask = sideDist.xyz <= min(sideDist.yzx, sideDist.zxy);
+        sideDist = sideDist + vec3<f32>(mask) * deltaDist;
+        mapPos = mapPos + vec3<i32>(vec3<f32>(mask)) * rayStep;
+    }
+
+    if (i == MAX_RAY_STEPS)
+    {
+        discard;
+    }
+
+    return mapPos;
+
+}
+
+fn Brick_traverse(me: BrickPointer) -> IntersectionResult
+{
+
 }
 
 // Constants
