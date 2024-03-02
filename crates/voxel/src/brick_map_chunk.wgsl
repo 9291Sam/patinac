@@ -152,10 +152,10 @@ fn traverse_brickmap(unadjusted_ray: Ray) -> vec3<i32>
     var i: i32 = 0;
     for (; i < (128 * 3); i = i + 1)
     {
-        // if (any(mapPos < vec3<i32>(-1)) || any(mapPos > vec3<i32>(129)))
-        // {
-        //     discard;
-        // }
+        if (any(mapPos < vec3<i32>(-1)) || any(mapPos > vec3<i32>(129)))
+        {
+            discard;
+        }
         
         if (!(any(mapPos < vec3<i32>(0)) || any(mapPos >= vec3<i32>(128))))
         {
