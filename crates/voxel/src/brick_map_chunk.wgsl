@@ -171,7 +171,8 @@ fn traverse_brickmap(unadjusted_ray: Ray) -> vec3<i32>
 
                 if (res.intersection_occurred)
                 {
-                    return vec3<i32>(res.maybe_hit_point);
+                    // TODO: scale inward
+                    return vec3<i32>(res.maybe_hit_point + 0.0001);
                 }
             }
         }
