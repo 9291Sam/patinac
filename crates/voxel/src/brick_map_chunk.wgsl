@@ -88,7 +88,7 @@ fn fs_main(in: VertexOutput, @builtin(front_facing) is_front_face: bool) -> Frag
 
     var out: FragmentOutput;
 
-    out.color = vec4<f32>(get_random_color(vec3<f32>(mapPos)), 1.0);
+    out.color = vec4<f32>(get_random_color(vec3<f32>(mapPos / 8)), 1.0);
 
     var c: Cube;
     c.center = vec3<f32>(mapPos) + 0.5;
@@ -164,7 +164,7 @@ fn traverse_brickmap(unadjusted_ray: Ray) -> vec3<i32>
             if (maybe_brick_pointer != 0)
             {
                 var brick_cube: Cube;
-                brick_cube.center = 8 * vec3<f32>(mapPos) + 4.0;
+                brick_cube.center = 8 * vec3<f32>(mapPos) + 4;
                 brick_cube.edge_length = 8.0;
 
                 let res = Cube_tryIntersect(brick_cube, unadjusted_ray);
