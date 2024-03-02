@@ -84,7 +84,7 @@ fn fs_main(in: VertexOutput, @builtin(front_facing) is_front_face: bool) -> Frag
         ray.origin = in.local_pos + 0.5;
     }
 
-    let mapPos: vec3<i32> = traverse(ray);
+    let mapPos: vec3<i32> = traverse_brickmap(ray);
 
     var out: FragmentOutput;
 
@@ -132,7 +132,64 @@ fn fs_main(in: VertexOutput, @builtin(front_facing) is_front_face: bool) -> Frag
     return out;
 }
 
-fn traverse(ray: Ray) -> vec3<i32>
+fn traverse_brickmap(unadjusted_ray: Ray) -> vec3<i32>
+{
+    var adjusted_ray: Ray;
+    adjusted_ray.origin = unadjusted_ray.origin / 8;
+    adjusted_ray.direction = unadjusted_ray.direction;
+
+    var mapPos: vec3<i32> = vec3<i32>(floor(adjusted_ray.origin + vec3<f32>(0.0)));
+
+    let deltaDist: vec3<f32> = abs(vec3<f32>(length(adjusted_ray.direction)) / adjusted_ray.direction);
+
+    let rayStep: vec3<i32> = vec3<i32>(sign(adjusted_ray.direction));
+
+    var sideDist: vec3<f32> =
+        (sign(adjusted_ray.direction) * (vec3<f32>(mapPos) - adjusted_ray.origin) + (sign(adjusted_ray.direction) * 0.5) + 0.5) * deltaDist;
+
+    var mask: vec3<bool> = vec3<bool>(false, false, false);
+
+    var i: i32 = 0;
+    for (; i < (128 * 3); i = i + 1)
+    {
+        // if (any(mapPos < vec3<i32>(-1)) || any(mapPos > vec3<i32>(129)))
+        // {
+        //     discard;
+        // }
+        
+        if (any(mapPos < vec3<i32>(0)) || any(mapPos >= vec3<i32>(128)))
+        {
+            let maybe_brick_pointer = brick_map[mapPos.x][mapPos.y][mapPos.z];
+
+            if (maybe_brick_pointer != 0)
+            {
+                var brick_cube: Cube;
+                brick_cube.center = 8 * vec3<f32>(mapPos) + 4.0;
+                brick_cube.edge_length = 8.0;
+
+                let res = Cube_tryIntersect(brick_cube, unadjusted_ray);
+
+                if (res.intersection_occurred)
+                {
+                    return vec3<i32>(res.maybe_hit_point);
+                }
+            }
+        }
+
+        mask = sideDist.xyz <= min(sideDist.yzx, sideDist.zxy);
+        sideDist = sideDist + vec3<f32>(mask) * deltaDist;
+        mapPos = mapPos + vec3<i32>(vec3<f32>(mask)) * rayStep;
+    }
+
+    if (i == (128 * 3))
+    {
+        discard;
+    }
+
+    return mapPos;
+}
+
+fn traverse_dda(ray: Ray) -> vec3<i32>
 {
     var mapPos: vec3<i32> = vec3<i32>(floor(ray.origin + vec3<f32>(0.0)));
 
@@ -162,11 +219,6 @@ fn traverse(ray: Ray) -> vec3<i32>
     }
 
     return mapPos;
-
-}
-
-fn Brick_traverse(me: BrickPointer) -> IntersectionResult
-{
 
 }
 

@@ -121,13 +121,13 @@ impl TestScene
             };
             let b: u16 = 1024;
 
-            for l in 0..10
+            for l in 0..8
             {
                 for (x, z) in itertools::iproduct!(0..b, 0..b)
                 {
                     data_manager.write_voxel(
                         voxel::Voxel::Green,
-                        voxel::ChunkPosition::new(x, noise_func(x, z, l) + (l * 96), z)
+                        voxel::ChunkPosition::new(x, noise_func(x, z, l) + (l * 118), z)
                     );
                 }
             }
