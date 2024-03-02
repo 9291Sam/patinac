@@ -157,7 +157,7 @@ fn traverse_brickmap(unadjusted_ray: Ray) -> vec3<i32>
         //     discard;
         // }
         
-        if (any(mapPos < vec3<i32>(0)) || any(mapPos >= vec3<i32>(128)))
+        if (!(any(mapPos < vec3<i32>(0)) || any(mapPos >= vec3<i32>(128))))
         {
             let maybe_brick_pointer = brick_map[mapPos.x][mapPos.y][mapPos.z];
 
