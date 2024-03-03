@@ -113,7 +113,7 @@ fn fs_main(in: VertexOutput, @builtin(front_facing) is_front_face: bool) -> Frag
     }
     else
     {
-        strike_pos_world = res.maybe_hit_point - 0.5 + in.local_to_world_offset_pos;
+        strike_pos_world = res.maybe_hit_point + in.local_to_world_offset_pos;
     }
 
 
