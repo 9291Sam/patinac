@@ -84,11 +84,11 @@ fn fs_main(in: VertexOutput, @builtin(front_facing) is_front_face: bool) -> Frag
         ray.origin = in.local_pos + 0.5;
     }
 
-    let mapPos: vec3<i32> = traverse_brickmap(ray);
+    let mapPos: vec3<i32> = simple_dda_traversal(ray);
 
     var out: FragmentOutput;
 
-    out.color = vec4<f32>(get_random_color(vec3<f32>(mapPos / 8)), 1.0);
+    out.color = vec4<f32>(get_random_color(vec3<f32>(mapPos)), 1.0);
 
     var c: Cube;
     c.center = vec3<f32>(mapPos) + 0.5;
@@ -128,8 +128,79 @@ fn fs_main(in: VertexOutput, @builtin(front_facing) is_front_face: bool) -> Frag
 
     out.depth = maybe_depth;
 
-    // out.color = vec4<f32>(strike_pos_world.xyz / 8, 1.0); //  vec4<f32>(rand(in.world_pos.xy), rand(in.world_pos.yz), rand(in.world_pos.zx), 1.0);
+    // out.color = vec4<f32>(res.maybe_hit_point.xyz / 8, 1.0); //  vec4<f32>(rand(in.world_pos.xy), rand(in.world_pos.yz), rand(in.world_pos.zx), 1.0);
     return out;
+}
+
+const SIMPLE_DDA_ITER_STEPS: i32 = 256;
+fn simple_dda_traversal(ray: Ray) -> vec3<i32>
+{
+    // TODO: why the FUCK is this a float
+    var voxelPos: vec3<f32> = floor(ray.origin);
+    var distance: f32;
+    var normal: vec3<f32>;
+    let rayDirectionSign: vec3<f32> = sign(ray.direction);
+
+    let rdi: vec3<f32> = 1.0 / (2.0 * ray.direction);
+
+
+    var i: i32;
+
+    for (i = 0; i < SIMPLE_DDA_ITER_STEPS; i += 1)
+    {
+        if (getVoxelStorage(vec3<i32>(floor(voxelPos))))
+        {
+            return vec3<i32>(floor(voxelPos));
+        }
+
+        let plain: vec3<f32> = ((vec3<f32>(1.0) + rayDirectionSign - vec3<f32>(2.0) * (ray.origin - voxelPos)) * rdi);
+
+        distance = min(plain.x, min(plain.y, plain.z));
+        // normal = vec3(equal(vec3(distance), plain)) * rayDirectionSign;
+        normal = vec3<f32>(vec3<f32>(distance) == plain) * rayDirectionSign;
+        voxelPos += normal;
+    }
+
+    discard;
+
+    // if (ii == ITERSTEPS) discard;
+
+    // vec3 position = ro+rd*dist;
+    // return hit(normal, dist, position);
+}
+
+
+fn traverse_dda(ray: Ray) -> vec3<i32>
+{
+    var mapPos: vec3<i32> = vec3<i32>(floor(ray.origin + vec3<f32>(0.0)));
+
+    let deltaDist: vec3<f32> = abs(vec3<f32>(length(ray.direction)) / ray.direction);
+
+    let rayStep: vec3<i32> = vec3<i32>(sign(ray.direction));
+
+    var sideDist: vec3<f32> =
+        (sign(ray.direction) * (vec3<f32>(mapPos) - ray.origin) + (sign(ray.direction) * 0.5) + 0.5) * deltaDist;
+
+    var mask: vec3<bool> = vec3<bool>(false, false, false);
+
+    var i: i32 = 0;
+    for (; i < MAX_RAY_STEPS; i = i + 1) {
+        if (getVoxelStorage(mapPos)) {
+            break;
+        }
+
+        mask = sideDist.xyz <= min(sideDist.yzx, sideDist.zxy);
+        sideDist = sideDist + vec3<f32>(mask) * deltaDist;
+        mapPos = mapPos + vec3<i32>(vec3<f32>(mask)) * rayStep;
+    }
+
+    if (i == MAX_RAY_STEPS)
+    {
+        discard;
+    }
+
+    return mapPos;
+
 }
 
 fn traverse_brickmap(unadjusted_ray: Ray) -> vec3<i32>
@@ -190,38 +261,6 @@ fn traverse_brickmap(unadjusted_ray: Ray) -> vec3<i32>
     return mapPos;
 }
 
-fn traverse_dda(ray: Ray) -> vec3<i32>
-{
-    var mapPos: vec3<i32> = vec3<i32>(floor(ray.origin + vec3<f32>(0.0)));
-
-    let deltaDist: vec3<f32> = abs(vec3<f32>(length(ray.direction)) / ray.direction);
-
-    let rayStep: vec3<i32> = vec3<i32>(sign(ray.direction));
-
-    var sideDist: vec3<f32> =
-        (sign(ray.direction) * (vec3<f32>(mapPos) - ray.origin) + (sign(ray.direction) * 0.5) + 0.5) * deltaDist;
-
-    var mask: vec3<bool> = vec3<bool>(false, false, false);
-
-    var i: i32 = 0;
-    for (; i < MAX_RAY_STEPS; i = i + 1) {
-        if (getVoxelStorage(mapPos)) {
-            break;
-        }
-
-        mask = sideDist.xyz <= min(sideDist.yzx, sideDist.zxy);
-        sideDist = sideDist + vec3<f32>(mask) * deltaDist;
-        mapPos = mapPos + vec3<i32>(vec3<f32>(mask)) * rayStep;
-    }
-
-    if (i == MAX_RAY_STEPS)
-    {
-        discard;
-    }
-
-    return mapPos;
-
-}
 
 // Constants
 const USE_BRANCHLESS_DDA : bool = true;
