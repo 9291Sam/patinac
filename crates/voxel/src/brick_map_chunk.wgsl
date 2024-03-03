@@ -68,7 +68,7 @@ fn fs_main(in: VertexOutput, @builtin(front_facing) is_front_face: bool) -> Frag
 
     let camera_pos_local: vec3<f32> = global_info.camera_pos.xyz - in.local_to_world_offset_pos;
 
-    let camera_in_chunk: bool = all(camera_pos_local > vec3<f32>(-0.5)) && all(camera_pos_local < vec3<f32>(1024.0));
+    let camera_in_chunk: bool = all(camera_pos_local >= vec3<f32>(0.0)) && all(camera_pos_local < vec3<f32>(1024.0));
 
     if ((camera_in_chunk && is_front_face) || (!camera_in_chunk && !is_front_face))
     {
@@ -77,11 +77,11 @@ fn fs_main(in: VertexOutput, @builtin(front_facing) is_front_face: bool) -> Frag
 
     if camera_in_chunk
     {
-        ray.origin = camera_pos_local + 0.5;
+        ray.origin = camera_pos_local;
     }
     else
     {
-        ray.origin = in.local_pos + 0.5;
+        ray.origin = in.local_pos;
     }
 
     let mapPos: vec3<i32> = simple_dda_traversal(ray);
@@ -98,7 +98,7 @@ fn fs_main(in: VertexOutput, @builtin(front_facing) is_front_face: bool) -> Frag
 
     var strike_pos_world: vec3<f32>; 
 
-    let cube_contains_ray = Cube_contains(c, camera_pos_local + 0.5);
+    let cube_contains_ray = Cube_contains(c, camera_pos_local);
 
     if (!res.intersection_occurred && !cube_contains_ray)
     {
@@ -132,7 +132,7 @@ fn fs_main(in: VertexOutput, @builtin(front_facing) is_front_face: bool) -> Frag
     return out;
 }
 
-const SIMPLE_DDA_ITER_STEPS: i32 = 256;
+const SIMPLE_DDA_ITER_STEPS: i32 = 2560;
 fn simple_dda_traversal(ray: Ray) -> vec3<i32>
 {
     // TODO: why the FUCK is this a float
