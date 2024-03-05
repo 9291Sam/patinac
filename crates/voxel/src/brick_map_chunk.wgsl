@@ -84,7 +84,7 @@ fn fs_main(in: VertexOutput, @builtin(front_facing) is_front_face: bool) -> Frag
         ray.origin = in.local_pos;
     }
 
-    let mapPos: vec3<i32> = simple_dda_traversal(ray);
+    let mapPos: vec3<i32> = simple_dda_traversal_bricks(ray);
 
     var out: FragmentOutput;
 
@@ -168,6 +168,70 @@ fn simple_dda_traversal(ray: Ray) -> vec3<i32>
     // vec3 position = ro+rd*dist;
     // return hit(normal, dist, position);
 }
+
+const SIMPLE_DDA_ITER_BRICKS_STEPS: i32 = 2560;
+fn simple_dda_traversal_bricks(unadjusted_ray: Ray) -> vec3<i32>
+{
+    var adjusted_ray: Ray;
+    adjusted_ray.origin = unadjusted_ray.origin / 8;
+    adjusted_ray.direction = unadjusted_ray.direction;
+
+
+    // TODO: why the FUCK is this a float
+    var voxelPos: vec3<f32> = floor(adjusted_ray.origin);
+    var distance: f32;
+    var normal: vec3<f32>;
+    let rayDirectionSign: vec3<f32> = sign(adjusted_ray.direction);
+
+    let rdi: vec3<f32> = 1.0 / (2.0 * adjusted_ray.direction);
+
+
+    var i: i32;
+
+    for (i = 0; i < SIMPLE_DDA_ITER_BRICKS_STEPS; i += 1)
+    {
+        let mapPos: vec3<i32> = vec3<i32>(floor(voxelPos));
+        
+        if (any(mapPos < vec3<i32>(-1)) || any(mapPos > vec3<i32>(129)))
+        {
+            discard;
+        }
+        
+        if (!(any(mapPos < vec3<i32>(0)) || any(mapPos >= vec3<i32>(128))))
+        {
+            let maybe_brick_pointer = brick_map[mapPos.x][mapPos.y][mapPos.z];
+
+            if (maybe_brick_pointer != 0)
+            {
+                var brick_cube: Cube;
+                brick_cube.center = 8 * vec3<f32>(mapPos) + 4;
+                brick_cube.edge_length = 8.0;
+
+                let res = Cube_tryIntersect(brick_cube, unadjusted_ray);
+
+                if (res.intersection_occurred)
+                {
+                    // TODO: scale inward
+                    return vec3<i32>(res.maybe_hit_point + 0.0001);
+                }
+            }
+        }
+        let plain: vec3<f32> = ((vec3<f32>(1.0) + rayDirectionSign - vec3<f32>(2.0) * (adjusted_ray.origin - voxelPos)) * rdi);
+
+        distance = min(plain.x, min(plain.y, plain.z));
+        // normal = vec3(equal(vec3(distance), plain)) * rayDirectionSign;
+        normal = vec3<f32>(vec3<f32>(distance) == plain) * rayDirectionSign;
+        voxelPos += normal;
+    }
+
+    discard;
+
+    // if (ii == ITERSTEPS) discard;
+
+    // vec3 position = ro+rd*dist;
+    // return hit(normal, dist, position);
+}
+
 
 
 fn traverse_dda(ray: Ray) -> vec3<i32>
