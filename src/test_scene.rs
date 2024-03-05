@@ -120,14 +120,19 @@ impl TestScene
                 (value as u16).clamp(0, 1024)
             };
             let b: u16 = 1024;
+            let layers = 24;
 
-            for l in 0..8
+            for l in 0..layers
             {
                 for (x, z) in itertools::iproduct!(0..b, 0..b)
                 {
                     data_manager.write_voxel(
                         voxel::Voxel::Green,
-                        voxel::ChunkPosition::new(x, noise_func(x, z, l) + (l * 118), z)
+                        voxel::ChunkPosition::new(
+                            x,
+                            noise_func(x, z, l) + (l * (0.8 * (b / layers) as f32) as u16),
+                            z
+                        )
                     );
                 }
             }
