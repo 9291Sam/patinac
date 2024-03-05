@@ -203,17 +203,27 @@ fn simple_dda_traversal_bricks(unadjusted_ray: Ray) -> vec3<i32>
 
             if (maybe_brick_pointer != 0)
             {
-                var brick_cube: Cube;
-                brick_cube.center = 8 * vec3<f32>(mapPos) + 4;
-                brick_cube.edge_length = 8.0;
+                // var brick_cube: Cube;
+                // brick_cube.center = 8 * vec3<f32>(mapPos) + 4;
+                // brick_cube.edge_length = 8.0;
 
-                let res = Cube_tryIntersect(brick_cube, unadjusted_ray);
+                var brick_ray: Ray;
+                brick_ray.origin = unadjusted_ray.origin % vec3<f32>(8.0);
+                brick_ray.direction = adjusted_ray.direction;
+                let maybe_local_brick_pos = traverse_brick_dda(maybe_brick_pointer, brick_ray);
 
-                if (res.intersection_occurred)
+                if (all(maybe_local_brick_pos != InvalidBrickTraversalSentinel))
                 {
-                    // TODO: scale inward
-                    return vec3<i32>(res.maybe_hit_point + 0.0001);
+                    return maybe_local_brick_pos + mapPos * 8;
                 }
+
+                // let res = Cube_tryIntersect(brick_cube, unadjusted_ray);
+
+                // if (res.intersection_occurred)
+                // {
+                //     // TODO: scale inward
+                //     return vec3<i32>(res.maybe_hit_point + 0.0001);
+                // }
             }
         }
         let plain: vec3<f32> = ((vec3<f32>(1.0) + rayDirectionSign - vec3<f32>(2.0) * (adjusted_ray.origin - voxelPos)) * rdi);
@@ -323,6 +333,52 @@ fn traverse_brickmap(unadjusted_ray: Ray) -> vec3<i32>
     }
 
     return mapPos;
+}
+
+const BRICK_TRAVERSAL_STEPS: i32 = 8 * 3 + 1;
+// traverses as if the brick is from 000 -> 888
+const InvalidBrickTraversalSentinel: vec3<i32> = vec3<i32>(-1);
+fn traverse_brick_dda(brick: BrickPointer, ray: Ray) -> vec3<i32>
+{
+    var voxelPos: vec3<f32> = floor(ray.origin);
+    var distance: f32;
+    var normal: vec3<f32>;
+    let rayDirectionSign: vec3<f32> = sign(ray.direction);
+
+    let rdi: vec3<f32> = 1.0 / (2.0 * ray.direction);
+
+    var i: i32;
+
+    for (i = 0; i < BRICK_TRAVERSAL_STEPS; i += 1)
+    {
+        let mapPos = vec3<i32>(floor(voxelPos));
+
+        if (any(mapPos < vec3<i32>(-1)) || any(mapPos > vec3<i32>(9)))
+        {
+            return InvalidBrickTraversalSentinel;
+        }
+        
+        if (!(any(mapPos < vec3<i32>(0)) || any(mapPos >= vec3<i32>(8))))
+        {
+            if (Brick_access(brick, vec3<u32>(floor(voxelPos))) != 0)
+            {
+                return vec3<i32>(floor(voxelPos));
+            }
+        }
+
+        let plain: vec3<f32> = ((vec3<f32>(1.0) + rayDirectionSign - vec3<f32>(2.0) * (ray.origin - voxelPos)) * rdi);
+
+        distance = min(plain.x, min(plain.y, plain.z));
+        normal = vec3<f32>(vec3<f32>(distance) == plain) * rayDirectionSign;
+        voxelPos += normal;
+    }
+
+    return InvalidBrickTraversalSentinel;
+
+    // if (ii == ITERSTEPS) discard;
+
+    // vec3 position = ro+rd*dist;
+    // return hit(normal, dist, position);
 }
 
 
