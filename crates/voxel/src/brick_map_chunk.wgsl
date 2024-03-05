@@ -132,44 +132,7 @@ fn fs_main(in: VertexOutput, @builtin(front_facing) is_front_face: bool) -> Frag
     return out;
 }
 
-const SIMPLE_DDA_ITER_STEPS: i32 = 2560;
-fn simple_dda_traversal(ray: Ray) -> vec3<i32>
-{
-    // TODO: why the FUCK is this a float
-    var voxelPos: vec3<f32> = floor(ray.origin);
-    var distance: f32;
-    var normal: vec3<f32>;
-    let rayDirectionSign: vec3<f32> = sign(ray.direction);
-
-    let rdi: vec3<f32> = 1.0 / (2.0 * ray.direction);
-
-
-    var i: i32;
-
-    for (i = 0; i < SIMPLE_DDA_ITER_STEPS; i += 1)
-    {
-        if (getVoxelStorage(vec3<i32>(floor(voxelPos))))
-        {
-            return vec3<i32>(floor(voxelPos));
-        }
-
-        let plain: vec3<f32> = ((vec3<f32>(1.0) + rayDirectionSign - vec3<f32>(2.0) * (ray.origin - voxelPos)) * rdi);
-
-        distance = min(plain.x, min(plain.y, plain.z));
-        // normal = vec3(equal(vec3(distance), plain)) * rayDirectionSign;
-        normal = vec3<f32>(vec3<f32>(distance) == plain) * rayDirectionSign;
-        voxelPos += normal;
-    }
-
-    discard;
-
-    // if (ii == ITERSTEPS) discard;
-
-    // vec3 position = ro+rd*dist;
-    // return hit(normal, dist, position);
-}
-
-const SIMPLE_DDA_ITER_BRICKS_STEPS: i32 = 2560;
+const SIMPLE_DDA_ITER_BRICKS_STEPS: i32 = 128 * 3 + 1;
 fn simple_dda_traversal_bricks(unadjusted_ray: Ray) -> vec3<i32>
 {
     var adjusted_ray: Ray;
@@ -250,99 +213,6 @@ fn simple_dda_traversal_bricks(unadjusted_ray: Ray) -> vec3<i32>
     // return hit(normal, dist, position);
 }
 
-
-
-fn traverse_dda(ray: Ray) -> vec3<i32>
-{
-    var mapPos: vec3<i32> = vec3<i32>(floor(ray.origin + vec3<f32>(0.0)));
-
-    let deltaDist: vec3<f32> = abs(vec3<f32>(length(ray.direction)) / ray.direction);
-
-    let rayStep: vec3<i32> = vec3<i32>(sign(ray.direction));
-
-    var sideDist: vec3<f32> =
-        (sign(ray.direction) * (vec3<f32>(mapPos) - ray.origin) + (sign(ray.direction) * 0.5) + 0.5) * deltaDist;
-
-    var mask: vec3<bool> = vec3<bool>(false, false, false);
-
-    var i: i32 = 0;
-    for (; i < MAX_RAY_STEPS; i = i + 1) {
-        if (getVoxelStorage(mapPos)) {
-            break;
-        }
-
-        mask = sideDist.xyz <= min(sideDist.yzx, sideDist.zxy);
-        sideDist = sideDist + vec3<f32>(mask) * deltaDist;
-        mapPos = mapPos + vec3<i32>(vec3<f32>(mask)) * rayStep;
-    }
-
-    if (i == MAX_RAY_STEPS)
-    {
-        discard;
-    }
-
-    return mapPos;
-
-}
-
-// fn traverse_brickmap(unadjusted_ray: Ray) -> vec3<i32>
-// {
-//     var adjusted_ray: Ray;
-//     adjusted_ray.origin = unadjusted_ray.origin / 8;
-//     adjusted_ray.direction = unadjusted_ray.direction;
-
-//     var mapPos: vec3<i32> = vec3<i32>(floor(adjusted_ray.origin + vec3<f32>(0.0)));
-
-//     let deltaDist: vec3<f32> = abs(vec3<f32>(length(adjusted_ray.direction)) / adjusted_ray.direction);
-
-//     let rayStep: vec3<i32> = vec3<i32>(sign(adjusted_ray.direction));
-
-//     var sideDist: vec3<f32> =
-//         (sign(adjusted_ray.direction) * (vec3<f32>(mapPos) - adjusted_ray.origin) + (sign(adjusted_ray.direction) * 0.5) + 0.5) * deltaDist;
-
-//     var mask: vec3<bool> = vec3<bool>(false, false, false);
-
-//     var i: i32 = 0;
-//     for (; i < (128 * 3); i = i + 1)
-//     {
-//         if (any(mapPos < vec3<i32>(-1)) || any(mapPos > vec3<i32>(129)))
-//         {
-//             discard;
-//         }
-        
-//         if (!(any(mapPos < vec3<i32>(0)) || any(mapPos >= vec3<i32>(128))))
-//         {
-//             let maybe_brick_pointer = brick_map[mapPos.x][mapPos.y][mapPos.z];
-
-//             if (maybe_brick_pointer != 0)
-//             {
-//                 var brick_cube: Cube;
-//                 brick_cube.center = 8 * vec3<f32>(mapPos) + 4;
-//                 brick_cube.edge_length = 8.0;
-
-//                 let res = Cube_tryIntersect(brick_cube, unadjusted_ray);
-
-//                 if (res.intersection_occurred)
-//                 {
-//                     // TODO: scale inward
-//                     return vec3<i32>(res.maybe_hit_point + 0.0001);
-//                 }
-//             }
-//         }
-
-//         mask = sideDist.xyz <= min(sideDist.yzx, sideDist.zxy);
-//         sideDist = sideDist + vec3<f32>(mask) * deltaDist;
-//         mapPos = mapPos + vec3<i32>(vec3<f32>(mask)) * rayStep;
-//     }
-
-//     if (i == (128 * 3))
-//     {
-//         discard;
-//     }
-
-//     return mapPos;
-// }
-
 const BRICK_TRAVERSAL_STEPS: i32 = 8 * 3 + 1;
 // traverses as if the brick is from 000 -> 888
 const InvalidBrickTraversalSentinel: vec3<i32> = vec3<i32>(-1);
@@ -382,80 +252,10 @@ fn traverse_brick_dda(brick: BrickPointer, ray: Ray) -> vec3<i32>
     }
 
     return InvalidBrickTraversalSentinel;
-
-    // if (ii == ITERSTEPS) discard;
-
-    // vec3 position = ro+rd*dist;
-    // return hit(normal, dist, position);
 }
 
 
-// Constants
-const USE_BRANCHLESS_DDA : bool = true;
-const MAX_RAY_STEPS : i32 = 768 * 2;
 const ERROR_COLOR: vec4<f32> = vec4<f32>(1.0, 0.0, 1.0, 1.0);
-
-// Sphere distance function
-fn sdSphere(p: vec3<f32>, d: f32) -> f32
-{
-    return length(p) - d;
-}
-
-// Box distance function
-fn sdBox(p: vec3<f32>, b: vec3<f32>) -> f32 {
-    let d: vec3<f32> = abs(p) - b;
-    return min(max(d.x, max(d.y, d.z)), 0.0) + length(max(d, vec3<f32>(0.0)));
-}
-
-fn getVoxelGen(c: vec3<i32>) -> bool
-{
-    if (any(c == vec3<i32>(0)))
-    {
-        return false;
-    }
-
-    if (length(vec3<f32>(c)) > 27.5)
-    {
-        return false;
-    }
-
-	let p: vec3<f32> = vec3<f32>(c) + vec3<f32>(0.5);
-	let d: f32 = min(max(-sdSphere(p, 7.5), sdBox(p, vec3<f32>(6.0))), -sdSphere(p, 25.0));
-	return d < 0.0;
-}
-
-fn getVoxelStorage(c: vec3<i32>) -> bool
-{
-    // because of inaccuracy reasons, asking for a position one outside of the
-    // chunk isn't an immediate discard. This only occurs when youre outisde of
-    // the chunk looking in. 
-    if (any(c < vec3<i32>(-1)) || any(c >= vec3<i32>(1025)))
-    {
-        discard;
-    }
-    
-    if (any(c < vec3<i32>(0)) || any(c >= vec3<i32>(1024)))
-    {
-        return false;
-    }
-
-    
-
-    let brick_pos = c / vec3<i32>(8);
-    let voxel_pos = c % vec3<i32>(8);
-
-    let brick_ptr = brick_map[brick_pos.x][brick_pos.y][brick_pos.z];
-
-    if (brick_ptr == 0)
-    {
-        return false;
-    }
-
-    // return true;
-
-
-    return Brick_access(brick_ptr, vec3<u32>(voxel_pos)) != 0;
-}
 
 fn Brick_access(me: BrickPointer, pos: vec3<u32>) -> u32
 {
