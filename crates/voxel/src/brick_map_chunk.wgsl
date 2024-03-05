@@ -203,21 +203,29 @@ fn simple_dda_traversal_bricks(unadjusted_ray: Ray) -> vec3<i32>
 
             if (maybe_brick_pointer != 0)
             {
-                // var brick_cube: Cube;
-                // brick_cube.center = 8 * vec3<f32>(mapPos) + 4;
-                // brick_cube.edge_length = 8.0;
+                var brick_cube: Cube;
+                brick_cube.center = 8.0 * vec3<f32>(mapPos) + 4;
+                brick_cube.edge_length = 8.0;
 
-                var brick_ray: Ray;
-                brick_ray.origin = unadjusted_ray.origin % vec3<f32>(8.0);
-                brick_ray.direction = adjusted_ray.direction;
-                let maybe_local_brick_pos = traverse_brick_dda(maybe_brick_pointer, brick_ray);
+                let res = Cube_tryIntersect(brick_cube, unadjusted_ray);
 
-                if (all(maybe_local_brick_pos != InvalidBrickTraversalSentinel))
+                if (res.intersection_occurred)
                 {
-                    return maybe_local_brick_pos + mapPos * 8;
+                    var brick_ray: Ray;
+                    brick_ray.origin = res.maybe_hit_point - 8 * vec3<f32>(mapPos);
+                    brick_ray.direction = adjusted_ray.direction;
+                    let maybe_local_brick_pos = traverse_brick_dda(maybe_brick_pointer, brick_ray);
+
+                    if (all(maybe_local_brick_pos != InvalidBrickTraversalSentinel))
+                    {
+                        return maybe_local_brick_pos + mapPos * 8;
+                    }
+
+
                 }
 
-                // let res = Cube_tryIntersect(brick_cube, unadjusted_ray);
+
+                
 
                 // if (res.intersection_occurred)
                 // {
@@ -277,63 +285,63 @@ fn traverse_dda(ray: Ray) -> vec3<i32>
 
 }
 
-fn traverse_brickmap(unadjusted_ray: Ray) -> vec3<i32>
-{
-    var adjusted_ray: Ray;
-    adjusted_ray.origin = unadjusted_ray.origin / 8;
-    adjusted_ray.direction = unadjusted_ray.direction;
+// fn traverse_brickmap(unadjusted_ray: Ray) -> vec3<i32>
+// {
+//     var adjusted_ray: Ray;
+//     adjusted_ray.origin = unadjusted_ray.origin / 8;
+//     adjusted_ray.direction = unadjusted_ray.direction;
 
-    var mapPos: vec3<i32> = vec3<i32>(floor(adjusted_ray.origin + vec3<f32>(0.0)));
+//     var mapPos: vec3<i32> = vec3<i32>(floor(adjusted_ray.origin + vec3<f32>(0.0)));
 
-    let deltaDist: vec3<f32> = abs(vec3<f32>(length(adjusted_ray.direction)) / adjusted_ray.direction);
+//     let deltaDist: vec3<f32> = abs(vec3<f32>(length(adjusted_ray.direction)) / adjusted_ray.direction);
 
-    let rayStep: vec3<i32> = vec3<i32>(sign(adjusted_ray.direction));
+//     let rayStep: vec3<i32> = vec3<i32>(sign(adjusted_ray.direction));
 
-    var sideDist: vec3<f32> =
-        (sign(adjusted_ray.direction) * (vec3<f32>(mapPos) - adjusted_ray.origin) + (sign(adjusted_ray.direction) * 0.5) + 0.5) * deltaDist;
+//     var sideDist: vec3<f32> =
+//         (sign(adjusted_ray.direction) * (vec3<f32>(mapPos) - adjusted_ray.origin) + (sign(adjusted_ray.direction) * 0.5) + 0.5) * deltaDist;
 
-    var mask: vec3<bool> = vec3<bool>(false, false, false);
+//     var mask: vec3<bool> = vec3<bool>(false, false, false);
 
-    var i: i32 = 0;
-    for (; i < (128 * 3); i = i + 1)
-    {
-        if (any(mapPos < vec3<i32>(-1)) || any(mapPos > vec3<i32>(129)))
-        {
-            discard;
-        }
+//     var i: i32 = 0;
+//     for (; i < (128 * 3); i = i + 1)
+//     {
+//         if (any(mapPos < vec3<i32>(-1)) || any(mapPos > vec3<i32>(129)))
+//         {
+//             discard;
+//         }
         
-        if (!(any(mapPos < vec3<i32>(0)) || any(mapPos >= vec3<i32>(128))))
-        {
-            let maybe_brick_pointer = brick_map[mapPos.x][mapPos.y][mapPos.z];
+//         if (!(any(mapPos < vec3<i32>(0)) || any(mapPos >= vec3<i32>(128))))
+//         {
+//             let maybe_brick_pointer = brick_map[mapPos.x][mapPos.y][mapPos.z];
 
-            if (maybe_brick_pointer != 0)
-            {
-                var brick_cube: Cube;
-                brick_cube.center = 8 * vec3<f32>(mapPos) + 4;
-                brick_cube.edge_length = 8.0;
+//             if (maybe_brick_pointer != 0)
+//             {
+//                 var brick_cube: Cube;
+//                 brick_cube.center = 8 * vec3<f32>(mapPos) + 4;
+//                 brick_cube.edge_length = 8.0;
 
-                let res = Cube_tryIntersect(brick_cube, unadjusted_ray);
+//                 let res = Cube_tryIntersect(brick_cube, unadjusted_ray);
 
-                if (res.intersection_occurred)
-                {
-                    // TODO: scale inward
-                    return vec3<i32>(res.maybe_hit_point + 0.0001);
-                }
-            }
-        }
+//                 if (res.intersection_occurred)
+//                 {
+//                     // TODO: scale inward
+//                     return vec3<i32>(res.maybe_hit_point + 0.0001);
+//                 }
+//             }
+//         }
 
-        mask = sideDist.xyz <= min(sideDist.yzx, sideDist.zxy);
-        sideDist = sideDist + vec3<f32>(mask) * deltaDist;
-        mapPos = mapPos + vec3<i32>(vec3<f32>(mask)) * rayStep;
-    }
+//         mask = sideDist.xyz <= min(sideDist.yzx, sideDist.zxy);
+//         sideDist = sideDist + vec3<f32>(mask) * deltaDist;
+//         mapPos = mapPos + vec3<i32>(vec3<f32>(mask)) * rayStep;
+//     }
 
-    if (i == (128 * 3))
-    {
-        discard;
-    }
+//     if (i == (128 * 3))
+//     {
+//         discard;
+//     }
 
-    return mapPos;
-}
+//     return mapPos;
+// }
 
 const BRICK_TRAVERSAL_STEPS: i32 = 8 * 3 + 1;
 // traverses as if the brick is from 000 -> 888
