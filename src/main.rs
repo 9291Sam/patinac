@@ -12,16 +12,14 @@ use std::sync::{Arc, OnceLock};
 mod recordables;
 mod test_scene;
 
-static LOGGER: OnceLock<util::AsyncLogger> = OnceLock::new();
-
 fn main()
 {
     #[cfg(debug_assertions)]
     std::env::set_var("RUST_BACKTRACE", "full");
 
-    // Initialize logger
-    LOGGER.set(util::AsyncLogger::new()).unwrap();
-    log::set_logger(LOGGER.get().unwrap()).unwrap();
+    let logger: &'static mut util::AsyncLogger = Box::leak(Box::new(util::AsyncLogger::new()));
+
+    log::set_logger(logger).unwrap();
     log::set_max_level(log::LevelFilter::Trace);
 
     // Safety: we try our best to drop the Renderer on this thread
@@ -57,5 +55,5 @@ fn main()
         human_bytes::human_bytes(util::get_bytes_allocated_total() as f64)
     );
 
-    LOGGER.get().unwrap().stop_worker();
+    logger.stop_worker();
 }
