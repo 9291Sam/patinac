@@ -1,5 +1,7 @@
 #![feature(map_try_insert)]
 #![feature(maybe_uninit_as_bytes)]
+#![feature(allocator_api)]
+#![feature(slice_ptr_get)]
 
 mod allocator;
 mod global_allocator;
