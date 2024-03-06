@@ -225,23 +225,18 @@ fn traverse_brick_dda(brick: BrickPointer, ray: Ray) -> vec3<i32>
 
     let rdi: vec3<f32> = 1.0 / (2.0 * ray.direction);
 
-    var i: i32;
-
-    for (i = 0; i < BRICK_TRAVERSAL_STEPS; i += 1)
+    for (var i = 0; i < BRICK_TRAVERSAL_STEPS; i += 1)
     {
         let mapPos = vec3<i32>(floor(voxelPos));
 
-        if (any(mapPos < vec3<i32>(-1)) || any(mapPos > vec3<i32>(9)))
+        if (any(mapPos < vec3<i32>(0)) || any(mapPos > vec3<i32>(8)))
         {
             return InvalidBrickTraversalSentinel;
         }
         
-        if (!(any(mapPos < vec3<i32>(0)) || any(mapPos >= vec3<i32>(8))))
+        if (Brick_access(brick, vec3<u32>(mapPos)) != 0)
         {
-            if (Brick_access(brick, vec3<u32>(floor(voxelPos))) != 0)
-            {
-                return vec3<i32>(floor(voxelPos));
-            }
+            return vec3<i32>(floor(voxelPos));
         }
 
         let plain: vec3<f32> = ((vec3<f32>(1.0) + rayDirectionSign - vec3<f32>(2.0) * (ray.origin - voxelPos)) * rdi);
@@ -289,20 +284,6 @@ fn triple32(i_x: u32) -> u32
 fn rand(co: vec2<f32>) -> f32
 {   
     return fract(sin(dot(co / (2.71 * log(length(co))), vec2(12.9898, 78.233))) * 43758.5453);
-}
-
-fn get_spherical_coords(point: vec3<f32>) -> vec3<f32>
-{
-    let rho:   f32 = sqrt(dot(point, point));
-    let theta: f32 = atan2(point.y, point.x);
-    let phi:   f32 = acos(point.z / rho);
-
-    return vec3<f32>(
-        // map(rho, 0.0, 64.0, 0.0, 1.0),
-        0.0,
-        map(theta, -PI, PI, 0.0, 1.0),
-        map(phi, 0.0, PI, 0.0, 1.0),
-    );
 }
 
 fn get_random_color(point: vec3<f32>) -> vec3<f32>
@@ -418,41 +399,4 @@ fn Cube_tryIntersect(me: Cube, ray: Ray) -> IntersectionResult {
     res.maybe_color = vec4<f32>(0.0, 1.0, 1.0, 1.0);
 
     return res; 
-}
-
-fn mod_euc(l: i32, r: i32) -> i32
-{
-    let res = l % r;
-    if res < 0 
-    {
-        if r > 0
-        {
-            return res + r;
-        }
-        else
-        {
-            return res - r;
-        }
-    }
-
-    return res;
-}
-
-fn div_euc(l: i32, r: i32) -> i32
-{
-    let q = l / r;
-
-    if l % r < 0
-    {
-        if r > 0
-        {
-            return q - 1;
-        }
-        else
-        {
-            return q + 1;
-        }
-    }
-
-    return q;
 }

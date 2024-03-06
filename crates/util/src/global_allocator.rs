@@ -1,4 +1,5 @@
 use std::alloc::{Allocator, Layout, System};
+use std::isize;
 use std::ptr::NonNull;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -71,6 +72,33 @@ unsafe impl std::alloc::GlobalAlloc for GlobalAllocator
         {
             Some(ptr) =>
             {
+                let old_size = old_layout.size();
+
+                let alloc_difference: isize = new_size as isize - old_size as isize;
+
+                match alloc_difference
+                {
+                    d if d < 0 =>
+                    {
+                        self.bytes_allocated_total
+                            .fetch_sub(alloc_difference.unsigned_abs(), Ordering::Relaxed);
+
+                        self.bytes_allocated_current
+                            .fetch_sub(alloc_difference.unsigned_abs(), Ordering::Relaxed);
+                    }
+                    0 =>
+                    {}
+                    d if d > 0 =>
+                    {
+                        self.bytes_allocated_total
+                            .fetch_add(alloc_difference.unsigned_abs(), Ordering::Relaxed);
+
+                        self.bytes_allocated_current
+                            .fetch_add(alloc_difference.unsigned_abs(), Ordering::Relaxed);
+                    }
+                    _ => unreachable!()
+                }
+
                 if new_size < old_layout.size()
                 {
                     return ptr.as_ptr();
