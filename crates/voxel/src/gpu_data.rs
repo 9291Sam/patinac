@@ -6,7 +6,7 @@ use gfx::glm;
 use gfx::wgpu::{self};
 
 #[repr(u16)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum Voxel
 {
     Air   = 0,
@@ -37,6 +37,29 @@ impl VoxelBrick
         &mut self.data
     }
 }
+
+/// Value Table
+/// ~: any value
+/// ^: any nonzero value
+/// Top u16 | Low u16 | Meaning
+///  0x0000 | 0x~~~~  | Voxel stored (with the voxel 0 being air / empty)
+///  0x^^^^ | 0x^^^^  | Brick pointer stored in the range [1, 2^32]
+
+// #[repr(C)]
+// struct VoxelBrickPointer
+// {
+//     data:   u32
+// }
+
+// enum VoxelBrickPointerType
+// {
+
+// }
+
+// impl VoxelBrickPointer
+// {
+//     pub fn new_ptr
+// }
 
 type BrickPointer = NonZeroU32;
 

@@ -60,7 +60,7 @@ impl TestScene
         let this = Arc::new(TestScene {
             _objs: objs,
             rotate_objs,
-            brick_map_chunk: voxel::BrickMapChunk::new(game, glm::Vec3::new(484.0, 494.0, 484.0)),
+            brick_map_chunk: voxel::BrickMapChunk::new(game, glm::Vec3::new(0.0, 0.0, 0.0)),
             id: util::Uuid::new()
         });
 
@@ -77,11 +77,11 @@ impl TestScene
                 (value as u16).clamp(0, 1024)
             };
             let b: u16 = 1024;
-            let layers = 1;
+            let layers = 24;
 
             let mut rand = rand::thread_rng();
 
-            for l in 0..layers
+            for l in 12..13
             {
                 for (x, z) in itertools::iproduct!(0..b, 0..b)
                 {
