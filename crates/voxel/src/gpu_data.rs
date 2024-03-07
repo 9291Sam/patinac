@@ -83,7 +83,7 @@ pub struct VoxelChunkDataManager
     brick_allocator:             util::FreelistAllocator
 }
 
-pub type ChunkPosition = glm::U16Vec3;
+pub type ChunkPosition = glm::I16Vec3;
 
 impl VoxelChunkDataManager
 {
@@ -122,27 +122,50 @@ impl VoxelChunkDataManager
         }
     }
 
-    pub fn write_voxel(&mut self, v: Voxel, pos: ChunkPosition)
+    pub fn write_voxel(&mut self, v: Voxel, signed_pos: ChunkPosition)
     {
         let voxel_bound = BRICK_MAP_EDGE_SIZE * VOXEL_BRICK_SIZE;
+        let signed_bound: i16 = (BRICK_MAP_EDGE_SIZE * VOXEL_BRICK_SIZE / 2)
+            .try_into()
+            .unwrap();
 
-        if ((pos.x as usize) >= voxel_bound)
-            || ((pos.y as usize) >= voxel_bound)
-            || ((pos.z as usize) >= voxel_bound)
+        assert!(
+            signed_pos.x >= -signed_bound && signed_pos.x < signed_bound,
+            "Bound {} is out of bounds",
+            signed_pos.x
+        );
+
+        assert!(
+            signed_pos.y >= -signed_bound && signed_pos.y < signed_bound,
+            "Bound {} is out of bounds",
+            signed_pos.y
+        );
+
+        assert!(
+            signed_pos.z >= -signed_bound && signed_pos.z < signed_bound,
+            "Bound {} is out of bounds",
+            signed_pos.z
+        );
+
+        let unsigned_pos: glm::U16Vec3 = signed_pos.add_scalar(signed_bound).try_cast().unwrap();
+
+        if ((unsigned_pos.x as usize) >= voxel_bound)
+            || ((unsigned_pos.y as usize) >= voxel_bound)
+            || ((unsigned_pos.z as usize) >= voxel_bound)
         {
-            panic!("Out of bounds write on chunk {}", pos);
+            panic!("Out of bounds write on chunk {}", unsigned_pos);
         }
 
         let voxel_pos = glm::U16Vec3::new(
-            pos.x % VOXEL_BRICK_SIZE as u16,
-            pos.y % VOXEL_BRICK_SIZE as u16,
-            pos.z % VOXEL_BRICK_SIZE as u16
+            unsigned_pos.x % VOXEL_BRICK_SIZE as u16,
+            unsigned_pos.y % VOXEL_BRICK_SIZE as u16,
+            unsigned_pos.z % VOXEL_BRICK_SIZE as u16
         );
 
         let brick_pos = glm::U16Vec3::new(
-            pos.x / VOXEL_BRICK_SIZE as u16,
-            pos.y / VOXEL_BRICK_SIZE as u16,
-            pos.z / VOXEL_BRICK_SIZE as u16
+            unsigned_pos.x / VOXEL_BRICK_SIZE as u16,
+            unsigned_pos.y / VOXEL_BRICK_SIZE as u16,
+            unsigned_pos.z / VOXEL_BRICK_SIZE as u16
         );
 
         let this_brick_head = (&self.cpu_brick_map[0][0][0]) as *const _;
@@ -210,7 +233,7 @@ impl VoxelChunkDataManager
                 // );
 
                 //
-                self.write_voxel(v, pos);
+                self.write_voxel(v, signed_pos);
             }
         }
 

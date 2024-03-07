@@ -70,20 +70,20 @@ impl TestScene
 
             let perlin = noise::Perlin::new(1347234789);
 
-            let noise_func = |x: u16, z: u16, layer: u16| -> u16 {
+            let noise_func = |x: i16, z: i16, layer: i16| -> i16 {
                 let value = perlin.get([x as f64 / 64.0, layer as f64 / 32.0, z as f64 / 64.0])
                     * 48.0
                     + 32.9;
-                (value as u16).clamp(0, 1024)
+                (value as i16).clamp(-512, 511)
             };
-            let b: u16 = 1024;
-            let layers = 24;
+            let b: i16 = 1024;
+            // let layers = 24;
 
             let mut rand = rand::thread_rng();
 
-            for l in 12..13
+            for l in -12i16..=12
             {
-                for (x, z) in itertools::iproduct!(0..b, 0..b)
+                for (x, z) in itertools::iproduct!(-b / 2..b / 2, -b / 2..b / 2)
                 {
                     data_manager.write_voxel(
                         match rand.gen_range(0..3)
@@ -95,7 +95,7 @@ impl TestScene
                         },
                         voxel::ChunkPosition::new(
                             x,
-                            noise_func(x, z, l) + (l * (0.8 * (b / layers) as f32) as u16),
+                            noise_func(x, z, l), // + (l as f32 * (0.8 * (b / layers) as f32)),
                             z
                         )
                     );
