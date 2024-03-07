@@ -193,18 +193,6 @@ impl VoxelChunkDataManager
             Some(brick_ptr) =>
             {
                 write_to_brick(*brick_ptr);
-
-                // let voxel_bytes = &v.as_bytes();
-
-                // unsafe { (*mapped_ptr) }.data
-
-                // self.renderer.queue.write_buffer(
-                //     &self.gpu_brick_buffer,
-                //     std::mem::size_of::<VoxelBrick>() as u64 *
-                // brick_ptr.into_integer() as u64
-                //         + voxel_offset_bytes,
-                //     &v.as_bytes()
-                // );
             }
             None =>
             {
@@ -233,8 +221,6 @@ impl VoxelChunkDataManager
                 write_to_brick(new_brick_ptr);
             }
         }
-
-        // update gpu side
     }
 
     pub fn stop_writes(&mut self)
