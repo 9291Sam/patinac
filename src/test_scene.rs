@@ -3,6 +3,8 @@ use std::sync::Arc;
 
 use gfx::glm;
 use noise::NoiseFn;
+use rand::distributions::{Distribution, Standard};
+use rand::Rng;
 
 use crate::recordables::flat_textured::FlatTextured;
 use crate::recordables::lit_textured::LitTextured;
@@ -75,14 +77,22 @@ impl TestScene
                 (value as u16).clamp(0, 1024)
             };
             let b: u16 = 1024;
-            let layers = 24;
+            let layers = 1;
+
+            let mut rand = rand::thread_rng();
 
             for l in 0..layers
             {
                 for (x, z) in itertools::iproduct!(0..b, 0..b)
                 {
                     data_manager.write_voxel(
-                        voxel::Voxel::Green,
+                        match rand.gen_range(0..3)
+                        {
+                            0 => voxel::Voxel::Red,
+                            1 => voxel::Voxel::Green,
+                            2 => voxel::Voxel::Blue,
+                            _ => unreachable!()
+                        },
                         voxel::ChunkPosition::new(
                             x,
                             noise_func(x, z, l) + (l * (0.8 * (b / layers) as f32) as u16),

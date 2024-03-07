@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::f32::consts::PI;
 use std::num::NonZeroU64;
 use std::ops::Deref;
 use std::panic::{RefUnwindSafe, UnwindSafe};
@@ -219,9 +220,9 @@ impl Renderer
             window,
             event_loop,
             camera: RefCell::new(super::Camera::new(
-                glm::Vec3::new(0.0, 0.0, -10.0),
-                0.0,
-                0.0
+                glm::Vec3::new(-22.22, 22.22, -22.22),
+                0.555555,
+                0.80
             ))
         };
 
@@ -689,8 +690,8 @@ impl Renderer
             if input_helper.key_held(KeyCode::KeyK)
             {
                 log::info!(
-                    "Camera Position: {:?} | Frame Time (ms): {:.03} | FPS: {:.03}",
-                    camera.borrow().get_position(),
+                    "Camera: {:?} | Frame Time (ms): {:.03} | FPS: {:.03}",
+                    camera,
                     self.get_delta_time() * 1000.0,
                     1.0 / self.get_delta_time()
                 );

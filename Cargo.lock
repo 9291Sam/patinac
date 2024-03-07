@@ -1239,6 +1239,7 @@ dependencies = [
  "itertools",
  "log",
  "noise",
+ "rand 0.8.5",
  "tobj",
  "util",
  "voxel",

@@ -21,6 +21,7 @@ tobj = "4.0.1"
 itertools = "0.12.1"
 noise = "0.8.2"
 human_bytes = "0.4.3"
+rand = "0.8.5"
 
 [profile.dev]
 opt-level = 3

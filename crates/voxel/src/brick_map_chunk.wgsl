@@ -84,11 +84,14 @@ fn fs_main(in: VertexOutput, @builtin(front_facing) is_front_face: bool) -> Frag
         ray.origin = in.local_pos;
     }
 
-    let mapPos: vec3<i32> = simple_dda_traversal_bricks(ray);
+    let result: BrickTraversalResult = simple_dda_traversal_bricks(ray);
+    let mapPos = result.pos;
+    let voxel = result.voxel;
 
     var out: FragmentOutput;
 
-    out.color = vec4<f32>(get_random_color(vec3<f32>(mapPos)), 1.0);
+    // out.color = vec4<f32>(get_random_color(vec3<f32>(mapPos)), 1.0);
+    out.color = get_voxel_color(voxel);
 
     var c: Cube;
     c.center = vec3<f32>(mapPos) + 0.5;
@@ -133,7 +136,7 @@ fn fs_main(in: VertexOutput, @builtin(front_facing) is_front_face: bool) -> Frag
 }
 
 const SIMPLE_DDA_ITER_BRICKS_STEPS: i32 = 128 * 3 + 1;
-fn simple_dda_traversal_bricks(unadjusted_ray: Ray) -> vec3<i32>
+fn simple_dda_traversal_bricks(unadjusted_ray: Ray) -> BrickTraversalResult
 {
     var adjusted_ray: Ray;
     adjusted_ray.origin = unadjusted_ray.origin / 8;
@@ -177,11 +180,11 @@ fn simple_dda_traversal_bricks(unadjusted_ray: Ray) -> vec3<i32>
                     var brick_ray: Ray;
                     brick_ray.origin = res.maybe_hit_point - 8 * vec3<f32>(mapPos);
                     brick_ray.direction = adjusted_ray.direction;
-                    let maybe_local_brick_pos = traverse_brick_dda(maybe_brick_pointer, brick_ray);
+                    let brick_result = traverse_brick_dda(maybe_brick_pointer, brick_ray);
 
-                    if (all(maybe_local_brick_pos != InvalidBrickTraversalSentinel))
+                    if (BrickTraversalResult_isValid(brick_result))
                     {
-                        return maybe_local_brick_pos + mapPos * 8;
+                        return BrickTraversalResult(brick_result.pos + mapPos * 8, brick_result.voxel);
                     }
 
 
@@ -206,8 +209,11 @@ fn simple_dda_traversal_bricks(unadjusted_ray: Ray) -> vec3<i32>
 
 const BRICK_TRAVERSAL_STEPS: i32 = 8 * 3 + 1;
 // traverses as if the brick is from 000 -> 888
-const InvalidBrickTraversalSentinel: vec3<i32> = vec3<i32>(-1);
-fn traverse_brick_dda(brick: BrickPointer, ray: Ray) -> vec3<i32>
+struct BrickTraversalResult {pos: vec3<i32>, voxel: u32}
+fn BrickTraversalResult_isValid(me: BrickTraversalResult) -> bool {return all(me.pos != vec3<i32>(-1));}
+const InvalidBrickTraversalResult: BrickTraversalResult = BrickTraversalResult(vec3<i32>(-1), 0);
+
+fn traverse_brick_dda(brick: BrickPointer, ray: Ray) -> BrickTraversalResult
 {
     var voxelPos: vec3<f32> = floor(ray.origin);
     var distance: f32;
@@ -222,14 +228,16 @@ fn traverse_brick_dda(brick: BrickPointer, ray: Ray) -> vec3<i32>
 
         if (any(mapPos < vec3<i32>(-1)) || any(mapPos > vec3<i32>(9)))
         {
-            return InvalidBrickTraversalSentinel;
+            return InvalidBrickTraversalResult;
         }
         
         if (!(any(mapPos < vec3<i32>(0)) || any(mapPos >= vec3<i32>(8))))
         {
-            if (Brick_access(brick, vec3<u32>(floor(voxelPos))) != 0)
+            let maybe_voxel: u32 = Brick_access(brick, vec3<u32>(floor(voxelPos)));
+
+            if (maybe_voxel != 0)
             {
-                return vec3<i32>(floor(voxelPos));
+                return BrickTraversalResult(vec3<i32>(floor(voxelPos)), maybe_voxel);
             }
         }
 
@@ -240,7 +248,7 @@ fn traverse_brick_dda(brick: BrickPointer, ray: Ray) -> vec3<i32>
         voxelPos += normal;
     }
 
-    return InvalidBrickTraversalSentinel;
+    return InvalidBrickTraversalResult;
 }
 
 
@@ -288,6 +296,20 @@ fn get_random_color(point: vec3<f32>) -> vec3<f32>
     out.z = rand(point.zx * point.zy);
 
     return out;
+}
+
+fn get_voxel_color(voxel: u32) -> vec4<f32>
+{
+    switch voxel
+    {
+        case 0u: {return ERROR_COLOR;}
+        case 1u: {return vec4<f32>(1.0, 0.0, 0.0, 0.0);}
+        case 2u: {return vec4<f32>(0.0, 1.0, 0.0, 0.0);;}
+        case 3u: {return vec4<f32>(0.0, 0.0, 1.0, 0.0);;}
+        default: {return ERROR_COLOR;}
+
+    }
+
 }
 
 const TAU: f32 = 6.2831853071795862;
