@@ -229,14 +229,17 @@ fn traverse_brick_dda(brick: BrickPointer, ray: Ray) -> vec3<i32>
     {
         let mapPos = vec3<i32>(floor(voxelPos));
 
-        if (any(mapPos < vec3<i32>(0)) || any(mapPos > vec3<i32>(8)))
+        if (any(mapPos < vec3<i32>(-1)) || any(mapPos > vec3<i32>(9)))
         {
             return InvalidBrickTraversalSentinel;
         }
         
-        if (Brick_access(brick, vec3<u32>(mapPos)) != 0)
+        if (!(any(mapPos < vec3<i32>(0)) || any(mapPos >= vec3<i32>(8))))
         {
-            return vec3<i32>(floor(voxelPos));
+            if (Brick_access(brick, vec3<u32>(floor(voxelPos))) != 0)
+            {
+                return vec3<i32>(floor(voxelPos));
+            }
         }
 
         let plain: vec3<f32> = ((vec3<f32>(1.0) + rayDirectionSign - vec3<f32>(2.0) * (ray.origin - voxelPos)) * rdi);
