@@ -174,21 +174,25 @@ impl VoxelChunkDataManager
         let this_brick_byte_offset =
             unsafe { (this_brick as *mut _ as *const u8).byte_offset_from(this_brick_head) };
 
+        let write_to_brick = |brick_ptr: BrickPointer| {
+            let mapped_ptr = unsafe {
+                (self
+                    .gpu_brick_buffer
+                    .slice(..)
+                    .get_mapped_range_mut()
+                    .as_mut_ptr() as *mut VoxelBrick)
+                    .add(brick_ptr.into_integer() as usize)
+            };
+
+            VoxelBrick::write(unsafe { &mut *mapped_ptr })[voxel_pos.x as usize]
+                [voxel_pos.y as usize][voxel_pos.z as usize] = v;
+        };
+
         match this_brick
         {
             Some(brick_ptr) =>
             {
-                let mapped_ptr = unsafe {
-                    (self
-                        .gpu_brick_buffer
-                        .slice(..)
-                        .get_mapped_range_mut()
-                        .as_mut_ptr() as *mut VoxelBrick)
-                        .add(brick_ptr.into_integer() as usize)
-                };
-
-                VoxelBrick::write(unsafe { &mut *mapped_ptr })[voxel_pos.x as usize]
-                    [voxel_pos.y as usize][voxel_pos.z as usize] = v;
+                write_to_brick(*brick_ptr);
 
                 // let voxel_bytes = &v.as_bytes();
 
@@ -226,14 +230,7 @@ impl VoxelChunkDataManager
                         .copy_from_nonoverlapping(brick_ptr_bytes.as_ptr(), brick_ptr_bytes.len())
                 }
 
-                // self.renderer.queue.write_buffer(
-                //     &self.gpu_brick_map,
-                //     this_brick_byte_offset as u64,
-                //     bytes_of(&new_brick_ptr)
-                // );
-
-                //
-                self.write_voxel(v, signed_pos);
+                write_to_brick(new_brick_ptr);
             }
         }
 
