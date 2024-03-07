@@ -49,19 +49,5 @@ fn main()
         log::warn!("Renderer was retained via Arc cycle! Drop is not possible");
     }
 
-    match util::get_bytes_of_active_allocations()
-    {
-        b if b > 2e6 as usize =>
-        {
-            log::trace!(
-                "{} leaked | {} allocated",
-                b,
-                human_bytes::human_bytes(util::get_bytes_allocated_total() as f64)
-            );
-        }
-        _ =>
-        {}
-    }
-
     logger.stop_worker();
 }

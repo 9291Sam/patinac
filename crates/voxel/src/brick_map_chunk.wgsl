@@ -186,15 +186,6 @@ fn simple_dda_traversal_bricks(unadjusted_ray: Ray) -> vec3<i32>
 
 
                 }
-
-
-                
-
-                // if (res.intersection_occurred)
-                // {
-                //     // TODO: scale inward
-                //     return vec3<i32>(res.maybe_hit_point + 0.0001);
-                // }
             }
         }
         let plain: vec3<f32> = ((vec3<f32>(1.0) + rayDirectionSign - vec3<f32>(2.0) * (adjusted_ray.origin - voxelPos)) * rdi);
