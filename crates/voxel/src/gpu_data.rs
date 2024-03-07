@@ -124,10 +124,7 @@ impl VoxelChunkDataManager
 
     pub fn write_voxel(&mut self, v: Voxel, signed_pos: ChunkPosition)
     {
-        let voxel_bound = BRICK_MAP_EDGE_SIZE * VOXEL_BRICK_SIZE;
-        let signed_bound: i16 = (BRICK_MAP_EDGE_SIZE * VOXEL_BRICK_SIZE / 2)
-            .try_into()
-            .unwrap();
+        let signed_bound: i16 = (BRICK_MAP_EDGE_SIZE * VOXEL_BRICK_SIZE / 2) as i16;
 
         assert!(
             signed_pos.x >= -signed_bound && signed_pos.x < signed_bound,
@@ -148,13 +145,6 @@ impl VoxelChunkDataManager
         );
 
         let unsigned_pos: glm::U16Vec3 = signed_pos.add_scalar(signed_bound).try_cast().unwrap();
-
-        if ((unsigned_pos.x as usize) >= voxel_bound)
-            || ((unsigned_pos.y as usize) >= voxel_bound)
-            || ((unsigned_pos.z as usize) >= voxel_bound)
-        {
-            panic!("Out of bounds write on chunk {}", unsigned_pos);
-        }
 
         let voxel_pos = glm::U16Vec3::new(
             unsigned_pos.x % VOXEL_BRICK_SIZE as u16,
