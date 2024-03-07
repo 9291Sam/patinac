@@ -72,7 +72,7 @@ impl TestScene
 
             let noise_func = |x: i16, z: i16, layer: i16| -> i16 {
                 let value =
-                    perlin.get([x as f64 / 256.0, layer as f64 / 16.0, z as f64 / 256.0]) * 48.0;
+                    perlin.get([x as f64 / 256.0, layer as f64 / 16.0, z as f64 / 256.0]) * 24.0;
                 (value as i16)
             };
             let b: i16 = 1024;
@@ -84,8 +84,20 @@ impl TestScene
             {
                 for (x, z) in itertools::iproduct!(-b / 2..b / 2, -b / 2..b / 2)
                 {
-                    let height = noise_func(x, z, l) + (b / layers) * l;
+                    let noise = noise_func(x, z, l);
+
+                    if (noise.abs() > 4)
+                    {
+                        continue;
+                    }
+
+                    let height = noise + (b / layers) * l;
                     let height = height.clamp(-512, 511);
+
+                    if (height == -512 || height == 511)
+                    {
+                        continue;
+                    }
 
                     data_manager.write_voxel(
                         match height.abs() % 3
