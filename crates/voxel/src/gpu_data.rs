@@ -110,7 +110,8 @@ impl VoxelBrickPointer
 
         assert_matches!(
             maybe_new_ptr.classify(),
-            VoxelBrickPointerType::ValidBrickPointer(ptr)
+            VoxelBrickPointerType::ValidBrickPointer(ptr),
+            "Tried to create a pointer with an invalid value. Valid range is [1, 2^32 - 2^16)"
         );
 
         maybe_new_ptr
@@ -379,5 +380,41 @@ mod test
     {
         assert_eq!(1024, std::mem::size_of::<VoxelBrick>());
         assert_eq!(8 * 1024 * 1024, std::mem::size_of::<BrickMap>());
+    }
+
+    #[test]
+    fn assert_values()
+    {
+        assert_matches!(
+            VoxelBrickPointer::new_null().classify(),
+            VoxelBrickPointerType::Null
+        );
+
+        for i in 1..4
+        {
+            let v = Voxel::try_from(i).unwrap();
+
+            assert_matches!(
+                VoxelBrickPointer::new_voxel(v).classify(),
+                VoxelBrickPointerType::Voxel(v)
+            );
+        }
+
+        for i in 1..100
+        {
+            assert_matches!(
+                VoxelBrickPointer::new_ptr(i).classify(),
+                VoxelBrickPointerType::ValidBrickPointer(i)
+            );
+        }
+
+        for i in (VoxelBrickPointer::POINTER_TO_VOXEL_BOUND - 100)
+            ..VoxelBrickPointer::POINTER_TO_VOXEL_BOUND
+        {
+            assert_matches!(
+                VoxelBrickPointer::new_ptr(i).classify(),
+                VoxelBrickPointerType::ValidBrickPointer(i)
+            );
+        }
     }
 }

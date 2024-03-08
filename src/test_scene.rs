@@ -94,7 +94,7 @@ impl TestScene
                     let height = noise + (b / layers) * l;
                     let height = height.clamp(-512, 511);
 
-                    if (height == -512 || height == 511)
+                    if height == -512 || height == 511
                     {
                         continue;
                     }
