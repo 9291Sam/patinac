@@ -222,6 +222,44 @@ impl VoxelChunkDataManager
         }
     }
 
+    pub fn write_brick(&mut self, v: Voxel, signed_pos: ChunkPosition)
+    {
+        assert!(v != Voxel::Air);
+
+        let signed_bound: i16 = (BRICK_MAP_EDGE_SIZE / 2) as i16;
+
+        assert!(
+            signed_pos.x >= -signed_bound && signed_pos.x < signed_bound,
+            "Bound {} is out of bounds",
+            signed_pos.x
+        );
+
+        assert!(
+            signed_pos.y >= -signed_bound && signed_pos.y < signed_bound,
+            "Bound {} is out of bounds",
+            signed_pos.y
+        );
+
+        assert!(
+            signed_pos.z >= -signed_bound && signed_pos.z < signed_bound,
+            "Bound {} is out of bounds",
+            signed_pos.z
+        );
+
+        let unsigned_pos: glm::U16Vec3 = signed_pos.add_scalar(signed_bound).try_cast().unwrap();
+
+        let current_brick_ptr = &mut self.cpu_brick_map[unsigned_pos.x as usize]
+            [unsigned_pos.y as usize][unsigned_pos.z as usize];
+
+        if let VoxelBrickPointerType::ValidBrickPointer(old_ptr) = current_brick_ptr.classify()
+        {
+            self.brick_allocator
+                .free((old_ptr.into_integer() as usize).try_into().unwrap())
+        }
+
+        *current_brick_ptr = VoxelBrickPointer::new_voxel(v)
+    }
+
     pub fn write_voxel(&mut self, v: Voxel, signed_pos: ChunkPosition)
     {
         let signed_bound: i16 = (BRICK_MAP_EDGE_SIZE * VOXEL_BRICK_SIZE / 2) as i16;
@@ -264,72 +302,6 @@ impl VoxelChunkDataManager
         let this_brick_byte_offset =
             unsafe { (this_brick as *mut _ as *const u8).byte_offset_from(this_brick_head) };
 
-        fn write_voxel_to_brick(
-            brick_ptr: VoxelBrickPointer,
-            brick_buffer: &wgpu::Buffer,
-            local_voxel_pos: glm::U16Vec3,
-            voxel: Voxel
-        )
-        {
-            let VoxelBrickPointerType::ValidBrickPointer(brick_ptr_integer) = brick_ptr.classify()
-            else
-            {
-                unreachable!()
-            };
-
-            let mapped_ptr = unsafe {
-                (brick_buffer.slice(..).get_mapped_range_mut().as_mut_ptr() as *mut VoxelBrick)
-                    .add(brick_ptr_integer as usize)
-            };
-
-            VoxelBrick::write(unsafe { &mut *mapped_ptr })[local_voxel_pos.x as usize]
-                [local_voxel_pos.y as usize][local_voxel_pos.z as usize] = voxel;
-        }
-
-        fn fill_brick_with_voxel(
-            brick_ptr: VoxelBrickPointer,
-            brick_buffer: &wgpu::Buffer,
-            voxel: Voxel
-        )
-        {
-            let VoxelBrickPointerType::ValidBrickPointer(brick_ptr_integer) = brick_ptr.classify()
-            else
-            {
-                unreachable!()
-            };
-
-            let mapped_ptr = unsafe {
-                (brick_buffer.slice(..).get_mapped_range_mut().as_mut_ptr() as *mut VoxelBrick)
-                    .add(brick_ptr_integer as usize)
-            };
-
-            VoxelBrick::fill(unsafe { &mut *mapped_ptr }, voxel);
-        }
-
-        fn allocate_new_brick(
-            allocator: &mut util::FreelistAllocator,
-            cpu_location: &mut VoxelBrickPointer,
-            cpu_offset: usize,
-            gpu_buffer: &wgpu::Buffer
-        )
-        {
-            let new_brick_ptr: NonZeroU32 = allocator.allocate().unwrap().try_into().unwrap();
-
-            // update cpu side
-            *cpu_location = VoxelBrickPointer::new_ptr(new_brick_ptr.into_integer());
-
-            // update gpu side
-            let mapped_ptr = gpu_buffer.slice(..).get_mapped_range_mut().as_mut_ptr();
-
-            let brick_ptr_bytes = bytes_of(&new_brick_ptr);
-
-            unsafe {
-                mapped_ptr
-                    .add(cpu_offset) // this_brick_byte_offset.try_into().unwrap())
-                    .copy_from_nonoverlapping(brick_ptr_bytes.as_ptr(), brick_ptr_bytes.len())
-            }
-        }
-
         match this_brick.classify()
         {
             VoxelBrickPointerType::ValidBrickPointer(brick_ptr) =>
@@ -367,6 +339,68 @@ impl VoxelChunkDataManager
     {
         self.gpu_brick_buffer.unmap();
         self.gpu_brick_map.unmap();
+    }
+}
+
+fn write_voxel_to_brick(
+    brick_ptr: VoxelBrickPointer,
+    brick_buffer: &wgpu::Buffer,
+    local_voxel_pos: glm::U16Vec3,
+    voxel: Voxel
+)
+{
+    let VoxelBrickPointerType::ValidBrickPointer(brick_ptr_integer) = brick_ptr.classify()
+    else
+    {
+        unreachable!()
+    };
+
+    let mapped_ptr = unsafe {
+        (brick_buffer.slice(..).get_mapped_range_mut().as_mut_ptr() as *mut VoxelBrick)
+            .add(brick_ptr_integer as usize)
+    };
+
+    VoxelBrick::write(unsafe { &mut *mapped_ptr })[local_voxel_pos.x as usize]
+        [local_voxel_pos.y as usize][local_voxel_pos.z as usize] = voxel;
+}
+
+fn fill_brick_with_voxel(brick_ptr: VoxelBrickPointer, brick_buffer: &wgpu::Buffer, voxel: Voxel)
+{
+    let VoxelBrickPointerType::ValidBrickPointer(brick_ptr_integer) = brick_ptr.classify()
+    else
+    {
+        unreachable!()
+    };
+
+    let mapped_ptr = unsafe {
+        (brick_buffer.slice(..).get_mapped_range_mut().as_mut_ptr() as *mut VoxelBrick)
+            .add(brick_ptr_integer as usize)
+    };
+
+    VoxelBrick::fill(unsafe { &mut *mapped_ptr }, voxel);
+}
+
+fn allocate_new_brick(
+    allocator: &mut util::FreelistAllocator,
+    cpu_location: &mut VoxelBrickPointer,
+    cpu_offset: usize,
+    gpu_buffer: &wgpu::Buffer
+)
+{
+    let new_brick_ptr: NonZeroU32 = allocator.allocate().unwrap().try_into().unwrap();
+
+    // update cpu side
+    *cpu_location = VoxelBrickPointer::new_ptr(new_brick_ptr.into_integer());
+
+    // update gpu side
+    let mapped_ptr = gpu_buffer.slice(..).get_mapped_range_mut().as_mut_ptr();
+
+    let brick_ptr_bytes = bytes_of(&new_brick_ptr);
+
+    unsafe {
+        mapped_ptr
+            .add(cpu_offset) // this_brick_byte_offset.try_into().unwrap())
+            .copy_from_nonoverlapping(brick_ptr_bytes.as_ptr(), brick_ptr_bytes.len())
     }
 }
 

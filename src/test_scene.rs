@@ -68,6 +68,11 @@ impl TestScene
             let data_manager: &mut voxel::VoxelChunkDataManager =
                 &mut this.brick_map_chunk.access_data_manager().lock().unwrap();
 
+            for i in -4..4
+            {
+                data_manager.write_brick(voxel::Voxel::Green, glm::I16Vec3::repeat(i))
+            }
+
             let perlin = noise::Perlin::new(1347234789);
 
             let noise_func = |x: i16, z: i16, layer: i16| -> i16 {

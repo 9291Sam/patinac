@@ -19,6 +19,8 @@ alias Matricies = array<mat4x4<f32>, 1024>;
 alias MaybeBrickPointer = u32;
 alias BrickPointer = u32;
 
+const BrickPointerToVoxelCutoff: u32 = 4294901760u;
+
 const BrickEdgeLength: u32 = 8;
 const BrickMapEdgeLength: u32 = 128;
 
@@ -175,20 +177,29 @@ fn simple_dda_traversal_bricks(unadjusted_ray: Ray) -> BrickTraversalResult
 
                 let res = Cube_tryIntersect(brick_cube, unadjusted_ray);
 
-                if (res.intersection_occurred)
+                if maybe_brick_pointer >= BrickPointerToVoxelCutoff
                 {
-                    var brick_ray: Ray;
-                    brick_ray.origin = res.maybe_hit_point - 8 * vec3<f32>(mapPos);
-                    brick_ray.direction = adjusted_ray.direction;
-                    let brick_result = traverse_brick_dda(maybe_brick_pointer, brick_ray);
-
-                    if (BrickTraversalResult_isValid(brick_result))
-                    {
-                        return BrickTraversalResult(brick_result.pos + mapPos * 8, brick_result.voxel);
-                    }
-
-
+                    return BrickTraversalResult(vec3<i32>(round(res.maybe_hit_point)), maybe_brick_pointer - BrickPointerToVoxelCutoff);
                 }
+                else
+                {
+                    if (res.intersection_occurred)
+                    {
+                        var brick_ray: Ray;
+                        brick_ray.origin = res.maybe_hit_point - 8 * vec3<f32>(mapPos);
+                        brick_ray.direction = adjusted_ray.direction;
+                        let brick_result = traverse_brick_dda(maybe_brick_pointer, brick_ray);
+
+                        if (BrickTraversalResult_isValid(brick_result))
+                        {
+                            return BrickTraversalResult(brick_result.pos + mapPos * 8, brick_result.voxel);
+                        }
+
+
+                    }
+                }
+
+                
             }
         }
         let plain: vec3<f32> = ((vec3<f32>(1.0) + rayDirectionSign - vec3<f32>(2.0) * (adjusted_ray.origin - voxelPos)) * rdi);
