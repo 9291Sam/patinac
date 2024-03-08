@@ -36,6 +36,8 @@ struct Brick
 @group(1) @binding(0) var<storage> brick_map: array<array<array<MaybeBrickPointer, BrickMapEdgeLength>, BrickMapEdgeLength>, BrickMapEdgeLength>;
 @group(1) @binding(1) var<storage> brick_buffer: array<Brick>;
 
+var<private> Error: bool = false;
+
 var<push_constant> id: u32;
 
 @vertex
@@ -133,7 +135,11 @@ fn fs_main(in: VertexOutput, @builtin(front_facing) is_front_face: bool) -> Frag
 
     out.depth = maybe_depth;
 
-    // out.color = vec4<f32>(res.maybe_hit_point.xyz / 8, 1.0); //  vec4<f32>(rand(in.world_pos.xy), rand(in.world_pos.yz), rand(in.world_pos.zx), 1.0);
+    if (Error)
+    {
+        out.color = ERROR_COLOR; //  vec4<f32>(rand(in.world_pos.xy), rand(in.world_pos.yz), rand(in.world_pos.zx), 1.0);
+
+    }
     return out;
 }
 
@@ -176,6 +182,8 @@ fn simple_dda_traversal_bricks(unadjusted_ray: Ray) -> BrickTraversalResult
                 brick_cube.edge_length = 8.0;
 
                 let res = Cube_tryIntersect(brick_cube, unadjusted_ray);
+
+                if (!res.intersection_occurred) {Error = true;}
 
                 if maybe_brick_pointer >= BrickPointerToVoxelCutoff
                 {

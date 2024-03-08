@@ -2,7 +2,7 @@ use std::assert_matches::assert_matches;
 use std::num::NonZeroU32;
 use std::sync::Arc;
 
-use bytemuck::{bytes_of, Contiguous};
+use bytemuck::{bytes_of, Contiguous, NoUninit, Pod, Zeroable};
 use gfx::glm;
 use gfx::wgpu::{self};
 
@@ -76,7 +76,7 @@ impl VoxelBrick
 /// [2^32 - 2^16 - 2^32] - voxel
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Pod, Zeroable)]
 struct VoxelBrickPointer
 {
     data: u32
@@ -158,6 +158,7 @@ impl VoxelBrickPointer
             }
         }
     }
+
 }
 
 // type BrickPointer = NonZeroU32;
@@ -248,8 +249,11 @@ impl VoxelChunkDataManager
 
         let unsigned_pos: glm::U16Vec3 = signed_pos.add_scalar(signed_bound).try_cast().unwrap();
 
+        let brick_map_head = (&self.cpu_brick_map[0][0][0]) as *const _;
         let current_brick_ptr = &mut self.cpu_brick_map[unsigned_pos.x as usize]
             [unsigned_pos.y as usize][unsigned_pos.z as usize];
+        let this_brick_byte_offset =
+            unsafe { (current_brick_ptr as *mut _ as *const u8).byte_offset_from(brick_map_head) };
 
         if let VoxelBrickPointerType::ValidBrickPointer(old_ptr) = current_brick_ptr.classify()
         {
@@ -257,7 +261,20 @@ impl VoxelChunkDataManager
                 .free((old_ptr.into_integer() as usize).try_into().unwrap())
         }
 
-        *current_brick_ptr = VoxelBrickPointer::new_voxel(v)
+        // update cpu side
+        *current_brick_ptr = VoxelBrickPointer::new_voxel(v);
+        
+        // update gpu side
+        let mapped_ptr = self.gpu_brick_map.slice(..).get_mapped_range_mut().as_mut_ptr();
+
+        let voxel_brick_ptr = VoxelBrickPointer::new_voxel(v);
+        let brick_ptr_bytes = bytes_of(&voxel_brick_ptr);
+
+        unsafe {
+            mapped_ptr
+                .add(this_brick_byte_offset.try_into().unwrap()) // this_brick_byte_offset.try_into().unwrap())
+                .copy_from_nonoverlapping(brick_ptr_bytes.as_ptr(), brick_ptr_bytes.len())
+        }
     }
 
     pub fn write_voxel(&mut self, v: Voxel, signed_pos: ChunkPosition)
