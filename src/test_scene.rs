@@ -78,7 +78,7 @@ impl TestScene
             let noise_func = |x: i16, z: i16, layer: i16| -> i16 {
                 let value =
                     perlin.get([x as f64 / 256.0, layer as f64 / 16.0, z as f64 / 256.0]) * 24.0;
-                (value as i16)
+                value as i16
             };
             let b: i16 = 1024;
             let layers = 24;
@@ -91,7 +91,7 @@ impl TestScene
                 {
                     let noise = noise_func(x, z, l);
 
-                    if (noise.abs() > 4)
+                    if noise.abs() > 4
                     {
                         continue;
                     }

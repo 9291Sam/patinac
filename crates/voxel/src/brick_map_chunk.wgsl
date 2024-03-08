@@ -185,27 +185,29 @@ fn simple_dda_traversal_bricks(unadjusted_ray: Ray) -> BrickTraversalResult
 
                 if (!res.intersection_occurred) {Error = true;}
 
-                if maybe_brick_pointer >= BrickPointerToVoxelCutoff
+                var brick_ray: Ray;
+                brick_ray.origin = res.maybe_hit_point - 8 * vec3<f32>(mapPos);
+                brick_ray.direction = adjusted_ray.direction;
+                let brick_result = traverse_brick_dda(maybe_brick_pointer, brick_ray);
+
+                if (BrickTraversalResult_isValid(brick_result))
                 {
-                    return BrickTraversalResult(vec3<i32>(floor(res.maybe_hit_point)), maybe_brick_pointer - BrickPointerToVoxelCutoff);
+                    return BrickTraversalResult(brick_result.pos + mapPos * 8, brick_result.voxel);
                 }
-                else
-                {
-                    if (res.intersection_occurred)
-                    {
-                        var brick_ray: Ray;
-                        brick_ray.origin = res.maybe_hit_point - 8 * vec3<f32>(mapPos);
-                        brick_ray.direction = adjusted_ray.direction;
-                        let brick_result = traverse_brick_dda(maybe_brick_pointer, brick_ray);
 
-                        if (BrickTraversalResult_isValid(brick_result))
-                        {
-                            return BrickTraversalResult(brick_result.pos + mapPos * 8, brick_result.voxel);
-                        }
+                // if maybe_brick_pointer >= BrickPointerToVoxelCutoff
+                // {
+                //     return BrickTraversalResult(vec3<i32>(floor(res.maybe_hit_point)), maybe_brick_pointer - BrickPointerToVoxelCutoff);
+                // }
+                // else
+                // {
+                //     if (res.intersection_occurred)
+                //     {
+                        
 
 
-                    }
-                }
+                //     }
+                // }
 
                 
             }
@@ -239,6 +241,9 @@ fn traverse_brick_dda(brick: BrickPointer, ray: Ray) -> BrickTraversalResult
     var normal: vec3<f32>;
     let rayDirectionSign: vec3<f32> = sign(ray.direction);
 
+    let is_voxel: bool = brick >= BrickPointerToVoxelCutoff;
+    let brick_pointer_voxel = brick - BrickPointerToVoxelCutoff;
+
     let rdi: vec3<f32> = 1.0 / (2.0 * ray.direction);
 
     for (var i = 0; i < BRICK_TRAVERSAL_STEPS; i += 1)
@@ -252,6 +257,11 @@ fn traverse_brick_dda(brick: BrickPointer, ray: Ray) -> BrickTraversalResult
         
         if (!(any(mapPos < vec3<i32>(0)) || any(mapPos >= vec3<i32>(8))))
         {
+            if (is_voxel)
+            {
+                return BrickTraversalResult(vec3<i32>(floor(voxelPos)), brick_pointer_voxel);
+            }
+
             let maybe_voxel: u32 = Brick_access(brick, vec3<u32>(floor(voxelPos)));
 
             if (maybe_voxel != 0)
