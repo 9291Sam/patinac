@@ -19,7 +19,7 @@ alias Matricies = array<mat4x4<f32>, 1024>;
 alias MaybeBrickPointer = u32;
 alias BrickPointer = u32;
 
-const BrickPointerToVoxelCutoff: u32 = 4294901760u;
+const BrickPointerToVoxelCutoff: u32 = 4294901759u;
 
 const BrickEdgeLength: u32 = 8;
 const BrickMapEdgeLength: u32 = 128;
@@ -187,7 +187,7 @@ fn simple_dda_traversal_bricks(unadjusted_ray: Ray) -> BrickTraversalResult
 
                 if maybe_brick_pointer >= BrickPointerToVoxelCutoff
                 {
-                    return BrickTraversalResult(vec3<i32>(round(res.maybe_hit_point)), maybe_brick_pointer - BrickPointerToVoxelCutoff);
+                    return BrickTraversalResult(vec3<i32>(floor(res.maybe_hit_point)), maybe_brick_pointer - BrickPointerToVoxelCutoff);
                 }
                 else
                 {
