@@ -68,7 +68,7 @@ impl TestScene
             let data_manager: &mut voxel::VoxelChunkDataManager =
                 &mut this.brick_map_chunk.access_data_manager().lock().unwrap();
 
-            for i in -4..4
+            for i in -64..64
             {
                 data_manager.write_brick(voxel::Voxel::Green, glm::I16Vec3::repeat(i))
             }
