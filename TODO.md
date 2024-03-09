@@ -1,7 +1,6 @@
-Homogeneous Brick Optimization
-
 World gen
 
+Cpu duplication of buffers
 Player / World interaction
 
 Make a UI

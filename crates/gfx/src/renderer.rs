@@ -183,8 +183,8 @@ impl Renderer
             .unwrap();
 
         let desired_present_modes = [
-            wgpu::PresentMode::Mailbox,
-            wgpu::PresentMode::FifoRelaxed,
+            // wgpu::PresentMode::Mailbox,
+            // wgpu::PresentMode::FifoRelaxed,
             // wgpu::PresentMode::Fifo
             wgpu::PresentMode::Immediate
         ];
