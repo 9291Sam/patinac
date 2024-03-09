@@ -48,12 +48,12 @@ fn vs_main(input: VertexInput) -> VertexOutput
 
     out.clip_position = global_model_view_projection[id] * vec4<f32>(input.position, 1.0);
 
-    out.local_pos = input.position + vec3<f32>(512.0);
+    out.local_pos = input.position;
 
     let world_pos_intercalc = global_model[id] * vec4<f32>(input.position, 1.0);
     out.world_pos = world_pos_intercalc.xyz / world_pos_intercalc.w;
 
-    let ltw_offset_intercalc = global_model[id] * vec4<f32>(vec3<f32>(-512.0), 1.0);
+    let ltw_offset_intercalc = global_model[id] * vec4<f32>(vec3<f32>(0.0), 1.0);
     out.local_to_world_offset_pos = ltw_offset_intercalc.xyz / ltw_offset_intercalc.w;
 
     return out;
