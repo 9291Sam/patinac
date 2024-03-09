@@ -1,6 +1,8 @@
 use std::collections::HashSet;
 use std::num::NonZeroUsize;
 
+use bytemuck::Contiguous;
+
 #[derive(Debug)]
 pub struct FreelistAllocator
 {
@@ -79,6 +81,18 @@ impl FreelistAllocator
         //         break;
         //     }
         // }
+    }
+
+    pub fn get_total_blocks(&self) -> usize
+    {
+        self.total_blocks.into_integer()
+    }
+
+    pub fn extend_size(&mut self, new_cap: usize)
+    {
+        assert!(new_cap > self.total_blocks.into_integer());
+
+        self.total_blocks = new_cap.try_into().unwrap();
     }
 }
 

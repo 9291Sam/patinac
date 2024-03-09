@@ -215,6 +215,7 @@ pub struct VoxelChunkDataManager
     cpu_brick_buffer:            Vec<VoxelBrick>,
     pub(crate) gpu_brick_buffer: wgpu::Buffer,
     delta_brick_buffer:          HashSet<*const VoxelBrick>,
+    needs_resize_flush:          bool,
 
     brick_allocator: util::FreelistAllocator
 }
@@ -225,7 +226,7 @@ impl VoxelChunkDataManager
 {
     pub fn new(renderer: Arc<gfx::Renderer>) -> Self
     {
-        let number_of_starting_bricks = BRICK_MAP_EDGE_SIZE * BRICK_MAP_EDGE_SIZE * 64;
+        let number_of_starting_bricks = BRICK_MAP_EDGE_SIZE * BRICK_MAP_EDGE_SIZE * 2;
 
         let r = renderer.clone();
 
@@ -255,6 +256,7 @@ impl VoxelChunkDataManager
                 mapped_at_creation: false
             }),
             delta_brick_buffer: HashSet::new(),
+            needs_resize_flush: false,
             brick_allocator: util::FreelistAllocator::new(
                 (number_of_starting_bricks - 2).try_into().unwrap()
             )
@@ -341,6 +343,46 @@ impl VoxelChunkDataManager
         let this_brick_ptr = &mut self.cpu_brick_map[brick_pos.x as usize][brick_pos.y as usize]
             [brick_pos.z as usize];
 
+        let mut allocate_brick = || -> VoxelBrickPointer {
+            match self.brick_allocator.allocate()
+            {
+                Ok(new_ptr) =>
+                {
+                    VoxelBrickPointer::new_ptr(new_ptr.into_integer().try_into().unwrap())
+                }
+                Err(_) =>
+                {
+                    log::info!("Resizing!");
+
+                    self.needs_resize_flush = true;
+
+                    self.cpu_brick_buffer
+                        .resize(self.cpu_brick_buffer.len() * 2, VoxelBrick::new_empty());
+
+                    self.gpu_brick_buffer = self.renderer.create_buffer(&wgpu::BufferDescriptor {
+                        label:              Some("Voxel Chunk Data Manager Brick Buffer"),
+                        usage:              wgpu::BufferUsages::COPY_DST
+                            | wgpu::BufferUsages::STORAGE,
+                        size:               std::mem::size_of::<VoxelBrick>() as u64
+                            * self.cpu_brick_buffer.len() as u64,
+                        mapped_at_creation: false
+                    });
+
+                    self.brick_allocator
+                        .extend_size(self.cpu_brick_buffer.len());
+
+                    if let Ok(new_ptr) = self.brick_allocator.allocate()
+                    {
+                        VoxelBrickPointer::new_ptr(new_ptr.into_integer().try_into().unwrap())
+                    }
+                    else
+                    {
+                        unreachable!()
+                    }
+                }
+            }
+        };
+
         match this_brick_ptr.classify()
         {
             VoxelBrickPointerType::ValidBrickPointer(_) =>
@@ -349,9 +391,7 @@ impl VoxelChunkDataManager
             {
                 // allocate new brick
                 {
-                    *this_brick_ptr = VoxelBrickPointer::new_ptr(
-                        self.brick_allocator.allocate().unwrap().into_integer() as u32
-                    );
+                    *this_brick_ptr = allocate_brick();
 
                     self.delta_brick_map.insert(this_brick_ptr as *const _);
                 }
@@ -365,9 +405,7 @@ impl VoxelChunkDataManager
             {
                 // allocate new brick
                 {
-                    *this_brick_ptr = VoxelBrickPointer::new_ptr(
-                        self.brick_allocator.allocate().unwrap().into_integer() as u32
-                    );
+                    *this_brick_ptr = allocate_brick();
 
                     self.delta_brick_map.insert(this_brick_ptr as *const _);
                 }
@@ -421,6 +459,24 @@ impl VoxelChunkDataManager
             });
         }
 
+        if self.needs_resize_flush
+        {
+            self.delta_brick_buffer.clear();
+
+            self.renderer
+                .queue
+                .write_buffer(&self.gpu_brick_buffer, 0, unsafe {
+                    slice::from_raw_parts(
+                        self.cpu_brick_buffer.as_ptr() as *const _,
+                        self.cpu_brick_buffer.len() * std::mem::size_of::<VoxelBrick>()
+                    )
+                });
+
+            log::info!("resize flush");
+
+            self.needs_resize_flush = false;
+        }
+        else
         {
             let head_brick_buffer: *const VoxelBrick = &self.cpu_brick_buffer[0] as *const _;
 
@@ -436,28 +492,6 @@ impl VoxelChunkDataManager
 
     // TODO: functions for writing to each array that automatically handle flushing
     // + resizes
-}
-
-fn fill_brick_with_voxel(brick_ptr: VoxelBrickPointer, brick_buffer: *mut u8, voxel: Voxel)
-{
-    let VoxelBrickPointerType::ValidBrickPointer(brick_ptr_integer) = brick_ptr.classify()
-    else
-    {
-        unreachable!()
-    };
-
-    let mapped_ptr = unsafe { (brick_buffer as *mut VoxelBrick).add(brick_ptr_integer as usize) };
-
-    VoxelBrick::fill(unsafe { &mut *mapped_ptr }, voxel);
-}
-
-fn allocate_new_brick(
-    allocator: &mut util::FreelistAllocator,
-    cpu_location: &mut VoxelBrickPointer,
-    cpu_offset: usize,
-    gpu_buffer: *mut u8
-)
-{
 }
 
 #[cfg(test)]
