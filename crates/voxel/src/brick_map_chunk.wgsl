@@ -23,6 +23,7 @@ const BrickPointerToVoxelCutoff: u32 = 4294901759u;
 
 const BrickEdgeLength: u32 = 8;
 const BrickMapEdgeLength: u32 = 128;
+const VoxelsChunkEdge: u32 = 1024;
 
 struct Brick
 {

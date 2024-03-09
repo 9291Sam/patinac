@@ -1,5 +1,3 @@
-World gen
-
 shrink chunk size for performance
 Cpu duplication of buffers
 Change upload scheme

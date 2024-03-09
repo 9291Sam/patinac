@@ -32,6 +32,9 @@ lto = false
 panic = "unwind"
 incremental = true
 
+[profile.release]
+debug = true
+
 [profile.deploy]
 inherits = "release"
 opt-level = 3
