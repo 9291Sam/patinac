@@ -82,8 +82,12 @@ impl TestScene
             let mut pos_voxel_cache = std::collections::HashMap::<glm::I16Vec3, Voxel>::new();
 
             let noise_sampler = |x: u16, z: u16| {
-                ((noise_generator.get([(x as f64) / 256.0, 0.0, z as f64 / 256.0]) * 96.0) + 512.0)
-                    as u16
+                ((noise_generator.get([
+                    ((x as f64) - 512.0) / 256.0,
+                    0.0,
+                    ((z as f64) - 512.0) / 256.0
+                ]) * 96.0)
+                    + 512.0) as u16
             };
 
             let get_rand_grass_voxel = || -> Voxel {
