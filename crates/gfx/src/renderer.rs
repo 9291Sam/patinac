@@ -683,7 +683,7 @@ impl Renderer
                 }
                 else
                 {
-                    1.0
+                    5.5
                 };
             let rotate_scale = 10.0;
 
