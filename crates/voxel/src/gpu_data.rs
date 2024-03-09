@@ -433,6 +433,9 @@ impl VoxelChunkDataManager
             })
         }
     }
+
+    // TODO: functions for writing to each array that automatically handle flushing
+    // + resizes
 }
 
 fn fill_brick_with_voxel(brick_ptr: VoxelBrickPointer, brick_buffer: *mut u8, voxel: Voxel)

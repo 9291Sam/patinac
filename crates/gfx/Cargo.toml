@@ -4,14 +4,14 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-log = { version = "0.4.20", features = ["std"]}
+log = { version = "0.4.20", features = ["std"] }
 winit = "0.29"
 wgpu = "0.19.1"
-bytemuck = { version = "1.14.1", features = [ "derive" ] }
-strum = {version = "0.26", features = ["derive"] }
-nalgebra-glm = {version = "0.18.0", features = ["convert-bytemuck"] }
+bytemuck = { version = "1.14.1", features = ["derive"] }
+strum = { version = "0.26", features = ["derive"] }
+nalgebra-glm = { version = "0.18.0", features = ["convert-bytemuck"] }
 nalgebra = "0.32.3"
 pollster = "0.3.0"
 rayon = "1.8.1"
 winit_input_helper = "0.15.3"
-util = {path = "../util" }
+util = { path = "../util" }

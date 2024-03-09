@@ -690,10 +690,11 @@ impl Renderer
             if input_helper.key_held(KeyCode::KeyK)
             {
                 log::info!(
-                    "Camera: {} | Frame Time (ms): {:.03} | FPS: {:.03}",
+                    "Camera: {} | Frame Time (ms): {:.03} | FPS: {:.03} | Memory Used: {}",
                     camera.borrow(),
                     self.get_delta_time() * 1000.0,
-                    1.0 / self.get_delta_time()
+                    1.0 / self.get_delta_time(),
+                    util::bytes_as_string(util::get_bytes_of_active_allocations() as f64)
                 );
             }
 

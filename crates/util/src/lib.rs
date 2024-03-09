@@ -49,3 +49,28 @@ impl<T> From<*mut T> for SendSyncMutPtr<T>
         Self(value)
     }
 }
+
+pub fn bytes_as_string(bytes: f64) -> String
+{
+    const SUFFIX: &[&str] = &[
+        "B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB", "RiB", "QiB"
+    ];
+
+    const UNIT: f64 = 1024.0;
+
+    let size: f64 = bytes;
+
+    if size <= 0.0
+    {
+        return "0 B".to_string();
+    }
+
+    let base = size.log10() / UNIT.log10();
+
+    let result = format!("{:.3}", UNIT.powf(base - base.floor()),)
+        .trim_end_matches(".0")
+        .to_owned();
+
+    // Add suffix
+    [&result, SUFFIX[base.floor() as usize]].join(" ")
+}
