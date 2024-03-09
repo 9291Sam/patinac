@@ -1,4 +1,6 @@
+use core::slice;
 use std::assert_matches::assert_matches;
+use std::collections::HashSet;
 use std::num::NonZeroU32;
 use std::sync::Arc;
 
@@ -24,6 +26,9 @@ pub enum Voxel
     Grass4 = 11,
     Grass5 = 12
 }
+
+unsafe impl Zeroable for Voxel {}
+unsafe impl Pod for Voxel {}
 
 impl TryFrom<u16> for Voxel
 {
@@ -53,12 +58,14 @@ impl TryFrom<u16> for Voxel
 
 impl Voxel
 {
-    pub fn as_bytes(&self) -> [u8; 2]
+    pub fn as_bytes(self) -> [u8; 2]
     {
-        (*self as u16).to_ne_bytes()
+        (self as u16).to_ne_bytes()
     }
 }
 
+#[derive(Debug, Clone, Copy, Pod, Zeroable)]
+#[repr(C)]
 pub struct VoxelBrick
 {
     data: [[[Voxel; VOXEL_BRICK_SIZE]; VOXEL_BRICK_SIZE]; VOXEL_BRICK_SIZE]
@@ -66,6 +73,13 @@ pub struct VoxelBrick
 
 impl VoxelBrick
 {
+    pub fn new_empty() -> VoxelBrick
+    {
+        VoxelBrick {
+            data: [[[Voxel::Air; VOXEL_BRICK_SIZE]; VOXEL_BRICK_SIZE]; VOXEL_BRICK_SIZE]
+        }
+    }
+
     pub fn write(
         &mut self
     ) -> &mut [[[Voxel; VOXEL_BRICK_SIZE]; VOXEL_BRICK_SIZE]; VOXEL_BRICK_SIZE]
@@ -89,7 +103,9 @@ impl VoxelBrick
 }
 
 /// Value Table
-/// 0 - null brick pointer
+/// TODO: flip the range on its head so that 0 is a valid brick pointer and that
+/// 0xFF... is the nullptr (and also air voxel!)
+///  0 - null brick pointer
 /// [1, 2^32 - 2^16) - valid brick pointer
 /// [2^32 - 2^16 - 2^32] - voxel
 
@@ -193,13 +209,14 @@ pub struct VoxelChunkDataManager
     renderer: Arc<gfx::Renderer>,
 
     cpu_brick_map:            Box<BrickMap>,
-    cached_gpu_brick_map_ptr: *mut u8,
     pub(crate) gpu_brick_map: wgpu::Buffer,
+    delta_brick_map:          HashSet<*const VoxelBrickPointer>,
 
-    number_of_bricks:            usize,
-    cached_gpu_brick_buffer_ptr: *mut u8,
+    cpu_brick_buffer:            Vec<VoxelBrick>,
     pub(crate) gpu_brick_buffer: wgpu::Buffer,
-    brick_allocator:             util::FreelistAllocator
+    delta_brick_buffer:          HashSet<*const VoxelBrick>,
+
+    brick_allocator: util::FreelistAllocator
 }
 
 pub type ChunkPosition = glm::U16Vec3;
@@ -212,7 +229,7 @@ impl VoxelChunkDataManager
 
         let r = renderer.clone();
 
-        let mut this = Self {
+        Self {
             renderer,
             cpu_brick_map: vec![
                 [[VoxelBrickPointer::new_null(); BRICK_MAP_EDGE_SIZE];
@@ -226,36 +243,22 @@ impl VoxelChunkDataManager
                 label:              Some("Voxel Chunk Data Manager Brick Map Buffer"),
                 usage:              wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::STORAGE,
                 size:               std::mem::size_of::<BrickMap>() as u64,
-                mapped_at_creation: true
+                mapped_at_creation: false
             }),
-            number_of_bricks: number_of_starting_bricks,
+            delta_brick_map: HashSet::new(),
+            cpu_brick_buffer: vec![VoxelBrick::new_empty(); number_of_starting_bricks],
             gpu_brick_buffer: r.create_buffer(&wgpu::BufferDescriptor {
                 label:              Some("Voxel Chunk Data Manager Brick Buffer"),
                 usage:              wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::STORAGE,
                 size:               std::mem::size_of::<VoxelBrick>() as u64
                     * number_of_starting_bricks as u64,
-                mapped_at_creation: true
+                mapped_at_creation: false
             }),
+            delta_brick_buffer: HashSet::new(),
             brick_allocator: util::FreelistAllocator::new(
                 (number_of_starting_bricks - 2).try_into().unwrap()
-            ),
-            cached_gpu_brick_map_ptr: std::ptr::null_mut(),
-            cached_gpu_brick_buffer_ptr: std::ptr::null_mut()
-        };
-
-        this.cached_gpu_brick_map_ptr = this
-            .gpu_brick_map
-            .slice(..)
-            .get_mapped_range_mut()
-            .as_mut_ptr();
-
-        this.cached_gpu_brick_buffer_ptr = this
-            .gpu_brick_buffer
-            .slice(..)
-            .get_mapped_range_mut()
-            .as_mut_ptr();
-
-        this
+            )
+        }
     }
 
     pub fn write_brick(&mut self, v: Voxel, unsigned_pos: ChunkPosition)
@@ -280,11 +283,8 @@ impl VoxelChunkDataManager
             unsigned_pos.z
         );
 
-        let brick_map_head = (&self.cpu_brick_map[0][0][0]) as *const _;
         let current_brick_ptr = &mut self.cpu_brick_map[unsigned_pos.x as usize]
             [unsigned_pos.y as usize][unsigned_pos.z as usize];
-        let this_brick_byte_offset =
-            unsafe { (current_brick_ptr as *mut _ as *const u8).byte_offset_from(brick_map_head) };
 
         if let VoxelBrickPointerType::ValidBrickPointer(old_ptr) = current_brick_ptr.classify()
         {
@@ -301,13 +301,7 @@ impl VoxelChunkDataManager
             *current_brick_ptr = VoxelBrickPointer::new_voxel(v);
         }
 
-        let brick_ptr_bytes = bytes_of::<VoxelBrickPointer>(&*current_brick_ptr);
-
-        unsafe {
-            self.cached_gpu_brick_map_ptr
-                .add(this_brick_byte_offset.try_into().unwrap())
-                .copy_from_nonoverlapping(brick_ptr_bytes.as_ptr(), brick_ptr_bytes.len())
-        }
+        self.delta_brick_map.insert(current_brick_ptr as *const _);
     }
 
     pub fn write_voxel(&mut self, v: Voxel, unsigned_pos: ChunkPosition)
@@ -344,69 +338,101 @@ impl VoxelChunkDataManager
             unsigned_pos.z / VOXEL_BRICK_SIZE as u16
         );
 
-        let this_brick_head = (&self.cpu_brick_map[0][0][0]) as *const _;
-        let this_brick = &mut self.cpu_brick_map[brick_pos.x as usize][brick_pos.y as usize]
+        let this_brick_ptr = &mut self.cpu_brick_map[brick_pos.x as usize][brick_pos.y as usize]
             [brick_pos.z as usize];
-        let this_brick_byte_offset =
-            unsafe { (this_brick as *mut _ as *const u8).byte_offset_from(this_brick_head) };
 
-        match this_brick.classify()
+        match this_brick_ptr.classify()
         {
-            VoxelBrickPointerType::ValidBrickPointer(brick_ptr) =>
+            VoxelBrickPointerType::ValidBrickPointer(_) =>
+            {}
+            VoxelBrickPointerType::Voxel(_) =>
             {
-                write_voxel_to_brick(*this_brick, self.cached_gpu_brick_buffer_ptr, voxel_pos, v);
-            }
-            VoxelBrickPointerType::Voxel(voxel) =>
-            {
-                allocate_new_brick(
-                    &mut self.brick_allocator,
-                    this_brick,
-                    this_brick_byte_offset.try_into().unwrap(),
-                    self.cached_gpu_brick_map_ptr
-                );
+                // allocate new brick
+                {
+                    *this_brick_ptr = VoxelBrickPointer::new_ptr(
+                        self.brick_allocator.allocate().unwrap().into_integer() as u32
+                    );
 
-                fill_brick_with_voxel(*this_brick, self.cached_gpu_brick_buffer_ptr, voxel);
+                    self.delta_brick_map.insert(this_brick_ptr as *const _);
+                }
 
-                write_voxel_to_brick(*this_brick, self.cached_gpu_brick_buffer_ptr, voxel_pos, v);
+                // fill brick
+                let brick_to_fill = &mut self.cpu_brick_buffer[this_brick_ptr.get_ptr() as usize];
+
+                self.delta_brick_buffer.insert(brick_to_fill as *const _);
             }
             VoxelBrickPointerType::Null =>
             {
-                allocate_new_brick(
-                    &mut self.brick_allocator,
-                    this_brick,
-                    this_brick_byte_offset.try_into().unwrap(),
-                    self.cached_gpu_brick_map_ptr
-                );
+                // allocate new brick
+                {
+                    *this_brick_ptr = VoxelBrickPointer::new_ptr(
+                        self.brick_allocator.allocate().unwrap().into_integer() as u32
+                    );
 
-                write_voxel_to_brick(*this_brick, self.cached_gpu_brick_buffer_ptr, voxel_pos, v);
+                    self.delta_brick_map.insert(this_brick_ptr as *const _);
+                }
             }
         }
+
+        // write voxel
+        let this_brick: &mut VoxelBrick =
+            &mut self.cpu_brick_buffer[this_brick_ptr.get_ptr() as usize];
+
+        this_brick.write()[voxel_pos.x as usize][voxel_pos.y as usize][voxel_pos.z as usize] = v;
+
+        self.delta_brick_buffer.insert(this_brick as *const _);
     }
 
-    pub fn stop_writes(&mut self)
+    pub fn flush_entire(&mut self)
     {
-        self.gpu_brick_buffer.unmap();
-        self.gpu_brick_map.unmap();
+        self.delta_brick_buffer.clear();
+        self.delta_brick_map.clear();
+
+        self.renderer
+            .queue
+            .write_buffer(&self.gpu_brick_map, 0, unsafe {
+                slice::from_raw_parts(
+                    &self.cpu_brick_map[0][0][0] as *const VoxelBrickPointer as *const _,
+                    std::mem::size_of_val::<BrickMap>(&*self.cpu_brick_map)
+                )
+            });
+
+        self.renderer
+            .queue
+            .write_buffer(&self.gpu_brick_buffer, 0, unsafe {
+                slice::from_raw_parts(
+                    self.cpu_brick_buffer.as_ptr() as *const _,
+                    self.cpu_brick_buffer.len() * std::mem::size_of::<VoxelBrick>()
+                )
+            });
     }
-}
 
-fn write_voxel_to_brick(
-    brick_ptr: VoxelBrickPointer,
-    brick_buffer: *mut u8,
-    local_voxel_pos: glm::U16Vec3,
-    voxel: Voxel
-)
-{
-    let VoxelBrickPointerType::ValidBrickPointer(brick_ptr_integer) = brick_ptr.classify()
-    else
+    pub fn flush_to_gpu(&mut self)
     {
-        unreachable!()
-    };
+        {
+            let head_brick_map: *const VoxelBrickPointer = &self.cpu_brick_map[0][0][0] as *const _;
 
-    let mapped_ptr = unsafe { (brick_buffer as *mut VoxelBrick).add(brick_ptr_integer as usize) };
+            self.delta_brick_map.drain().for_each(|ptr| {
+                self.renderer.queue.write_buffer(
+                    &self.gpu_brick_map,
+                    unsafe { ptr.byte_offset_from(head_brick_map).try_into().unwrap() },
+                    unsafe { bytes_of::<VoxelBrickPointer>(&*ptr) }
+                )
+            });
+        }
 
-    VoxelBrick::write(unsafe { &mut *mapped_ptr })[local_voxel_pos.x as usize]
-        [local_voxel_pos.y as usize][local_voxel_pos.z as usize] = voxel;
+        {
+            let head_brick_buffer: *const VoxelBrick = &self.cpu_brick_buffer[0] as *const _;
+
+            self.delta_brick_buffer.drain().for_each(|ptr| {
+                self.renderer.queue.write_buffer(
+                    &self.gpu_brick_buffer,
+                    unsafe { ptr.byte_offset_from(head_brick_buffer).try_into().unwrap() },
+                    unsafe { bytes_of(&*ptr) }
+                )
+            })
+        }
+    }
 }
 
 fn fill_brick_with_voxel(brick_ptr: VoxelBrickPointer, brick_buffer: *mut u8, voxel: Voxel)
@@ -429,21 +455,6 @@ fn allocate_new_brick(
     gpu_buffer: *mut u8
 )
 {
-    let new_brick_ptr: NonZeroU32 = allocator.allocate().unwrap().try_into().unwrap();
-
-    // update cpu side
-    *cpu_location = VoxelBrickPointer::new_ptr(new_brick_ptr.into_integer());
-
-    // update gpu side
-    let mapped_ptr = gpu_buffer;
-
-    let brick_ptr_bytes = bytes_of(&new_brick_ptr);
-
-    unsafe {
-        mapped_ptr
-            .add(cpu_offset) // this_brick_byte_offset.try_into().unwrap())
-            .copy_from_nonoverlapping(brick_ptr_bytes.as_ptr(), brick_ptr_bytes.len())
-    }
 }
 
 #[cfg(test)]

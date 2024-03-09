@@ -181,7 +181,8 @@ impl TestScene
                 }
             }
 
-            data_manager.stop_writes();
+            log::info!("flushing entire!");
+            data_manager.flush_entire();
         }
 
         // {
