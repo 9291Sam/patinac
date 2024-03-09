@@ -78,8 +78,9 @@ impl TestScene
             let mut random_generator = RefCell::new(rand::thread_rng());
             let mut pos_voxel_cache = std::collections::HashMap::<glm::I16Vec3, Voxel>::new();
 
-            let noise_sampler = |x: i16, z: i16| {
-                (noise_generator.get([x as f64 / 256.0, 0.0, z as f64 / 256.0]) * 96.0) as i16
+            let noise_sampler = |x: u16, z: u16| {
+                ((noise_generator.get([(x as f64) / 256.0, 0.0, z as f64 / 256.0]) * 96.0) + 512.0)
+                    as u16
             };
 
             let get_rand_grass_voxel = || -> Voxel {
@@ -113,33 +114,28 @@ impl TestScene
             //     }
             // };
 
-            let c = 64i16;
+            let c = 128u16;
 
-            for (x, y, z) in iproduct!(-c..c, -c..c, -c..c)
+            for (x, y, z) in iproduct!(0..c, 0..c, 0..c)
             {
-                let pos = glm::I16Vec3::new(x, y, z);
+                let pos = glm::U16Vec3::new(x, y, z);
 
-                data_manager.write_brick(get_rand_stone_voxel(), glm::I16Vec3::new(x, y, z));
-
-                // if x == z
-                // {
-                //     log::info!("genpos: {}", pos);
-                // }
+                data_manager.write_brick(get_rand_stone_voxel(), pos);
             }
 
-            let b = 512i16;
+            let b = 1024u16;
 
-            for (x, z) in iproduct!(-b..b, -b..b)
+            for (x, z) in iproduct!(0..b, 0..b)
             {
-                let pos = glm::I16Vec3::new(x, noise_sampler(x, z), z);
+                let pos = glm::U16Vec3::new(x, noise_sampler(x, z), z);
 
-                let mut above_brick_pos = glm::I16Vec3::new(
+                let mut above_brick_pos = glm::U16Vec3::new(
                     pos.x.div_euclid(8),
-                    (pos.y).div_euclid(8),
+                    pos.y.div_euclid(8),
                     pos.z.div_euclid(8)
                 );
 
-                while above_brick_pos.y < 64
+                while above_brick_pos.y < 128
                 {
                     data_manager.write_brick(Voxel::Air, above_brick_pos);
 
@@ -147,13 +143,13 @@ impl TestScene
                 }
             }
 
-            for (x, z) in iproduct!(-b..b, -b..b)
+            for (x, z) in iproduct!(0..b, 0..b)
             {
-                let pos = glm::I16Vec3::new(x, noise_sampler(x, z), z);
+                let pos = glm::U16Vec3::new(x, noise_sampler(x, z), z);
 
                 let noise_height = noise_sampler(pos.x, pos.z);
 
-                let diff = pos.y - noise_height;
+                let diff = pos.y as isize - noise_height as isize;
 
                 let v = match diff
                 {
@@ -164,7 +160,7 @@ impl TestScene
 
                 data_manager.write_voxel(v, pos);
 
-                let this_brick_y = (pos.y.div_euclid(8) - 1).max(-64);
+                let this_brick_y = pos.y.div_euclid(8).max(1) - 1;
 
                 let mut stone_fill_pos = pos;
 

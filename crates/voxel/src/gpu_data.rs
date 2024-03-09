@@ -202,7 +202,7 @@ pub struct VoxelChunkDataManager
     brick_allocator:             util::FreelistAllocator
 }
 
-pub type ChunkPosition = glm::I16Vec3;
+pub type ChunkPosition = glm::U16Vec3;
 
 impl VoxelChunkDataManager
 {
@@ -258,29 +258,27 @@ impl VoxelChunkDataManager
         this
     }
 
-    pub fn write_brick(&mut self, v: Voxel, signed_pos: ChunkPosition)
+    pub fn write_brick(&mut self, v: Voxel, unsigned_pos: ChunkPosition)
     {
-        let signed_bound: i16 = (BRICK_MAP_EDGE_SIZE / 2) as i16;
+        let unsigned_bound = BRICK_MAP_EDGE_SIZE as u16;
 
         assert!(
-            signed_pos.x >= -signed_bound && signed_pos.x < signed_bound,
+            unsigned_pos.x < unsigned_bound,
             "Bound {} is out of bounds",
-            signed_pos.x
+            unsigned_pos.x
         );
 
         assert!(
-            signed_pos.y >= -signed_bound && signed_pos.y < signed_bound,
+            unsigned_pos.y < unsigned_bound,
             "Bound {} is out of bounds",
-            signed_pos.y
+            unsigned_pos.y
         );
 
         assert!(
-            signed_pos.z >= -signed_bound && signed_pos.z < signed_bound,
+            unsigned_pos.z < unsigned_bound,
             "Bound {} is out of bounds",
-            signed_pos.z
+            unsigned_pos.z
         );
-
-        let unsigned_pos: glm::U16Vec3 = signed_pos.add_scalar(signed_bound).try_cast().unwrap();
 
         let brick_map_head = (&self.cpu_brick_map[0][0][0]) as *const _;
         let current_brick_ptr = &mut self.cpu_brick_map[unsigned_pos.x as usize]
@@ -312,29 +310,27 @@ impl VoxelChunkDataManager
         }
     }
 
-    pub fn write_voxel(&mut self, v: Voxel, signed_pos: ChunkPosition)
+    pub fn write_voxel(&mut self, v: Voxel, unsigned_pos: ChunkPosition)
     {
-        let signed_bound: i16 = (BRICK_MAP_EDGE_SIZE * VOXEL_BRICK_SIZE / 2) as i16;
+        let unsigned_bound = (BRICK_MAP_EDGE_SIZE * VOXEL_BRICK_SIZE) as u16;
 
         assert!(
-            signed_pos.x >= -signed_bound && signed_pos.x < signed_bound,
+            unsigned_pos.x < unsigned_bound,
             "Bound {} is out of bounds",
-            signed_pos.x
+            unsigned_pos.x
         );
 
         assert!(
-            signed_pos.y >= -signed_bound && signed_pos.y < signed_bound,
+            unsigned_pos.y < unsigned_bound,
             "Bound {} is out of bounds",
-            signed_pos.y
+            unsigned_pos.y
         );
 
         assert!(
-            signed_pos.z >= -signed_bound && signed_pos.z < signed_bound,
+            unsigned_pos.z < unsigned_bound,
             "Bound {} is out of bounds",
-            signed_pos.z
+            unsigned_pos.z
         );
-
-        let unsigned_pos: glm::U16Vec3 = signed_pos.add_scalar(signed_bound).try_cast().unwrap();
 
         let voxel_pos = glm::U16Vec3::new(
             unsigned_pos.x % VOXEL_BRICK_SIZE as u16,
