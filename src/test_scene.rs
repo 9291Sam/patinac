@@ -181,7 +181,6 @@ impl TestScene
                 }
             }
 
-            log::info!("flushing entire!");
             data_manager.flush_entire();
         }
 
@@ -290,6 +289,27 @@ impl game::Entity for TestScene
 
             guard.rotation = quat.normalize();
         }
+
+        let mut manager = self.brick_map_chunk.access_data_manager().lock().unwrap();
+
+        let diff = 8u16;
+        let base: glm::U16Vec3 = glm::U16Vec3::new(
+            rand::thread_rng().gen_range(512u16..=698),
+            rand::thread_rng().gen_range(512u16..=698),
+            rand::thread_rng().gen_range(512u16..=698)
+        );
+
+        let top = base.add_scalar(diff);
+
+        for (x, y, z) in iproduct!(base.x..top.x, base.y..top.y, base.z..top.z)
+        {
+            manager.write_voxel(
+                rand::thread_rng().gen_range(1..=12).try_into().unwrap(),
+                glm::U16Vec3::new(x, y, z)
+            );
+        }
+
+        manager.flush_to_gpu();
 
         // self.brick_map_chunk.get_position_mut(&|t| {
         //     *t = glm::Vec3::new(
