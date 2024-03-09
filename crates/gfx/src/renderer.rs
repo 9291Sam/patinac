@@ -220,9 +220,9 @@ impl Renderer
             window,
             event_loop,
             camera: RefCell::new(super::Camera::new(
-                glm::Vec3::new(-22.22, 22.22, -22.22),
-                0.555555,
-                0.80
+                glm::Vec3::new(95.22, 22.22232, -92.22422),
+                0.58903,
+                0.18343
             ))
         };
 
@@ -679,11 +679,11 @@ impl Renderer
             let move_scale = 10.0
                 * if input_helper.key_held(KeyCode::ShiftLeft)
                 {
-                    35.0
+                    10.0
                 }
                 else
                 {
-                    5.5
+                    4.0
                 };
             let rotate_scale = 10.0;
 

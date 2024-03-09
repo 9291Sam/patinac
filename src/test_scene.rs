@@ -28,37 +28,37 @@ impl TestScene
         let mut objs: Vec<Arc<dyn gfx::Recordable>> = Vec::new();
         let mut rotate_objs: Vec<Arc<LitTextured>> = Vec::new();
 
-        for x in -5..=5
-        {
-            for z in -5..=5
-            {
-                objs.push(FlatTextured::new(
-                    game.get_renderer(),
-                    glm::Vec3::new(x as f32, 0.0, z as f32),
-                    FlatTextured::PENTAGON_VERTICES,
-                    FlatTextured::PENTAGON_INDICES
-                ));
+        // for x in -5..=5
+        // {
+        //     for z in -5..=5
+        //     {
+        //         objs.push(FlatTextured::new(
+        //             game.get_renderer(),
+        //             glm::Vec3::new(x as f32, 0.0, z as f32),
+        //             FlatTextured::PENTAGON_VERTICES,
+        //             FlatTextured::PENTAGON_INDICES
+        //         ));
 
-                let a = LitTextured::new_cube(
-                    game.get_renderer(),
-                    gfx::Transform {
-                        translation: glm::Vec3::new(x as f32, 4.0, z as f32),
-                        rotation:    *glm::UnitQuaternion::from_axis_angle(
-                            &gfx::Transform::global_up_vector(),
-                            (x + z) as f32 / 4.0
-                        ),
-                        scale:       glm::Vec3::repeat(0.4)
-                    }
-                );
+        //         let a = LitTextured::new_cube(
+        //             game.get_renderer(),
+        //             gfx::Transform {
+        //                 translation: glm::Vec3::new(x as f32, 4.0, z as f32),
+        //                 rotation:    *glm::UnitQuaternion::from_axis_angle(
+        //                     &gfx::Transform::global_up_vector(),
+        //                     (x + z) as f32 / 4.0
+        //                 ),
+        //                 scale:       glm::Vec3::repeat(0.4)
+        //             }
+        //         );
 
-                if x == 0 && z == 0
-                {
-                    rotate_objs.push(a.clone());
-                }
+        //         if x == 0 && z == 0
+        //         {
+        //             rotate_objs.push(a.clone());
+        //         }
 
-                objs.push(a);
-            }
-        }
+        //         objs.push(a);
+        //     }
+        // }
 
         let this = Arc::new(TestScene {
             _objs: objs,
@@ -79,7 +79,7 @@ impl TestScene
             let mut pos_voxel_cache = std::collections::HashMap::<glm::I16Vec3, Voxel>::new();
 
             let noise_sampler = |x: i16, z: i16| {
-                (noise_generator.get([x as f64 / 256.0, 0.0, z as f64 / 256.0]) * 24.0) as i16
+                (noise_generator.get([x as f64 / 256.0, 0.0, z as f64 / 256.0]) * 96.0) as i16
             };
 
             let get_rand_grass_voxel = || -> Voxel {
@@ -164,18 +164,13 @@ impl TestScene
 
                 data_manager.write_voxel(v, pos);
 
-                let mut this_brick_y = pos.y.div_euclid(8);
-
-                if pos.y.rem_euclid(8) == 0
-                {
-                    this_brick_y -= 1
-                }
+                let this_brick_y = (pos.y.div_euclid(8) - 1).max(-64);
 
                 let mut stone_fill_pos = pos;
 
                 stone_fill_pos.y -= 1;
 
-                while stone_fill_pos.y.div_euclid(8) == this_brick_y
+                while stone_fill_pos.y.div_euclid(8) >= this_brick_y
                 {
                     data_manager.write_voxel(get_rand_stone_voxel(), stone_fill_pos);
 
