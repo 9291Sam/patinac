@@ -1,4 +1,5 @@
 use std::f32::consts::{FRAC_PI_2, TAU};
+use std::fmt::Display;
 
 use nalgebra::UnitQuaternion;
 use nalgebra_glm as glm;
@@ -9,6 +10,22 @@ pub struct Camera
     pitch:     f32,
     yaw:       f32,
     transform: Transform
+}
+
+impl Display for Camera
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
+    {
+        write!(
+            f,
+            "Position {{ {}, {}, {} }} | Pitch: {} | Yaw: {}",
+            self.transform.translation.x,
+            self.transform.translation.y,
+            self.transform.translation.z,
+            self.pitch,
+            self.yaw
+        )
+    }
 }
 
 impl Camera

@@ -690,8 +690,8 @@ impl Renderer
             if input_helper.key_held(KeyCode::KeyK)
             {
                 log::info!(
-                    "Camera: {:?} | Frame Time (ms): {:.03} | FPS: {:.03}",
-                    camera,
+                    "Camera: {} | Frame Time (ms): {:.03} | FPS: {:.03}",
+                    camera.borrow(),
                     self.get_delta_time() * 1000.0,
                     1.0 / self.get_delta_time()
                 );

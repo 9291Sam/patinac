@@ -136,7 +136,9 @@ fn fs_main(in: VertexOutput, @builtin(front_facing) is_front_face: bool) -> Frag
 
     out.depth = maybe_depth;
 
-    let intensity = quadstep(fract(strike_pos_world)); 
+    let x = hypot(quadstep(fract(strike_pos_world))); 
+    let s = 0.25;
+    let intensity = (s * min(1-x, x)) + 1 - (s / 2);
     out.color *= vec4<f32>(vec3<f32>(intensity), 1.0); // You can adjust the second parameter (0.8) for the desired darkness
 
 
@@ -156,6 +158,11 @@ fn quadstep(v: vec3<f32>) -> vec3<f32>
     let c = vec3<f32>(0.65);
 
     return -a * v * v + a * v + c;
+}
+
+fn hypot(v: vec3<f32>) -> f32
+{
+    return sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
 }
 
 const SIMPLE_DDA_ITER_BRICKS_STEPS: i32 = 128 * 3 + 1;
