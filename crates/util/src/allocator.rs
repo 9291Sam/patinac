@@ -188,4 +188,15 @@ mod tests
 
         allocator.free(NonZeroUsize::new(1).unwrap());
     }
+
+    #[test]
+    pub fn extend()
+    {
+        let mut allocator = FreelistAllocator::new(NonZeroUsize::new(1).unwrap());
+
+        assert_eq!(NonZeroUsize::new(1).unwrap(), allocator.allocate().unwrap());
+        allocator.extend_size(2);
+        assert_eq!(NonZeroUsize::new(2).unwrap(), allocator.allocate().unwrap());
+        assert_eq!(Err(OutOfBlocks), allocator.allocate());
+    }
 }

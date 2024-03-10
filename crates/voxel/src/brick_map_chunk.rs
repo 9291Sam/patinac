@@ -11,6 +11,7 @@ use gfx::{
     CacheablePipelineLayoutDescriptor,
     CacheableRenderPipelineDescriptor
 };
+use util::Sow;
 
 use crate::gpu_data::VoxelChunkDataManager;
 
@@ -26,7 +27,6 @@ pub struct BrickMapChunk
     number_of_indices: u32,
 
     voxel_chunk_data: Mutex<VoxelChunkDataManager>,
-    voxel_bind_group: wgpu::BindGroup,
     pipeline:         Arc<gfx::GenericPipeline>
 }
 
@@ -99,25 +99,11 @@ impl BrickMapChunk
                     }]
                 });
 
-        let voxel_data_manager = VoxelChunkDataManager::new(game.get_renderer().clone());
-        let voxel_bind_group = renderer.create_bind_group(&wgpu::BindGroupDescriptor {
-            label:   Some("Voxel Bind Group"),
-            layout:  &voxel_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding:  0,
-                    resource: voxel_data_manager.gpu_brick_map.as_entire_binding()
-                },
-                wgpu::BindGroupEntry {
-                    binding:  1,
-                    resource: voxel_data_manager.gpu_brick_buffer.as_entire_binding()
-                }
-            ]
-        });
+        let voxel_data_manager =
+            VoxelChunkDataManager::new(game.get_renderer().clone(), voxel_bind_group_layout);
 
         let this = Arc::new(Self {
             voxel_chunk_data: Mutex::new(voxel_data_manager),
-            voxel_bind_group,
             uuid,
             name: "Voxel BrickMapChunk".into(),
             position: Mutex::new(center_position),
@@ -202,6 +188,7 @@ impl gfx::Recordable for BrickMapChunk
         &self.pipeline
     }
 
+    // TODO: combine this with the get_bind_group_function
     fn pre_record_update(&self, _: &gfx::Renderer, _: &gfx::Camera) -> gfx::RecordInfo
     {
         gfx::RecordInfo {
@@ -215,16 +202,26 @@ impl gfx::Recordable for BrickMapChunk
 
     fn get_bind_groups<'s>(
         &'s self,
-        global_bind_group: &'s gfx::wgpu::BindGroup
-    ) -> [Option<&'s gfx::wgpu::BindGroup>; 4]
+        global_bind_group: &'s wgpu::BindGroup
+    ) -> [Option<util::Sow<'s, wgpu::BindGroup>>; 4]
     {
         [
-            Some(global_bind_group),
-            Some(&self.voxel_bind_group),
+            Some(Sow::Ref(global_bind_group)),
+            Some(Sow::Strong(
+                self.voxel_chunk_data.lock().unwrap().get_bind_group()
+            )),
             None,
             None
         ]
     }
+
+    // fn get_bind_groups<'s>(
+    //     &'s self,
+    //     global_bind_group: &'s gfx::wgpu::BindGroup
+    // ) -> [Option<&'s gfx::wgpu::BindGroup>; 4]
+    // {
+
+    // }
 
     fn record<'s>(&'s self, render_pass: &mut gfx::GenericPass<'s>, maybe_id: Option<gfx::DrawId>)
     {

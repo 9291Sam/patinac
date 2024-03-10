@@ -5,6 +5,7 @@ use std::fmt::Debug;
 use std::num::NonZeroU64;
 
 use strum::EnumIter;
+use util::Sow;
 
 use crate::render_cache::GenericPass;
 use crate::{Camera, GenericPipeline, Renderer, Transform};
@@ -31,7 +32,7 @@ pub trait Recordable: Debug + Send + Sync
     fn get_bind_groups<'s>(
         &'s self,
         global_bind_group: &'s wgpu::BindGroup
-    ) -> [Option<&'s wgpu::BindGroup>; 4];
+    ) -> [Option<Sow<'s, wgpu::BindGroup>>; 4];
 
     fn record<'s>(&'s self, render_pass: &mut GenericPass<'s>, maybe_id: Option<DrawId>);
 
@@ -54,9 +55,13 @@ pub struct RecordInfo
     pub transform:   Option<Transform>
 }
 
-fn get_bind_group_ids(bind_groups: &[Option<&'_ wgpu::BindGroup>; 4]) -> [Option<NonZeroU64>; 4]
+fn get_bind_group_ids(
+    bind_groups: &[Option<Sow<'_, wgpu::BindGroup>>; 4]
+) -> [Option<NonZeroU64>; 4]
 {
     std::array::from_fn(|i| {
-        bind_groups[i].map(|group| NonZeroU64::new(group.global_id().inner()).unwrap())
+        bind_groups[i]
+            .as_ref()
+            .map(|group| NonZeroU64::new(group.global_id().inner()).unwrap())
     })
 }

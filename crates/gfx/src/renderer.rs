@@ -15,7 +15,7 @@ use nalgebra_glm as glm;
 use pollster::FutureExt;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use strum::IntoEnumIterator;
-use util::{Registrar, SendSyncMutPtr};
+use util::{Registrar, SendSyncMutPtr, Sow};
 use winit::dpi::PhysicalSize;
 use winit::event::*;
 use winit::event_loop::{EventLoop, EventLoopWindowTarget};
@@ -556,6 +556,7 @@ impl Renderer
 
             let mut active_pipeline: Option<&GenericPipeline> = None;
             let mut active_bind_groups: [Option<wgpu::Id<wgpu::BindGroup>>; 4] = [None; 4];
+            let mut bind_groups_lifetime_extender: Vec<Arc<wgpu::BindGroup>> = Vec::new();
 
             for pass_type in PassStage::iter()
             {
@@ -627,10 +628,21 @@ impl Renderer
                         .zip(renderable.get_bind_groups(&global_bind_group))
                         .enumerate()
                     {
-                        if *active_bind_group_id != maybe_new_bind_group.map(|g| g.global_id())
+                        if *active_bind_group_id
+                            != maybe_new_bind_group.as_ref().map(|g| g.global_id())
                         {
-                            if let Some(new_bind_group) = maybe_new_bind_group
+                            if let Some(new_bind_group_sow) = maybe_new_bind_group
                             {
+                                let new_bind_group = match new_bind_group_sow
+                                {
+                                    Sow::Strong(s) =>
+                                    {
+                                        bind_groups_lifetime_extender.push(s.clone());
+                                        unsafe { std::mem::transmute(&*s) }
+                                    }
+                                    Sow::Ref(w) => w
+                                };
+
                                 match render_pass
                                 {
                                     GenericPass::Compute(ref mut p) =>

@@ -4,6 +4,7 @@ use std::sync::{Arc, Mutex};
 use bytemuck::{bytes_of, Pod, Zeroable};
 use gfx::{glm, wgpu};
 use image::GenericImageView;
+use util::Sow;
 use wgpu::util::DeviceExt;
 
 #[repr(C)]
@@ -290,11 +291,11 @@ impl gfx::Recordable for FlatTextured
     fn get_bind_groups<'s>(
         &'s self,
         global_bind_group: &'s wgpu::BindGroup
-    ) -> [Option<&'s wgpu::BindGroup>; 4]
+    ) -> [Option<util::Sow<'s, wgpu::BindGroup>>; 4]
     {
         [
-            Some(global_bind_group),
-            Some(&self.tree_bind_group),
+            Some(Sow::Ref(global_bind_group)),
+            Some(Sow::Ref(&self.tree_bind_group)),
             None,
             None
         ]

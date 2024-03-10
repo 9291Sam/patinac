@@ -217,6 +217,9 @@ pub struct VoxelChunkDataManager
     delta_brick_buffer:          HashSet<*const VoxelBrick>,
     needs_resize_flush:          bool,
 
+    bind_group_layout: Arc<wgpu::BindGroupLayout>,
+    bind_group:        Arc<wgpu::BindGroup>,
+
     brick_allocator: util::FreelistAllocator
 }
 
@@ -224,11 +227,42 @@ pub type ChunkPosition = glm::U16Vec3;
 
 impl VoxelChunkDataManager
 {
-    pub fn new(renderer: Arc<gfx::Renderer>) -> Self
+    pub fn new(renderer: Arc<gfx::Renderer>, bind_group_layout: Arc<wgpu::BindGroupLayout>)
+    -> Self
     {
         let number_of_starting_bricks = BRICK_MAP_EDGE_SIZE * BRICK_MAP_EDGE_SIZE * 2;
 
         let r = renderer.clone();
+
+        let gpu_brick_map = r.create_buffer(&wgpu::BufferDescriptor {
+            label:              Some("Voxel Chunk Data Manager Brick Map Buffer"),
+            usage:              wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::STORAGE,
+            size:               std::mem::size_of::<BrickMap>() as u64,
+            mapped_at_creation: false
+        });
+
+        let gpu_brick_buffer = r.create_buffer(&wgpu::BufferDescriptor {
+            label:              Some("Voxel Chunk Data Manager Brick Buffer"),
+            usage:              wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::STORAGE,
+            size:               std::mem::size_of::<VoxelBrick>() as u64
+                * number_of_starting_bricks as u64,
+            mapped_at_creation: false
+        });
+
+        let voxel_bind_group = r.create_bind_group(&wgpu::BindGroupDescriptor {
+            label:   Some("Voxel Bind Group"),
+            layout:  &bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding:  0,
+                    resource: gpu_brick_map.as_entire_binding()
+                },
+                wgpu::BindGroupEntry {
+                    binding:  1,
+                    resource: gpu_brick_buffer.as_entire_binding()
+                }
+            ]
+        });
 
         Self {
             renderer,
@@ -240,23 +274,14 @@ impl VoxelChunkDataManager
             .into_boxed_slice()
             .try_into()
             .unwrap(),
-            gpu_brick_map: r.create_buffer(&wgpu::BufferDescriptor {
-                label:              Some("Voxel Chunk Data Manager Brick Map Buffer"),
-                usage:              wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::STORAGE,
-                size:               std::mem::size_of::<BrickMap>() as u64,
-                mapped_at_creation: false
-            }),
+            gpu_brick_map,
             delta_brick_map: HashSet::new(),
             cpu_brick_buffer: vec![VoxelBrick::new_empty(); number_of_starting_bricks],
-            gpu_brick_buffer: r.create_buffer(&wgpu::BufferDescriptor {
-                label:              Some("Voxel Chunk Data Manager Brick Buffer"),
-                usage:              wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::STORAGE,
-                size:               std::mem::size_of::<VoxelBrick>() as u64
-                    * number_of_starting_bricks as u64,
-                mapped_at_creation: false
-            }),
+            gpu_brick_buffer,
             delta_brick_buffer: HashSet::new(),
             needs_resize_flush: false,
+            bind_group_layout,
+            bind_group: Arc::new(voxel_bind_group),
             brick_allocator: util::FreelistAllocator::new(
                 (number_of_starting_bricks - 2).try_into().unwrap()
             )
@@ -368,6 +393,22 @@ impl VoxelChunkDataManager
                         mapped_at_creation: false
                     });
 
+                    self.bind_group =
+                        Arc::new(self.renderer.create_bind_group(&wgpu::BindGroupDescriptor {
+                            label:   Some("Voxel Bind Group"),
+                            layout:  &self.bind_group_layout,
+                            entries: &[
+                                wgpu::BindGroupEntry {
+                                    binding:  0,
+                                    resource: self.gpu_brick_map.as_entire_binding()
+                                },
+                                wgpu::BindGroupEntry {
+                                    binding:  1,
+                                    resource: self.gpu_brick_buffer.as_entire_binding()
+                                }
+                            ]
+                        }));
+
                     self.brick_allocator
                         .extend_size(self.cpu_brick_buffer.len());
 
@@ -421,6 +462,11 @@ impl VoxelChunkDataManager
         self.delta_brick_buffer.insert(this_brick as *const _);
     }
 
+    pub fn get_bind_group(&self) -> Arc<wgpu::BindGroup>
+    {
+        self.bind_group.clone()
+    }
+
     pub fn flush_entire(&mut self)
     {
         self.delta_brick_buffer.clear();
@@ -443,6 +489,8 @@ impl VoxelChunkDataManager
                     self.cpu_brick_buffer.len() * std::mem::size_of::<VoxelBrick>()
                 )
             });
+
+        self.needs_resize_flush = false;
     }
 
     pub fn flush_to_gpu(&mut self)
@@ -480,11 +528,13 @@ impl VoxelChunkDataManager
         {
             let head_brick_buffer: *const VoxelBrick = &self.cpu_brick_buffer[0] as *const _;
 
+            log::info!("uploading {} bricks", self.delta_brick_buffer.len());
+
             self.delta_brick_buffer.drain().for_each(|ptr| {
                 self.renderer.queue.write_buffer(
                     &self.gpu_brick_buffer,
                     unsafe { ptr.byte_offset_from(head_brick_buffer).try_into().unwrap() },
-                    unsafe { bytes_of(&*ptr) }
+                    unsafe { bytes_of::<VoxelBrick>(&*ptr) }
                 )
             })
         }

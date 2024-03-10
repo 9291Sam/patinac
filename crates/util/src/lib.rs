@@ -10,6 +10,7 @@ mod registrar;
 mod uuid;
 
 use std::ops::Deref;
+use std::sync::Arc;
 
 pub use allocator::*;
 pub use global_allocator::*;
@@ -39,6 +40,27 @@ impl<T> Deref for SendSyncMutPtr<T>
     fn deref(&self) -> &Self::Target
     {
         &self.0
+    }
+}
+
+// boooo bad joke
+pub enum Sow<'t, T>
+{
+    Strong(Arc<T>),
+    Ref(&'t T)
+}
+
+impl<'t, T> Deref for Sow<'t, T>
+{
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target
+    {
+        match self
+        {
+            Sow::Strong(arc) => arc,
+            Sow::Ref(r) => r
+        }
     }
 }
 
