@@ -188,40 +188,30 @@ impl gfx::Recordable for BrickMapChunk
         &self.pipeline
     }
 
-    // TODO: combine this with the get_bind_group_function
-    fn pre_record_update(&self, _: &gfx::Renderer, _: &gfx::Camera) -> gfx::RecordInfo
+    fn pre_record_update(
+        &self,
+        _: &gfx::Renderer,
+        _: &gfx::Camera,
+        global_bind_group: &Arc<wgpu::BindGroup>
+    ) -> gfx::RecordInfo
     {
         gfx::RecordInfo {
             should_draw: true,
             transform:   Some(gfx::Transform {
                 translation: *self.position.lock().unwrap(),
                 ..Default::default()
-            })
+            }),
+            bind_groups: [
+                Some(global_bind_group.clone()),
+                Some(
+                    // TODO: modify the manager to be thread safe
+                    self.voxel_chunk_data.lock().unwrap().get_bind_group()
+                ),
+                None,
+                None
+            ]
         }
     }
-
-    fn get_bind_groups<'s>(
-        &'s self,
-        global_bind_group: &'s wgpu::BindGroup
-    ) -> [Option<util::Sow<'s, wgpu::BindGroup>>; 4]
-    {
-        [
-            Some(Sow::Ref(global_bind_group)),
-            Some(Sow::Strong(
-                self.voxel_chunk_data.lock().unwrap().get_bind_group()
-            )),
-            None,
-            None
-        ]
-    }
-
-    // fn get_bind_groups<'s>(
-    //     &'s self,
-    //     global_bind_group: &'s gfx::wgpu::BindGroup
-    // ) -> [Option<&'s gfx::wgpu::BindGroup>; 4]
-    // {
-
-    // }
 
     fn record<'s>(&'s self, render_pass: &mut gfx::GenericPass<'s>, maybe_id: Option<gfx::DrawId>)
     {

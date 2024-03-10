@@ -15,7 +15,7 @@ pub struct LitTextured
 
     vertex_buffer:             wgpu::Buffer,
     index_buffer:              wgpu::Buffer,
-    texture_normal_bind_group: wgpu::BindGroup,
+    texture_normal_bind_group: Arc<wgpu::BindGroup>,
     pipeline:                  Arc<gfx::GenericPipeline>,
     number_of_indices:         u32
 }
@@ -205,7 +205,7 @@ impl LitTextured
                     ]
                 });
 
-        let bind_group = renderer.create_bind_group(&wgpu::BindGroupDescriptor {
+        let bind_group = Arc::new(renderer.create_bind_group(&wgpu::BindGroupDescriptor {
             label:   Some("Lit Textured Bind Group"),
             layout:  &bind_group_layout,
             entries: &[
@@ -228,7 +228,7 @@ impl LitTextured
                     )
                 }
             ]
-        });
+        }));
 
         let pipeline_layout =
             renderer
@@ -324,25 +324,23 @@ impl gfx::Recordable for LitTextured
         &self.pipeline
     }
 
-    fn pre_record_update(&self, _: &gfx::Renderer, _: &gfx::Camera) -> gfx::RecordInfo
+    fn pre_record_update(
+        &self,
+        _: &gfx::Renderer,
+        _: &gfx::Camera,
+        global_bind_group: &Arc<wgpu::BindGroup>
+    ) -> gfx::RecordInfo
     {
         gfx::RecordInfo {
             should_draw: true,
-            transform:   Some(self.transform.lock().unwrap().clone())
+            transform:   Some(self.transform.lock().unwrap().clone()),
+            bind_groups: [
+                Some(global_bind_group.clone()),
+                Some(self.texture_normal_bind_group.clone()),
+                None,
+                None
+            ]
         }
-    }
-
-    fn get_bind_groups<'s>(
-        &'s self,
-        global_bind_group: &'s wgpu::BindGroup
-    ) -> [Option<Sow<'s, wgpu::BindGroup>>; 4]
-    {
-        [
-            Some(Sow::Ref(global_bind_group)),
-            Some(Sow::Ref(&self.texture_normal_bind_group)),
-            None,
-            None
-        ]
     }
 
     fn record<'s>(&'s self, render_pass: &mut gfx::GenericPass<'s>, maybe_id: Option<gfx::DrawId>)

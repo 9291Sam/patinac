@@ -37,7 +37,7 @@ pub struct FlatTextured
     vertex_buffer: wgpu::Buffer,
     index_buffer:  wgpu::Buffer,
 
-    tree_bind_group: wgpu::BindGroup,
+    tree_bind_group: Arc<wgpu::BindGroup>,
     pipeline:        Arc<gfx::GenericPipeline>,
 
     time_alive:        Mutex<f32>,
@@ -148,7 +148,7 @@ impl FlatTextured
                     label:   Some("texture_bind_group_layout")
                 });
 
-        let tree_bind_group = renderer.create_bind_group(&wgpu::BindGroupDescriptor {
+        let tree_bind_group = Arc::new(renderer.create_bind_group(&wgpu::BindGroupDescriptor {
             layout:  &bind_group_layout,
             entries: &[
                 wgpu::BindGroupEntry {
@@ -165,7 +165,7 @@ impl FlatTextured
                 }
             ],
             label:   Some("tree_bind_group")
-        });
+        }));
 
         let pipeline_layout =
             renderer
@@ -261,7 +261,12 @@ impl gfx::Recordable for FlatTextured
         &self.pipeline
     }
 
-    fn pre_record_update(&self, renderer: &gfx::Renderer, _: &gfx::Camera) -> gfx::RecordInfo
+    fn pre_record_update(
+        &self,
+        renderer: &gfx::Renderer,
+        _: &gfx::Camera,
+        global_bind_group: &Arc<wgpu::BindGroup>
+    ) -> gfx::RecordInfo
     {
         let time_alive = {
             let mut guard = self.time_alive.lock().unwrap();
@@ -284,21 +289,14 @@ impl gfx::Recordable for FlatTextured
 
         gfx::RecordInfo {
             should_draw: true,
-            transform:   Some(transform)
+            transform:   Some(transform),
+            bind_groups: [
+                Some(global_bind_group.clone()),
+                Some(self.tree_bind_group.clone()),
+                None,
+                None
+            ]
         }
-    }
-
-    fn get_bind_groups<'s>(
-        &'s self,
-        global_bind_group: &'s wgpu::BindGroup
-    ) -> [Option<util::Sow<'s, wgpu::BindGroup>>; 4]
-    {
-        [
-            Some(Sow::Ref(global_bind_group)),
-            Some(Sow::Ref(&self.tree_bind_group)),
-            None,
-            None
-        ]
     }
 
     fn record<'s>(&'s self, render_pass: &mut gfx::GenericPass<'s>, maybe_id: Option<gfx::DrawId>)

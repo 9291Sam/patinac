@@ -24,7 +24,7 @@ use winit::platform::run_on_demand::EventLoopExtRunOnDemand;
 use winit::window::{CursorGrabMode, Window, WindowBuilder};
 use winit_input_helper::WinitInputHelper;
 
-use crate::recordables::{PassStage, RecordInfo, Recordable};
+use crate::recordables::{recordable_ord, PassStage, RecordInfo, Recordable};
 use crate::render_cache::{GenericPass, RenderCache};
 use crate::{Camera, GenericPipeline, Transform};
 
@@ -369,7 +369,7 @@ impl Renderer
             mapped_at_creation: false
         });
 
-        let global_bind_group = self.create_bind_group(&wgpu::BindGroupDescriptor {
+        let global_bind_group = Arc::new(self.create_bind_group(&wgpu::BindGroupDescriptor {
             label:   Some("Global Info Bind Group"),
             layout:  &self.global_bind_group_layout,
             entries: &[
@@ -386,7 +386,7 @@ impl Renderer
                     resource: global_model_buffer.as_entire_binding()
                 }
             ]
-        });
+        }));
 
         // Because of a bug in winit, the first resize command that comes in is borked
         // on Windows https://github.com/rust-windowing/winit/issues/2094
@@ -473,7 +473,8 @@ impl Renderer
                         {
                             Some(r) =>
                             {
-                                let record_info = r.pre_record_update(self, &closure_camera);
+                                let record_info =
+                                    r.pre_record_update(self, &closure_camera, &global_bind_group);
 
                                 match record_info
                                 {
@@ -482,7 +483,8 @@ impl Renderer
                                     } => None,
                                     RecordInfo {
                                         should_draw: true,
-                                        transform: Some(t)
+                                        transform: Some(t),
+                                        bind_groups
                                     } =>
                                     {
                                         let this_id = get_next_id();
@@ -497,12 +499,13 @@ impl Renderer
                                                 .write(t.as_model_matrix())
                                         };
 
-                                        Some((r, Some(this_id)))
+                                        Some((r, Some(this_id), bind_groups))
                                     }
                                     RecordInfo {
                                         should_draw: true,
-                                        transform: None
-                                    } => Some((r, None))
+                                        transform: None,
+                                        bind_groups
+                                    } => todo!()
                                 }
                             }
                             None =>
@@ -514,16 +517,17 @@ impl Renderer
                     })
                     .collect::<Vec<_>>()
                     .into_iter()
-                    .for_each(|(r, r_i)| {
-                        renderables_map
-                            .get_mut(&r.get_pass_stage())
-                            .unwrap()
-                            .push((r, r_i));
+                    .for_each(|(r, r_i, bind_groups)| {
+                        renderables_map.get_mut(&r.get_pass_stage()).unwrap().push((
+                            r,
+                            r_i,
+                            bind_groups
+                        ));
                     });
             }
 
             renderables_map.iter_mut().for_each(|(_, renderable_vec)| {
-                renderable_vec.sort_by(|l, r| l.0.ord(&*r.0, &global_bind_group))
+                renderable_vec.sort_by(|l, r| recordable_ord(&*l.0, &*r.0, &l.2, &r.2))
             });
 
             let global_info = {
@@ -601,7 +605,8 @@ impl Renderer
                     }
                 };
 
-                for (renderable, maybe_id) in renderables_map.get(&pass_type).unwrap()
+                for (renderable, maybe_id, desired_bind_groups) in
+                    renderables_map.get(&pass_type).unwrap()
                 {
                     let desired_pipeline = renderable.get_pipeline();
 
@@ -625,24 +630,14 @@ impl Renderer
 
                     for (idx, (active_bind_group_id, maybe_new_bind_group)) in active_bind_groups
                         .iter_mut()
-                        .zip(renderable.get_bind_groups(&global_bind_group))
+                        .zip(desired_bind_groups)
                         .enumerate()
                     {
                         if *active_bind_group_id
                             != maybe_new_bind_group.as_ref().map(|g| g.global_id())
                         {
-                            if let Some(new_bind_group_sow) = maybe_new_bind_group
+                            if let Some(new_bind_group) = maybe_new_bind_group
                             {
-                                let new_bind_group = match new_bind_group_sow
-                                {
-                                    Sow::Strong(s) =>
-                                    {
-                                        bind_groups_lifetime_extender.push(s.clone());
-                                        unsafe { std::mem::transmute(&*s) }
-                                    }
-                                    Sow::Ref(w) => w
-                                };
-
                                 match render_pass
                                 {
                                     GenericPass::Compute(ref mut p) =>

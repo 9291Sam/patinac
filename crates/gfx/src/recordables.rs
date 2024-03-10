@@ -3,9 +3,9 @@ use std::cmp::Ordering;
 use std::cmp::Ordering::*;
 use std::fmt::Debug;
 use std::num::NonZeroU64;
+use std::sync::Arc;
 
 use strum::EnumIter;
-use util::Sow;
 
 use crate::render_cache::GenericPass;
 use crate::{Camera, GenericPipeline, Renderer, Transform};
@@ -27,37 +27,37 @@ pub trait Recordable: Debug + Send + Sync
     fn get_pipeline(&self) -> &GenericPipeline;
 
     /// Called for all registered Recordable s
-    fn pre_record_update(&self, renderer: &Renderer, camera: &Camera) -> RecordInfo;
-
-    fn get_bind_groups<'s>(
-        &'s self,
-        global_bind_group: &'s wgpu::BindGroup
-    ) -> [Option<Sow<'s, wgpu::BindGroup>>; 4];
+    fn pre_record_update(
+        &self,
+        renderer: &Renderer,
+        camera: &Camera,
+        global_bind_group: &Arc<wgpu::BindGroup>
+    ) -> RecordInfo;
 
     fn record<'s>(&'s self, render_pass: &mut GenericPass<'s>, maybe_id: Option<DrawId>);
+}
 
-    fn ord(&self, other: &dyn Recordable, global_bind_group: &wgpu::BindGroup) -> Ordering
-    {
-        Equal
-            .then(self.get_pass_stage().cmp(&other.get_pass_stage()))
-            .then(self.get_pipeline().cmp(other.get_pipeline()))
-            .then(
-                get_bind_group_ids(&self.get_bind_groups(global_bind_group)).cmp(
-                    &get_bind_group_ids(&other.get_bind_groups(global_bind_group))
-                )
-            )
-    }
+pub(crate) fn recordable_ord(
+    this: &dyn Recordable,
+    other: &dyn Recordable,
+    this_bind_groups: &[Option<Arc<wgpu::BindGroup>>; 4],
+    other_bind_groups: &[Option<Arc<wgpu::BindGroup>>; 4]
+) -> Ordering
+{
+    Equal
+        .then(this.get_pass_stage().cmp(&other.get_pass_stage()))
+        .then(this.get_pipeline().cmp(other.get_pipeline()))
+        .then(get_bind_group_ids(this_bind_groups).cmp(&get_bind_group_ids(other_bind_groups)))
 }
 
 pub struct RecordInfo
 {
     pub should_draw: bool,
-    pub transform:   Option<Transform>
+    pub transform:   Option<Transform>,
+    pub bind_groups: [Option<Arc<wgpu::BindGroup>>; 4]
 }
 
-fn get_bind_group_ids(
-    bind_groups: &[Option<Sow<'_, wgpu::BindGroup>>; 4]
-) -> [Option<NonZeroU64>; 4]
+fn get_bind_group_ids(bind_groups: &[Option<Arc<wgpu::BindGroup>>; 4]) -> [Option<NonZeroU64>; 4]
 {
     std::array::from_fn(|i| {
         bind_groups[i]
