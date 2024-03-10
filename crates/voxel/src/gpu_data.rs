@@ -230,7 +230,7 @@ impl VoxelChunkDataManager
     pub fn new(renderer: Arc<gfx::Renderer>, bind_group_layout: Arc<wgpu::BindGroupLayout>)
     -> Self
     {
-        let number_of_starting_bricks = BRICK_MAP_EDGE_SIZE * BRICK_MAP_EDGE_SIZE * 2;
+        let number_of_starting_bricks = 64;
 
         let r = renderer.clone();
 
@@ -283,7 +283,7 @@ impl VoxelChunkDataManager
             bind_group_layout,
             bind_group: Arc::new(voxel_bind_group),
             brick_allocator: util::FreelistAllocator::new(
-                (number_of_starting_bricks - 2).try_into().unwrap()
+                (number_of_starting_bricks - 1).try_into().unwrap()
             )
         }
     }
@@ -410,7 +410,7 @@ impl VoxelChunkDataManager
                         }));
 
                     self.brick_allocator
-                        .extend_size(self.cpu_brick_buffer.len());
+                        .extend_size(self.cpu_brick_buffer.len() - 1);
 
                     if let Ok(new_ptr) = self.brick_allocator.allocate()
                     {
