@@ -5,18 +5,12 @@ use std::sync::Arc;
 use gfx::glm;
 use itertools::iproduct;
 use noise::NoiseFn;
-use rand::distributions::{Distribution, Standard};
 use rand::Rng;
 use voxel::Voxel;
-
-use crate::recordables::flat_textured::FlatTextured;
-use crate::recordables::lit_textured::LitTextured;
 
 #[derive(Debug)]
 pub struct TestScene
 {
-    _objs:           Vec<Arc<dyn gfx::Recordable>>,
-    rotate_objs:     Vec<Arc<LitTextured>>,
     brick_map_chunk: Arc<voxel::BrickMapChunk>,
     id:              util::Uuid
 }
@@ -25,9 +19,6 @@ impl TestScene
 {
     pub fn new(game: &game::Game) -> Arc<Self>
     {
-        let mut objs: Vec<Arc<dyn gfx::Recordable>> = Vec::new();
-        let mut rotate_objs: Vec<Arc<LitTextured>> = Vec::new();
-
         // for x in -5..=5
         // {
         //     for z in -5..=5
@@ -61,13 +52,11 @@ impl TestScene
         // }
 
         let this = Arc::new(TestScene {
-            _objs: objs,
-            rotate_objs,
             brick_map_chunk: voxel::BrickMapChunk::new(
                 game,
                 glm::Vec3::new(-512.0, -512.0, -512.0)
             ),
-            id: util::Uuid::new()
+            id:              util::Uuid::new()
         });
 
         {
@@ -78,8 +67,7 @@ impl TestScene
                 (234782378948923489238948972347234789342u128 % u32::MAX as u128) as u32
             );
 
-            let mut random_generator = RefCell::new(rand::thread_rng());
-            let mut pos_voxel_cache = std::collections::HashMap::<glm::I16Vec3, Voxel>::new();
+            let random_generator = RefCell::new(rand::thread_rng());
 
             let noise_sampler = |x: u16, z: u16| {
                 ((noise_generator.get([
@@ -275,41 +263,28 @@ impl game::Entity for TestScene
         self.id
     }
 
-    fn tick(&self, game: &game::Game, _: game::TickTag)
+    fn tick(&self, _: &game::Game, _: game::TickTag)
     {
-        for o in &self.rotate_objs
-        {
-            let mut guard = o.transform.lock().unwrap();
-
-            let quat = guard.rotation
-                * *glm::UnitQuaternion::from_axis_angle(
-                    &gfx::Transform::global_up_vector(),
-                    1.0 * game.get_delta_time()
-                );
-
-            guard.rotation = quat.normalize();
-        }
-
         let mut manager = self.brick_map_chunk.access_data_manager().lock().unwrap();
 
         for _ in 0..64
         {
-            let diff = 8u16;
+            // let diff = 8u16;
             let base: glm::U16Vec3 = glm::U16Vec3::new(
                 rand::thread_rng().gen_range(512u16..=698),
                 rand::thread_rng().gen_range(512u16..=698),
                 rand::thread_rng().gen_range(512u16..=698)
             );
 
-            let top = base.add_scalar(diff);
+            // let top = base.add_scalar(diff);
 
-            for (x, y, z) in iproduct!(base.x..top.x, base.y..top.y, base.z..top.z)
-            {
-                manager.write_voxel(
-                    rand::thread_rng().gen_range(1..=12).try_into().unwrap(),
-                    glm::U16Vec3::new(x, y, z)
-                );
-            }
+            // for (x, y, z) in iproduct!(base.x..top.x, base.y..top.y, base.z..top.z)
+            // {
+            manager.write_voxel(
+                rand::thread_rng().gen_range(1..=12).try_into().unwrap(),
+                base
+            );
+            // }
         }
 
         manager.flush_to_gpu();

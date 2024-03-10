@@ -1,7 +1,6 @@
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::f32::consts::PI;
 use std::num::NonZeroU64;
 use std::ops::Deref;
 use std::panic::{RefUnwindSafe, UnwindSafe};
@@ -15,7 +14,7 @@ use nalgebra_glm as glm;
 use pollster::FutureExt;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use strum::IntoEnumIterator;
-use util::{Registrar, SendSyncMutPtr, Sow};
+use util::{Registrar, SendSyncMutPtr};
 use winit::dpi::PhysicalSize;
 use winit::event::*;
 use winit::event_loop::{EventLoop, EventLoopWindowTarget};
@@ -504,7 +503,7 @@ impl Renderer
                                     RecordInfo {
                                         should_draw: true,
                                         transform: None,
-                                        bind_groups
+                                        bind_groups: _
                                     } => todo!()
                                 }
                             }
@@ -560,7 +559,6 @@ impl Renderer
 
             let mut active_pipeline: Option<&GenericPipeline> = None;
             let mut active_bind_groups: [Option<wgpu::Id<wgpu::BindGroup>>; 4] = [None; 4];
-            let mut bind_groups_lifetime_extender: Vec<Arc<wgpu::BindGroup>> = Vec::new();
 
             for pass_type in PassStage::iter()
             {

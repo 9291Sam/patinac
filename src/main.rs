@@ -7,9 +7,8 @@
 
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering::*;
-use std::sync::{Arc, OnceLock};
+use std::sync::Arc;
 
-mod recordables;
 mod test_scene;
 
 fn main()

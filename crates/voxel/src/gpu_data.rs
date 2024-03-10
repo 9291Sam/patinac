@@ -1,10 +1,9 @@
 use core::slice;
 use std::assert_matches::assert_matches;
 use std::collections::HashSet;
-use std::num::NonZeroU32;
 use std::sync::Arc;
 
-use bytemuck::{bytes_of, Contiguous, NoUninit, Pod, Zeroable};
+use bytemuck::{bytes_of, Contiguous, Pod, Zeroable};
 use gfx::glm;
 use gfx::wgpu::{self};
 
@@ -144,7 +143,7 @@ impl VoxelBrickPointer
 
         assert_matches!(
             maybe_new_ptr.classify(),
-            VoxelBrickPointerType::ValidBrickPointer(ptr),
+            VoxelBrickPointerType::ValidBrickPointer(_ptr),
             "Tried to create a pointer with an invalid value. Valid range is [1, 2^32 - 2^16)"
         );
 
@@ -160,7 +159,7 @@ impl VoxelBrickPointer
         assert!(voxel != Voxel::Air);
         assert_matches!(
             maybe_new_ptr.classify(),
-            VoxelBrickPointerType::Voxel(voxel)
+            VoxelBrickPointerType::Voxel(_voxel)
         );
 
         maybe_new_ptr
@@ -196,12 +195,12 @@ impl VoxelBrickPointer
 
 // type BrickPointer = NonZeroU32;
 
-pub(crate) type BrickMap =
+type BrickMap =
     [[[VoxelBrickPointer; BRICK_MAP_EDGE_SIZE]; BRICK_MAP_EDGE_SIZE]; BRICK_MAP_EDGE_SIZE];
 
 const VOXEL_BRICK_SIZE: usize = 8;
 const BRICK_MAP_EDGE_SIZE: usize = 128;
-const CHUNK_VOXEL_SIZE: usize = VOXEL_BRICK_SIZE * BRICK_MAP_EDGE_SIZE;
+// const CHUNK_VOXEL_SIZE: usize = VOXEL_BRICK_SIZE * BRICK_MAP_EDGE_SIZE;
 
 #[derive(Debug)]
 pub struct VoxelChunkDataManager
@@ -566,7 +565,7 @@ mod test
 
             assert_matches!(
                 VoxelBrickPointer::new_voxel(v).classify(),
-                VoxelBrickPointerType::Voxel(v)
+                VoxelBrickPointerType::Voxel(_v)
             );
         }
 
@@ -574,7 +573,7 @@ mod test
         {
             assert_matches!(
                 VoxelBrickPointer::new_ptr(i).classify(),
-                VoxelBrickPointerType::ValidBrickPointer(i)
+                VoxelBrickPointerType::ValidBrickPointer(_i)
             );
         }
 
@@ -583,7 +582,7 @@ mod test
         {
             assert_matches!(
                 VoxelBrickPointer::new_ptr(i).classify(),
-                VoxelBrickPointerType::ValidBrickPointer(i)
+                VoxelBrickPointerType::ValidBrickPointer(_i)
             );
         }
     }

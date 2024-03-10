@@ -11,7 +11,6 @@ use gfx::{
     CacheablePipelineLayoutDescriptor,
     CacheableRenderPipelineDescriptor
 };
-use util::Sow;
 
 use crate::gpu_data::VoxelChunkDataManager;
 
