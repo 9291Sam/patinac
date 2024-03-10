@@ -230,7 +230,7 @@ impl VoxelChunkDataManager
     pub fn new(renderer: Arc<gfx::Renderer>, bind_group_layout: Arc<wgpu::BindGroupLayout>)
     -> Self
     {
-        let number_of_starting_bricks = 64;
+        let number_of_starting_bricks = BRICK_MAP_EDGE_SIZE * BRICK_MAP_EDGE_SIZE * 2;
 
         let r = renderer.clone();
 
@@ -377,12 +377,12 @@ impl VoxelChunkDataManager
                 }
                 Err(_) =>
                 {
-                    log::info!("Resizing!");
-
                     self.needs_resize_flush = true;
 
-                    self.cpu_brick_buffer
-                        .resize(self.cpu_brick_buffer.len() * 2, VoxelBrick::new_empty());
+                    self.cpu_brick_buffer.resize(
+                        ((self.cpu_brick_buffer.len() as f64) * 1.25) as usize,
+                        VoxelBrick::new_empty()
+                    );
 
                     self.gpu_brick_buffer = self.renderer.create_buffer(&wgpu::BufferDescriptor {
                         label:              Some("Voxel Chunk Data Manager Brick Buffer"),
@@ -520,15 +520,11 @@ impl VoxelChunkDataManager
                     )
                 });
 
-            log::info!("resize flush");
-
             self.needs_resize_flush = false;
         }
         else
         {
             let head_brick_buffer: *const VoxelBrick = &self.cpu_brick_buffer[0] as *const _;
-
-            log::info!("uploading {} bricks", self.delta_brick_buffer.len());
 
             self.delta_brick_buffer.drain().for_each(|ptr| {
                 self.renderer.queue.write_buffer(
