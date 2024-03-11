@@ -24,7 +24,7 @@ pub struct BrickMapChunk
     index_buffer:      wgpu::Buffer,
     number_of_indices: u32,
 
-    voxel_chunk_data: Mutex<VoxelChunkDataManager>,
+    voxel_chunk_data: VoxelChunkDataManager,
     pipeline:         Arc<gfx::GenericPipeline>
 }
 
@@ -101,7 +101,7 @@ impl BrickMapChunk
             VoxelChunkDataManager::new(game.get_renderer().clone(), voxel_bind_group_layout);
 
         let this = Arc::new(Self {
-            voxel_chunk_data: Mutex::new(voxel_data_manager),
+            voxel_chunk_data: voxel_data_manager,
             uuid,
             name: "Voxel BrickMapChunk".into(),
             position: Mutex::new(center_position),
@@ -160,7 +160,7 @@ impl BrickMapChunk
         this
     }
 
-    pub fn access_data_manager(&self) -> &Mutex<VoxelChunkDataManager>
+    pub fn access_data_manager(&self) -> &VoxelChunkDataManager
     {
         &self.voxel_chunk_data
     }
@@ -199,42 +199,42 @@ impl gfx::Recordable for BrickMapChunk
 
         ONCE.call_once(|| log::warn!("TODO: make chunk data manager thread safe!"));
 
-        match self.voxel_chunk_data.try_lock()
-        {
-            Ok(d) =>
-            {
-                gfx::RecordInfo {
-                    should_draw: true,
-                    transform:   Some(gfx::Transform {
-                        translation: *self.position.lock().unwrap(),
-                        ..Default::default()
-                    }),
-                    bind_groups: [
-                        Some(global_bind_group.clone()),
-                        Some(
-                            // TODO: modify the manager to be thread safe
-                            d.get_bind_group()
-                        ),
-                        None,
-                        None
-                    ]
-                }
-            }
-            Err(e) =>
-            {
-                match e
-                {
-                    std::sync::TryLockError::Poisoned(p) => panic!("{p:?}"),
-                    std::sync::TryLockError::WouldBlock =>
-                    {
-                        gfx::RecordInfo {
-                            should_draw: false,
-                            ..Default::default()
-                        }
-                    }
-                }
-            }
+        // match self.voxel_chunk_data.try_lock()
+        // {
+        //     Ok(d) =>
+        //     {
+        gfx::RecordInfo {
+            should_draw: true,
+            transform:   Some(gfx::Transform {
+                translation: *self.position.lock().unwrap(),
+                ..Default::default()
+            }),
+            bind_groups: [
+                Some(global_bind_group.clone()),
+                Some(
+                    // TODO: modify the manager to be thread safe
+                    self.voxel_chunk_data.get_bind_group()
+                ),
+                None,
+                None
+            ]
         }
+        //     }
+        //     Err(e) =>
+        //     {
+        //         match e
+        //         {
+        //             std::sync::TryLockError::Poisoned(p) => panic!("{p:?}"),
+        //             std::sync::TryLockError::WouldBlock =>
+        //             {
+        //                 gfx::RecordInfo {
+        //                     should_draw: false,
+        //                     ..Default::default()
+        //                 }
+        //             }
+        //         }
+        //     }
+        // }
     }
 
     fn record<'s>(&'s self, render_pass: &mut gfx::GenericPass<'s>, maybe_id: Option<gfx::DrawId>)

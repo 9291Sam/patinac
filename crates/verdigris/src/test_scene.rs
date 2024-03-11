@@ -30,8 +30,8 @@ impl TestScene
                     );
 
                     {
-                        let data_manager: &mut voxel::VoxelChunkDataManager =
-                            &mut chunk.access_data_manager().lock().unwrap();
+                        let data_manager: &voxel::VoxelChunkDataManager =
+                            chunk.access_data_manager();
 
                         let noise_generator = noise::SuperSimplex::new(
                             (234782378948923489238948972347234789342u128 % u32::MAX as u128) as u32
@@ -88,6 +88,8 @@ impl TestScene
                             data_manager.write_brick(get_rand_stone_voxel(), pos);
                         }
 
+                        data_manager.flush_to_gpu();
+
                         let b = 1024u16;
 
                         for (x, z) in iproduct!(0..b, 0..b)
@@ -107,6 +109,8 @@ impl TestScene
                                 above_brick_pos.y += 1;
                             }
                         }
+
+                        data_manager.flush_to_gpu();
 
                         for (x, z) in iproduct!(0..b, 0..b)
                         {
@@ -138,6 +142,8 @@ impl TestScene
                                 stone_fill_pos.y -= 1;
                             }
                         }
+
+                        data_manager.flush_to_gpu();
 
                         data_manager.flush_entire();
                     }
@@ -195,7 +201,7 @@ impl game::Entity for TestScene
 
         if let util::Promise::Resolved(chunk) = &*guard
         {
-            let mut manager = chunk.access_data_manager().lock().unwrap();
+            let manager = chunk.access_data_manager();
 
             for _ in 0..64
             {
