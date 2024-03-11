@@ -31,6 +31,16 @@ itertools = "0.12.1"
 noise = "0.8.2"
 rand = "0.8.5"
 rayon = "1.8.1"
+winit = "0.29"
+wgpu = "0.19.1"
+strum = { version = "0.26", features = ["derive"] }
+nalgebra-glm = { version = "0.18.0", features = ["convert-bytemuck"] }
+nalgebra = "0.32.3"
+pollster = "0.3.0"
+winit_input_helper = "0.15.3"
+chrono = "0.4.31"
+getrandom = "0.2.12"
+seahash = "4.1.0"
 
 [profile.dev]
 opt-level = 2
