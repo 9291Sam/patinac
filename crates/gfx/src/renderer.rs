@@ -684,7 +684,7 @@ impl Renderer
             let move_scale = 10.0
                 * if input_helper.key_held(KeyCode::ShiftLeft)
                 {
-                    10.0
+                    25.0
                 }
                 else
                 {

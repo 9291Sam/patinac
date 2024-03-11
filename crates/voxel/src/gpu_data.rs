@@ -1,6 +1,6 @@
 use core::slice;
 use std::assert_matches::assert_matches;
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 use std::sync::{Arc, Mutex};
 
 use bytemuck::{bytes_of, Contiguous, Pod, Zeroable};
@@ -211,12 +211,12 @@ pub struct VoxelChunkDataManager
 
     cpu_brick_map:            Mutex<Box<BrickMap>>,
     pub(crate) gpu_brick_map: wgpu::Buffer,
-    delta_brick_map:          Mutex<HashSet<*const VoxelBrickPointer>>,
+    delta_brick_map:          Mutex<BTreeSet<*const VoxelBrickPointer>>,
 
     // TODO: integrate into larger single mutexes
     cpu_brick_buffer:            Mutex<Vec<VoxelBrick>>,
     pub(crate) gpu_brick_buffer: Mutex<wgpu::Buffer>,
-    delta_brick_buffer:          Mutex<HashSet<*const VoxelBrick>>,
+    delta_brick_buffer:          Mutex<BTreeSet<*const VoxelBrick>>,
     needs_resize_flush:          Mutex<bool>,
 
     bind_group_layout: Arc<wgpu::BindGroupLayout>,
@@ -278,10 +278,10 @@ impl VoxelChunkDataManager
                 .unwrap()
             ),
             gpu_brick_map,
-            delta_brick_map: Mutex::new(HashSet::new()),
+            delta_brick_map: Mutex::new(BTreeSet::new()),
             cpu_brick_buffer: Mutex::new(vec![VoxelBrick::new_empty(); number_of_starting_bricks]),
             gpu_brick_buffer: Mutex::new(gpu_brick_buffer),
-            delta_brick_buffer: Mutex::new(HashSet::new()),
+            delta_brick_buffer: Mutex::new(BTreeSet::new()),
             needs_resize_flush: Mutex::new(false),
             bind_group_layout,
             bind_group: Mutex::new(Arc::new(voxel_bind_group)),
@@ -537,7 +537,7 @@ impl VoxelChunkDataManager
         {
             let head_brick_map: *const VoxelBrickPointer = &locked_brick_map[0][0][0] as *const _;
 
-            delta_brick_map.drain().for_each(|ptr| {
+            delta_brick_map.extract_if(|_| true).for_each(|ptr| {
                 self.renderer.queue.write_buffer(
                     &self.gpu_brick_map,
                     unsafe { ptr.byte_offset_from(head_brick_map).try_into().unwrap() },
@@ -565,7 +565,7 @@ impl VoxelChunkDataManager
         {
             let head_brick_buffer: *const VoxelBrick = &locked_brick_buffer[0] as *const _;
 
-            delta_brick_buffer.drain().for_each(|ptr| {
+            delta_brick_buffer.extract_if(|_| true).for_each(|ptr| {
                 self.renderer.queue.write_buffer(
                     &self.gpu_brick_buffer.lock().unwrap(),
                     unsafe { ptr.byte_offset_from(head_brick_buffer).try_into().unwrap() },

@@ -63,7 +63,7 @@ impl<T: Send> Future<T>
         {
             Ok(t) =>
             {
-                (&self).resolved.store(true, SeqCst);
+                self.resolved.store(true, SeqCst);
                 Some(t)
             }
             Err(e) =>
@@ -202,8 +202,10 @@ impl ThreadPool
         }
     }
 
-    fn join_threads(&mut self)
+    pub fn join_threads(mut self)
     {
+        std::mem::drop(self.sender);
+
         self.threads.drain(..).for_each(|t| t.join().unwrap())
     }
 }

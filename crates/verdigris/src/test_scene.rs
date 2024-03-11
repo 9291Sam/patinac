@@ -88,7 +88,7 @@ impl TestScene
                             data_manager.write_brick(get_rand_stone_voxel(), pos);
                         }
 
-                        data_manager.flush_to_gpu();
+                        // data_manager.flush_to_gpu();
 
                         let b = 1024u16;
 
@@ -110,7 +110,7 @@ impl TestScene
                             }
                         }
 
-                        data_manager.flush_to_gpu();
+                        // data_manager.flush_to_gpu();
 
                         for (x, z) in iproduct!(0..b, 0..b)
                         {
@@ -141,9 +141,14 @@ impl TestScene
 
                                 stone_fill_pos.y -= 1;
                             }
+
+                            if x == z
+                            {
+                                // data_manager.flush_to_gpu();
+                            }
                         }
 
-                        data_manager.flush_to_gpu();
+                        // data_manager.flush_to_gpu();
 
                         data_manager.flush_entire();
                     }

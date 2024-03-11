@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use std::sync::{Arc, Mutex, Once};
+use std::sync::{Arc, Mutex};
 
 use bytemuck::{cast_slice, Pod, Zeroable};
 use game::{Entity, Positionable};
@@ -195,9 +195,9 @@ impl gfx::Recordable for BrickMapChunk
         global_bind_group: &Arc<wgpu::BindGroup>
     ) -> gfx::RecordInfo
     {
-        static ONCE: Once = Once::new();
+        // static ONCE: Once = Once::new();
 
-        ONCE.call_once(|| log::warn!("TODO: make chunk data manager thread safe!"));
+        // ONCE.call_once(|| log::warn!("TODO: make chunk data manager thread safe!"));
 
         // match self.voxel_chunk_data.try_lock()
         // {

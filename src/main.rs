@@ -22,20 +22,34 @@ fn main()
     *util::access_global_thread_pool().write().unwrap() = Some(util::ThreadPool::new());
 
     // Safety: we try our best to drop the Renderer on this thread
-    let renderer = Arc::new(unsafe { gfx::Renderer::new() });
 
     let should_stop = AtomicBool::new(false);
 
+    // TODO: make not a closure and properly deal with panics
     let run = || {
+        let renderer = Arc::new(unsafe { gfx::Renderer::new() });
+
         let game = game::Game::new(renderer.clone());
 
-        let _verdigris = verdigris::TestScene::new(game.clone());
+        {
+            let _verdigris = verdigris::TestScene::new(game.clone());
 
-        std::thread::scope(|s| {
-            s.spawn(|| game.enter_tick_loop(&should_stop));
+            std::thread::scope(|s| {
+                s.spawn(|| game.enter_tick_loop(&should_stop));
 
-            renderer.enter_gfx_loop(&should_stop);
-        });
+                renderer.enter_gfx_loop(&should_stop);
+            });
+        }
+
+        if Arc::into_inner(game).is_none()
+        {
+            log::warn!("Game was retained via Arc cycle! Drop is not possible");
+        }
+
+        if Arc::into_inner(renderer).is_none()
+        {
+            log::warn!("Renderer was retained via Arc cycle! Drop is not possible");
+        }
     };
 
     if std::panic::catch_unwind(run).is_err()
@@ -43,10 +57,12 @@ fn main()
         should_stop.store(true, SeqCst);
     }
 
-    if Arc::into_inner(renderer).is_none()
-    {
-        log::warn!("Renderer was retained via Arc cycle! Drop is not possible");
-    }
+    util::access_global_thread_pool()
+        .write()
+        .unwrap()
+        .take()
+        .unwrap()
+        .join_threads();
 
     logger.stop_worker();
 }
