@@ -6,8 +6,10 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-log       = { workspace = true }
-chrono    = { workspace = true }
-bytemuck  = { workspace = true }
+log = { workspace = true }
+chrono = { workspace = true }
+bytemuck = { workspace = true }
 getrandom = { workspace = true }
-seahash   = { workspace = true }
+seahash = { workspace = true }
+oneshot = { workspace = true }
+crossbeam = { workspace = true }

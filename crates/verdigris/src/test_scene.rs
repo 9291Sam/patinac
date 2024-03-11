@@ -11,221 +11,141 @@ use voxel::Voxel;
 #[derive(Debug)]
 pub struct TestScene
 {
-    brick_map_chunk: Arc<super::BrickMapChunk>,
+    brick_map_chunk: util::Promise<Arc<super::BrickMapChunk>>,
     id:              util::Uuid
 }
 
 impl TestScene
 {
-    pub fn new(game: &game::Game) -> Arc<Self>
+    pub fn new(game: Arc<game::Game>) -> Arc<Self>
     {
-        // for x in -5..=5
-        // {
-        //     for z in -5..=5
-        //     {
-        //         objs.push(FlatTextured::new(
-        //             game.get_renderer(),
-        //             glm::Vec3::new(x as f32, 0.0, z as f32),
-        //             FlatTextured::PENTAGON_VERTICES,
-        //             FlatTextured::PENTAGON_INDICES
-        //         ));
-
-        //         let a = LitTextured::new_cube(
-        //             game.get_renderer(),
-        //             gfx::Transform {
-        //                 translation: glm::Vec3::new(x as f32, 4.0, z as f32),
-        //                 rotation:    *glm::UnitQuaternion::from_axis_angle(
-        //                     &gfx::Transform::global_up_vector(),
-        //                     (x + z) as f32 / 4.0
-        //                 ),
-        //                 scale:       glm::Vec3::repeat(0.4)
-        //             }
-        //         );
-
-        //         if x == 0 && z == 0
-        //         {
-        //             rotate_objs.push(a.clone());
-        //         }
-
-        //         objs.push(a);
-        //     }
-        // }
+        let brick_game = game.clone();
 
         let this = Arc::new(TestScene {
-            brick_map_chunk: super::BrickMapChunk::new(
-                game,
-                glm::Vec3::new(-512.0, -512.0, -512.0)
-            ),
+            brick_map_chunk: util::run_async(move || {
+                let chunk =
+                    super::BrickMapChunk::new(&brick_game, glm::Vec3::new(-512.0, -512.0, -512.0));
+
+                {
+                    let data_manager: &mut voxel::VoxelChunkDataManager =
+                        &mut chunk.access_data_manager().lock().unwrap();
+
+                    let noise_generator = noise::SuperSimplex::new(
+                        (234782378948923489238948972347234789342u128 % u32::MAX as u128) as u32
+                    );
+
+                    let random_generator = RefCell::new(rand::thread_rng());
+
+                    let noise_sampler = |x: u16, z: u16| {
+                        ((noise_generator.get([
+                            ((x as f64) - 512.0) / 256.0,
+                            0.0,
+                            ((z as f64) - 512.0) / 256.0
+                        ]) * 96.0)
+                            + 512.0) as u16
+                    };
+
+                    let get_rand_grass_voxel = || -> Voxel {
+                        random_generator
+                            .borrow_mut()
+                            .gen_range(7..=12)
+                            .try_into()
+                            .unwrap()
+                    };
+
+                    let get_rand_stone_voxel = || -> Voxel {
+                        random_generator
+                            .borrow_mut()
+                            .gen_range(1..=6)
+                            .try_into()
+                            .unwrap()
+                    };
+
+                    // let generate_voxel_at_pos = |pos: glm::I16Vec3| -> Voxel {};
+
+                    // let mut get_voxel_at_pos = |pos: glm::I16Vec3| {
+                    //     match pos_voxel_cache.get(&pos).cloned()
+                    //     {
+                    //         Some(v) => v,
+                    //         None =>
+                    //         {
+                    //             let generated_voxel = generate_voxel_at_pos(pos);
+                    //             pos_voxel_cache.insert(pos, generated_voxel);
+                    //             generated_voxel
+                    //         }
+                    //     }
+                    // };
+
+                    let c = 128u16;
+
+                    for (x, y, z) in iproduct!(0..c, 0..c, 0..c)
+                    {
+                        let pos = glm::U16Vec3::new(x, y, z);
+
+                        data_manager.write_brick(get_rand_stone_voxel(), pos);
+                    }
+
+                    let b = 1024u16;
+
+                    for (x, z) in iproduct!(0..b, 0..b)
+                    {
+                        let pos = glm::U16Vec3::new(x, noise_sampler(x, z), z);
+
+                        let mut above_brick_pos = glm::U16Vec3::new(
+                            pos.x.div_euclid(8),
+                            pos.y.div_euclid(8),
+                            pos.z.div_euclid(8)
+                        );
+
+                        while above_brick_pos.y < 128
+                        {
+                            data_manager.write_brick(Voxel::Air, above_brick_pos);
+
+                            above_brick_pos.y += 1;
+                        }
+                    }
+
+                    for (x, z) in iproduct!(0..b, 0..b)
+                    {
+                        let pos = glm::U16Vec3::new(x, noise_sampler(x, z), z);
+
+                        let noise_height = noise_sampler(pos.x, pos.z);
+
+                        let diff = pos.y as isize - noise_height as isize;
+
+                        let v = match diff
+                        {
+                            1.. => Voxel::Air,
+                            -5..=0 => get_rand_grass_voxel(),
+                            ..=-6 => get_rand_stone_voxel()
+                        };
+
+                        data_manager.write_voxel(v, pos);
+
+                        let this_brick_y = pos.y.div_euclid(8).max(1) - 1;
+
+                        let mut stone_fill_pos = pos;
+
+                        stone_fill_pos.y -= 1;
+
+                        while stone_fill_pos.y.div_euclid(8) >= this_brick_y
+                        {
+                            data_manager.write_voxel(get_rand_stone_voxel(), stone_fill_pos);
+
+                            stone_fill_pos.y -= 1;
+                        }
+                    }
+
+                    data_manager.flush_entire();
+                }
+
+                chunk
+            })
+            .into(),
             id:              util::Uuid::new()
         });
 
-        {
-            let data_manager: &mut voxel::VoxelChunkDataManager =
-                &mut this.brick_map_chunk.access_data_manager().lock().unwrap();
-
-            let noise_generator = noise::SuperSimplex::new(
-                (234782378948923489238948972347234789342u128 % u32::MAX as u128) as u32
-            );
-
-            let random_generator = RefCell::new(rand::thread_rng());
-
-            let noise_sampler = |x: u16, z: u16| {
-                ((noise_generator.get([
-                    ((x as f64) - 512.0) / 256.0,
-                    0.0,
-                    ((z as f64) - 512.0) / 256.0
-                ]) * 96.0)
-                    + 512.0) as u16
-            };
-
-            let get_rand_grass_voxel = || -> Voxel {
-                random_generator
-                    .borrow_mut()
-                    .gen_range(7..=12)
-                    .try_into()
-                    .unwrap()
-            };
-
-            let get_rand_stone_voxel = || -> Voxel {
-                random_generator
-                    .borrow_mut()
-                    .gen_range(1..=6)
-                    .try_into()
-                    .unwrap()
-            };
-
-            // let generate_voxel_at_pos = |pos: glm::I16Vec3| -> Voxel {};
-
-            // let mut get_voxel_at_pos = |pos: glm::I16Vec3| {
-            //     match pos_voxel_cache.get(&pos).cloned()
-            //     {
-            //         Some(v) => v,
-            //         None =>
-            //         {
-            //             let generated_voxel = generate_voxel_at_pos(pos);
-            //             pos_voxel_cache.insert(pos, generated_voxel);
-            //             generated_voxel
-            //         }
-            //     }
-            // };
-
-            let c = 128u16;
-
-            for (x, y, z) in iproduct!(0..c, 0..c, 0..c)
-            {
-                let pos = glm::U16Vec3::new(x, y, z);
-
-                data_manager.write_brick(get_rand_stone_voxel(), pos);
-            }
-
-            let b = 1024u16;
-
-            for (x, z) in iproduct!(0..b, 0..b)
-            {
-                let pos = glm::U16Vec3::new(x, noise_sampler(x, z), z);
-
-                let mut above_brick_pos = glm::U16Vec3::new(
-                    pos.x.div_euclid(8),
-                    pos.y.div_euclid(8),
-                    pos.z.div_euclid(8)
-                );
-
-                while above_brick_pos.y < 128
-                {
-                    data_manager.write_brick(Voxel::Air, above_brick_pos);
-
-                    above_brick_pos.y += 1;
-                }
-            }
-
-            for (x, z) in iproduct!(0..b, 0..b)
-            {
-                let pos = glm::U16Vec3::new(x, noise_sampler(x, z), z);
-
-                let noise_height = noise_sampler(pos.x, pos.z);
-
-                let diff = pos.y as isize - noise_height as isize;
-
-                let v = match diff
-                {
-                    1.. => Voxel::Air,
-                    -5..=0 => get_rand_grass_voxel(),
-                    ..=-6 => get_rand_stone_voxel()
-                };
-
-                data_manager.write_voxel(v, pos);
-
-                let this_brick_y = pos.y.div_euclid(8).max(1) - 1;
-
-                let mut stone_fill_pos = pos;
-
-                stone_fill_pos.y -= 1;
-
-                while stone_fill_pos.y.div_euclid(8) >= this_brick_y
-                {
-                    data_manager.write_voxel(get_rand_stone_voxel(), stone_fill_pos);
-
-                    stone_fill_pos.y -= 1;
-                }
-            }
-
-            data_manager.flush_entire();
-        }
-
-        // {
-        //     let data_manager: &mut voxel::VoxelChunkDataManager =
-        //         &mut this.brick_map_chunk.access_data_manager().lock().unwrap();
-
-        //     for i in -64..64
-        //     {
-        //         data_manager.write_brick(voxel::Voxel::Green,
-        // glm::I16Vec3::repeat(i))     }
-
-        //     let perlin = noise::Perlin::new(1347234789);
-
-        //     let noise_func = |x: i16, z: i16, layer: i16| -> i16 {
-        //         let value =
-        //
-        //     };
-        //     let b: i16 = 1024;
-        //     let layers = 24;
-
-        //     let mut rand = rand::thread_rng();
-
-        //     for l in -layers / 2..layers
-        //     {
-        //         for (x, z) in itertools::iproduct!(-b / 2..b / 2, -b / 2..b / 2)
-        //         {
-        //             let noise = noise_func(x, z, l);
-
-        //             if noise.abs() > 4
-        //             {
-        //                 continue;
-        //             }
-
-        //             let height = noise + (b / layers) * l;
-        //             let height = height.clamp(-512, 511);
-
-        //             if height == -512 || height == 511
-        //             {
-        //                 continue;
-        //             }
-
-        //             data_manager.write_voxel(
-        //                 match height.abs() % 3
-        //                 {
-        //                     0 => voxel::Voxel::Red,
-        //                     1 => voxel::Voxel::Green,
-        //                     2 => voxel::Voxel::Blue,
-        //                     _ => unreachable!()
-        //                 },
-        //                 voxel::ChunkPosition::new(x, height, z)
-        //             );
-        //         }
-        //     }
-
-        //     data_manager.stop_writes();
-        // }
+        log::info!("game return");
 
         game.register(this.clone());
 
@@ -265,29 +185,32 @@ impl game::Entity for TestScene
 
     fn tick(&self, _: &game::Game, _: game::TickTag)
     {
-        let mut manager = self.brick_map_chunk.access_data_manager().lock().unwrap();
-
-        for _ in 0..64
+        if let util::Promise::Resolved(chunk) = &self.brick_map_chunk
         {
-            // let diff = 8u16;
-            let base: glm::U16Vec3 = glm::U16Vec3::new(
-                rand::thread_rng().gen_range(512u16..=698),
-                rand::thread_rng().gen_range(512u16..=698),
-                rand::thread_rng().gen_range(512u16..=698)
-            );
+            let mut manager = chunk.access_data_manager().lock().unwrap();
 
-            // let top = base.add_scalar(diff);
+            for _ in 0..64
+            {
+                // let diff = 8u16;
+                let base: glm::U16Vec3 = glm::U16Vec3::new(
+                    rand::thread_rng().gen_range(512u16..=698),
+                    rand::thread_rng().gen_range(512u16..=698),
+                    rand::thread_rng().gen_range(512u16..=698)
+                );
 
-            // for (x, y, z) in iproduct!(base.x..top.x, base.y..top.y, base.z..top.z)
-            // {
-            manager.write_voxel(
-                rand::thread_rng().gen_range(1..=12).try_into().unwrap(),
-                base
-            );
-            // }
+                // let top = base.add_scalar(diff);
+
+                // for (x, y, z) in iproduct!(base.x..top.x, base.y..top.y, base.z..top.z)
+                // {
+                manager.write_voxel(
+                    rand::thread_rng().gen_range(1..=12).try_into().unwrap(),
+                    base
+                );
+                // }
+            }
+
+            manager.flush_to_gpu();
         }
-
-        manager.flush_to_gpu();
 
         // self.brick_map_chunk.get_position_mut(&|t| {
         //     *t = glm::Vec3::new(

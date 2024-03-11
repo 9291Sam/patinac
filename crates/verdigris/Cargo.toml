@@ -4,11 +4,12 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-bytemuck  = { workspace = true }
-voxel     = { workspace = true }
-rand      = { workspace = true }
-game      = { workspace = true }
-util      = { workspace = true }
-gfx       = { workspace = true }
+bytemuck = { workspace = true }
+voxel = { workspace = true }
+rand = { workspace = true }
+game = { workspace = true }
+util = { workspace = true }
+gfx = { workspace = true }
+log = { workspace = true }
 itertools = { workspace = true }
-noise     = { workspace = true }
+noise = { workspace = true }

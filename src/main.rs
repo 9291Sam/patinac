@@ -19,6 +19,8 @@ fn main()
     log::set_logger(logger).unwrap();
     log::set_max_level(log::LevelFilter::Trace);
 
+    *util::access_global_thread_pool().write().unwrap() = Some(util::ThreadPool::new());
+
     // Safety: we try our best to drop the Renderer on this thread
     let renderer = Arc::new(unsafe { gfx::Renderer::new() });
 
@@ -27,7 +29,7 @@ fn main()
     let run = || {
         let game = game::Game::new(renderer.clone());
 
-        let verdigris = verdigris::TestScene::new(&game);
+        let _verdigris = verdigris::TestScene::new(game.clone());
 
         std::thread::scope(|s| {
             s.spawn(|| game.enter_tick_loop(&should_stop));

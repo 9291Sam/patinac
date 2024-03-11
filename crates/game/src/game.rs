@@ -30,14 +30,14 @@ impl Drop for Game
 
 impl Game
 {
-    pub fn new(renderer: Arc<gfx::Renderer>) -> Self
+    pub fn new(renderer: Arc<gfx::Renderer>) -> Arc<Self>
     {
-        Game {
+        Arc::new(Game {
             renderer,
             entities: util::Registrar::new(),
             float_delta_time: AtomicU32::new(0.0f32.to_bits()),
             float_time_alive: AtomicU64::new(0.0f64.to_bits())
-        }
+        })
     }
 
     pub fn get_renderer(&self) -> &Arc<gfx::Renderer>

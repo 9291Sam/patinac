@@ -4,15 +4,21 @@ version = "0.0.0-0"
 edition = "2021"
 
 [workspace]
-members = ["crates/util", "crates/gfx", "crates/game", "crates/voxel", "crates/verdigris"]
+members = [
+    "crates/util",
+    "crates/gfx",
+    "crates/game",
+    "crates/voxel",
+    "crates/verdigris",
+]
 
 [dependencies]
-util      = { workspace = true }
-gfx       = { workspace = true }
-game      = { workspace = true }
-voxel     = { workspace = true }
+util = { workspace = true }
+gfx = { workspace = true }
+game = { workspace = true }
+voxel = { workspace = true }
 verdigris = { workspace = true }
-log       = { workspace = true }
+log = { workspace = true }
 
 [workspace.dependencies]
 util = { path = "crates/util" }
@@ -41,6 +47,8 @@ winit_input_helper = "0.15.3"
 chrono = "0.4.31"
 getrandom = "0.2.12"
 seahash = "4.1.0"
+oneshot = "0.1.6"
+crossbeam = "0.8.4"
 
 [profile.dev]
 opt-level = 2

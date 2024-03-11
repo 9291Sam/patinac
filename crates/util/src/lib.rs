@@ -4,6 +4,7 @@
 #![feature(slice_ptr_get)]
 
 mod allocator;
+mod r#async;
 mod global_allocator;
 mod log;
 mod registrar;
@@ -13,6 +14,7 @@ use std::ops::Deref;
 use std::sync::Arc;
 
 pub use allocator::*;
+pub use r#async::*;
 pub use global_allocator::*;
 pub use log::*;
 pub use registrar::*;
