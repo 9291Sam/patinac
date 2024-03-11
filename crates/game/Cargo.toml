@@ -5,8 +5,9 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-gfx = { path = "../gfx" }
-util = { path = "../util" }
-rayon = "1.8.1"
-log = { version = "0.4.20", features = ["std"] }
-rand = "0.8.5"
+gfx   = { workspace = true }
+util  = { workspace = true }
+voxel = { workspace = true }
+rayon = { workspace = true }
+log   = { workspace = true }
+rand  = { workspace = true }

@@ -19,12 +19,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c71b1793ee61086797f5c80b6efa2b8ffa6d5dd703f118545808a7f2e27f7046"
 
 [[package]]
-name = "adler"
-version = "1.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f26201604c87b1e01bd3d98f8d5d9a8fcbb815e8cedb41ffccbeb4bf593a35fe"
-
-[[package]]
 name = "ahash"
 version = "0.8.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -212,12 +206,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "byteorder"
-version = "1.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
-
-[[package]]
 name = "bytes"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -300,12 +288,6 @@ dependencies = [
  "termcolor",
  "unicode-width",
 ]
-
-[[package]]
-name = "color_quant"
-version = "1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3d7b894f5411737b7867f4827955924d7c254fc9f4d91a6aad6b097804b1018b"
 
 [[package]]
 name = "com"
@@ -398,15 +380,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "crc32fast"
-version = "1.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b540bd8bc810d3885c6ea91e2018302f68baba2129ab3e88f32389ee9370880d"
-dependencies = [
- "cfg-if",
-]
-
-[[package]]
 name = "crossbeam-deque"
 version = "0.8.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -492,25 +465,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fdeflate"
-version = "0.3.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f9bfee30e4dedf0ab8b422f03af778d9612b63f502710fc500a334ebe2de645"
-dependencies = [
- "simd-adler32",
-]
-
-[[package]]
-name = "flate2"
-version = "1.0.28"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "46303f565772937ffe1d394a4fac6f411c6013172fadde9dcdb1e147a086940e"
-dependencies = [
- "crc32fast",
- "miniz_oxide",
-]
-
-[[package]]
 name = "foreign-types"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -546,6 +500,7 @@ dependencies = [
  "rand 0.8.5",
  "rayon",
  "util",
+ "voxel",
 ]
 
 [[package]]
@@ -753,20 +708,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "image"
-version = "0.24.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "034bbe799d1909622a74d1193aa50147769440040ff36cb2baa947609b0a4e23"
-dependencies = [
- "bytemuck",
- "byteorder",
- "color_quant",
- "jpeg-decoder",
- "num-traits",
- "png",
-]
-
-[[package]]
 name = "indexmap"
 version = "2.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -815,12 +756,6 @@ checksum = "8c37f63953c4c63420ed5fd3d6d398c719489b9f872b9fa683262f8edd363c7d"
 dependencies = [
  "libc",
 ]
-
-[[package]]
-name = "jpeg-decoder"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f5d4a7da358eff58addd2877a45865158f0d78c911d43a5784ceb7bbf52833b0"
 
 [[package]]
 name = "js-sys"
@@ -954,16 +889,6 @@ dependencies = [
  "log",
  "objc",
  "paste",
-]
-
-[[package]]
-name = "miniz_oxide"
-version = "0.7.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9d811f3e15f28568be3407c8e7fdb6514c1cda3cb30683f15b6a1a1dc4ea14a7"
-dependencies = [
- "adler",
- "simd-adler32",
 ]
 
 [[package]]
@@ -1225,16 +1150,11 @@ checksum = "de3145af08024dea9fa9914f381a17b8fc6034dfb00f3a84013f7ff43f29ed4c"
 name = "patinac"
 version = "0.0.0-0"
 dependencies = [
- "bytemuck",
  "game",
  "gfx",
- "image",
- "itertools",
  "log",
- "noise",
- "rand 0.8.5",
- "tobj",
  "util",
+ "verdigris",
  "voxel",
 ]
 
@@ -1255,19 +1175,6 @@ name = "pkg-config"
 version = "0.3.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2900ede94e305130c13ddd391e0ab7cbaeb783945ae07a279c268cb05109c6cb"
-
-[[package]]
-name = "png"
-version = "0.17.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1f6c3c3e617595665b8ea2ff95a86066be38fb121ff920a9c0eb282abcd1da5a"
-dependencies = [
- "bitflags 1.3.2",
- "crc32fast",
- "fdeflate",
- "flate2",
- "miniz_oxide",
-]
 
 [[package]]
 name = "polling"
@@ -1593,12 +1500,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "simd-adler32"
-version = "0.3.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d66dc143e6b11c1eddc06d5c423cfc97062865baf299914ab64caa38182078fe"
-
-[[package]]
 name = "slab"
 version = "0.4.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1776,15 +1677,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tobj"
-version = "4.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5f7ca3ec0405b0f2f95e0dbcced28882190dc79b0dac63ff82533d256d770223"
-dependencies = [
- "ahash",
-]
-
-[[package]]
 name = "toml_datetime"
 version = "0.6.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1865,6 +1757,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "verdigris"
+version = "0.1.0"
+dependencies = [
+ "bytemuck",
+ "game",
+ "gfx",
+ "itertools",
+ "noise",
+ "rand 0.8.5",
+ "util",
+ "voxel",
+]
+
+[[package]]
 name = "version_check"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1875,7 +1781,6 @@ name = "voxel"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
- "game",
  "gfx",
  "log",
  "util",

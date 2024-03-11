@@ -11,8 +11,7 @@ use gfx::{
     CacheablePipelineLayoutDescriptor,
     CacheableRenderPipelineDescriptor
 };
-
-use crate::gpu_data::VoxelChunkDataManager;
+use voxel::VoxelChunkDataManager;
 
 #[derive(Debug)]
 pub struct BrickMapChunk

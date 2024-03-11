@@ -4,14 +4,23 @@ version = "0.0.0-0"
 edition = "2021"
 
 [workspace]
-members = ["crates/util", "crates/gfx", "crates/game", "crates/voxel"]
+members = ["crates/util", "crates/gfx", "crates/game", "crates/voxel", "crates/verdigris"]
 
 [dependencies]
+util      = { workspace = true }
+gfx       = { workspace = true }
+game      = { workspace = true }
+voxel     = { workspace = true }
+verdigris = { workspace = true }
+log       = { workspace = true }
+
+[workspace.dependencies]
 util = { path = "crates/util" }
 gfx = { path = "crates/gfx" }
 game = { path = "crates/game" }
-log = { version = "0.4.20", features = ["std"] }
 voxel = { path = "crates/voxel" }
+verdigris = { path = "crates/verdigris" }
+log = { version = "0.4.20", features = ["std"] }
 bytemuck = { version = "1.14.1", features = ["derive"] }
 image = { version = "0.24", default-features = false, features = [
     "png",
@@ -21,6 +30,7 @@ tobj = "4.0.1"
 itertools = "0.12.1"
 noise = "0.8.2"
 rand = "0.8.5"
+rayon = "1.8.1"
 
 [profile.dev]
 opt-level = 2

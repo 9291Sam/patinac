@@ -9,8 +9,6 @@ use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering::*;
 use std::sync::Arc;
 
-mod test_scene;
-
 fn main()
 {
     #[cfg(debug_assertions)]
@@ -29,9 +27,9 @@ fn main()
     let run = || {
         let game = game::Game::new(renderer.clone());
 
-        std::thread::scope(|s| {
-            let _scene_guard = test_scene::TestScene::new(&game);
+        let verdigris = verdigris::TestScene::new(&game);
 
+        std::thread::scope(|s| {
             s.spawn(|| game.enter_tick_loop(&should_stop));
 
             renderer.enter_gfx_loop(&should_stop);

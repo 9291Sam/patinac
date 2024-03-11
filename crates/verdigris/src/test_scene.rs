@@ -11,7 +11,7 @@ use voxel::Voxel;
 #[derive(Debug)]
 pub struct TestScene
 {
-    brick_map_chunk: Arc<voxel::BrickMapChunk>,
+    brick_map_chunk: Arc<super::BrickMapChunk>,
     id:              util::Uuid
 }
 
@@ -52,7 +52,7 @@ impl TestScene
         // }
 
         let this = Arc::new(TestScene {
-            brick_map_chunk: voxel::BrickMapChunk::new(
+            brick_map_chunk: super::BrickMapChunk::new(
                 game,
                 glm::Vec3::new(-512.0, -512.0, -512.0)
             ),
