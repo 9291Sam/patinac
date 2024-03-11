@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, Once};
 
 use bytemuck::{cast_slice, Pod, Zeroable};
 use game::{Entity, Positionable};
@@ -155,6 +155,8 @@ impl BrickMapChunk
         game.register(this.clone());
         renderer.register(this.clone());
 
+        log::trace!("registered!");
+
         this
     }
 
@@ -193,21 +195,45 @@ impl gfx::Recordable for BrickMapChunk
         global_bind_group: &Arc<wgpu::BindGroup>
     ) -> gfx::RecordInfo
     {
-        gfx::RecordInfo {
-            should_draw: true,
-            transform:   Some(gfx::Transform {
-                translation: *self.position.lock().unwrap(),
-                ..Default::default()
-            }),
-            bind_groups: [
-                Some(global_bind_group.clone()),
-                Some(
-                    // TODO: modify the manager to be thread safe
-                    self.voxel_chunk_data.lock().unwrap().get_bind_group()
-                ),
-                None,
-                None
-            ]
+        static ONCE: Once = Once::new();
+
+        ONCE.call_once(|| log::warn!("TODO: make chunk data manager thread safe!"));
+
+        match self.voxel_chunk_data.try_lock()
+        {
+            Ok(d) =>
+            {
+                gfx::RecordInfo {
+                    should_draw: true,
+                    transform:   Some(gfx::Transform {
+                        translation: *self.position.lock().unwrap(),
+                        ..Default::default()
+                    }),
+                    bind_groups: [
+                        Some(global_bind_group.clone()),
+                        Some(
+                            // TODO: modify the manager to be thread safe
+                            d.get_bind_group()
+                        ),
+                        None,
+                        None
+                    ]
+                }
+            }
+            Err(e) =>
+            {
+                match e
+                {
+                    std::sync::TryLockError::Poisoned(p) => panic!("{p:?}"),
+                    std::sync::TryLockError::WouldBlock =>
+                    {
+                        gfx::RecordInfo {
+                            should_draw: false,
+                            ..Default::default()
+                        }
+                    }
+                }
+            }
         }
     }
 

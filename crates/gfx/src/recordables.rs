@@ -50,6 +50,7 @@ pub(crate) fn recordable_ord(
         .then(get_bind_group_ids(this_bind_groups).cmp(&get_bind_group_ids(other_bind_groups)))
 }
 
+#[derive(Default)]
 pub struct RecordInfo
 {
     pub should_draw: bool,

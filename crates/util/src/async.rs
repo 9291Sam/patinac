@@ -48,28 +48,33 @@ impl<T: Send> Future<T>
         }
     }
 
-    fn poll(self) -> Result<T, Self>
+    fn poll(mut self) -> Result<T, Self>
     {
-        let ref_self = &self;
+        match self.poll_mut()
+        {
+            Some(t) => Ok(t),
+            None => Err(self)
+        }
+    }
 
-        match ref_self.receiver.lock().unwrap().try_recv()
+    fn poll_mut(&mut self) -> Option<T>
+    {
+        match self.receiver.lock().unwrap().try_recv()
         {
             Ok(t) =>
             {
-                ref_self.resolved.store(true, SeqCst);
-                return Ok(t);
+                (&self).resolved.store(true, SeqCst);
+                Some(t)
             }
             Err(e) =>
             {
                 match e
                 {
-                    oneshot::TryRecvError::Empty => (),
+                    oneshot::TryRecvError::Empty => None,
                     oneshot::TryRecvError::Disconnected => unreachable!()
                 }
             }
-        };
-
-        Err(self)
+        }
     }
 
     fn detach(self)
@@ -93,6 +98,41 @@ impl<T: Send> From<Future<T>> for Promise<T>
     fn from(f: Future<T>) -> Self
     {
         Promise::Pending(f)
+    }
+}
+
+impl<T: Send> Promise<T>
+{
+    pub fn poll(self) -> Promise<T>
+    {
+        match self
+        {
+            Promise::Resolved(t) => Promise::Resolved(t),
+            Promise::Pending(future) =>
+            {
+                match future.poll()
+                {
+                    Ok(t) => Promise::Resolved(t),
+                    Err(unresolved_future) => Promise::Pending(unresolved_future)
+                }
+            }
+        }
+    }
+
+    pub fn poll_ref(&mut self)
+    {
+        *self = match self
+        {
+            Promise::Resolved(_) => return,
+            Promise::Pending(future) =>
+            {
+                match future.poll_mut()
+                {
+                    Some(t) => Promise::Resolved(t),
+                    None => return
+                }
+            }
+        }
     }
 }
 
