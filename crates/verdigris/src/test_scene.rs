@@ -23,8 +23,7 @@ impl TestScene
 
         let this = Arc::new(TestScene {
             brick_map_chunk: Mutex::new(
-                // iproduct!(-2..=0, -2..=0)
-                iproduct!(0..=0, 0..=0)
+                iproduct!(-1..=1, -1..=1)
                     .map(|(x, z)| -> util::Promise<_> {
                         let local_game = brick_game.clone();
 
@@ -69,8 +68,8 @@ fn create_and_fill(brick_game: &game::Game, pos: glm::Vec3) -> Arc<super::BrickM
                 ((pos.x as f64) + (x as f64)) / 256.0,
                 0.0,
                 ((pos.z as f64) + (z as f64)) / 256.0
-            ]) * 484.0)
-                + 64.0) as u16
+            ]) * 218.0)
+                + 384.0) as u16
         };
 
         let get_rand_grass_voxel = || -> Voxel {
@@ -89,21 +88,6 @@ fn create_and_fill(brick_game: &game::Game, pos: glm::Vec3) -> Arc<super::BrickM
                 .unwrap()
         };
 
-        // let generate_voxel_at_pos = |pos: glm::I16Vec3| -> Voxel {};
-
-        // let mut get_voxel_at_pos = |pos: glm::I16Vec3| {
-        //     match pos_voxel_cache.get(&pos).cloned()
-        //     {
-        //         Some(v) => v,
-        //         None =>
-        //         {
-        //             let generated_voxel = generate_voxel_at_pos(pos);
-        //             pos_voxel_cache.insert(pos, generated_voxel);
-        //             generated_voxel
-        //         }
-        //     }
-        // };
-
         let c = 128u16;
 
         for (x, y, z) in iproduct!(0..c, 0..c, 0..c)
@@ -113,43 +97,45 @@ fn create_and_fill(brick_game: &game::Game, pos: glm::Vec3) -> Arc<super::BrickM
             data_manager.write_brick(get_rand_stone_voxel(), pos);
         }
 
-        data_manager.flush_entire();
-
         let b = 1024u16;
 
-        // for (x, z) in iproduct!(0..b, 0..b)
-        // {
-        //     let pos = glm::U16Vec3::new(x, noise_sampler(x, z), z);
-
-        //     let mut above_brick_pos =
-
-        //     while above_brick_pos.y < 128
-        //     {
-        //         data_manager.write_brick(Voxel::Air, above_brick_pos);
-
-        //         above_brick_pos.y += 1;
-        //     }
-        // }
-
-        // data_manager.flush_entire();
-
-        for (x, z) in iproduct!(0..b, 0..b)
+        for (b_x, b_z) in iproduct!(0..c, 0..c)
         {
-            let pos = glm::U16Vec3::new(x, noise_sampler(x, z), z);
-            // data_manager.write_brick(
-            //     Voxel::Air,
-            //     glm::U16Vec3::new(
-            //         pos.x.div_euclid(8),
-            //         pos.y.div_euclid(8).max(1) - 1,
-            //         pos.z.div_euclid(8)
-            //     )
-            // );
-            data_manager.write_voxel(get_rand_grass_voxel(), pos);
+            let mut top_free_brick_height: u16 = 0;
+            // iter over columns
+            for (l_x, l_z) in iproduct!(0..8, 0..8)
+            {
+                let chunk_x = b_x * 8 + l_x;
+                let chunk_z = b_z * 8 + l_z;
 
-            // for h in (pos.y..((pos.y / 8) * 8))
-            // {
-            //     data_manager.write_voxel(Voxel::Air, glm::U16Vec3::new(x, h,
-            // z)); }
+                let height = noise_sampler(chunk_x, chunk_z);
+
+                let pos = glm::U16Vec3::new(chunk_x, height, chunk_z);
+
+                top_free_brick_height = top_free_brick_height.max(height.div_euclid(8) + 1);
+
+                data_manager.write_voxel(get_rand_grass_voxel(), pos);
+            }
+
+            for h in top_free_brick_height..128
+            {
+                data_manager.write_brick(Voxel::Air, glm::U16Vec3::new(b_x, h, b_z));
+            }
+
+            for (l_x, l_z) in iproduct!(0..8, 0..8)
+            {
+                let chunk_x = b_x * 8 + l_x;
+                let chunk_z = b_z * 8 + l_z;
+
+                let grass_height = noise_sampler(chunk_x, chunk_z);
+
+                let pos = glm::U16Vec3::new(chunk_x, grass_height + 1, chunk_z);
+
+                for y_p in pos.y..(top_free_brick_height * 8 + 8)
+                {
+                    data_manager.write_voxel(Voxel::Air, glm::U16Vec3::new(chunk_x, y_p, chunk_z));
+                }
+            }
         }
 
         data_manager.flush_entire();
@@ -190,47 +176,35 @@ impl game::Entity for TestScene
 
     fn tick(&self, _: &game::Game, _: game::TickTag)
     {
-        // let mut guard = self.brick_map_chunk.lock().unwrap();
+        let mut guard = self.brick_map_chunk.lock().unwrap();
 
-        // guard.iter_mut().for_each(|p| {
-        //     p.poll_ref();
+        guard.iter_mut().for_each(|p| {
+            p.poll_ref();
 
-        //     if let util::Promise::Resolved(chunk) = &*p
-        //     {
-        //         let manager = chunk.access_data_manager();
+            if let util::Promise::Resolved(chunk) = &*p
+            {
+                let manager = chunk.access_data_manager();
 
-        //         for _ in 0..64
-        //         {
-        //             // let diff = 8u16;
-        //             let base: glm::U16Vec3 = glm::U16Vec3::new(
-        //                 rand::thread_rng().gen_range(512u16..=698),
-        //                 rand::thread_rng().gen_range(512u16..=698),
-        //                 rand::thread_rng().gen_range(512u16..=698)
-        //             );
+                for _ in 0..256
+                {
+                    let center = 512u16;
+                    let edge = 64;
+                    let range = (center - edge)..(center + edge);
 
-        //             // let top = base.add_scalar(diff);
+                    let base: glm::U16Vec3 = glm::U16Vec3::new(
+                        rand::thread_rng().gen_range(range.clone()),
+                        rand::thread_rng().gen_range(range.clone()),
+                        rand::thread_rng().gen_range(range.clone())
+                    );
 
-        //             // for (x, y, z) in iproduct!(base.x..top.x,
-        // base.y..top.y, base.z..top.z)             // {
-        //             manager.write_voxel(
-        //
-        // rand::thread_rng().gen_range(1..=12).try_into().unwrap(),
-        //                 base
-        //             );
-        //             // }
-        //         }
+                    manager.write_voxel(
+                        rand::thread_rng().gen_range(1..=12).try_into().unwrap(),
+                        base
+                    );
+                }
 
-        //         manager.flush_to_gpu();
-        //     }
-        // });
-
-        // self.brick_map_chunk.get_position_mut(&|t| {
-        //     *t = glm::Vec3::new(
-        //         (507.0 + 2.0 * game.get_time_alive().add(std::f64::consts::PI
-        // / 4.0).cos() as f32),         (507.0 + 2.0 *
-        // game.get_time_alive().add(std::f64::consts::FRAC_PI_2).sin()) as f32,
-        //         (507.0 + -2.0 * game.get_time_alive().mul(2.0).cos()) as f32
-        //     );
-        // });
+                manager.flush_to_gpu();
+            }
+        });
     }
 }

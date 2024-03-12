@@ -470,7 +470,7 @@ impl VoxelChunkDataManager
         {
             VoxelBrickPointerType::ValidBrickPointer(_) =>
             {}
-            VoxelBrickPointerType::Voxel(_) =>
+            VoxelBrickPointerType::Voxel(old_solid_voxel) =>
             {
                 // allocate new brick
                 {
@@ -481,6 +481,8 @@ impl VoxelChunkDataManager
 
                 // fill brick
                 let brick_to_fill = &mut cpu_brick_buffer[this_brick_ptr.get_ptr() as usize];
+
+                brick_to_fill.fill(old_solid_voxel);
 
                 delta_brick_buffer.insert(brick_to_fill as *const _);
             }
