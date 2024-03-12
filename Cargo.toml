@@ -36,7 +36,6 @@ tobj = "4.0.1"
 itertools = "0.12.1"
 noise = "0.8.2"
 rand = "0.8.5"
-rayon = "1.8.1"
 winit = "0.29"
 wgpu = "0.19.1"
 strum = { version = "0.26", features = ["derive"] }

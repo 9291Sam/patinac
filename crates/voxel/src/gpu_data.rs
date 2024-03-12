@@ -437,11 +437,6 @@ impl VoxelChunkDataManager
                         mapped_at_creation: false
                     });
 
-                    log::trace!(
-                        "gpu brick buffer size {}",
-                        std::mem::size_of::<VoxelBrick>() as u64 * cpu_brick_buffer.len() as u64
-                    );
-
                     bind_group_updater.update(Arc::new(self.renderer.create_bind_group(
                         &wgpu::BindGroupDescriptor {
                             label:   Some("Voxel Bind Group"),

@@ -138,7 +138,6 @@ fn create_and_fill(brick_game: &game::Game, pos: glm::Vec3) -> Arc<super::BrickM
                 }
             }
         }
-        log::trace!("flushing!");
         data_manager.flush_entire();
     }
 
