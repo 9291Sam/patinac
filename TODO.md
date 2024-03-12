@@ -14,3 +14,4 @@ Misc:
     - Custom Linear Algebra library?
     - A proper crash handler?
     - Put cache directly in renderer
+    - make Window<T>

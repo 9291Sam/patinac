@@ -2,7 +2,6 @@
 #![feature(maybe_uninit_as_bytes)]
 #![feature(allocator_api)]
 #![feature(slice_ptr_get)]
-#![feature(ptr_internals)]
 
 mod allocator;
 mod r#async;
@@ -11,7 +10,6 @@ mod log;
 mod registrar;
 mod uuid;
 
-use std::cell::UnsafeCell;
 use std::ops::Deref;
 use std::sync::Arc;
 
@@ -101,23 +99,18 @@ pub fn bytes_as_string(bytes: f64) -> String
     [&result, SUFFIX[base.floor() as usize]].join(" ")
 }
 
-struct StaticMutex<T: ?Sized>
-{
-    t: UnsafeCell<T>
-}
+// struct StaticMutex<T: ?Sized>
+// {
+//     t: UnsafeCell<T>
+// }
 
-unsafe impl<T: ?Sized> Sync for StaticMutex<T> {}
-unsafe impl<T: ?Sized + Send> Send for StaticMutex<T> {}
+// unsafe impl<T: ?Sized> Sync for StaticMutex<T> {}
+// unsafe impl<T: ?Sized + Send> Send for StaticMutex<T> {}
 
-impl<T: ?Sized> StaticMutex<T>
-{
-    pub fn get(&self) -> &T
-    {
-        unsafe { &*(self.t.get() as *const T) }
-    }
-
-    pub fn get_mut(&mut self) -> &mut T
-    {
-        &mut *self.t.get_mut()
-    }
-}
+// impl<T: ?Sized> StaticMutex<T>
+// {
+//     pub fn get_mut(&mut self) -> &mut T
+//     {
+//         &mut *self.t.get_mut()
+//     }
+// }

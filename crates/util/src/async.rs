@@ -1,5 +1,3 @@
-use std::sync::atomic::AtomicBool;
-use std::sync::atomic::Ordering::SeqCst;
 use std::sync::RwLock;
 use std::thread::JoinHandle;
 
@@ -13,6 +11,8 @@ where
 {
     receiver: oneshot::Receiver<T>
 }
+
+// TODO: figure out how to make this Drop safe
 
 impl<T: Send> Future<T>
 {
