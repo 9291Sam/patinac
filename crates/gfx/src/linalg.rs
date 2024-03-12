@@ -51,7 +51,7 @@ impl Camera
         let mut projection = glm::infinite_perspective_rh_zo(
             renderer.get_framebuffer_size().x as f32 / renderer.get_framebuffer_size().y as f32,
             renderer.get_fov().y,
-            0.001
+            0.1
         );
 
         projection[(3, 2)] *= -1.0;
