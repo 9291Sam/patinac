@@ -212,8 +212,7 @@ pub struct VoxelChunkDataManager
 
     buffer_critical_section: Mutex<VoxelChunkDataManagerBufferCriticalSection>,
 
-    bind_group_layout: Arc<wgpu::BindGroupLayout>,
-    bind_group:        util::Window<Arc<wgpu::BindGroup>>
+    bind_group_layout: Arc<wgpu::BindGroupLayout>
 }
 
 struct VoxelChunkDataManagerBufferCriticalSection
@@ -227,7 +226,7 @@ struct VoxelChunkDataManagerBufferCriticalSection
     delta_brick_buffer: BTreeSet<*const VoxelBrick>,
     needs_resize_flush: bool,
 
-    bind_group_updater: util::WindowUpdater<Arc<wgpu::BindGroup>>,
+    voxel_bind_group: Arc<wgpu::BindGroup>,
 
     brick_allocator: util::FreelistAllocator
 }
@@ -269,7 +268,7 @@ impl VoxelChunkDataManager
             mapped_at_creation: false
         });
 
-        let voxel_bind_group = r.create_bind_group(&wgpu::BindGroupDescriptor {
+        let voxel_bind_group = Arc::new(r.create_bind_group(&wgpu::BindGroupDescriptor {
             label:   Some("Voxel Bind Group"),
             layout:  &bind_group_layout,
             entries: &[
@@ -282,9 +281,7 @@ impl VoxelChunkDataManager
                     resource: gpu_brick_buffer.as_entire_binding()
                 }
             ]
-        });
-
-        let (bind_group, bind_group_updater) = util::Window::new(Arc::new(voxel_bind_group));
+        }));
 
         Self {
             renderer,
@@ -303,13 +300,12 @@ impl VoxelChunkDataManager
                 gpu_brick_buffer,
                 delta_brick_buffer: BTreeSet::new(),
                 needs_resize_flush: false,
-                bind_group_updater,
+                voxel_bind_group,
                 brick_allocator: util::FreelistAllocator::new(
                     (number_of_starting_bricks - 1).try_into().unwrap()
                 )
             }),
-            bind_group_layout,
-            bind_group
+            bind_group_layout
         }
     }
 
@@ -404,7 +400,7 @@ impl VoxelChunkDataManager
             ref mut gpu_brick_buffer,
             ref mut delta_brick_buffer,
             ref mut needs_resize_flush,
-            ref mut bind_group_updater,
+            ref mut voxel_bind_group,
             ref mut brick_allocator
         } = &mut *self.buffer_critical_section.lock().unwrap();
 
@@ -426,19 +422,20 @@ impl VoxelChunkDataManager
 
                     cpu_brick_buffer.resize(new_len, VoxelBrick::new_empty());
 
-                    gpu_brick_buffer.destroy();
+                    let old_buffer = std::mem::replace(
+                        gpu_brick_buffer,
+                        self.renderer.create_buffer(&wgpu::BufferDescriptor {
+                            label:              Some("Voxel Chunk Data Manager Brick Buffer"),
+                            usage:              wgpu::BufferUsages::COPY_DST
+                                | wgpu::BufferUsages::STORAGE,
+                            size:               std::mem::size_of::<VoxelBrick>() as u64
+                                * cpu_brick_buffer.len() as u64,
+                            mapped_at_creation: false
+                        })
+                    );
 
-                    *gpu_brick_buffer = self.renderer.create_buffer(&wgpu::BufferDescriptor {
-                        label:              Some("Voxel Chunk Data Manager Brick Buffer"),
-                        usage:              wgpu::BufferUsages::COPY_DST
-                            | wgpu::BufferUsages::STORAGE,
-                        size:               std::mem::size_of::<VoxelBrick>() as u64
-                            * cpu_brick_buffer.len() as u64,
-                        mapped_at_creation: false
-                    });
-
-                    bind_group_updater.update(Arc::new(self.renderer.create_bind_group(
-                        &wgpu::BindGroupDescriptor {
+                    *voxel_bind_group =
+                        Arc::new(self.renderer.create_bind_group(&wgpu::BindGroupDescriptor {
                             label:   Some("Voxel Bind Group"),
                             layout:  &self.bind_group_layout,
                             entries: &[
@@ -451,8 +448,7 @@ impl VoxelChunkDataManager
                                     resource: gpu_brick_buffer.as_entire_binding()
                                 }
                             ]
-                        }
-                    )));
+                        }));
 
                     brick_allocator.extend_size(cpu_brick_buffer.len() - 1);
 
@@ -509,7 +505,11 @@ impl VoxelChunkDataManager
 
     pub fn get_bind_group(&self) -> Arc<wgpu::BindGroup>
     {
-        self.bind_group.get()
+        self.buffer_critical_section
+            .lock()
+            .unwrap()
+            .voxel_bind_group
+            .clone()
     }
 
     pub fn flush_entire(&self)
