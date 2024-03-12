@@ -503,6 +503,16 @@ impl VoxelChunkDataManager
 
     pub fn flush_entire(&self)
     {
+        let guard = &mut *self.buffer_critical_section.lock().unwrap();
+
+        self.flush_entire_internal(guard);
+    }
+
+    fn flush_entire_internal(
+        &self,
+        critical_section: &mut VoxelChunkDataManagerBufferCriticalSection
+    )
+    {
         let VoxelChunkDataManagerBufferCriticalSection {
             ref mut cpu_brick_map,
             ref mut gpu_brick_map,
@@ -512,7 +522,7 @@ impl VoxelChunkDataManager
             ref mut delta_brick_buffer,
             ref mut needs_resize_flush,
             ..
-        } = &mut *self.buffer_critical_section.lock().unwrap();
+        } = critical_section;
 
         delta_brick_buffer.clear();
         delta_brick_map.clear();
@@ -538,6 +548,15 @@ impl VoxelChunkDataManager
 
     pub fn flush_to_gpu(&self)
     {
+        let guard = &mut *self.buffer_critical_section.lock().unwrap();
+
+        if guard.needs_resize_flush
+        {
+            self.flush_entire_internal(guard);
+
+            return;
+        }
+
         let VoxelChunkDataManagerBufferCriticalSection {
             ref mut cpu_brick_map,
             ref mut gpu_brick_map,
@@ -545,49 +564,28 @@ impl VoxelChunkDataManager
             ref mut cpu_brick_buffer,
             ref mut gpu_brick_buffer,
             ref mut delta_brick_buffer,
-            ref mut needs_resize_flush,
             ..
-        } = &mut *self.buffer_critical_section.lock().unwrap();
+        } = guard;
 
-        {
-            let head_brick_map: *const VoxelBrickPointer = &cpu_brick_map[0][0][0] as *const _;
+        let head_brick_map: *const VoxelBrickPointer = &cpu_brick_map[0][0][0] as *const _;
 
-            delta_brick_map.extract_if(|_| true).for_each(|ptr| {
-                self.renderer.queue.write_buffer(
-                    gpu_brick_map,
-                    unsafe { ptr.byte_offset_from(head_brick_map).try_into().unwrap() },
-                    unsafe { bytes_of::<VoxelBrickPointer>(&*ptr) }
-                )
-            });
-        }
+        delta_brick_map.extract_if(|_| true).for_each(|ptr| {
+            self.renderer.queue.write_buffer(
+                gpu_brick_map,
+                unsafe { ptr.byte_offset_from(head_brick_map).try_into().unwrap() },
+                unsafe { bytes_of::<VoxelBrickPointer>(&*ptr) }
+            )
+        });
 
-        if *needs_resize_flush
-        {
-            delta_brick_buffer.clear();
+        let head_brick_buffer: *const VoxelBrick = &cpu_brick_buffer[0] as *const _;
 
-            self.renderer
-                .queue
-                .write_buffer(gpu_brick_buffer, 0, unsafe {
-                    slice::from_raw_parts(
-                        cpu_brick_buffer.as_ptr() as *const _,
-                        cpu_brick_buffer.len() * std::mem::size_of::<VoxelBrick>()
-                    )
-                });
-
-            *needs_resize_flush = false;
-        }
-        else
-        {
-            let head_brick_buffer: *const VoxelBrick = &cpu_brick_buffer[0] as *const _;
-
-            delta_brick_buffer.extract_if(|_| true).for_each(|ptr| {
-                self.renderer.queue.write_buffer(
-                    gpu_brick_buffer,
-                    unsafe { ptr.byte_offset_from(head_brick_buffer).try_into().unwrap() },
-                    unsafe { bytes_of::<VoxelBrick>(&*ptr) }
-                )
-            })
-        }
+        delta_brick_buffer.extract_if(|_| true).for_each(|ptr| {
+            self.renderer.queue.write_buffer(
+                gpu_brick_buffer,
+                unsafe { ptr.byte_offset_from(head_brick_buffer).try_into().unwrap() },
+                unsafe { bytes_of::<VoxelBrick>(&*ptr) }
+            )
+        })
     }
 }
 
