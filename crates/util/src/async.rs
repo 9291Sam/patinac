@@ -19,6 +19,8 @@ impl<T: Send> Drop for Future<T>
 {
     fn drop(&mut self)
     {
+        let _ = self.poll_ref();
+
         if !self.resolved.load(SeqCst)
         {
             log::trace!("Tried dropping an unresolved future");

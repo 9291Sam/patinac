@@ -73,7 +73,8 @@ fn fs_main(in: VertexOutput, @builtin(front_facing) is_front_face: bool) -> Frag
 
     let camera_pos_local: vec3<f32> = global_info.camera_pos.xyz - in.local_to_world_offset_pos;
 
-    let camera_in_chunk: bool = all(camera_pos_local >= vec3<f32>(0.0)) && all(camera_pos_local < vec3<f32>(1024.0));
+    // not exact for innaccuracy reasons
+    let camera_in_chunk: bool = all(camera_pos_local >= vec3<f32>(-1.0)) && all(camera_pos_local < vec3<f32>(1025.0));
 
     if ((camera_in_chunk && is_front_face) || (!camera_in_chunk && !is_front_face))
     {

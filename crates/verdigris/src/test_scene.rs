@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use std::cell::RefCell;
 use std::sync::{Arc, Mutex};
 
-use gfx::glm;
+use gfx::glm::{self, any};
 use itertools::iproduct;
 use noise::NoiseFn;
 use rand::Rng;
@@ -23,7 +23,8 @@ impl TestScene
 
         let this = Arc::new(TestScene {
             brick_map_chunk: Mutex::new(
-                iproduct!(-2..=0, -2..=0)
+                // iproduct!(-2..=0, -2..=0)
+                iproduct!(0..=0, 0..=0)
                     .map(|(x, z)| -> util::Promise<_> {
                         let local_game = brick_game.clone();
 
@@ -54,8 +55,6 @@ fn create_and_fill(brick_game: &game::Game, pos: glm::Vec3) -> Arc<super::BrickM
 {
     let chunk = super::BrickMapChunk::new(brick_game, pos);
 
-    log::info!("creating chunk @ {pos}");
-
     {
         let data_manager: &voxel::VoxelChunkDataManager = chunk.access_data_manager();
 
@@ -70,8 +69,8 @@ fn create_and_fill(brick_game: &game::Game, pos: glm::Vec3) -> Arc<super::BrickM
                 ((pos.x as f64) + (x as f64)) / 256.0,
                 0.0,
                 ((pos.z as f64) + (z as f64)) / 256.0
-            ]) * 96.0)
-                + 512.0) as u16
+            ]) * 484.0)
+                + 64.0) as u16
         };
 
         let get_rand_grass_voxel = || -> Voxel {
@@ -114,59 +113,43 @@ fn create_and_fill(brick_game: &game::Game, pos: glm::Vec3) -> Arc<super::BrickM
             data_manager.write_brick(get_rand_stone_voxel(), pos);
         }
 
-        // data_manager.flush_to_gpu();
+        data_manager.flush_entire();
 
         let b = 1024u16;
 
-        for (x, z) in iproduct!(0..b, 0..b)
-        {
-            let pos = glm::U16Vec3::new(x, noise_sampler(x, z), z);
+        // for (x, z) in iproduct!(0..b, 0..b)
+        // {
+        //     let pos = glm::U16Vec3::new(x, noise_sampler(x, z), z);
 
-            let mut above_brick_pos = glm::U16Vec3::new(
-                pos.x.div_euclid(8),
-                pos.y.div_euclid(8),
-                pos.z.div_euclid(8)
-            );
+        //     let mut above_brick_pos =
 
-            while above_brick_pos.y < 128
-            {
-                data_manager.write_brick(Voxel::Air, above_brick_pos);
+        //     while above_brick_pos.y < 128
+        //     {
+        //         data_manager.write_brick(Voxel::Air, above_brick_pos);
 
-                above_brick_pos.y += 1;
-            }
-        }
+        //         above_brick_pos.y += 1;
+        //     }
+        // }
 
-        // data_manager.flush_to_gpu();
+        // data_manager.flush_entire();
 
         for (x, z) in iproduct!(0..b, 0..b)
         {
             let pos = glm::U16Vec3::new(x, noise_sampler(x, z), z);
+            // data_manager.write_brick(
+            //     Voxel::Air,
+            //     glm::U16Vec3::new(
+            //         pos.x.div_euclid(8),
+            //         pos.y.div_euclid(8).max(1) - 1,
+            //         pos.z.div_euclid(8)
+            //     )
+            // );
+            data_manager.write_voxel(get_rand_grass_voxel(), pos);
 
-            let noise_height = noise_sampler(pos.x, pos.z);
-
-            let diff = pos.y as isize - noise_height as isize;
-
-            let v = match diff
-            {
-                1.. => Voxel::Air,
-                -5..=0 => get_rand_grass_voxel(),
-                ..=-6 => get_rand_stone_voxel()
-            };
-
-            data_manager.write_voxel(v, pos);
-
-            let this_brick_y = pos.y.div_euclid(8).max(1) - 1;
-
-            let mut stone_fill_pos = pos;
-
-            stone_fill_pos.y -= 1;
-
-            while stone_fill_pos.y.div_euclid(8) >= this_brick_y
-            {
-                data_manager.write_voxel(get_rand_stone_voxel(), stone_fill_pos);
-
-                stone_fill_pos.y -= 1;
-            }
+            // for h in (pos.y..((pos.y / 8) * 8))
+            // {
+            //     data_manager.write_voxel(Voxel::Air, glm::U16Vec3::new(x, h,
+            // z)); }
         }
 
         data_manager.flush_entire();
@@ -227,10 +210,11 @@ impl game::Entity for TestScene
 
         //             // let top = base.add_scalar(diff);
 
-        //             // for (x, y, z) in iproduct!(base.x..top.x, base.y..top.y, base.z..top.z)
-        //             // {
+        //             // for (x, y, z) in iproduct!(base.x..top.x,
+        // base.y..top.y, base.z..top.z)             // {
         //             manager.write_voxel(
-        //                 rand::thread_rng().gen_range(1..=12).try_into().unwrap(),
+        //
+        // rand::thread_rng().gen_range(1..=12).try_into().unwrap(),
         //                 base
         //             );
         //             // }

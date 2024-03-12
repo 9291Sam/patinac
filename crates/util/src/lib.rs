@@ -9,6 +9,7 @@ mod global_allocator;
 mod log;
 mod registrar;
 mod uuid;
+mod window;
 
 use std::ops::Deref;
 use std::sync::Arc;
@@ -19,6 +20,7 @@ pub use global_allocator::*;
 pub use log::*;
 pub use registrar::*;
 pub use uuid::*;
+pub use window::*;
 
 pub fn hash_combine(a_seed: u64, bytes: &[u8]) -> u64
 {
