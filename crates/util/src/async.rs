@@ -1,3 +1,5 @@
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering::*;
 use std::sync::RwLock;
 use std::thread::JoinHandle;
 
@@ -9,43 +11,69 @@ pub struct Future<T: Send>
 where
     Self: Send
 {
+    resolved: AtomicBool,
     receiver: oneshot::Receiver<T>
 }
 
-// TODO: figure out how to make this Drop safe
+impl<T: Send> Drop for Future<T>
+{
+    fn drop(&mut self)
+    {
+        if !self.resolved.load(SeqCst)
+        {
+            log::trace!("Tried dropping an unresolved future");
+
+            let _ = self.get_ref();
+        }
+    }
+}
 
 impl<T: Send> Future<T>
 {
     fn new(receiver: oneshot::Receiver<T>) -> Future<T>
     {
         Future {
+            resolved: AtomicBool::new(false),
             receiver
         }
     }
 
-    fn get(self) -> T
+    pub fn get(self) -> T
     {
-        match self.receiver.recv()
+        self.get_ref()
+    }
+
+    fn get_ref(&self) -> T
+    {
+        match self.receiver.recv_ref()
         {
-            Ok(t) => return t,
-            Err(_) => unreachable!()
+            Ok(t) =>
+            {
+                self.resolved.store(true, SeqCst);
+                t
+            }
+            Err(_) => unreachable!("No message was sent!")
         }
     }
 
-    fn poll(mut self) -> Result<T, Self>
+    pub fn poll(self) -> Result<T, Self>
     {
-        match self.poll_mut()
+        match self.poll_ref()
         {
             Some(t) => Ok(t),
             None => Err(self)
         }
     }
 
-    fn poll_mut(&mut self) -> Option<T>
+    fn poll_ref(&self) -> Option<T>
     {
         match self.receiver.try_recv()
         {
-            Ok(t) => Some(t),
+            Ok(t) =>
+            {
+                self.resolved.store(true, SeqCst);
+                Some(t)
+            }
             Err(e) =>
             {
                 match e
@@ -59,7 +87,7 @@ impl<T: Send> Future<T>
 
     fn detach(self)
     {
-        std::mem::drop(self);
+        self.resolved.store(true, SeqCst);
     }
 }
 
@@ -105,7 +133,7 @@ impl<T: Send> Promise<T>
             Promise::Resolved(_) => return,
             Promise::Pending(future) =>
             {
-                match future.poll_mut()
+                match future.poll_ref()
                 {
                     Some(t) => Promise::Resolved(t),
                     None => return
@@ -175,9 +203,11 @@ impl ThreadPool
 
     fn enqueue_function(&self, func: impl FnOnce() + Send + 'static)
     {
-        if self.sender.send(Box::new(func)).is_err()
+        if let Err(func) = self.sender.send(Box::new(func))
         {
-            panic!("Tried to enqueue a function on a threadpool with closed threads!")
+            log::warn!("Tried to enqueue a function on a threadpool with closed threads!");
+
+            func.0();
         }
     }
 
@@ -185,6 +215,6 @@ impl ThreadPool
     {
         std::mem::drop(self.sender);
 
-        self.threads.drain(..).for_each(|t| t.join().unwrap())
+        self.threads.drain(..).for_each(|t| t.join().unwrap());
     }
 }
