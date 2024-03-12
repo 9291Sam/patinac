@@ -426,6 +426,8 @@ impl VoxelChunkDataManager
 
                     cpu_brick_buffer.resize(new_len, VoxelBrick::new_empty());
 
+                    gpu_brick_buffer.destroy();
+
                     *gpu_brick_buffer = self.renderer.create_buffer(&wgpu::BufferDescriptor {
                         label:              Some("Voxel Chunk Data Manager Brick Buffer"),
                         usage:              wgpu::BufferUsages::COPY_DST
@@ -434,6 +436,11 @@ impl VoxelChunkDataManager
                             * cpu_brick_buffer.len() as u64,
                         mapped_at_creation: false
                     });
+
+                    log::trace!(
+                        "gpu brick buffer size {}",
+                        std::mem::size_of::<VoxelBrick>() as u64 * cpu_brick_buffer.len() as u64
+                    );
 
                     bind_group_updater.update(Arc::new(self.renderer.create_bind_group(
                         &wgpu::BindGroupDescriptor {
