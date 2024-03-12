@@ -1,6 +1,6 @@
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering::SeqCst;
-use std::sync::{Mutex, RwLock};
+use std::sync::RwLock;
 use std::thread::JoinHandle;
 
 use bytemuck::Contiguous;
@@ -9,21 +9,9 @@ use crossbeam::channel::{Receiver, Sender};
 #[derive(Debug)]
 pub struct Future<T: Send>
 where
-    Self: Send + Sync
+    Self: Send
 {
-    resolved: AtomicBool,
-    receiver: Mutex<oneshot::Receiver<T>>
-}
-
-impl<T: Send> Drop for Future<T>
-{
-    fn drop(&mut self)
-    {
-        if !self.resolved.load(SeqCst)
-        {
-            panic!("Tried dropping an unresolved future!")
-        }
-    }
+    receiver: oneshot::Receiver<T>
 }
 
 impl<T: Send> Future<T>
@@ -31,20 +19,16 @@ impl<T: Send> Future<T>
     fn new(receiver: oneshot::Receiver<T>) -> Future<T>
     {
         Future {
-            resolved: AtomicBool::new(false),
-            receiver: Mutex::new(receiver)
+            receiver
         }
     }
 
-    fn get(mut self) -> T
+    fn get(self) -> T
     {
-        loop
+        match self.receiver.recv()
         {
-            match self.poll()
-            {
-                Ok(t) => return t,
-                Err(me) => self = me
-            }
+            Ok(t) => return t,
+            Err(_) => unreachable!()
         }
     }
 
@@ -59,13 +43,9 @@ impl<T: Send> Future<T>
 
     fn poll_mut(&mut self) -> Option<T>
     {
-        match self.receiver.lock().unwrap().try_recv()
+        match self.receiver.try_recv()
         {
-            Ok(t) =>
-            {
-                self.resolved.store(true, SeqCst);
-                Some(t)
-            }
+            Ok(t) => Some(t),
             Err(e) =>
             {
                 match e
@@ -79,7 +59,6 @@ impl<T: Send> Future<T>
 
     fn detach(self)
     {
-        self.resolved.store(true, SeqCst);
         std::mem::drop(self);
     }
 }

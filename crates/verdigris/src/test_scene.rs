@@ -141,14 +141,7 @@ impl TestScene
 
                                 stone_fill_pos.y -= 1;
                             }
-
-                            if x == z
-                            {
-                                // data_manager.flush_to_gpu();
-                            }
                         }
-
-                        // data_manager.flush_to_gpu();
 
                         data_manager.flush_entire();
                     }
@@ -159,8 +152,6 @@ impl TestScene
             ),
             id:              util::Uuid::new()
         });
-
-        log::info!("game return");
 
         game.register(this.clone());
 
