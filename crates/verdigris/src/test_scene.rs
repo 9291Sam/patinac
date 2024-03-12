@@ -20,7 +20,7 @@ impl TestScene
     pub fn new(game: Arc<game::Game>) -> Arc<Self>
     {
         let brick_game = game.clone();
-        let chunk_r = 5;
+        let chunk_r = 3;
         let this = Arc::new(TestScene {
             brick_map_chunk: Mutex::new(
                 iproduct!(-chunk_r..=chunk_r, -chunk_r..=chunk_r)

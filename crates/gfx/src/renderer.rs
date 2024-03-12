@@ -37,6 +37,7 @@ pub struct Renderer
     renderables: util::Registrar<util::Uuid, Weak<dyn Recordable>>,
 
     // Rendering views
+    // TODO: Window<WindowSize>, Window<DeltaFrameTime>, WindowUpdater<Camera>
     window_size_x:            AtomicU32,
     window_size_y:            AtomicU32,
     float_delta_frame_time_s: AtomicU32,
@@ -81,8 +82,12 @@ impl Deref for Renderer
 // SAFETY: You must not receive any EventLoop events outside of the thread that
 // created it, you can't even do this as its behind a mutex!
 // We also verify this with a threadID
-unsafe impl Sync for Renderer {}
 unsafe impl Send for Renderer {}
+
+// SAFETY: you must not pass any events via the window channel as, for some
+// ungodly reason, they use an Rc rather than an Arc on the message channel
+unsafe impl Sync for Renderer {}
+
 impl UnwindSafe for Renderer {}
 impl RefUnwindSafe for Renderer {}
 
