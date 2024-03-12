@@ -4,14 +4,13 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-log                = { workspace = true }
-wgpu               = { workspace = true }
+log = { workspace = true }
+wgpu = { workspace = true }
 winit_input_helper = { workspace = true }
-winit              = { workspace = true }
-pollster           = { workspace = true }
-nalgebra           = { workspace = true }
-util               = { workspace = true }
-rayon              = { workspace = true }
-nalgebra-glm       = { workspace = true }
-strum              = { workspace = true }
-bytemuck           = { workspace = true }
+winit = { workspace = true }
+pollster = { workspace = true }
+nalgebra = { workspace = true }
+util = { workspace = true }
+nalgebra-glm = { workspace = true }
+strum = { workspace = true }
+bytemuck = { workspace = true }

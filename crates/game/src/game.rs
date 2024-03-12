@@ -2,14 +2,13 @@ use std::sync::atomic::Ordering::*;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64};
 use std::sync::{Arc, Weak};
 
-use rayon::iter::{ParallelBridge, ParallelIterator};
-
 use crate::Entity;
 
 pub struct TickTag(());
 
 pub struct Game
 {
+    this_weak:        Weak<Game>,
     renderer:         Arc<gfx::Renderer>,
     entities:         util::Registrar<util::Uuid, Weak<dyn Entity>>,
     float_delta_time: AtomicU32,
@@ -32,11 +31,14 @@ impl Game
 {
     pub fn new(renderer: Arc<gfx::Renderer>) -> Arc<Self>
     {
-        Arc::new(Game {
-            renderer,
-            entities: util::Registrar::new(),
-            float_delta_time: AtomicU32::new(0.0f32.to_bits()),
-            float_time_alive: AtomicU64::new(0.0f64.to_bits())
+        Arc::new_cyclic(|this_weak| {
+            Game {
+                renderer,
+                entities: util::Registrar::new(),
+                float_delta_time: AtomicU32::new(0.0f32.to_bits()),
+                float_time_alive: AtomicU64::new(0.0f64.to_bits()),
+                this_weak: this_weak.clone()
+            }
         })
     }
 
@@ -82,6 +84,8 @@ impl Game
 
             let thread_entities = &self.entities;
 
+            let strong_game = self.this_weak.upgrade().unwrap();
+
             // TODO: deadlock and too long detection
             self.entities
                 .access()
@@ -97,8 +101,13 @@ impl Game
                         }
                     }
                 })
-                .par_bridge()
-                .for_each(|strong_entity| strong_entity.tick(self, TickTag(())));
+                .map(|strong_entity| {
+                    let local = strong_game.clone();
+                    util::run_async(move || {
+                        strong_entity.tick(&local, TickTag(()));
+                    })
+                })
+                .for_each(|future| future.get())
         }
     }
 }

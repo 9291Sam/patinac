@@ -24,6 +24,7 @@ impl TestScene
         let this = Arc::new(TestScene {
             brick_map_chunk: Mutex::new(
                 iproduct!(-1..=1, -1..=1)
+                // iproduct!(-0..=0, -0..=0)
                     .map(|(x, z)| -> util::Promise<_> {
                         let local_game = brick_game.clone();
 
@@ -137,7 +138,7 @@ fn create_and_fill(brick_game: &game::Game, pos: glm::Vec3) -> Arc<super::BrickM
                 }
             }
         }
-
+        log::trace!("flushing!");
         data_manager.flush_entire();
     }
 

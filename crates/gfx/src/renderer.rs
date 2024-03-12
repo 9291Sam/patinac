@@ -12,7 +12,6 @@ use std::thread::ThreadId;
 use bytemuck::{bytes_of, Pod, Zeroable};
 use nalgebra_glm as glm;
 use pollster::FutureExt;
-use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use strum::IntoEnumIterator;
 use util::{Registrar, SendSyncMutPtr};
 use winit::dpi::PhysicalSize;
@@ -466,7 +465,8 @@ impl Renderer
 
                 self.renderables
                     .access()
-                    .into_par_iter()
+                    .into_iter()
+                    // .into_par_iter()
                     .filter_map(|(ptr, weak_renderable)| {
                         match weak_renderable.upgrade()
                         {
@@ -514,8 +514,8 @@ impl Renderer
                             }
                         }
                     })
-                    .collect::<Vec<_>>()
-                    .into_iter()
+                    // .collect::<Vec<_>>()
+                    // .into_iter()
                     .for_each(|(r, r_i, bind_groups)| {
                         renderables_map.get_mut(&r.get_pass_stage()).unwrap().push((
                             r,
