@@ -155,8 +155,6 @@ impl BrickMapChunk
         game.register(this.clone());
         renderer.register(this.clone());
 
-        log::trace!("registered!");
-
         this
     }
 
