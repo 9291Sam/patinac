@@ -20,7 +20,7 @@ impl TestScene
     pub fn new(game: Arc<game::Game>) -> Arc<Self>
     {
         let brick_game = game.clone();
-        let chunk_r = 3;
+        let chunk_r = 2;
         let this = Arc::new(TestScene {
             brick_map_chunk: Mutex::new(
                 iproduct!(-chunk_r..=chunk_r, -chunk_r..=chunk_r)
@@ -177,35 +177,35 @@ impl game::Entity for TestScene
 
     fn tick(&self, _: &game::Game, _: game::TickTag)
     {
-        let mut guard = self.brick_map_chunk.lock().unwrap();
+        // let mut guard = self.brick_map_chunk.lock().unwrap();
 
-        guard.iter_mut().for_each(|p| {
-            p.poll_ref();
+        // guard.iter_mut().for_each(|p| {
+        //     p.poll_ref();
 
-            if let util::Promise::Resolved(chunk) = &*p
-            {
-                let manager = chunk.access_data_manager();
+        //     if let util::Promise::Resolved(chunk) = &*p
+        //     {
+        //         let manager = chunk.access_data_manager();
 
-                for _ in 0..256
-                {
-                    let center = 512u16;
-                    let edge = 64;
-                    let range = (center - edge)..(center + edge);
+        //         for _ in 0..256
+        //         {
+        //             let center = 512u16;
+        //             let edge = 64;
+        //             let range = (center - edge)..(center + edge);
 
-                    let base: glm::U16Vec3 = glm::U16Vec3::new(
-                        rand::thread_rng().gen_range(range.clone()),
-                        rand::thread_rng().gen_range(range.clone()),
-                        rand::thread_rng().gen_range(range.clone())
-                    );
+        //             let base: glm::U16Vec3 = glm::U16Vec3::new(
+        //                 rand::thread_rng().gen_range(range.clone()),
+        //                 rand::thread_rng().gen_range(range.clone()),
+        //                 rand::thread_rng().gen_range(range.clone())
+        //             );
 
-                    manager.write_voxel(
-                        rand::thread_rng().gen_range(1..=12).try_into().unwrap(),
-                        base
-                    );
-                }
+        //             manager.write_voxel(
+        //                 rand::thread_rng().gen_range(1..=12).try_into().unwrap(),
+        //                 base
+        //             );
+        //         }
 
-                manager.flush_to_gpu();
-            }
-        });
+        //         manager.flush_to_gpu();
+        //     }
+        // });
     }
 }
