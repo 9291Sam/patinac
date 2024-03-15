@@ -112,6 +112,11 @@ impl CrashHandler
         })
     }
 
+    pub fn into_guarded_scope(&self, func: FnOnce() -> )
+    {
+
+    }
+
     pub fn handle_crash(&self)
     {
         // no threads have crashed
@@ -213,6 +218,7 @@ impl CrashHandler
         self.panic_data.lock().unwrap().as_mut().unwrap().remove(&id);
     }
 }
+
 
 struct ThreadCrashLog {
     thread_name: String,
