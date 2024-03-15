@@ -5,6 +5,7 @@
 
 mod allocator;
 mod r#async;
+mod crash_handler;
 mod global_allocator;
 mod log;
 mod registrar;
@@ -16,6 +17,7 @@ use std::sync::Arc;
 
 pub use allocator::*;
 pub use r#async::*;
+pub use crash_handler::*;
 pub use global_allocator::*;
 pub use log::*;
 pub use registrar::*;
