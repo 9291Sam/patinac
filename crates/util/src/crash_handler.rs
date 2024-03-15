@@ -27,6 +27,16 @@ impl Drop for CrashHandlerManagedLoopSpawner
 
 impl CrashHandlerManagedLoopSpawner
 {
+    pub fn enter_oneshot(self, func: impl FnOnce() -> R + UnwindSafe) -> Result<R, ()>
+    {
+        if let Err(e) = std::panic::catch_unwind(func)
+        {
+            self.owning_handler.acknowledge_crash(self.id, e);
+        }
+
+        self.owning_handler.acknowledge_iteration(self.id);
+    }
+
     pub fn enter_managed_loop(self, func: impl Fn() -> TerminationResult + RefUnwindSafe)
     {
         if let Err(e) = std::panic::catch_unwind(|| {

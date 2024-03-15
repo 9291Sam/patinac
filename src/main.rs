@@ -26,7 +26,13 @@ fn main()
     let crash_handler = util::CrashHandler::new();
 
     let renderer: Arc<gfx::Renderer> = spawn_renderer(crash_handler.clone());
-    let game: Arc<game::Game> = spawn_game(crash_handler.clone());
+    let game: Arc<game::Game> = spawn_game(crash_handler.clone(), renderer.clone());
+
+    crash_handler
+        .create_handle("Game Tick Thread".to_string())
+        .enter_managed_thread(move || game.tick());
+
+    renderer.enter_gfx_loop(crash_handler.create_handle("Managed Render Loop".to_string()));
 
     // TODO: make not a closure and properly deal with panics
     // let run = || {
@@ -76,10 +82,7 @@ fn spawn_renderer(crash_handler: Arc<util::CrashHandler>) -> Arc<gfx::Renderer>
 
     crash_handler
         .create_handle("Renderer Creation".to_string())
-        .enter_managed_loop(|| {
-            *renderer_lock.lock().unwrap() = Some(unsafe { gfx::Renderer::new() });
-            util::TerminationResult::Terminate
-        });
+        .enter_oneshot(|| *renderer_lock.lock().unwrap() = Some(unsafe { gfx::Renderer::new() }));
 
     Arc::new(renderer_lock.into_inner().unwrap().unwrap())
 }
@@ -93,9 +96,8 @@ fn spawn_game(
 
     crash_handler
         .create_handle("Game Creation".to_string())
-        .enter_managed_loop(move || {
+        .enter_oneshot(|| {
             *game_lock.lock().unwrap() = Some(game::Game::new(renderer));
-            util::TerminationResult::Terminate
         });
 
     game_lock.into_inner().unwrap().unwrap()

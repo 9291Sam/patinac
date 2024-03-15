@@ -14,7 +14,7 @@ use nalgebra_glm as glm;
 use pollster::FutureExt;
 use strum::IntoEnumIterator;
 use util::{Registrar, SendSyncMutPtr};
-use winit::dpi::PhysicalSize;
+use winit::dpi::{LogicalPosition, PhysicalSize};
 use winit::event::*;
 use winit::event_loop::{EventLoop, EventLoopWindowTarget};
 use winit::keyboard::KeyCode;
@@ -787,6 +787,9 @@ impl Renderer
         window.set_cursor_grab(CursorGrabMode::Locked).unwrap();
         #[cfg(not(target_os = "macos"))]
         window.set_cursor_grab(CursorGrabMode::Confined).unwrap();
+        window
+            .set_cursor_position(LogicalPosition::new(0.0, 0.0))
+            .unwrap();
 
         let _ = event_loop.run_on_demand(|event, control_flow| {
             if should_stop.load(Acquire)

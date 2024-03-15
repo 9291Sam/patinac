@@ -1,6 +1,6 @@
 use std::sync::atomic::Ordering::*;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64};
-use std::sync::{Arc, Weak};
+use std::sync::{Arc, Mutex, Weak};
 
 use crate::Entity;
 
@@ -8,11 +8,12 @@ pub struct TickTag(());
 
 pub struct Game
 {
-    this_weak:        Weak<Game>,
-    renderer:         Arc<gfx::Renderer>,
-    entities:         util::Registrar<util::Uuid, Weak<dyn Entity>>,
-    float_delta_time: AtomicU32,
-    float_time_alive: AtomicU64
+    this_weak:                    Weak<Game>,
+    renderer:                     Arc<gfx::Renderer>,
+    entities:                     util::Registrar<util::Uuid, Weak<dyn Entity>>,
+    float_delta_time:             AtomicU32,
+    float_time_alive:             AtomicU64,
+    previous_tick_time_and_delta: Mutex<(std::time::Instant, f64)>
 }
 
 impl Drop for Game
@@ -37,7 +38,8 @@ impl Game
                 entities: util::Registrar::new(),
                 float_delta_time: AtomicU32::new(0.0f32.to_bits()),
                 float_time_alive: AtomicU64::new(0.0f64.to_bits()),
-                this_weak: this_weak.clone()
+                this_weak: this_weak.clone(),
+                previous_tick_time_and_delta: Mutex::new((std::time::Instant::now(), 0.0))
             }
         })
     }
@@ -64,50 +66,49 @@ impl Game
             .insert(entity.get_uuid(), Arc::downgrade(&entity));
     }
 
-    pub fn enter_tick_loop(&self, should_stop: &AtomicBool)
+    pub fn tick(&self) -> util::TerminationResult
     {
-        let mut prev = std::time::Instant::now();
-        let mut delta_time: f64;
+        let (ref mut prev, ref mut delta_time) =
+            &mut *self.previous_tick_time_and_delta.lock().unwrap();
 
-        while !should_stop.load(Acquire)
-        {
-            let now = std::time::Instant::now();
+        let now = std::time::Instant::now();
 
-            delta_time = (now - prev).as_secs_f64();
-            prev = now;
-            self.float_delta_time
-                .store((delta_time as f32).to_bits(), Release);
-            self.float_time_alive.store(
-                (f64::from_bits(self.float_time_alive.load(Acquire)) + delta_time).to_bits(),
-                Release
-            );
+        *delta_time = (now - *prev).as_secs_f64();
+        *prev = now;
+        self.float_delta_time
+            .store((*delta_time as f32).to_bits(), Release);
+        self.float_time_alive.store(
+            (f64::from_bits(self.float_time_alive.load(Acquire)) + *delta_time).to_bits(),
+            Release
+        );
 
-            let thread_entities = &self.entities;
+        let thread_entities = &self.entities;
 
-            let strong_game = self.this_weak.upgrade().unwrap();
+        let strong_game = self.this_weak.upgrade().unwrap();
 
-            // TODO: deadlock and too long detection
-            self.entities
-                .access()
-                .into_iter()
-                .filter_map(|(uuid, weak_renderable)| {
-                    match weak_renderable.upgrade()
+        // TODO: deadlock and too long detection
+        self.entities
+            .access()
+            .into_iter()
+            .filter_map(|(uuid, weak_renderable)| {
+                match weak_renderable.upgrade()
+                {
+                    Some(s) => Some(s),
+                    None =>
                     {
-                        Some(s) => Some(s),
-                        None =>
-                        {
-                            thread_entities.delete(uuid);
-                            None
-                        }
+                        thread_entities.delete(uuid);
+                        None
                     }
+                }
+            })
+            .map(|strong_entity| {
+                let local = strong_game.clone();
+                util::run_async(move || {
+                    strong_entity.tick(&local, TickTag(()));
                 })
-                .map(|strong_entity| {
-                    let local = strong_game.clone();
-                    util::run_async(move || {
-                        strong_entity.tick(&local, TickTag(()));
-                    })
-                })
-                .for_each(|future| future.get())
-        }
+            })
+            .for_each(|future| future.get());
+
+        util::TerminationResult::RequestIteration
     }
 }
