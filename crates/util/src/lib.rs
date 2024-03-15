@@ -2,6 +2,8 @@
 #![feature(maybe_uninit_as_bytes)]
 #![feature(allocator_api)]
 #![feature(slice_ptr_get)]
+#![feature(trait_alias)]
+#![feature(type_alias_impl_trait)]
 
 mod allocator;
 mod r#async;

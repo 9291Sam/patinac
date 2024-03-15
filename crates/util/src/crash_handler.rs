@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::panic::{RefUnwindSafe, UnwindSafe};
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering::*;
-use std::sync::{Arc, Mutex, Weak};
+use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 
 use chrono::Utc;
@@ -27,14 +27,17 @@ impl Drop for CrashHandlerManagedLoopSpawner
 
 impl CrashHandlerManagedLoopSpawner
 {
-    pub fn enter_oneshot(self, func: impl FnOnce() -> R + UnwindSafe) -> Result<R, ()>
+    pub fn enter_oneshot<R>(self, func: impl FnOnce() -> R + UnwindSafe) -> Option<R>
     {
-        if let Err(e) = std::panic::catch_unwind(func)
+        match std::panic::catch_unwind(func)
         {
-            self.owning_handler.acknowledge_crash(self.id, e);
+            Ok(r) => Some(r),
+            Err(e) =>
+            {
+                self.owning_handler.acknowledge_crash(self.id, e);
+                None
+            }
         }
-
-        self.owning_handler.acknowledge_iteration(self.id);
     }
 
     pub fn enter_managed_loop(self, func: impl Fn() -> TerminationResult + RefUnwindSafe)
@@ -82,28 +85,67 @@ pub enum TerminationResult
 }
 
 type PanicPayload = Box<dyn Any + Send>;
+pub trait CrashHandlerFunction = Fn(CrashLog) + Send + 'static;
 
 pub struct CrashHandler
 {
+    handle_crash_function:  Mutex<Option<Box<dyn CrashHandlerFunction>>>,
     should_loops_iterate:   AtomicBool,
     loop_acknowledge_times: Mutex<HashMap<Uuid, chrono::DateTime<Utc>>>,
     loop_names:             Mutex<HashMap<Uuid, String>>,
-    thread_join_handles:    Mutex<HashMap<Uuid, JoinHandle<()>>>,
-    panic_data:             Mutex<HashMap<Uuid, PanicPayload>>
+    thread_join_handles:    Mutex<Option<HashMap<Uuid, JoinHandle<()>>>>,
+    panic_data:             Mutex<Option<HashMap<Uuid, (std::time::Instant, PanicPayload)>>>
 }
 
 impl CrashHandler
 {
     #[allow(clippy::new_without_default)]
-    pub fn new() -> Arc<CrashHandler>
+    pub fn new(crash_func: impl CrashHandlerFunction) -> Arc<CrashHandler>
     {
         Arc::new(CrashHandler {
+            handle_crash_function:  Mutex::new(Some(Box::new(crash_func))),
             should_loops_iterate:   AtomicBool::new(true),
             loop_acknowledge_times: Mutex::new(HashMap::new()),
             loop_names:             Mutex::new(HashMap::new()),
-            thread_join_handles:    Mutex::new(HashMap::new()),
-            panic_data:             Mutex::new(HashMap::new())
+            thread_join_handles:    Mutex::new(Some(HashMap::new())),
+            panic_data:             Mutex::new(Some(HashMap::new()))
         })
+    }
+
+    pub fn handle_crash(&self)
+    {
+        // no threads have crashed
+        if self.panic_data.lock().unwrap().unwrap().is_empty()
+        {
+            return;
+        }
+
+        self.should_loops_iterate.store(false, SeqCst);
+
+        self.thread_join_handles
+            .lock()
+            .unwrap()
+            .take()
+            .unwrap()
+            .into_iter()
+            .for_each(|(_, handle)| {
+                let _ = handle.join();
+            });
+
+        let mut panicked_threads = self
+            .panic_data
+            .lock()
+            .unwrap()
+            .take()
+            .unwrap()
+            .into_iter()
+            .collect::<Vec<_>>();
+
+        panicked_threads.sort_by(|l, r| l.1.0.cmp(&r.1.0));
+
+        self.crash_log.lock().unwrap() = CrashLog::new(panicked_threads.into_iter().map(|f| ThreadCrashLog { thread_name: todo!(), panic_time: todo!(), payload: todo!() }))
+        
+        std::panic::panic_any("Crash::handle_crash() Forcing Unwind!");
     }
 
     pub fn should_loops_iterate(&self) -> bool
@@ -141,6 +183,8 @@ impl CrashHandler
             self.thread_join_handles
                 .lock()
                 .unwrap()
+                .as_mut()
+                .expect("Crash has already occurred!")
                 .insert(id, join_handle)
                 .is_none()
         )
@@ -154,7 +198,9 @@ impl CrashHandler
             self.panic_data
                 .lock()
                 .unwrap()
-                .insert(id, panic_data)
+                .as_mut()
+                .expect("Crash has already occurred!")
+                .insert(id, (std::time::Instant::now(), panic_data))
                 .is_none()
         )
     }
@@ -163,7 +209,23 @@ impl CrashHandler
     {
         self.loop_acknowledge_times.lock().unwrap().remove(&id);
         self.loop_names.lock().unwrap().remove(&id);
-        self.thread_join_handles.lock().unwrap().remove(&id);
-        self.panic_data.lock().unwrap().remove(&id);
+        self.thread_join_handles.lock().unwrap().as_mut().unwrap().remove(&id);
+        self.panic_data.lock().unwrap().as_mut().unwrap().remove(&id);
+    }
+}
+
+struct ThreadCrashLog {
+    thread_name: String,
+    panic_time: std::time::Instant,
+    // TODO: backtrace
+    payload: Box<PanicPayload>
+}
+
+struct CrashLog {}
+
+impl CrashLog {
+    pub fn new(threads: impl IntoIterator<Item = ThreadCrashLog>)
+    {
+        
     }
 }
