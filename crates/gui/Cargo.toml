@@ -1,0 +1,10 @@
+[package]
+name = "gui"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+game = {workspace = true}
+gfx = {workspace = true}
+util = {workspace = true}
+glyphon = {workspace = true}

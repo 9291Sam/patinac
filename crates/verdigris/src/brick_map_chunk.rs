@@ -181,9 +181,9 @@ impl gfx::Recordable for BrickMapChunk
         gfx::PassStage::GraphicsSimpleColor
     }
 
-    fn get_pipeline(&self) -> &gfx::GenericPipeline
+    fn get_pipeline(&self) -> Option<&gfx::GenericPipeline>
     {
-        &self.pipeline
+        Some(&self.pipeline)
     }
 
     fn pre_record_update(

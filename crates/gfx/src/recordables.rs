@@ -15,7 +15,8 @@ pub type DrawId = u32;
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash, EnumIter)]
 pub enum PassStage
 {
-    GraphicsSimpleColor
+    GraphicsSimpleColor,
+    MenuRender
 }
 
 pub trait Recordable: Debug + Send + Sync
@@ -24,7 +25,7 @@ pub trait Recordable: Debug + Send + Sync
     fn get_name(&self) -> Cow<'_, str>;
     fn get_uuid(&self) -> util::Uuid;
     fn get_pass_stage(&self) -> PassStage;
-    fn get_pipeline(&self) -> &GenericPipeline;
+    fn get_pipeline(&self) -> Option<&GenericPipeline>;
 
     /// Called for all registered Recordable s
     fn pre_record_update(
@@ -46,7 +47,7 @@ pub(crate) fn recordable_ord(
 {
     Equal
         .then(this.get_pass_stage().cmp(&other.get_pass_stage()))
-        .then(this.get_pipeline().cmp(other.get_pipeline()))
+        .then(this.get_pipeline().cmp(&other.get_pipeline()))
         .then(get_bind_group_ids(this_bind_groups).cmp(&get_bind_group_ids(other_bind_groups)))
 }
 

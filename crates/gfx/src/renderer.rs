@@ -30,10 +30,10 @@ use crate::{Camera, GenericPipeline, Transform};
 pub struct Renderer
 {
     pub queue:                    wgpu::Queue,
+    pub device:                   Arc<wgpu::Device>,
     pub render_cache:             RenderCache,
     pub global_bind_group_layout: Arc<wgpu::BindGroupLayout>,
 
-    device:      Arc<wgpu::Device>,
     renderables: util::Registrar<util::Uuid, Weak<dyn Recordable>>,
 
     // Rendering views
@@ -513,8 +513,8 @@ impl Renderer
                                     RecordInfo {
                                         should_draw: true,
                                         transform: None,
-                                        bind_groups: _
-                                    } => todo!()
+                                        bind_groups: g
+                                    } => Some((r, None, g))
                                 }
                             }
                             None =>
@@ -611,29 +611,51 @@ impl Renderer
                             }
                         ))
                     }
+                    PassStage::MenuRender =>
+                    {
+                        GenericPass::Render(encoder.begin_render_pass(
+                            &wgpu::RenderPassDescriptor {
+                                label:                    None,
+                                color_attachments:        &[Some(
+                                    wgpu::RenderPassColorAttachment {
+                                        view:           &view,
+                                        resolve_target: None,
+                                        ops:            wgpu::Operations {
+                                            load:  wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                                            store: wgpu::StoreOp::Store
+                                        }
+                                    }
+                                )],
+                                depth_stencil_attachment: None,
+                                timestamp_writes:         None,
+                                occlusion_query_set:      None
+                            }
+                        ))
+                    }
                 };
 
                 for (renderable, maybe_id, desired_bind_groups) in
                     renderables_map.get(&pass_type).unwrap()
                 {
-                    let desired_pipeline = renderable.get_pipeline();
-
-                    if active_pipeline != Some(desired_pipeline)
+                    if let Some(desired_pipeline) = renderable.get_pipeline()
                     {
-                        match (desired_pipeline, &mut render_pass)
+                        if active_pipeline != Some(desired_pipeline)
                         {
-                            (GenericPipeline::Compute(p), GenericPass::Compute(pass)) =>
+                            match (desired_pipeline, &mut render_pass)
                             {
-                                pass.set_pipeline(p);
+                                (GenericPipeline::Compute(p), GenericPass::Compute(pass)) =>
+                                {
+                                    pass.set_pipeline(p);
+                                }
+                                (GenericPipeline::Render(p), GenericPass::Render(pass)) =>
+                                {
+                                    pass.set_pipeline(p)
+                                }
+                                (_, _) => panic!("Pass Pipeline Invariant Violated!")
                             }
-                            (GenericPipeline::Render(p), GenericPass::Render(pass)) =>
-                            {
-                                pass.set_pipeline(p)
-                            }
-                            (_, _) => panic!("Pass Pipeline Invariant Violated!")
-                        }
 
-                        active_pipeline = Some(desired_pipeline);
+                            active_pipeline = Some(desired_pipeline);
+                        }
                     }
 
                     for (idx, (active_bind_group_id, maybe_new_bind_group)) in active_bind_groups

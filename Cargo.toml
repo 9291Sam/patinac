@@ -9,7 +9,8 @@ members = [
     "crates/gfx",
     "crates/game",
     "crates/voxel",
-    "crates/verdigris",
+    "crates/verdigris", 
+    "crates/gui",
 ]
 
 [dependencies]
@@ -18,8 +19,8 @@ gfx = { workspace = true }
 game = { workspace = true }
 voxel = { workspace = true }
 verdigris = { workspace = true }
+gui = { workspace = true }
 log = { workspace = true }
-backtrace = "0.3.69"
 
 [workspace.dependencies]
 util = { path = "crates/util" }
@@ -27,6 +28,7 @@ gfx = { path = "crates/gfx" }
 game = { path = "crates/game" }
 voxel = { path = "crates/voxel" }
 verdigris = { path = "crates/verdigris" }
+gui = { path = "crates/gui" }
 log = { version = "0.4.20", features = ["std"] }
 bytemuck = { version = "1.14.1", features = ["derive"] }
 image = { version = "0.25", default-features = false, features = [
@@ -49,6 +51,7 @@ getrandom = "0.2.12"
 seahash = "4.1.0"
 oneshot = "0.1.6"
 crossbeam = "0.8.4"
+glyphon = "0.5.0"
 
 [profile.dev]
 opt-level = 2
