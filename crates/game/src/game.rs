@@ -66,17 +66,32 @@ impl Game
             .insert(entity.get_uuid(), Arc::downgrade(&entity));
     }
 
+    pub fn enter_camera_loop(&self, poll_continue_func: &dyn Fn() -> bool)
+    {
+        // let mut prev = std::time::Instant::now();
+        // let mut delta_time: f64;
+
+        // while poll_continue_func()
+        // {
+        //     let now = std::time::Instant::now();
+
+        //     delta_time = (now - prev).as_secs_f64();
+        //     prev = now;
+        // }
+    }
+
     pub fn enter_tick_loop(&self, poll_continue_func: &dyn Fn() -> bool)
     {
         let mut prev = std::time::Instant::now();
         let mut delta_time: f64;
 
-        let now = std::time::Instant::now();
-
         while poll_continue_func()
         {
+            let now = std::time::Instant::now();
+
             delta_time = (now - prev).as_secs_f64();
             prev = now;
+
             self.float_delta_time
                 .store((delta_time as f32).to_bits(), Release);
             self.float_time_alive.store(

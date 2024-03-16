@@ -196,7 +196,7 @@ impl CrashHandler
             .collect::<Vec<_>>()
             .into_iter()
             .rev()
-            .collect::<Vec<_>>();
+            .collect::<Vec<_>>(); // TODO: change because now this receiver doesnt receive anything
 
         frames.into_iter().for_each(|f| log::error!("{f}"));
     }
