@@ -148,7 +148,6 @@ impl<T: Send> Promise<T>
     }
 }
 
-#[cfg(debug_assertions)]
 #[track_caller]
 pub fn run_async<T, F>(func: F) -> Future<T>
 where

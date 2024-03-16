@@ -110,13 +110,6 @@ impl Game
                     })
                 })
                 .for_each(|future| future.get());
-
-            log::trace!("tick! {}", delta_time);
-
-            if rand::thread_rng().gen_bool(0.5)
-            {
-                panic!("sample kill panic");
-            }
         }
     }
 }

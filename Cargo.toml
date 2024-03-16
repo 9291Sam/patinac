@@ -19,6 +19,7 @@ game = { workspace = true }
 voxel = { workspace = true }
 verdigris = { workspace = true }
 log = { workspace = true }
+backtrace = "0.3.69"
 
 [workspace.dependencies]
 util = { path = "crates/util" }

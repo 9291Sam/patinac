@@ -5,14 +5,14 @@ use std::panic::{RefUnwindSafe, UnwindSafe};
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering::*;
 use std::sync::mpsc::{Receiver, Sender};
-use std::sync::{Mutex, Once};
+use std::sync::{Arc, Mutex, Once};
 use std::thread::{Scope, ScopedJoinHandle};
 
 pub struct CrashHandlerManagedLoopSpawner<'scope, 'env>
 {
     handler:         &'scope CrashHandler,
     thread_scope:    &'scope Scope<'scope, 'env>,
-    spawned_handles: Mutex<Vec<ScopedJoinHandle<'scope, ()>>>
+    spawned_handles: Mutex<Vec<ScopedJoinHandle<'scope, Result<(), Box<dyn Any + Send>>>>>
 }
 
 impl UnwindSafe for CrashHandlerManagedLoopSpawner<'_, '_> {}
@@ -20,17 +20,24 @@ impl RefUnwindSafe for CrashHandlerManagedLoopSpawner<'_, '_> {}
 
 type ContinueLoopingFunc<'l> = dyn Fn() -> bool + 'l;
 type TerminateLoopsFunc<'l> = dyn Fn() + 'l;
+type CrashPollFunc<'l> = dyn Fn() + 'l;
 
 impl<'scope, 'env> CrashHandlerManagedLoopSpawner<'scope, 'env>
 {
     pub fn enter_constrained<R, F>(&self, name: String, func: F) -> R
     where
-        F: FnOnce(&ContinueLoopingFunc<'scope>, &TerminateLoopsFunc<'scope>) -> R + UnwindSafe
+        F: FnOnce(
+                &ContinueLoopingFunc<'scope>,
+                &TerminateLoopsFunc<'scope>,
+                &CrashPollFunc<'scope>
+            ) -> R
+            + UnwindSafe
     {
         let iter_func = || self.handler.should_loops_iterate();
         let terminate_func = || self.handler.terminate_loops();
+        let crash_poll_func = || self.handler.poll_threads_for_crashes();
 
-        match std::panic::catch_unwind(|| func(&iter_func, &terminate_func))
+        match std::panic::catch_unwind(|| func(&iter_func, &terminate_func, &crash_poll_func))
         {
             Ok(r) => r,
             Err(payload) =>
@@ -47,27 +54,47 @@ impl<'scope, 'env> CrashHandlerManagedLoopSpawner<'scope, 'env>
     // help
     pub fn enter_constrained_thread<F>(&self, name: String, func: F)
     where
-        F: FnOnce(&ContinueLoopingFunc<'scope>, &TerminateLoopsFunc<'scope>)
-            + UnwindSafe
+        F: FnOnce(
+                &ContinueLoopingFunc<'scope>,
+                &TerminateLoopsFunc<'scope>,
+                &CrashPollFunc<'scope>
+            ) + UnwindSafe
             + Send
             + 'scope
     {
         let iter_func = || self.handler.should_loops_iterate();
         let terminate_func = || self.handler.terminate_loops();
+        let crash_poll_func = || self.handler.poll_threads_for_crashes();
 
-        self.spawned_handles.lock().unwrap().push(
-            self.thread_scope
-                .spawn(move || func(&iter_func, &terminate_func))
-        );
+        let thread_crash_notifier = self.handler.has_thread_crashed.clone();
+        self.spawned_handles
+            .lock()
+            .unwrap()
+            .push(self.thread_scope.spawn(move || {
+                match std::panic::catch_unwind(|| {
+                    func(&iter_func, &terminate_func, &crash_poll_func)
+                })
+                {
+                    Ok(()) => Ok(()),
+                    Err(e) =>
+                    {
+                        thread_crash_notifier.store(true, SeqCst);
+
+                        Err(e)
+                    }
+                }
+            }));
     }
 }
 
 pub struct CrashHandler
 {
-    has_crash_occurred:   AtomicBool,
     crash_receiver:       Mutex<Receiver<CrashInfo>>,
     crash_sender:         Sender<CrashInfo>,
-    should_loops_iterate: AtomicBool
+    should_loops_iterate: AtomicBool,
+
+    // if you decide that you hate yourself, you should remove this Arc
+    has_thread_crashed: Arc<AtomicBool>
 }
 
 impl CrashHandler
@@ -80,15 +107,39 @@ impl CrashHandler
         assert!(!INIT_ONCE.is_completed());
         INIT_ONCE.call_once(|| {});
 
-        // std::panic::set_hook(Box::new(|_| {}));
+        // TODO: capture backtrace
+        std::panic::set_hook(Box::new(|info| {
+            let file = info.location().unwrap().file().replace('\\', "/");
+            let line = info.location().unwrap().line();
+
+            let prettified_filepath: &str;
+
+            if let Some(idx) = file.find("index.crates.io-")
+            {
+                let idx_of_next_slash = file[idx..].find('/').unwrap();
+
+                prettified_filepath = &file[idx_of_next_slash + idx + 1..];
+            }
+            else
+            {
+                prettified_filepath = &file;
+            }
+
+            let file_path: String = format!("[{prettified_filepath}:{line}]");
+
+            log::error!(
+                "Thread ??? has crashed @ {file_path} with message |{}|",
+                panic_payload_as_cow(info.payload())
+            );
+        }));
 
         let (tx, rx) = std::sync::mpsc::channel();
 
         CrashHandler {
-            has_crash_occurred:   AtomicBool::new(false),
             crash_sender:         tx,
             crash_receiver:       Mutex::new(rx),
-            should_loops_iterate: AtomicBool::new(true)
+            should_loops_iterate: AtomicBool::new(true),
+            has_thread_crashed:   Arc::new(AtomicBool::new(false))
         }
     }
 
@@ -125,7 +176,13 @@ impl CrashHandler
         self.should_loops_iterate.store(false, SeqCst)
     }
 
-    pub fn poll_threads_for_crashes(&self) {}
+    pub fn poll_threads_for_crashes(&self)
+    {
+        if self.has_thread_crashed.load(SeqCst)
+        {
+            self.terminate_loops();
+        }
+    }
 
     pub fn finish(self)
     {
@@ -157,23 +214,28 @@ impl Display for CrashInfo
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
     {
-        let message = if let Some(s) = self.payload.downcast_ref::<&'static str>()
-        {
-            Cow::Borrowed(*s)
-        }
-        else if let Some(s) = self.payload.downcast_ref::<String>()
-        {
-            Cow::Owned(s.clone())
-        }
-        else
-        {
-            Cow::Owned(format!("{:#?}", Any::type_id(&self.payload)))
-        };
-
         writeln!(
             f,
             "{} has crashed @ {:?} with message |{}|",
-            self.thread_name, self.panic_time, message
+            self.thread_name,
+            self.panic_time,
+            panic_payload_as_cow(&*self.payload)
         )
+    }
+}
+
+pub fn panic_payload_as_cow(payload: &(dyn Any + Send)) -> Cow<'static, str>
+{
+    if let Some(s) = payload.downcast_ref::<&'static str>()
+    {
+        Cow::Borrowed(*s)
+    }
+    else if let Some(s) = payload.downcast_ref::<String>()
+    {
+        Cow::Owned(s.clone())
+    }
+    else
+    {
+        Cow::Owned(format!("{:#?}", Any::type_id(payload)))
     }
 }

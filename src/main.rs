@@ -21,30 +21,33 @@ fn main()
     let crash_handler = util::CrashHandler::new();
 
     crash_handler.into_guarded_scope(|handle| {
-        let renderer = handle.enter_constrained("Renderer Creation".to_string(), |_, _| {
+        let renderer = handle.enter_constrained("Renderer Creation".to_string(), |_, _, _| {
             Arc::new(unsafe { gfx::Renderer::new() })
         });
 
-        let game = handle.enter_constrained("Game Creation".to_string(), |_, _| {
+        let game = handle.enter_constrained("Game Creation".to_string(), |_, _, _| {
             game::Game::new(renderer.clone())
         });
 
         {
-            let _verdigris = handle.enter_constrained("Verdigris Creation".to_string(), |_, _| {
-                verdigris::TestScene::new(game.clone())
-            });
+            let _verdigris = handle
+                .enter_constrained("Verdigris Creation".to_string(), |_, _, _| {
+                    verdigris::TestScene::new(game.clone())
+                });
 
             let local_game = game.clone();
             handle.enter_constrained_thread(
                 "Game Tick Thread".to_string(),
-                move |continue_func, _| local_game.clone().enter_tick_loop(continue_func)
+                move |continue_func, _, _| local_game.clone().enter_tick_loop(continue_func)
             );
 
+            // TODO: replace poll func with loop checking one for checking for long running
+            // loops
             let local_renderer = renderer.clone();
             handle.enter_constrained(
                 "Gfx Loop".to_string(),
-                move |continue_func, terminate_func| {
-                    local_renderer.enter_gfx_loop(continue_func, terminate_func)
+                move |continue_func, terminate_func, crash_poll_func| {
+                    local_renderer.enter_gfx_loop(continue_func, terminate_func, crash_poll_func)
                 }
             );
         }
