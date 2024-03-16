@@ -21,13 +21,31 @@ impl<T: Send> Drop for Future<T>
     {
         if !self.resolved.load(SeqCst)
         {
-            let t = self.poll_ref();
-
-            log::warn!("Tried dropping an unresolved future, attaching!");
-
-            if t.is_none()
+            // The previous call does noy synchronize with this, the future may now be
+            // fufilled
+            match self.receiver.try_recv()
             {
-                let _ = self.get_ref();
+                // Ok, the future was fufilled in the literal microseconds since we last checked
+                Ok(_t) => (),
+                Err(e) =>
+                {
+                    match e
+                    {
+                        oneshot::TryRecvError::Empty =>
+                        {
+                            // we haven't received a message yet, let's wait for it
+                            log::warn!("Tried dropping an unresolved future, attaching!");
+
+                            let _ = self.get_ref();
+                        }
+                        oneshot::TryRecvError::Disconnected =>
+                        {
+                            // Either the sender thread panicked, in which case
+                            // we forget  or the message has already been
+                            // extracted, in which we also forget
+                        }
+                    }
+                }
             }
         }
     }
