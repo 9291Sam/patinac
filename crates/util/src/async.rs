@@ -28,11 +28,13 @@ impl<T: Send> Drop for Future<T>
     {
         if !self.resolved.load(SeqCst)
         {
-            let _ = self.poll_ref();
+            let t = self.poll_ref();
 
-            if !self.resolved.load(SeqCst)
+            log::warn!("Tried dropping an unresolved future, attaching!");
+
+            if t.is_none()
             {
-                log::warn!("Tried dropping an unresolved future, detaching!");
+                let _ = self.get_ref();
             }
         }
     }
@@ -89,7 +91,7 @@ impl<T: Send> Future<T>
                 match e
                 {
                     oneshot::TryRecvError::Empty => None,
-                    oneshot::TryRecvError::Disconnected => unreachable!()
+                    oneshot::TryRecvError::Disconnected => unreachable!("No message was sent!")
                 }
             }
         }
@@ -153,6 +155,8 @@ impl<T: Send> Promise<T>
     }
 }
 
+#[cfg(debug_assertions)]
+#[track_caller]
 pub fn run_async<T, F>(func: F) -> Future<T>
 where
     T: Send + 'static,
@@ -162,12 +166,19 @@ where
 
     let future = Future::new(receiver);
 
+    let caller = std::panic::Location::caller();
+
     THREAD_POOL
         .read()
         .unwrap()
         .as_ref()
         .unwrap()
-        .enqueue_function(|| sender.send(func()).unwrap());
+        .enqueue_function(move || {
+            if let Err(f) = sender.send(func())
+            {
+                log::error!("Tried to send message to killed threadpool! {}", caller)
+            }
+        });
 
     future
 }

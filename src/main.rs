@@ -49,6 +49,13 @@ fn main()
             );
         }
 
+        util::access_global_thread_pool()
+            .write()
+            .unwrap()
+            .take()
+            .unwrap()
+            .join_threads();
+
         if Arc::into_inner(game).is_none()
         {
             log::warn!("Game was retained!")
@@ -63,13 +70,6 @@ fn main()
     });
 
     crash_handler.finish();
-
-    util::access_global_thread_pool()
-        .write()
-        .unwrap()
-        .take()
-        .unwrap()
-        .join_threads();
 
     logger.stop_worker();
 }
