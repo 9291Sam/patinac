@@ -46,6 +46,7 @@ impl TestScene
             id:              util::Uuid::new()
         });
 
+
         game.register(this.clone());
 
         this

@@ -1,10 +1,11 @@
 use std::any::Any;
+use std::borrow::Cow;
 use std::fmt::Display;
 use std::panic::{RefUnwindSafe, UnwindSafe};
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering::*;
 use std::sync::mpsc::{Receiver, Sender};
-use std::sync::Mutex;
+use std::sync::{Mutex, Once};
 use std::thread::{Scope, ScopedJoinHandle};
 
 pub struct CrashHandlerManagedLoopSpawner<'scope, 'env>
@@ -63,6 +64,7 @@ impl<'scope, 'env> CrashHandlerManagedLoopSpawner<'scope, 'env>
 
 pub struct CrashHandler
 {
+    has_crash_occurred:   AtomicBool,
     crash_receiver:       Mutex<Receiver<CrashInfo>>,
     crash_sender:         Sender<CrashInfo>,
     should_loops_iterate: AtomicBool
@@ -73,9 +75,17 @@ impl CrashHandler
     #[allow(clippy::new_without_default)]
     pub fn new() -> CrashHandler
     {
+        static INIT_ONCE: Once = Once::new();
+
+        assert!(!INIT_ONCE.is_completed());
+        INIT_ONCE.call_once(|| {});
+
+        // std::panic::set_hook(Box::new(|_| {}));
+
         let (tx, rx) = std::sync::mpsc::channel();
 
         CrashHandler {
+            has_crash_occurred:   AtomicBool::new(false),
             crash_sender:         tx,
             crash_receiver:       Mutex::new(rx),
             should_loops_iterate: AtomicBool::new(true)
@@ -115,6 +125,8 @@ impl CrashHandler
         self.should_loops_iterate.store(false, SeqCst)
     }
 
+    pub fn poll_threads_for_crashes(&self) {}
+
     pub fn finish(self)
     {
         std::mem::drop(self.crash_sender);
@@ -145,10 +157,23 @@ impl Display for CrashInfo
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
     {
+        let message = if let Some(s) = self.payload.downcast_ref::<&'static str>()
+        {
+            Cow::Borrowed(*s)
+        }
+        else if let Some(s) = self.payload.downcast_ref::<String>()
+        {
+            Cow::Owned(s.clone())
+        }
+        else
+        {
+            Cow::Owned(format!("{:#?}", Any::type_id(&self.payload)))
+        };
+
         writeln!(
             f,
-            "{} has crashed @ {:?} with message {:?}",
-            self.thread_name, self.panic_time, self.payload
+            "{} has crashed @ {:?} with message |{}|",
+            self.thread_name, self.panic_time, message
         )
     }
 }

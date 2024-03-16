@@ -65,8 +65,6 @@ fn main()
         {
             log::warn!("Renderer was retained!")
         }
-
-        // TODO: remove arc now that the threads are scoped???
     });
 
     crash_handler.finish();

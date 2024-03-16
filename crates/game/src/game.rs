@@ -2,6 +2,8 @@ use std::sync::atomic::Ordering::*;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64};
 use std::sync::{Arc, Mutex, Weak};
 
+use rand::Rng;
+
 use crate::Entity;
 
 pub struct TickTag(());
@@ -108,6 +110,13 @@ impl Game
                     })
                 })
                 .for_each(|future| future.get());
+
+            log::trace!("tick! {}", delta_time);
+
+            if rand::thread_rng().gen_bool(0.5)
+            {
+                panic!("sample kill panic");
+            }
         }
     }
 }

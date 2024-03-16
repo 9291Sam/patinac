@@ -6,13 +6,6 @@ use std::thread::JoinHandle;
 use bytemuck::Contiguous;
 use crossbeam::channel::{Receiver, Sender};
 
-enum TransmittedValue<T>
-{
-    BeforeTransmission,
-    Value(T),
-    AfterTransmission
-}
-
 #[derive(Debug)]
 pub struct Future<T: Send>
 where
@@ -203,7 +196,11 @@ impl ThreadPool
     {
         let (sender, receiver) = crossbeam::channel::unbounded();
 
-        let threads = (0..std::thread::available_parallelism().unwrap().into_integer())
+        let threads = (0..(std::thread::available_parallelism()
+            .unwrap()
+            .into_integer()
+            .max(3)
+            - 2))
             .map(|_| {
                 let this_receiver: Receiver<Box<dyn FnOnce() + Send>> = receiver.clone();
 
