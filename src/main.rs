@@ -23,37 +23,27 @@ fn main()
     let crash_handler = util::CrashHandler::new();
 
     crash_handler.into_guarded_scope(|handle| {
-        let renderer = handle.enter_oneshot("Renderer Creation".to_string(), |_| {
+        let renderer = handle.enter_constrained("Renderer Creation".to_string(), |_, _| {
             Arc::new(unsafe { gfx::Renderer::new() })
         });
 
-        let game = handle.enter_oneshot("Game Creation".to_string(), || game::Game::new(renderer));
-
-        std::thread::scope(|s| {
-            s.spawn(|| game.enter_tick_loop(&should_stop));
-
-            renderer.enter_gfx_loop(&should_stop);
+        let game = handle.enter_constrained("Game Creation".to_string(), |_, _| {
+            game::Game::new(renderer)
         });
-        //     {
-        //         let _verdigris = verdigris::TestScene::new(game.clone());
 
-        //     }
+        let _verdigris = handle.enter_constrained("Verdigris Creation".to_string(), |_, _| {
+            verdigris::TestScene::new(game.clone())
+        });
 
-        //     if Arc::into_inner(game).is_none()
-        //     {
-        //         log::warn!("Game was retained via Arc cycle! Drop is not
-        // possible");     }
+        handle.enter_constrained_thread("Game Tick Thread".to_string(), |continue_func, _| {
+            game.enter_tick_loop(continue_func)
+        });
 
-        //     if Arc::into_inner(renderer).is_none()
-        //     {
-        //         log::warn!("Renderer was retained via Arc cycle! Drop is not
-        // possible");     }
-        // };
+        // handle.enter_constrained("Gfx Loop".to_string(), |_, _|
+        // renderer.enter_gfx_loop());
 
-        // if std::panic::catch_unwind(run).is_err()
-        // {
-        //     should_stop.store(true, SeqCst);
-        // }
+        // TODO: check for retaining of renderer and game
+        // TODO: remove arc now that the threads are scoped???
     });
 
     crash_handler.finish();

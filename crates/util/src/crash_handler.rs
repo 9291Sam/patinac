@@ -1,24 +1,33 @@
 use std::any::Any;
 use std::fmt::Display;
-use std::panic::UnwindSafe;
+use std::panic::{RefUnwindSafe, UnwindSafe};
 use std::sync::mpsc::{Receiver, Sender};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
+use std::thread::{Scope, ScopedJoinHandle};
 
-pub struct CrashHandlerManagedLoopSpawner<'h>
+pub struct CrashHandlerManagedLoopSpawner<'h, 's, 'scope, 'env>
 {
-    handler: &'h CrashHandler
+    handler:         &'h CrashHandler,
+    thread_scope:    &'s Scope<'scope, 'env>,
+    spawned_handles: Mutex<Vec<ScopedJoinHandle<'scope, ()>>>
 }
 
-type ContinueLoopingFunc = dyn Fn() -> bool;
-type TerminateLoopsFunc = dyn Fn();
+impl UnwindSafe for CrashHandlerManagedLoopSpawner<'_, '_, '_, '_> {}
+impl RefUnwindSafe for CrashHandlerManagedLoopSpawner<'_, '_, '_, '_> {}
 
-impl CrashHandlerManagedLoopSpawner<'_>
+type ContinueLoopingFunc<'l> = dyn Fn() -> bool + 'l;
+type TerminateLoopsFunc<'l> = dyn Fn() + 'l;
+
+impl<'h, 's, 'scope, 'env> CrashHandlerManagedLoopSpawner<'h, 's, 'scope, 'env>
 {
-    pub fn enter_oneshot<R, F>(&self, name: String, func: F) -> R
+    pub fn enter_constrained<R, F>(&self, name: String, func: F) -> R
     where
-        F: FnOnce() -> R + UnwindSafe
+        F: FnOnce(&ContinueLoopingFunc<'h>, &TerminateLoopsFunc<'h>) -> R + UnwindSafe
     {
-        match std::panic::catch_unwind(|| func(&|| self.handler.should_loops_iterate()))
+        let iter_func = || self.handler.should_loops_iterate();
+        let terminate_func = || self.handler.terminate_loops();
+
+        match std::panic::catch_unwind(|| func(&iter_func, &terminate_func))
         {
             Ok(r) => r,
             Err(payload) =>
@@ -32,40 +41,25 @@ impl CrashHandlerManagedLoopSpawner<'_>
         }
     }
 
-    // pub fn enter_managed_thread
+    // help
+    pub fn enter_constrained_thread<'m, F>(&'m self, name: String, func: F)
+    where
+        F: FnOnce(&ContinueLoopingFunc<'h>, &TerminateLoopsFunc<'h>) + UnwindSafe + Send + 'm
+        // 'm: 'scope
+    {
+        let iter_func = || self.handler.should_loops_iterate();
+        let terminate_func = || self.handler.terminate_loops();
 
-    // pub fn enter_managed_loop(&self, func: impl Fn() -> TerminationResult +
-    // RefUnwindSafe) {
-    //     if let Err(e) = std::panic::catch_unwind(|| {
-    //         while self.owning_handler.should_loops_iterate()
-    //         {
-    //             match func()
-    //             {
-    //                 TerminationResult::RequestIteration =>
-    //                 {}
-    //                 TerminationResult::Terminate => break
-    //             }
-
-    //             self.owning_handler.acknowledge_iteration(self.id);
-    //         }
-    //     })
-    //     {
-    //         self.owning_handler.acknowledge_crash(self.id, e);
-    //     }
-    // }
+        self.spawned_handles.lock().unwrap().push(
+            self.thread_scope
+                .spawn(move || func(&iter_func, &terminate_func))
+        );
+    }
 }
-
-pub enum TerminationResult
-{
-    RequestIteration,
-    Terminate
-}
-
-type PanicPayload = Box<dyn Any + Send>;
 
 pub struct CrashHandler
 {
-    crash_receiver: Receiver<CrashInfo>,
+    crash_receiver: Mutex<Receiver<CrashInfo>>,
     crash_sender:   Sender<CrashInfo>
 }
 
@@ -78,7 +72,7 @@ impl CrashHandler
 
         CrashHandler {
             crash_sender:   tx,
-            crash_receiver: rx
+            crash_receiver: Mutex::new(rx)
         }
     }
 
@@ -87,18 +81,22 @@ impl CrashHandler
         func: impl FnOnce(&CrashHandlerManagedLoopSpawner) + UnwindSafe
     )
     {
-        if let Err(e) = std::panic::catch_unwind(|| {
-            func(&CrashHandlerManagedLoopSpawner {
-                handler: self
-            })
-        })
-        {
-            match e.downcast::<CrashInfo>()
+        std::thread::scope(|s| {
+            let spawner = CrashHandlerManagedLoopSpawner {
+                handler:         self,
+                thread_scope:    s,
+                spawned_handles: Mutex::new(Vec::new())
+            };
+
+            if let Err(e) = std::panic::catch_unwind(|| func(&spawner))
             {
-                Ok(crash_info) => self.crash_sender.send(*crash_info).unwrap(),
-                Err(e) => std::panic::panic_any(e)
+                match e.downcast::<CrashInfo>()
+                {
+                    Ok(crash_info) => self.crash_sender.send(*crash_info).unwrap(),
+                    Err(e) => std::panic::panic_any(e)
+                }
             }
-        }
+        })
     }
 
     pub fn should_loops_iterate(&self) -> bool
@@ -106,7 +104,10 @@ impl CrashHandler
         todo!()
     }
 
-    pub fn
+    pub fn terminate_loops(&self)
+    {
+        todo!()
+    }
 
     pub fn finish(self)
     {
@@ -114,6 +115,8 @@ impl CrashHandler
 
         let frames = self
             .crash_receiver
+            .into_inner()
+            .unwrap()
             .iter()
             .collect::<Vec<_>>()
             .into_iter()
@@ -129,7 +132,7 @@ pub struct CrashInfo
     thread_name: String,
     panic_time:  std::time::Instant,
     // TODO: backtrace
-    payload:     PanicPayload
+    payload:     Box<dyn Any + Send>
 }
 
 impl Display for CrashInfo
