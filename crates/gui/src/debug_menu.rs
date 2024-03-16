@@ -160,28 +160,31 @@ impl gfx::Recordable for DebugMenu
 
     fn record<'s>(&'s self, render_pass: &mut gfx::GenericPass<'s>, maybe_id: Option<gfx::DrawId>)
     {
+        let (gfx::GenericPass::Render(pass), None) = (render_pass, maybe_id)
+        else
         {
-            let (gfx::GenericPass::Render(pass), None) = (render_pass, maybe_id)
-            else
-            {
-                unreachable!()
-            };
+            unreachable!()
+        };
 
-            let (atlas, text_renderer) = {
-                let DebugMenuCriticalSection {
-                    ref mut atlas,
-                    ref mut text_renderer,
-                    ..
-                } = &mut *self.rendering_data.lock().unwrap();
+        let (atlas, text_renderer) = {
+            let DebugMenuCriticalSection {
+                ref mut atlas,
+                ref mut text_renderer,
+                ..
+            } = &mut *self.rendering_data.lock().unwrap();
 
-                (
-                    atlas as *const glyphon::TextAtlas,
-                    text_renderer as *const glyphon::TextRenderer
-                )
-            };
+            (
+                atlas as *const glyphon::TextAtlas,
+                text_renderer as *const glyphon::TextRenderer
+            )
+        };
 
-            // That's right! the square peg goes into the round hole!
-            unsafe { (*text_renderer).render(&*atlas, pass).unwrap() }
-        }
+        // That's right! the square peg goes into the round hole!
+        // Hillariously enough, this isn't actually a problem as the menu is dropped
+        // before the renderer, and calls to pre_record_update and record may never
+        // alias one another
+        // TODO: rework the lifetimes on the entire renderer subsystem to fix this,
+        // because this 1000% can be statically verified
+        unsafe { (*text_renderer).render(&*atlas, pass).unwrap() }
     }
 }
