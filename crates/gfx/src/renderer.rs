@@ -328,7 +328,7 @@ impl Renderer
         self.window_size_y.store(new_size.y, Ordering::SeqCst);
     }
 
-    pub fn enter_gfx_loop(&self, should_stop: &AtomicBool)
+    pub fn enter_gfx_loop(&self, should_continue: &dyn Fn() -> bool, request_terminate: &dyn Fn())
     {
         let mut guard = self.critical_section.lock().unwrap();
         let CriticalSection {
@@ -792,7 +792,7 @@ impl Renderer
             .unwrap();
 
         let _ = event_loop.run_on_demand(|event, control_flow| {
-            if should_stop.load(Acquire)
+            if !should_continue()
             {
                 control_flow.exit();
             }
@@ -836,7 +836,7 @@ impl Renderer
 
             if control_flow.exiting()
             {
-                should_stop.store(true, Release);
+                request_terminate();
             }
         });
 

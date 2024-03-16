@@ -5,19 +5,17 @@
 #![feature(trait_upcasting)]
 #![feature(effects)]
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 fn main()
 {
     #[cfg(debug_assertions)]
     std::env::set_var("RUST_BACKTRACE", "full");
 
-    // Setup Logger
     let logger: &'static mut util::AsyncLogger = Box::leak(Box::new(util::AsyncLogger::new()));
     log::set_logger(logger).unwrap();
     log::set_max_level(log::LevelFilter::Trace);
 
-    // Setup threadpool
     *util::access_global_thread_pool().write().unwrap() = Some(util::ThreadPool::new());
 
     let crash_handler = util::CrashHandler::new();
@@ -28,21 +26,39 @@ fn main()
         });
 
         let game = handle.enter_constrained("Game Creation".to_string(), |_, _| {
-            game::Game::new(renderer)
+            game::Game::new(renderer.clone())
         });
 
-        let _verdigris = handle.enter_constrained("Verdigris Creation".to_string(), |_, _| {
-            verdigris::TestScene::new(game.clone())
-        });
+        {
+            let _verdigris = handle.enter_constrained("Verdigris Creation".to_string(), |_, _| {
+                verdigris::TestScene::new(game.clone())
+            });
 
-        handle.enter_constrained_thread("Game Tick Thread".to_string(), |continue_func, _| {
-            game.enter_tick_loop(continue_func)
-        });
+            let local_game = game.clone();
+            handle.enter_constrained_thread(
+                "Game Tick Thread".to_string(),
+                move |continue_func, _| local_game.clone().enter_tick_loop(continue_func)
+            );
 
-        // handle.enter_constrained("Gfx Loop".to_string(), |_, _|
-        // renderer.enter_gfx_loop());
+            let local_renderer = renderer.clone();
+            handle.enter_constrained(
+                "Gfx Loop".to_string(),
+                move |continue_func, terminate_func| {
+                    local_renderer.enter_gfx_loop(continue_func, terminate_func)
+                }
+            );
+        }
 
-        // TODO: check for retaining of renderer and game
+        if Arc::into_inner(game).is_none()
+        {
+            log::warn!("Game was retained!")
+        }
+
+        if Arc::into_inner(renderer).is_none()
+        {
+            log::warn!("Renderer was retained!")
+        }
+
         // TODO: remove arc now that the threads are scoped???
     });
 

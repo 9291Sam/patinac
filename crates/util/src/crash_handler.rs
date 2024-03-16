@@ -1,28 +1,30 @@
 use std::any::Any;
 use std::fmt::Display;
 use std::panic::{RefUnwindSafe, UnwindSafe};
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering::*;
 use std::sync::mpsc::{Receiver, Sender};
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 use std::thread::{Scope, ScopedJoinHandle};
 
-pub struct CrashHandlerManagedLoopSpawner<'h, 's, 'scope, 'env>
+pub struct CrashHandlerManagedLoopSpawner<'scope, 'env>
 {
-    handler:         &'h CrashHandler,
-    thread_scope:    &'s Scope<'scope, 'env>,
+    handler:         &'scope CrashHandler,
+    thread_scope:    &'scope Scope<'scope, 'env>,
     spawned_handles: Mutex<Vec<ScopedJoinHandle<'scope, ()>>>
 }
 
-impl UnwindSafe for CrashHandlerManagedLoopSpawner<'_, '_, '_, '_> {}
-impl RefUnwindSafe for CrashHandlerManagedLoopSpawner<'_, '_, '_, '_> {}
+impl UnwindSafe for CrashHandlerManagedLoopSpawner<'_, '_> {}
+impl RefUnwindSafe for CrashHandlerManagedLoopSpawner<'_, '_> {}
 
 type ContinueLoopingFunc<'l> = dyn Fn() -> bool + 'l;
 type TerminateLoopsFunc<'l> = dyn Fn() + 'l;
 
-impl<'h, 's, 'scope, 'env> CrashHandlerManagedLoopSpawner<'h, 's, 'scope, 'env>
+impl<'scope, 'env> CrashHandlerManagedLoopSpawner<'scope, 'env>
 {
     pub fn enter_constrained<R, F>(&self, name: String, func: F) -> R
     where
-        F: FnOnce(&ContinueLoopingFunc<'h>, &TerminateLoopsFunc<'h>) -> R + UnwindSafe
+        F: FnOnce(&ContinueLoopingFunc<'scope>, &TerminateLoopsFunc<'scope>) -> R + UnwindSafe
     {
         let iter_func = || self.handler.should_loops_iterate();
         let terminate_func = || self.handler.terminate_loops();
@@ -42,10 +44,12 @@ impl<'h, 's, 'scope, 'env> CrashHandlerManagedLoopSpawner<'h, 's, 'scope, 'env>
     }
 
     // help
-    pub fn enter_constrained_thread<'m, F>(&'m self, name: String, func: F)
+    pub fn enter_constrained_thread<F>(&self, name: String, func: F)
     where
-        F: FnOnce(&ContinueLoopingFunc<'h>, &TerminateLoopsFunc<'h>) + UnwindSafe + Send + 'm
-        // 'm: 'scope
+        F: FnOnce(&ContinueLoopingFunc<'scope>, &TerminateLoopsFunc<'scope>)
+            + UnwindSafe
+            + Send
+            + 'scope
     {
         let iter_func = || self.handler.should_loops_iterate();
         let terminate_func = || self.handler.terminate_loops();
@@ -59,8 +63,9 @@ impl<'h, 's, 'scope, 'env> CrashHandlerManagedLoopSpawner<'h, 's, 'scope, 'env>
 
 pub struct CrashHandler
 {
-    crash_receiver: Mutex<Receiver<CrashInfo>>,
-    crash_sender:   Sender<CrashInfo>
+    crash_receiver:       Mutex<Receiver<CrashInfo>>,
+    crash_sender:         Sender<CrashInfo>,
+    should_loops_iterate: AtomicBool
 }
 
 impl CrashHandler
@@ -71,8 +76,9 @@ impl CrashHandler
         let (tx, rx) = std::sync::mpsc::channel();
 
         CrashHandler {
-            crash_sender:   tx,
-            crash_receiver: Mutex::new(rx)
+            crash_sender:         tx,
+            crash_receiver:       Mutex::new(rx),
+            should_loops_iterate: AtomicBool::new(true)
         }
     }
 
@@ -101,12 +107,12 @@ impl CrashHandler
 
     pub fn should_loops_iterate(&self) -> bool
     {
-        todo!()
+        self.should_loops_iterate.load(SeqCst)
     }
 
     pub fn terminate_loops(&self)
     {
-        todo!()
+        self.should_loops_iterate.store(false, SeqCst)
     }
 
     pub fn finish(self)

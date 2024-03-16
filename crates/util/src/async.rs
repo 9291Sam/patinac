@@ -6,6 +6,13 @@ use std::thread::JoinHandle;
 use bytemuck::Contiguous;
 use crossbeam::channel::{Receiver, Sender};
 
+enum TransmittedValue<T>
+{
+    BeforeTransmission,
+    Value(T),
+    AfterTransmission
+}
+
 #[derive(Debug)]
 pub struct Future<T: Send>
 where
@@ -23,9 +30,10 @@ impl<T: Send> Drop for Future<T>
         {
             let _ = self.poll_ref();
 
-            log::trace!("Tried dropping an unresolved future");
-
-            let _ = self.get_ref();
+            if !self.resolved.load(SeqCst)
+            {
+                log::warn!("Tried dropping an unresolved future, detaching!");
+            }
         }
     }
 }
