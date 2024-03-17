@@ -731,7 +731,9 @@ impl Renderer
                     camera.borrow(),
                     self.get_delta_time() * 1000.0,
                     1.0 / self.get_delta_time(),
-                    util::bytes_as_string(util::get_bytes_of_active_allocations() as f64)
+                    util::bytes_as_string::<{ util::SuffixType::Full }>(
+                        util::get_bytes_of_active_allocations() as f64
+                    )
                 );
             }
 
