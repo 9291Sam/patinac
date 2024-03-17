@@ -13,6 +13,7 @@ Make a spell
 
 
 Misc:
+    - scramble draw order dogfood!!!
     - Consume memory ordering bikeshedding?
     - Custom Linear Algebra library?
     - A proper crash handler?

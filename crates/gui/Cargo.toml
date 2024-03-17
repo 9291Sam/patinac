@@ -9,4 +9,4 @@ gfx = { workspace = true }
 util = { workspace = true }
 glyphon = { workspace = true }
 log = { workspace = true }
-sys-locale.workspace = { workspace = true }
+sys-locale = { workspace = true }

@@ -107,11 +107,6 @@ impl<T: Send> Future<T>
             }
         }
     }
-
-    fn detach(self)
-    {
-        self.resolved.store(true, SeqCst);
-    }
 }
 
 #[derive(Debug)]
@@ -186,7 +181,9 @@ where
         .enqueue_function(move || {
             if let Err(f) = sender.send(func())
             {
-                log::error!("Tried to send message to killed threadpool! {}", caller)
+                log::error!("Tried to send message to killed threadpool! {}", caller);
+
+                f.as_inner();
             }
         });
 
@@ -213,12 +210,7 @@ impl ThreadPool
     {
         let (sender, receiver) = crossbeam::channel::unbounded();
 
-        let threads = (0..((std::thread::available_parallelism()
-            .unwrap()
-            .into_integer()
-            .max(3)
-            - 2)
-            * 2))
+        let threads = (0..(std::thread::available_parallelism().unwrap().into_integer() * 2))
             .map(|_| {
                 let this_receiver: Receiver<Box<dyn FnOnce() + Send>> = receiver.clone();
 
