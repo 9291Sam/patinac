@@ -50,10 +50,17 @@ impl DebugMenu
         );
         let mut buffer = glyphon::Buffer::new(&mut font_system, glyphon::Metrics::new(16.0, 20.0));
 
-        let physical_width = 640.0;
-        let physical_height = 480.0;
+        let (physical_width, physical_height) = {
+            let dim = renderer.get_framebuffer_size();
 
-        buffer.set_size(&mut font_system, physical_width, physical_height);
+            (dim.x, dim.y)
+        };
+
+        buffer.set_size(
+            &mut font_system,
+            physical_width as f32,
+            physical_height as f32
+        );
         buffer.set_text(
             &mut font_system,
             "Hello world! 👋\nThis is rendered with 🦅 glyphon 🦁\nThe text below should be \
@@ -130,6 +137,13 @@ impl gfx::Recordable for DebugMenu
             ref mut text_renderer,
             ref mut buffer
         } = &mut *self.rendering_data.lock().unwrap();
+
+        buffer.set_text(
+            font_system,
+            &format!("Fps: {}", 1.0 / renderer.get_delta_time()),
+            glyphon::Attrs::new().family(glyphon::Family::Monospace),
+            glyphon::Shaping::Advanced
+        );
 
         let (width, height) = {
             let dim = renderer.get_framebuffer_size();

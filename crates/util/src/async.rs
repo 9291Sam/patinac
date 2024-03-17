@@ -213,11 +213,12 @@ impl ThreadPool
     {
         let (sender, receiver) = crossbeam::channel::unbounded();
 
-        let threads = (0..(std::thread::available_parallelism()
+        let threads = (0..((std::thread::available_parallelism()
             .unwrap()
             .into_integer()
             .max(3)
-            - 2))
+            - 2)
+            * 2))
             .map(|_| {
                 let this_receiver: Receiver<Box<dyn FnOnce() + Send>> = receiver.clone();
 
