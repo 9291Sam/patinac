@@ -223,9 +223,9 @@ impl Renderer
             window,
             event_loop,
             camera: RefCell::new(super::Camera::new(
-                glm::Vec3::new(95.22, 22.22232, -92.22422),
-                0.58903,
-                0.18343
+                glm::Vec3::new(-2658.22, 262.22232, 2623.2422),
+                0.318903,
+                -3.978343
             ))
         };
 
@@ -814,9 +814,6 @@ impl Renderer
         window.set_cursor_grab(CursorGrabMode::Locked).unwrap();
         #[cfg(not(target_os = "macos"))]
         window.set_cursor_grab(CursorGrabMode::Confined).unwrap();
-        window
-            .set_cursor_position(LogicalPosition::new(0.0, 0.0))
-            .unwrap();
 
         let _ = event_loop.run_on_demand(|event, control_flow| {
             crash_poll_func();

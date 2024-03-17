@@ -109,6 +109,11 @@ impl CrashHandler
 
         // TODO: capture backtrace
         std::panic::set_hook(Box::new(|info| {
+            if info.payload().type_id() == std::any::TypeId::of::<CrashInfo>()
+            {
+                return;
+            }
+
             let file = info.location().unwrap().file().replace('\\', "/");
             let line = info.location().unwrap().line();
 
@@ -233,6 +238,14 @@ pub fn panic_payload_as_cow(payload: &(dyn Any + Send)) -> Cow<'static, str>
     else if let Some(s) = payload.downcast_ref::<String>()
     {
         Cow::Owned(s.clone())
+    }
+    else if let Some(s) = payload.downcast_ref::<CrashInfo>()
+    {
+        Cow::Owned(format!("{s}"))
+    }
+    else if let Some(s) = payload.downcast_ref::<Box<dyn Any + Send>>()
+    {
+        panic_payload_as_cow(&**s)
     }
     else
     {

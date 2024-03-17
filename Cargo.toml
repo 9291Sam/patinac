@@ -9,7 +9,7 @@ members = [
     "crates/gfx",
     "crates/game",
     "crates/voxel",
-    "crates/verdigris", 
+    "crates/verdigris",
     "crates/gui",
 ]
 
@@ -21,6 +21,7 @@ voxel = { workspace = true }
 verdigris = { workspace = true }
 gui = { workspace = true }
 log = { workspace = true }
+sys-locale.workspace = true
 
 [workspace.dependencies]
 util = { path = "crates/util" }
@@ -52,6 +53,7 @@ seahash = "4.1.0"
 oneshot = "0.1.6"
 crossbeam = "0.8.4"
 glyphon = "0.5.0"
+sys-locale = "0.3.1"
 
 [profile.dev]
 opt-level = 2

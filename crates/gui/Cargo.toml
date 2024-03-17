@@ -4,7 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-game = {workspace = true}
-gfx = {workspace = true}
-util = {workspace = true}
-glyphon = {workspace = true}
+game = { workspace = true }
+gfx = { workspace = true }
+util = { workspace = true }
+glyphon = { workspace = true }
+log = { workspace = true }
+sys-locale.workspace = { workspace = true }

@@ -250,6 +250,8 @@ impl ThreadPool
     {
         std::mem::drop(self.sender);
 
+        log::info!("Joining threadpool!");
+
         self.threads.drain(..).for_each(|t| t.join().unwrap());
     }
 }

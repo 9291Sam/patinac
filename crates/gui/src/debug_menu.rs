@@ -22,7 +22,20 @@ impl DebugMenu
 {
     pub fn new(renderer: &gfx::Renderer) -> Arc<Self>
     {
-        let mut font_system = glyphon::FontSystem::new();
+        let mut db = glyphon::fontdb::Database::new();
+        db.load_font_data(include_bytes!("unifont-15.1.05.otf").into());
+        db.load_font_data(include_bytes!("OpenMoji-color-sbix.ttf").into());
+
+        let mut font_system = glyphon::FontSystem::new_with_locale_and_db(
+            sys_locale::get_locale().unwrap_or_else(|| {
+                log::warn!("failed to get system locale, falling back to en-US");
+                String::from("en-US")
+            }),
+            db
+        );
+
+        // let mut font_system = glyphon::FontSystem::new_with_fonts([source]);
+        // let mut font_system = glyphon::FontSystem::new();
         let cache = glyphon::SwashCache::new();
         let mut atlas = glyphon::TextAtlas::new(
             &renderer.device,
@@ -35,7 +48,7 @@ impl DebugMenu
             gfx::wgpu::MultisampleState::default(),
             None
         );
-        let mut buffer = glyphon::Buffer::new(&mut font_system, glyphon::Metrics::new(30.0, 42.0));
+        let mut buffer = glyphon::Buffer::new(&mut font_system, glyphon::Metrics::new(16.0, 20.0));
 
         let physical_width = 640.0;
         let physical_height = 480.0;
@@ -45,7 +58,7 @@ impl DebugMenu
             &mut font_system,
             "Hello world! 👋\nThis is rendered with 🦅 glyphon 🦁\nThe text below should be \
              partially clipped.\na b c d e f g h i j k l m n o p q r s t u v w x y z",
-            glyphon::Attrs::new().family(glyphon::Family::SansSerif),
+            glyphon::Attrs::new().family(glyphon::Family::Monospace),
             glyphon::Shaping::Advanced
         );
         buffer.shape_until_scroll(&mut font_system);
