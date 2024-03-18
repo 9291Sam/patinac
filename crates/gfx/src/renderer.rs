@@ -102,7 +102,7 @@ impl Renderer
     ///
     /// The Self returned must be dropped on the same thread that it was created
     /// on
-    pub unsafe fn new() -> Self
+    pub unsafe fn new(window_title: impl Into<String>) -> Self
     {
         let event_loop = EventLoop::new().unwrap();
         let window = WindowBuilder::new()
@@ -110,6 +110,7 @@ impl Renderer
                 width:  1920,
                 height: 1080
             })
+            .with_title(window_title)
             .with_position(winit::dpi::PhysicalPosition {
                 x: 100, y: 100
             })

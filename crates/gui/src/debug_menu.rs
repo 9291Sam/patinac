@@ -13,11 +13,12 @@ pub struct DebugMenu
 
 struct DebugMenuCriticalSection
 {
-    font_system:   glyphon::FontSystem,
-    cache:         glyphon::SwashCache,
-    atlas:         glyphon::TextAtlas,
-    text_renderer: glyphon::TextRenderer,
-    buffer:        glyphon::Buffer
+    font_system:          glyphon::FontSystem,
+    cache:                glyphon::SwashCache,
+    atlas:                glyphon::TextAtlas,
+    text_renderer:        glyphon::TextRenderer,
+    buffer:               glyphon::Buffer,
+    previous_update_time: std::time::Instant
 }
 
 impl DebugMenu
@@ -66,7 +67,8 @@ impl DebugMenu
                 cache,
                 atlas,
                 text_renderer,
-                buffer
+                buffer,
+                previous_update_time: std::time::Instant::now()
             })
         });
 
@@ -143,16 +145,24 @@ impl gfx::Recordable for DebugMenu
             ref mut cache,
             ref mut atlas,
             ref mut text_renderer,
-            ref mut buffer
+            ref mut buffer,
+            ref mut previous_update_time
         } = &mut *self.rendering_data.lock().unwrap();
 
-        // ╔═╦═╗
-        // ║ ║ ║
-        // ╠═╬═╣
-        // ║ ║ ║
-        // ╚═╩═╝
+        let now = std::time::Instant::now();
 
-        #[rustfmt::skip]
+        const UPDATE_SPACING_TIME: std::time::Duration = std::time::Duration::from_millis(75);
+
+        if now.duration_since(*previous_update_time) > UPDATE_SPACING_TIME
+        {
+            *previous_update_time = now;
+            // ╔═╦═╗
+            // ║ ║ ║
+            // ╠═╬═╣
+            // ║ ║ ║
+            // ╚═╩═╝
+
+            #[rustfmt::skip]
         buffer.set_text(
             font_system,
             &format!(
@@ -172,38 +182,39 @@ r#"╔═══════════════════╦════�
             glyphon::Attrs::new().family(glyphon::Family::Monospace),
             glyphon::Shaping::Advanced
         );
-        let (width, height) = {
-            let dim = renderer.get_framebuffer_size();
+            let (width, height) = {
+                let dim = renderer.get_framebuffer_size();
 
-            (dim.x, dim.y)
-        };
+                (dim.x, dim.y)
+            };
 
-        text_renderer
-            .prepare(
-                &renderer.device,
-                &renderer.queue,
-                font_system,
-                atlas,
-                glyphon::Resolution {
-                    width,
-                    height
-                },
-                [glyphon::TextArea {
-                    buffer,
-                    left: 2.0,
-                    top: 0.0,
-                    scale: 1.0,
-                    bounds: glyphon::TextBounds {
-                        left:   0,
-                        top:    0,
-                        right:  600,
-                        bottom: 160
+            text_renderer
+                .prepare(
+                    &renderer.device,
+                    &renderer.queue,
+                    font_system,
+                    atlas,
+                    glyphon::Resolution {
+                        width,
+                        height
                     },
-                    default_color: glyphon::Color::rgb(255, 255, 255)
-                }],
-                cache
-            )
-            .unwrap();
+                    [glyphon::TextArea {
+                        buffer,
+                        left: 2.0,
+                        top: 0.0,
+                        scale: 1.0,
+                        bounds: glyphon::TextBounds {
+                            left:   0,
+                            top:    0,
+                            right:  600,
+                            bottom: 160
+                        },
+                        default_color: glyphon::Color::rgb(255, 255, 255)
+                    }],
+                    cache
+                )
+                .unwrap();
+        }
 
         gfx::RecordInfo {
             should_draw: true,
@@ -214,28 +225,31 @@ r#"╔═══════════════════╦════�
 
     fn record<'s>(&'s self, render_pass: &mut gfx::GenericPass<'s>, maybe_id: Option<gfx::DrawId>)
     {
+        let (gfx::GenericPass::Render(pass), None) = (render_pass, maybe_id)
+        else
         {
-            let (gfx::GenericPass::Render(pass), None) = (render_pass, maybe_id)
-            else
-            {
-                unreachable!()
-            };
+            unreachable!()
+        };
 
-            let (atlas, text_renderer) = {
-                let DebugMenuCriticalSection {
-                    ref mut atlas,
-                    ref mut text_renderer,
-                    ..
-                } = &mut *self.rendering_data.lock().unwrap();
+        let (atlas, text_renderer) = {
+            let DebugMenuCriticalSection {
+                ref mut atlas,
+                ref mut text_renderer,
+                ..
+            } = &mut *self.rendering_data.lock().unwrap();
 
-                (
-                    atlas as *const glyphon::TextAtlas,
-                    text_renderer as *const glyphon::TextRenderer
-                )
-            };
+            (
+                atlas as *const glyphon::TextAtlas,
+                text_renderer as *const glyphon::TextRenderer
+            )
+        };
 
-            // That's right! the square peg goes into the round hole!
-            unsafe { (*text_renderer).render(&*atlas, pass).unwrap() }
-        }
+        // That's right! the square peg goes into the round hole!
+        // Hillariously enough, this isn't actually a problem as the menu is dropped
+        // before the renderer, and calls to pre_record_update and record may never
+        // alias one another
+        // TODO: rework the lifetimes on the entire renderer subsystem to fix this,
+        // because this 1000% can be statically verified
+        unsafe { (*text_renderer).render(&*atlas, pass).unwrap() }
     }
 }

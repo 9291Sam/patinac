@@ -38,10 +38,37 @@ pub fn hash_combine(a_seed: u64, bytes: &[u8]) -> u64
     seed
 }
 
+#[derive(Clone, Copy)]
 pub struct SendSyncMutPtr<T>(pub *mut T);
 
 unsafe impl<T> Send for SendSyncMutPtr<T> {}
 unsafe impl<T> Sync for SendSyncMutPtr<T> {}
+
+impl<T> Ord for SendSyncMutPtr<T>
+{
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering
+    {
+        self.0.cmp(&other.0)
+    }
+}
+
+impl<T> PartialOrd for SendSyncMutPtr<T>
+{
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering>
+    {
+        Some(self.cmp(other))
+    }
+}
+
+impl<T> PartialEq for SendSyncMutPtr<T>
+{
+    fn eq(&self, other: &Self) -> bool
+    {
+        self.0 == other.0
+    }
+}
+
+impl<T> Eq for SendSyncMutPtr<T> {}
 
 impl<T> Deref for SendSyncMutPtr<T>
 {

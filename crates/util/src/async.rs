@@ -211,15 +211,18 @@ impl ThreadPool
         let (sender, receiver) = crossbeam::channel::unbounded();
 
         let threads = (0..(std::thread::available_parallelism().unwrap().into_integer() * 2))
-            .map(|_| {
+            .map(|idx| {
                 let this_receiver: Receiver<Box<dyn FnOnce() + Send>> = receiver.clone();
 
-                std::thread::spawn(move || {
-                    while let Ok(func) = this_receiver.recv()
-                    {
-                        func()
-                    }
-                })
+                std::thread::Builder::new()
+                    .name(format!("Patinac Async Thread #{idx}"))
+                    .spawn(move || {
+                        while let Ok(func) = this_receiver.recv()
+                        {
+                            func()
+                        }
+                    })
+                    .unwrap()
             })
             .collect();
 
