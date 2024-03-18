@@ -21,7 +21,7 @@ impl TestScene
     pub fn new(game: Arc<game::Game>) -> Arc<Self>
     {
         let brick_game = game.clone();
-        let chunk_r = 1;
+        let chunk_r = 0;
         let this = Arc::new(TestScene {
             brick_map_chunk: Mutex::new(
                 util::run_async(move || {
@@ -31,9 +31,11 @@ impl TestScene
                     .map(|(x, z)| -> util::Promise<_> {
                         let local_game = brick_game.clone();
 
-                        std::thread::sleep(Duration::from_millis(125));
+                        std::thread::sleep(Duration::from_millis(25));
 
                         util::run_async(move || {
+
+                            // std::thread::sleep(Duration::from_millis(rand::thread_rng().gen_range(225..=875)));
                             create_and_fill(
                                 &local_game,
                                 glm::Vec3::new(
