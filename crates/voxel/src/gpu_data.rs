@@ -201,7 +201,7 @@ type BrickMap =
     [[[VoxelBrickPointer; BRICK_MAP_EDGE_SIZE]; BRICK_MAP_EDGE_SIZE]; BRICK_MAP_EDGE_SIZE];
 
 pub const VOXEL_BRICK_EDGE_LENGTH: usize = 8;
-pub const BRICK_MAP_EDGE_SIZE: usize = 128;
+pub const BRICK_MAP_EDGE_SIZE: usize = 64;
 pub const CHUNK_VOXEL_SIZE: usize = VOXEL_BRICK_EDGE_LENGTH * BRICK_MAP_EDGE_SIZE;
 
 // TODO: this shit very much isnt MT safe and will have races all over the
@@ -616,7 +616,7 @@ mod test
     fn assert_sizes()
     {
         assert_eq!(1024, std::mem::size_of::<VoxelBrick>());
-        assert_eq!(8 * 1024 * 1024, std::mem::size_of::<BrickMap>());
+        assert_eq!(1 * 1024 * 1024, std::mem::size_of::<BrickMap>());
     }
 
     #[test]

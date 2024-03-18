@@ -104,8 +104,6 @@ impl Debug for DebugMenuCriticalSection
         f.debug_struct("DebugMenuCriticalSection")
             .field("font_system", &self.font_system)
             .field("cache", &self.cache)
-            // .field("atlas", &self.atlas)
-            // .field("text_renderer", &self.text_renderer)
             .field("buffer", &self.buffer)
             .finish()
     }

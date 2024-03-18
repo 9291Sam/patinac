@@ -477,7 +477,6 @@ impl Renderer
                 self.renderables
                     .access()
                     .into_iter()
-                    // .into_par_iter()
                     .filter_map(|(ptr, weak_renderable)| {
                         match weak_renderable.upgrade()
                         {

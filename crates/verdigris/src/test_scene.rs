@@ -21,33 +21,31 @@ impl TestScene
     pub fn new(game: Arc<game::Game>) -> Arc<Self>
     {
         let brick_game = game.clone();
-        let chunk_r = 0;
+        let chunk_r = 1;
         let this = Arc::new(TestScene {
             brick_map_chunk: Mutex::new(
                 util::run_async(move || {
                     iproduct!(-chunk_r..=chunk_r, -chunk_r..=chunk_r)
-                // iproduct!(-1..=1, -1..=1)
-                // iproduct!(-0..=0, -0..=0)
-                    .map(|(x, z)| -> util::Promise<_> {
-                        let local_game = brick_game.clone();
+                        .map(|(x, z)| -> util::Promise<_> {
+                            let local_game = brick_game.clone();
 
-                        std::thread::sleep(Duration::from_millis(25));
+                            std::thread::sleep(Duration::from_millis(25));
 
-                        util::run_async(move || {
+                            let chunk_edge_len = voxel::CHUNK_VOXEL_SIZE as f32;
 
-                            // std::thread::sleep(Duration::from_millis(rand::thread_rng().gen_range(225..=875)));
-                            create_and_fill(
-                                &local_game,
-                                glm::Vec3::new(
-                                    (x as f32) * voxel::CHUNK_VOXEL_SIZE as f32 - (voxel::CHUNK_VOXEL_SIZE / 2) as f32,
-                                    -((voxel::CHUNK_VOXEL_SIZE / 2) as f32),
-                                    (z as f32) * voxel::CHUNK_VOXEL_SIZE as f32 - (voxel::CHUNK_VOXEL_SIZE / 2) as f32
+                            util::run_async(move || {
+                                create_and_fill(
+                                    &local_game,
+                                    glm::Vec3::new(
+                                        (x as f32) * chunk_edge_len - chunk_edge_len / 2.0,
+                                        -chunk_edge_len / 2.0,
+                                        (z as f32) * chunk_edge_len - chunk_edge_len / 2.0
+                                    )
                                 )
-                            )
+                            })
+                            .into()
                         })
-                        .into()
-                    })
-                    .collect()
+                        .collect()
                 })
                 .into()
             ),
@@ -74,12 +72,14 @@ fn create_and_fill(brick_game: &game::Game, pos: glm::Vec3) -> Arc<super::BrickM
         let random_generator = RefCell::new(rand::thread_rng());
 
         let noise_sampler = |x: u16, z: u16| {
-            ((noise_generator.get([
+            let r = ((noise_generator.get([
                 ((pos.x as f64) + (x as f64)) / 256.0,
                 0.0,
                 ((pos.z as f64) + (z as f64)) / 256.0
-            ]) * 218.0)
-                + 384.0) as u16
+            ]) * 64.0)
+                + 448.0) as u16;
+
+            r.clamp(0, 511)
         };
 
         let get_rand_grass_voxel = || -> Voxel {
@@ -98,7 +98,7 @@ fn create_and_fill(brick_game: &game::Game, pos: glm::Vec3) -> Arc<super::BrickM
                 .unwrap()
         };
 
-        let c = voxel::BRICK_MAP_EDGE_SIZE as u16;;
+        let c = voxel::BRICK_MAP_EDGE_SIZE as u16;
 
         for (x, y, z) in iproduct!(0..c, 0..c, 0..c)
         {
@@ -120,7 +120,8 @@ fn create_and_fill(brick_game: &game::Game, pos: glm::Vec3) -> Arc<super::BrickM
 
                 let pos = glm::U16Vec3::new(chunk_x, height, chunk_z);
 
-                top_free_brick_height = top_free_brick_height.max(height.div_euclid(voxel::VOXEL_BRICK_EDGE_LENGTH as u16) + 1);
+                top_free_brick_height = top_free_brick_height
+                    .max(height.div_euclid(voxel::VOXEL_BRICK_EDGE_LENGTH as u16) + 1);
 
                 data_manager.write_voxel(get_rand_grass_voxel(), pos);
             }
@@ -130,7 +131,10 @@ fn create_and_fill(brick_game: &game::Game, pos: glm::Vec3) -> Arc<super::BrickM
                 data_manager.write_brick(Voxel::Air, glm::U16Vec3::new(b_x, h, b_z));
             }
 
-            for (l_x, l_z) in iproduct!(0..voxel::VOXEL_BRICK_EDGE_LENGTH as u16, 0..voxel::VOXEL_BRICK_EDGE_LENGTH as u16)
+            for (l_x, l_z) in iproduct!(
+                0..voxel::VOXEL_BRICK_EDGE_LENGTH as u16,
+                0..voxel::VOXEL_BRICK_EDGE_LENGTH as u16
+            )
             {
                 let chunk_x = b_x * voxel::VOXEL_BRICK_EDGE_LENGTH as u16 + l_x;
                 let chunk_z = b_z * voxel::VOXEL_BRICK_EDGE_LENGTH as u16 + l_z;
@@ -139,9 +143,18 @@ fn create_and_fill(brick_game: &game::Game, pos: glm::Vec3) -> Arc<super::BrickM
 
                 let pos = glm::U16Vec3::new(chunk_x, grass_height + 1, chunk_z);
 
-                for y_p in pos.y..(top_free_brick_height * voxel::VOXEL_BRICK_EDGE_LENGTH as u16 + voxel::VOXEL_BRICK_EDGE_LENGTH as u16)
+                for y_p in pos.y
+                    ..(top_free_brick_height * voxel::VOXEL_BRICK_EDGE_LENGTH as u16
+                        + voxel::VOXEL_BRICK_EDGE_LENGTH as u16)
                 {
-                    data_manager.write_voxel(Voxel::Air, glm::U16Vec3::new(chunk_x, y_p, chunk_z));
+                    data_manager.write_voxel(
+                        Voxel::Air,
+                        glm::U16Vec3::new(
+                            chunk_x,
+                            y_p.clamp(0, (voxel::CHUNK_VOXEL_SIZE as u16) - 1),
+                            chunk_z
+                        )
+                    );
                 }
             }
         }
@@ -194,27 +207,27 @@ impl game::Entity for TestScene
 
                 if let util::Promise::Resolved(chunk) = &*p
                 {
-                    let manager = chunk.access_data_manager();
+                    // let manager = chunk.access_data_manager();
 
-                    for _ in 0..256
-                    {
-                        let center = 512u16;
-                        let edge = 64;
-                        let range = (center - edge)..(center + edge);
+                    // for _ in 0..256
+                    // {
+                    //     let center = (voxel::CHUNK_VOXEL_SIZE / 2) as u16;
+                    //     let edge = 64;
+                    //     let range = (center - edge)..(center + edge);
 
-                        let base: glm::U16Vec3 = glm::U16Vec3::new(
-                            rand::thread_rng().gen_range(range.clone()),
-                            rand::thread_rng().gen_range(range.clone()),
-                            rand::thread_rng().gen_range(range.clone())
-                        );
+                    //     let base: glm::U16Vec3 = glm::U16Vec3::new(
+                    //         rand::thread_rng().gen_range(range.clone()),
+                    //         rand::thread_rng().gen_range(range.clone()),
+                    //         rand::thread_rng().gen_range(range.clone())
+                    //     );
 
-                        manager.write_voxel(
-                            rand::thread_rng().gen_range(1..=12).try_into().unwrap(),
-                            base
-                        );
-                    }
+                    //     manager.write_voxel(
+                    //         rand::thread_rng().gen_range(1..=12).try_into().
+                    // unwrap(),         base
+                    //     );
+                    // }
 
-                    manager.flush_to_gpu();
+                    // manager.flush_to_gpu();
                 }
             })
         };

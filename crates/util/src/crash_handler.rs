@@ -135,9 +135,11 @@ impl CrashHandler
             let file_path: String = format!("[{prettified_filepath}:{line}]");
 
             log::error!(
-                "Thread ??? has crashed @ {file_path} with message |{}|",
-                panic_payload_as_cow(info.payload())
+                "Thread ??? has crashed @ {file_path} with message |{}|\n {}",
+                panic_payload_as_cow(info.payload()),
+                std::backtrace::Backtrace::force_capture()
             );
+            // TODO: proper backtraces!
         }));
 
         let (tx, rx) = std::sync::mpsc::channel();
