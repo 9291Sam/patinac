@@ -28,9 +28,6 @@ pub struct BrickMapChunk
     pipeline:         Arc<gfx::GenericPipeline>
 }
 
-unsafe impl Sync for BrickMapChunk {}
-unsafe impl Send for BrickMapChunk {}
-
 impl BrickMapChunk
 {
     pub fn new(game: &game::Game, center_position: glm::Vec3) -> Arc<Self>

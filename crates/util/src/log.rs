@@ -21,43 +21,46 @@ impl AsyncLogger
         let should_stop = Arc::new(AtomicBool::new(false));
 
         let thread_should_stop = should_stop.clone();
-        let worker_thread = std::thread::spawn(move || {
-            let mut log_file = std::fs::OpenOptions::new()
-                .read(false)
-                .write(true)
-                .append(false)
-                .truncate(true)
-                .create(true)
-                .open("patinac_log.txt")
-                .expect("Failed to create log file!");
+        let worker_thread = std::thread::Builder::new()
+            .name("Patinac AsyncLogger Thread".into())
+            .spawn(move || {
+                let mut log_file = std::fs::OpenOptions::new()
+                    .read(false)
+                    .write(true)
+                    .append(false)
+                    .truncate(true)
+                    .create(true)
+                    .open("patinac_log.txt")
+                    .expect("Failed to create log file!");
 
-            let mut write_fn = |message: String| {
-                println!("{}", message);
-                writeln!(log_file, "{}", message).unwrap()
-            };
+                let mut write_fn = |message: String| {
+                    println!("{}", message);
+                    writeln!(log_file, "{}", message).unwrap()
+                };
 
-            loop
-            {
-                if thread_should_stop.load(Ordering::Acquire)
+                loop
                 {
-                    break;
+                    if thread_should_stop.load(Ordering::Acquire)
+                    {
+                        break;
+                    }
+
+                    match receiver.try_recv()
+                    {
+                        Ok(message) => write_fn(message),
+                        Err(TryRecvError::Disconnected) => break,
+                        Err(_) =>
+                        {}
+                    }
                 }
 
-                match receiver.try_recv()
+                // cleanup loop
+                while let Ok(message) = receiver.try_recv()
                 {
-                    Ok(message) => write_fn(message),
-                    Err(TryRecvError::Disconnected) => break,
-                    Err(_) =>
-                    {}
+                    write_fn(message);
                 }
-            }
-
-            // cleanup loop
-            while let Ok(message) = receiver.try_recv()
-            {
-                write_fn(message);
-            }
-        });
+            })
+            .unwrap();
 
         AsyncLogger {
             thread_sender,

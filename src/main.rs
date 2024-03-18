@@ -22,7 +22,9 @@ fn main()
 
     crash_handler.into_guarded_scope(|handle| {
         let renderer = handle.enter_constrained("Renderer Creation".to_string(), |_, _, _| {
-            Arc::new(unsafe { gfx::Renderer::new() })
+            Arc::new(unsafe {
+                gfx::Renderer::new(format!("Patinac {}", env!("CARGO_PKG_VERSION")))
+            })
         });
 
         let game = handle.enter_constrained("Game Creation".to_string(), |_, _, _| {

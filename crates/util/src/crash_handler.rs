@@ -67,23 +67,25 @@ impl<'scope, 'env> CrashHandlerManagedLoopSpawner<'scope, 'env>
         let crash_poll_func = || self.handler.poll_threads_for_crashes();
 
         let thread_crash_notifier = self.handler.has_thread_crashed.clone();
-        self.spawned_handles
-            .lock()
-            .unwrap()
-            .push(self.thread_scope.spawn(move || {
-                match std::panic::catch_unwind(|| {
-                    func(&iter_func, &terminate_func, &crash_poll_func)
-                })
-                {
-                    Ok(()) => Ok(()),
-                    Err(e) =>
+        self.spawned_handles.lock().unwrap().push(
+            std::thread::Builder::new()
+                .name(name)
+                .spawn_scoped(self.thread_scope, move || {
+                    match std::panic::catch_unwind(|| {
+                        func(&iter_func, &terminate_func, &crash_poll_func)
+                    })
                     {
-                        thread_crash_notifier.store(true, SeqCst);
+                        Ok(()) => Ok(()),
+                        Err(e) =>
+                        {
+                            thread_crash_notifier.store(true, SeqCst);
 
-                        Err(e)
+                            Err(e)
+                        }
                     }
-                }
-            }));
+                })
+                .unwrap()
+        );
     }
 }
 
