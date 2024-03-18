@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use std::cell::RefCell;
 use std::sync::{Arc, Mutex};
 
-use gfx::glm::{self, any};
+use gfx::glm::{self};
 use itertools::iproduct;
 use noise::NoiseFn;
 use rand::Rng;
@@ -98,8 +98,6 @@ fn create_and_fill(brick_game: &game::Game, pos: glm::Vec3) -> Arc<super::BrickM
 
             data_manager.write_brick(get_rand_stone_voxel(), pos);
         }
-
-        let b = 1024u16;
 
         for (b_x, b_z) in iproduct!(0..c, 0..c)
         {

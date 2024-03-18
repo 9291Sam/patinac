@@ -35,13 +35,17 @@ fn main()
                     verdigris::TestScene::new(game.clone())
                 });
 
+            let _debug_menu = handle.enter_constrained("Game Creation".to_string(), |_, _, _| {
+                gui::DebugMenu::new(&renderer)
+            });
+
             let local_game = game.clone();
             handle.enter_constrained_thread(
                 "Game Tick Thread".to_string(),
                 move |continue_func, _, _| local_game.clone().enter_tick_loop(continue_func)
             );
 
-            let _debug_menu = gui::DebugMenu::new(&renderer);
+            // TODO: if I put an enter_constrained here it hangs like the debug menu
 
             // TODO: replace poll func with loop checking one for checking for long running
             // loops

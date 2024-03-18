@@ -422,7 +422,7 @@ impl VoxelChunkDataManager
 
                     cpu_brick_buffer.resize(new_len, VoxelBrick::new_empty());
 
-                    let old_buffer = std::mem::replace(
+                    let _ = std::mem::replace(
                         gpu_brick_buffer,
                         self.renderer.create_buffer(&wgpu::BufferDescriptor {
                             label:              Some("Voxel Chunk Data Manager Brick Buffer"),

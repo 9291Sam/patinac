@@ -1,3 +1,4 @@
+#![feature(adt_const_params)]
 #![feature(map_try_insert)]
 #![feature(maybe_uninit_as_bytes)]
 #![feature(allocator_api)]
@@ -14,6 +15,7 @@ mod registrar;
 mod uuid;
 mod window;
 
+use std::marker::ConstParamTy;
 use std::ops::Deref;
 use std::sync::Arc;
 
@@ -80,11 +82,20 @@ impl<T> From<*mut T> for SendSyncMutPtr<T>
     }
 }
 
-pub fn bytes_as_string(bytes: f64) -> String
+#[derive(ConstParamTy, PartialEq, Eq)]
+pub enum SuffixType
 {
-    const SUFFIX: &[&str] = &[
+    Short,
+    Full
+}
+
+pub fn bytes_as_string<const SUFFIX: SuffixType>(bytes: f64) -> String
+{
+    const FULL_SUFFIX: &[&str] = &[
         "B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB", "RiB", "QiB"
     ];
+
+    const SHORT_SUFFIX: &[&str] = &["B", "K", "M", "G", "T", "P", "E", "Z", "Y", "R", "Q"];
 
     const UNIT: f64 = 1024.0;
 
@@ -102,7 +113,15 @@ pub fn bytes_as_string(bytes: f64) -> String
         .to_owned();
 
     // Add suffix
-    [&result, SUFFIX[base.floor() as usize]].join(" ")
+    [
+        &result,
+        match SUFFIX
+        {
+            SuffixType::Short => SHORT_SUFFIX,
+            SuffixType::Full => FULL_SUFFIX
+        }[base.floor() as usize]
+    ]
+    .join(" ")
 }
 
 // struct StaticMutex<T: ?Sized>

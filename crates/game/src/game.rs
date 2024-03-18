@@ -1,8 +1,6 @@
 use std::sync::atomic::Ordering::*;
-use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64};
-use std::sync::{Arc, Mutex, Weak};
-
-use rand::Rng;
+use std::sync::atomic::{AtomicU32, AtomicU64};
+use std::sync::{Arc, Weak};
 
 use crate::Entity;
 

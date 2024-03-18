@@ -4,8 +4,8 @@ use std::collections::HashMap;
 use std::num::NonZeroU64;
 use std::ops::Deref;
 use std::panic::{RefUnwindSafe, UnwindSafe};
-use std::sync::atomic::Ordering::{self, *};
-use std::sync::atomic::{AtomicBool, AtomicU32};
+use std::sync::atomic::AtomicU32;
+use std::sync::atomic::Ordering::{self};
 use std::sync::{Arc, Mutex, Weak};
 use std::thread::ThreadId;
 
@@ -14,7 +14,7 @@ use nalgebra_glm as glm;
 use pollster::FutureExt;
 use strum::IntoEnumIterator;
 use util::{Registrar, SendSyncMutPtr};
-use winit::dpi::{LogicalPosition, PhysicalSize};
+use winit::dpi::PhysicalSize;
 use winit::event::*;
 use winit::event_loop::{EventLoop, EventLoopWindowTarget};
 use winit::keyboard::KeyCode;
@@ -223,9 +223,9 @@ impl Renderer
             window,
             event_loop,
             camera: RefCell::new(super::Camera::new(
-                glm::Vec3::new(95.22, 22.22232, -92.22422),
-                0.58903,
-                0.18343
+                glm::Vec3::new(-2658.22, 262.22232, 2623.2422),
+                0.318903,
+                -3.978343
             ))
         };
 
@@ -731,7 +731,9 @@ impl Renderer
                     camera.borrow(),
                     self.get_delta_time() * 1000.0,
                     1.0 / self.get_delta_time(),
-                    util::bytes_as_string(util::get_bytes_of_active_allocations() as f64)
+                    util::bytes_as_string::<{ util::SuffixType::Full }>(
+                        util::get_bytes_of_active_allocations() as f64
+                    )
                 );
             }
 
@@ -814,9 +816,6 @@ impl Renderer
         window.set_cursor_grab(CursorGrabMode::Locked).unwrap();
         #[cfg(not(target_os = "macos"))]
         window.set_cursor_grab(CursorGrabMode::Confined).unwrap();
-        window
-            .set_cursor_position(LogicalPosition::new(0.0, 0.0))
-            .unwrap();
 
         let _ = event_loop.run_on_demand(|event, control_flow| {
             crash_poll_func();

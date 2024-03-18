@@ -775,6 +775,8 @@ dependencies = [
  "game",
  "gfx",
  "glyphon",
+ "log",
+ "sys-locale",
  "util",
 ]
 
@@ -1373,6 +1375,7 @@ dependencies = [
  "gfx",
  "gui",
  "log",
+ "sys-locale",
  "util",
  "verdigris",
  "voxel",
