@@ -107,6 +107,11 @@ impl<T: Send> Future<T>
             }
         }
     }
+
+    pub fn detach(&self)
+    {
+        self.resolved.store(true, SeqCst);
+    }
 }
 
 #[derive(Debug)]

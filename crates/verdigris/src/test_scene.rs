@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use gfx::glm::{self};
 use itertools::iproduct;
@@ -11,7 +12,7 @@ use voxel::Voxel;
 #[derive(Debug)]
 pub struct TestScene
 {
-    brick_map_chunk: Mutex<Vec<util::Promise<Arc<super::BrickMapChunk>>>>,
+    brick_map_chunk: Mutex<util::Promise<Vec<util::Promise<Arc<super::BrickMapChunk>>>>>,
     id:              util::Uuid
 }
 
@@ -23,11 +24,14 @@ impl TestScene
         let chunk_r = 1;
         let this = Arc::new(TestScene {
             brick_map_chunk: Mutex::new(
-                iproduct!(-chunk_r..=chunk_r, -chunk_r..=chunk_r)
+                util::run_async(move || {
+                    iproduct!(-chunk_r..=chunk_r, -chunk_r..=chunk_r)
                 // iproduct!(-1..=1, -1..=1)
                 // iproduct!(-0..=0, -0..=0)
                     .map(|(x, z)| -> util::Promise<_> {
                         let local_game = brick_game.clone();
+
+                        std::thread::sleep(Duration::from_millis(125));
 
                         util::run_async(move || {
                             create_and_fill(
@@ -42,6 +46,8 @@ impl TestScene
                         .into()
                     })
                     .collect()
+                })
+                .into()
             ),
             id:              util::Uuid::new()
         });
@@ -177,33 +183,38 @@ impl game::Entity for TestScene
     {
         let mut guard = self.brick_map_chunk.lock().unwrap();
 
-        guard.iter_mut().for_each(|p| {
-            p.poll_ref();
+        guard.poll_ref();
 
-            if let util::Promise::Resolved(chunk) = &*p
-            {
-                let manager = chunk.access_data_manager();
+        if let util::Promise::Resolved(chunk_vec) = &mut *guard
+        {
+            chunk_vec.iter_mut().for_each(|p| {
+                p.poll_ref();
 
-                for _ in 0..256
+                if let util::Promise::Resolved(chunk) = &*p
                 {
-                    let center = 512u16;
-                    let edge = 64;
-                    let range = (center - edge)..(center + edge);
+                    let manager = chunk.access_data_manager();
 
-                    let base: glm::U16Vec3 = glm::U16Vec3::new(
-                        rand::thread_rng().gen_range(range.clone()),
-                        rand::thread_rng().gen_range(range.clone()),
-                        rand::thread_rng().gen_range(range.clone())
-                    );
+                    for _ in 0..256
+                    {
+                        let center = 512u16;
+                        let edge = 64;
+                        let range = (center - edge)..(center + edge);
 
-                    manager.write_voxel(
-                        rand::thread_rng().gen_range(1..=12).try_into().unwrap(),
-                        base
-                    );
+                        let base: glm::U16Vec3 = glm::U16Vec3::new(
+                            rand::thread_rng().gen_range(range.clone()),
+                            rand::thread_rng().gen_range(range.clone()),
+                            rand::thread_rng().gen_range(range.clone())
+                        );
+
+                        manager.write_voxel(
+                            rand::thread_rng().gen_range(1..=12).try_into().unwrap(),
+                            base
+                        );
+                    }
+
+                    manager.flush_to_gpu();
                 }
-
-                manager.flush_to_gpu();
-            }
-        });
+            })
+        };
     }
 }
