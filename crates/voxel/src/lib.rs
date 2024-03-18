@@ -4,4 +4,4 @@
 
 mod gpu_data;
 
-pub use gpu_data::{ChunkPosition, Voxel, VoxelBrick, VoxelChunkDataManager};
+pub use gpu_data::*;

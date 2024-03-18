@@ -314,30 +314,32 @@ impl Vertex
     }
 }
 
+const VOXELS_EDGE_LENGTH: f32 = voxel::CHUNK_VOXEL_SIZE as f32;
+
 const CUBE_VERTICES: [Vertex; 8] = [
     Vertex {
         position: glm::Vec3::new(0.0, 0.0, 0.0)
     },
     Vertex {
-        position: glm::Vec3::new(0.0, 0.0, 1024.0)
+        position: glm::Vec3::new(0.0, 0.0, VOXELS_EDGE_LENGTH)
     },
     Vertex {
-        position: glm::Vec3::new(0.0, 1024.0, 0.0)
+        position: glm::Vec3::new(0.0, VOXELS_EDGE_LENGTH, 0.0)
     },
     Vertex {
-        position: glm::Vec3::new(0.0, 1024.0, 1024.0)
+        position: glm::Vec3::new(0.0, VOXELS_EDGE_LENGTH, VOXELS_EDGE_LENGTH)
     },
     Vertex {
-        position: glm::Vec3::new(1024.0, 0.0, 0.0)
+        position: glm::Vec3::new(VOXELS_EDGE_LENGTH, 0.0, 0.0)
     },
     Vertex {
-        position: glm::Vec3::new(1024.0, 0.0, 1024.0)
+        position: glm::Vec3::new(VOXELS_EDGE_LENGTH, 0.0, VOXELS_EDGE_LENGTH)
     },
     Vertex {
-        position: glm::Vec3::new(1024.0, 1024.0, 0.0)
+        position: glm::Vec3::new(VOXELS_EDGE_LENGTH, VOXELS_EDGE_LENGTH, 0.0)
     },
     Vertex {
-        position: glm::Vec3::new(1024.0, 1024.0, 1024.0)
+        position: glm::Vec3::new(VOXELS_EDGE_LENGTH, VOXELS_EDGE_LENGTH, VOXELS_EDGE_LENGTH)
     }
 ];
 

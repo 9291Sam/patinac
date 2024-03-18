@@ -4,7 +4,7 @@ use std::collections::BTreeSet;
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 
-use bytemuck::{bytes_of, cast_slice, Contiguous, Pod, Zeroable};
+use bytemuck::{bytes_of, Contiguous, Pod, Zeroable};
 use gfx::glm;
 use gfx::wgpu::{self};
 
@@ -68,7 +68,7 @@ impl Voxel
 #[repr(C)]
 pub struct VoxelBrick
 {
-    data: [[[Voxel; VOXEL_BRICK_SIZE]; VOXEL_BRICK_SIZE]; VOXEL_BRICK_SIZE]
+    data: [[[Voxel; VOXEL_BRICK_EDGE_LENGTH]; VOXEL_BRICK_EDGE_LENGTH]; VOXEL_BRICK_EDGE_LENGTH]
 }
 
 impl VoxelBrick
@@ -76,13 +76,14 @@ impl VoxelBrick
     pub fn new_empty() -> VoxelBrick
     {
         VoxelBrick {
-            data: [[[Voxel::Air; VOXEL_BRICK_SIZE]; VOXEL_BRICK_SIZE]; VOXEL_BRICK_SIZE]
+            data: [[[Voxel::Air; VOXEL_BRICK_EDGE_LENGTH]; VOXEL_BRICK_EDGE_LENGTH];
+                VOXEL_BRICK_EDGE_LENGTH]
         }
     }
 
     pub fn write(
         &mut self
-    ) -> &mut [[[Voxel; VOXEL_BRICK_SIZE]; VOXEL_BRICK_SIZE]; VOXEL_BRICK_SIZE]
+    ) -> &mut [[[Voxel; VOXEL_BRICK_EDGE_LENGTH]; VOXEL_BRICK_EDGE_LENGTH]; VOXEL_BRICK_EDGE_LENGTH]
     {
         &mut self.data
     }
@@ -199,9 +200,9 @@ impl VoxelBrickPointer
 type BrickMap =
     [[[VoxelBrickPointer; BRICK_MAP_EDGE_SIZE]; BRICK_MAP_EDGE_SIZE]; BRICK_MAP_EDGE_SIZE];
 
-const VOXEL_BRICK_SIZE: usize = 8;
-const BRICK_MAP_EDGE_SIZE: usize = 128;
-// const CHUNK_VOXEL_SIZE: usize = VOXEL_BRICK_SIZE * BRICK_MAP_EDGE_SIZE;
+pub const VOXEL_BRICK_EDGE_LENGTH: usize = 8;
+pub const BRICK_MAP_EDGE_SIZE: usize = 128;
+pub const CHUNK_VOXEL_SIZE: usize = VOXEL_BRICK_EDGE_LENGTH * BRICK_MAP_EDGE_SIZE;
 
 // TODO: this shit very much isnt MT safe and will have races all over the
 // place!
@@ -367,7 +368,7 @@ impl VoxelChunkDataManager
 
     pub fn write_voxel(&self, v: Voxel, unsigned_pos: ChunkPosition)
     {
-        let unsigned_bound = (BRICK_MAP_EDGE_SIZE * VOXEL_BRICK_SIZE) as u16;
+        let unsigned_bound = (BRICK_MAP_EDGE_SIZE * VOXEL_BRICK_EDGE_LENGTH) as u16;
 
         assert!(
             unsigned_pos.x < unsigned_bound,
@@ -388,15 +389,15 @@ impl VoxelChunkDataManager
         );
 
         let voxel_pos = glm::U16Vec3::new(
-            unsigned_pos.x % VOXEL_BRICK_SIZE as u16,
-            unsigned_pos.y % VOXEL_BRICK_SIZE as u16,
-            unsigned_pos.z % VOXEL_BRICK_SIZE as u16
+            unsigned_pos.x % VOXEL_BRICK_EDGE_LENGTH as u16,
+            unsigned_pos.y % VOXEL_BRICK_EDGE_LENGTH as u16,
+            unsigned_pos.z % VOXEL_BRICK_EDGE_LENGTH as u16
         );
 
         let brick_pos = glm::U16Vec3::new(
-            unsigned_pos.x / VOXEL_BRICK_SIZE as u16,
-            unsigned_pos.y / VOXEL_BRICK_SIZE as u16,
-            unsigned_pos.z / VOXEL_BRICK_SIZE as u16
+            unsigned_pos.x / VOXEL_BRICK_EDGE_LENGTH as u16,
+            unsigned_pos.y / VOXEL_BRICK_EDGE_LENGTH as u16,
+            unsigned_pos.z / VOXEL_BRICK_EDGE_LENGTH as u16
         );
 
         let VoxelChunkDataManagerBufferCriticalSection {

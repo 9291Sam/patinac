@@ -39,9 +39,9 @@ impl TestScene
                             create_and_fill(
                                 &local_game,
                                 glm::Vec3::new(
-                                    (x as f32) * 1024.0 - 512.0,
-                                    -512.0,
-                                    (z as f32) * 1024.0 - 512.0
+                                    (x as f32) * voxel::CHUNK_VOXEL_SIZE as f32 - (voxel::CHUNK_VOXEL_SIZE / 2) as f32,
+                                    -((voxel::CHUNK_VOXEL_SIZE / 2) as f32),
+                                    (z as f32) * voxel::CHUNK_VOXEL_SIZE as f32 - (voxel::CHUNK_VOXEL_SIZE / 2) as f32
                                 )
                             )
                         })
@@ -98,7 +98,7 @@ fn create_and_fill(brick_game: &game::Game, pos: glm::Vec3) -> Arc<super::BrickM
                 .unwrap()
         };
 
-        let c = 128u16;
+        let c = voxel::BRICK_MAP_EDGE_SIZE as u16;;
 
         for (x, y, z) in iproduct!(0..c, 0..c, 0..c)
         {
@@ -113,33 +113,33 @@ fn create_and_fill(brick_game: &game::Game, pos: glm::Vec3) -> Arc<super::BrickM
             // iter over columns
             for (l_x, l_z) in iproduct!(0..8, 0..8)
             {
-                let chunk_x = b_x * 8 + l_x;
-                let chunk_z = b_z * 8 + l_z;
+                let chunk_x = b_x * voxel::VOXEL_BRICK_EDGE_LENGTH as u16 + l_x;
+                let chunk_z = b_z * voxel::VOXEL_BRICK_EDGE_LENGTH as u16 + l_z;
 
                 let height = noise_sampler(chunk_x, chunk_z);
 
                 let pos = glm::U16Vec3::new(chunk_x, height, chunk_z);
 
-                top_free_brick_height = top_free_brick_height.max(height.div_euclid(8) + 1);
+                top_free_brick_height = top_free_brick_height.max(height.div_euclid(voxel::VOXEL_BRICK_EDGE_LENGTH as u16) + 1);
 
                 data_manager.write_voxel(get_rand_grass_voxel(), pos);
             }
 
-            for h in top_free_brick_height..128
+            for h in top_free_brick_height..(voxel::BRICK_MAP_EDGE_SIZE as u16)
             {
                 data_manager.write_brick(Voxel::Air, glm::U16Vec3::new(b_x, h, b_z));
             }
 
-            for (l_x, l_z) in iproduct!(0..8, 0..8)
+            for (l_x, l_z) in iproduct!(0..voxel::VOXEL_BRICK_EDGE_LENGTH as u16, 0..voxel::VOXEL_BRICK_EDGE_LENGTH as u16)
             {
-                let chunk_x = b_x * 8 + l_x;
-                let chunk_z = b_z * 8 + l_z;
+                let chunk_x = b_x * voxel::VOXEL_BRICK_EDGE_LENGTH as u16 + l_x;
+                let chunk_z = b_z * voxel::VOXEL_BRICK_EDGE_LENGTH as u16 + l_z;
 
                 let grass_height = noise_sampler(chunk_x, chunk_z);
 
                 let pos = glm::U16Vec3::new(chunk_x, grass_height + 1, chunk_z);
 
-                for y_p in pos.y..(top_free_brick_height * 8 + 8)
+                for y_p in pos.y..(top_free_brick_height * voxel::VOXEL_BRICK_EDGE_LENGTH as u16 + voxel::VOXEL_BRICK_EDGE_LENGTH as u16)
                 {
                     data_manager.write_voxel(Voxel::Air, glm::U16Vec3::new(chunk_x, y_p, chunk_z));
                 }

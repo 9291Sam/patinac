@@ -22,12 +22,13 @@ alias BrickPointer = u32;
 const BrickPointerToVoxelCutoff: u32 = 4294901759u;
 
 const BrickEdgeLength: u32 = 8;
+const HalfBrickEdgeLength: u32 = 4;
 const BrickMapEdgeLength: u32 = 128;
 const VoxelsChunkEdge: u32 = 1024;
 
 struct Brick
 {
-    u16_brick_data: array<array<array<u32, 4>, 8>, 8>,
+    u16_brick_data: array<array<array<u32, HalfBrickEdgeLength>, BrickEdgeLength>, BrickEdgeLength>,
 }
 
 @group(0) @binding(0) var<uniform> global_info: GlobalInfo;
@@ -74,7 +75,7 @@ fn fs_main(in: VertexOutput, @builtin(front_facing) is_front_face: bool) -> Frag
     let camera_pos_local: vec3<f32> = global_info.camera_pos.xyz - in.local_to_world_offset_pos;
 
     // not exact for innaccuracy reasons
-    let camera_in_chunk: bool = all(camera_pos_local >= vec3<f32>(-1.0)) && all(camera_pos_local < vec3<f32>(1025.0));
+    let camera_in_chunk: bool = all(camera_pos_local >= vec3<f32>(-1.0)) && all(camera_pos_local < vec3<f32>(f32(VoxelsChunkEdge) + 1.0));
 
     if ((camera_in_chunk && is_front_face) || (!camera_in_chunk && !is_front_face))
     {
@@ -166,7 +167,7 @@ fn hypot(v: vec3<f32>) -> f32
     return sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
 }
 
-const SIMPLE_DDA_ITER_BRICKS_STEPS: i32 = 128 * 3 + 1;
+const SIMPLE_DDA_ITER_BRICKS_STEPS: i32 = i32(BrickMapEdgeLength * 3 + 1);
 fn simple_dda_traversal_bricks(unadjusted_ray: Ray) -> BrickTraversalResult
 {
     var adjusted_ray: Ray;
@@ -189,20 +190,20 @@ fn simple_dda_traversal_bricks(unadjusted_ray: Ray) -> BrickTraversalResult
     {
         let mapPos: vec3<i32> = vec3<i32>(floor(voxelPos));
         
-        if (any(mapPos < vec3<i32>(-1)) || any(mapPos > vec3<i32>(129)))
+        if (any(mapPos < vec3<i32>(-1)) || any(mapPos > vec3<i32>(BrickMapEdgeLength + 1)))
         {
             discard;
         }
         
-        if (!(any(mapPos < vec3<i32>(0)) || any(mapPos >= vec3<i32>(128))))
+        if (!(any(mapPos < vec3<i32>(0)) || any(mapPos >= vec3<i32>(BrickMapEdgeLength))))
         {
             let maybe_brick_pointer = brick_map[mapPos.x][mapPos.y][mapPos.z];
 
             if (maybe_brick_pointer != 0)
             {
                 var brick_cube: Cube;
-                brick_cube.center = 8.0 * vec3<f32>(mapPos) + 4;
-                brick_cube.edge_length = 8.0;
+                brick_cube.center = f32(BrickEdgeLength) * vec3<f32>(mapPos) + 4;
+                brick_cube.edge_length = f32(BrickEdgeLength);
 
                 let res = Cube_tryIntersect(brick_cube, unadjusted_ray);
 
@@ -215,7 +216,7 @@ fn simple_dda_traversal_bricks(unadjusted_ray: Ray) -> BrickTraversalResult
 
                 if (BrickTraversalResult_isValid(brick_result))
                 {
-                    return BrickTraversalResult(brick_result.pos + mapPos * 8, brick_result.voxel);
+                    return BrickTraversalResult(brick_result.pos + mapPos * vec3<i32>(BrickEdgeLength), brick_result.voxel);
                 }
 
                 // if maybe_brick_pointer >= BrickPointerToVoxelCutoff
@@ -251,7 +252,7 @@ fn simple_dda_traversal_bricks(unadjusted_ray: Ray) -> BrickTraversalResult
     // return hit(normal, dist, position);
 }
 
-const BRICK_TRAVERSAL_STEPS: i32 = 8 * 3 + 1;
+const BRICK_TRAVERSAL_STEPS: i32 = i32(BrickEdgeLength * 3 + 1);
 // traverses as if the brick is from 000 -> 888
 struct BrickTraversalResult {pos: vec3<i32>, voxel: u32}
 fn BrickTraversalResult_isValid(me: BrickTraversalResult) -> bool {return all(me.pos != vec3<i32>(-1));}
@@ -273,12 +274,12 @@ fn traverse_brick_dda(brick: BrickPointer, ray: Ray) -> BrickTraversalResult
     {
         let mapPos = vec3<i32>(floor(voxelPos));
 
-        if (any(mapPos < vec3<i32>(-1)) || any(mapPos > vec3<i32>(9)))
+        if (any(mapPos < vec3<i32>(-1)) || any(mapPos > vec3<i32>(BrickEdgeLength + 1)))
         {
             return InvalidBrickTraversalResult;
         }
         
-        if (!(any(mapPos < vec3<i32>(0)) || any(mapPos >= vec3<i32>(8))))
+        if (!(any(mapPos < vec3<i32>(0)) || any(mapPos >= vec3<i32>(BrickEdgeLength))))
         {
             if (is_voxel)
             {
