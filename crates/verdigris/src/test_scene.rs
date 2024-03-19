@@ -72,12 +72,17 @@ fn create_and_fill(brick_game: &game::Game, pos: glm::Vec3) -> Arc<super::BrickM
         let random_generator = RefCell::new(rand::thread_rng());
 
         let noise_sampler = |x: u16, z: u16| {
+
+            let b = voxel::CHUNK_VOXEL_SIZE as f64;
+
+            let h = 84.0f64;
+
             let r = ((noise_generator.get([
             ((pos.x as f64) + (x as f64)) / 256.0,
                 0.0,
                 ((pos.z as f64) + (z as f64)) / 256.0
-            ]) * 192.0)
-                + 1856.0) as u16;
+            ]) * h)
+                + (b - h)) as u16;
 
             r.clamp(0, (voxel::CHUNK_VOXEL_SIZE - 1) as u16)
         };
