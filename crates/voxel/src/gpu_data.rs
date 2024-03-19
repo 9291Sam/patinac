@@ -201,7 +201,7 @@ type BrickMap =
     [[[VoxelBrickPointer; BRICK_MAP_EDGE_SIZE]; BRICK_MAP_EDGE_SIZE]; BRICK_MAP_EDGE_SIZE];
 
 pub const VOXEL_BRICK_EDGE_LENGTH: usize = 8;
-pub const BRICK_MAP_EDGE_SIZE: usize = 64;
+pub const BRICK_MAP_EDGE_SIZE: usize = 256;
 pub const CHUNK_VOXEL_SIZE: usize = VOXEL_BRICK_EDGE_LENGTH * BRICK_MAP_EDGE_SIZE;
 
 // TODO: this shit very much isnt MT safe and will have races all over the

@@ -21,7 +21,7 @@ impl TestScene
     pub fn new(game: Arc<game::Game>) -> Arc<Self>
     {
         let brick_game = game.clone();
-        let chunk_r = 1;
+        let chunk_r = 0;
         let this = Arc::new(TestScene {
             brick_map_chunk: Mutex::new(
                 util::run_async(move || {
@@ -205,30 +205,32 @@ impl game::Entity for TestScene
             chunk_vec.iter_mut().for_each(|p| {
                 p.poll_ref();
 
-                if let util::Promise::Resolved(chunk) = &*p
-                {
-                    // let manager = chunk.access_data_manager();
+                // if let util::Promise::Resolved(chunk) = &*p
+                // {
+                //     let manager = chunk.access_data_manager();
 
-                    // for _ in 0..256
-                    // {
-                    //     let center = (voxel::CHUNK_VOXEL_SIZE / 2) as u16;
-                    //     let edge = 64;
-                    //     let range = (center - edge)..(center + edge);
+                //     for _ in 0..256
+                //     {
+                //         let center = 448u16;
+                //         let edge = 64;
+                //         let range = (center - edge)..(center + edge);
 
-                    //     let base: glm::U16Vec3 = glm::U16Vec3::new(
-                    //         rand::thread_rng().gen_range(range.clone()),
-                    //         rand::thread_rng().gen_range(range.clone()),
-                    //         rand::thread_rng().gen_range(range.clone())
-                    //     );
+                //         let base: glm::U16Vec3 = glm::U16Vec3::new(
+                //             rand::thread_rng().gen_range(range.clone()),
+                //             rand::thread_rng().gen_range(range.clone()),
+                //             rand::thread_rng().gen_range(range.clone())
+                //         );
 
-                    //     manager.write_voxel(
-                    //         rand::thread_rng().gen_range(1..=12).try_into().
-                    // unwrap(),         base
-                    //     );
-                    // }
+                //         manager.write_voxel(
+                //             rand::thread_rng().gen_range(1..=12).try_into().unwrap(),
+                //             base
+                //         );
+                //     }
 
-                    // manager.flush_to_gpu();
-                }
+                //     log::trace!(" hmmm");
+
+                //     manager.flush_to_gpu();
+                // }
             })
         };
     }
