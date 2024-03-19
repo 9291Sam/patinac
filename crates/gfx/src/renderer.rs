@@ -224,7 +224,7 @@ impl Renderer
             window,
             event_loop,
             camera: RefCell::new(super::Camera::new(
-                glm::Vec3::new(-658.22, 262.22232, 623.242),
+                glm::Vec3::new(-658.22, 1062.2232, 623.242),
                 0.318903,
                 -3.978343
             ))

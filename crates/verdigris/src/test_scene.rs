@@ -7,7 +7,7 @@ use gfx::glm::{self};
 use itertools::iproduct;
 use noise::NoiseFn;
 use rand::Rng;
-use voxel::Voxel;
+use voxel::{Voxel, VOXEL_BRICK_EDGE_LENGTH};
 
 #[derive(Debug)]
 pub struct TestScene
@@ -73,13 +73,13 @@ fn create_and_fill(brick_game: &game::Game, pos: glm::Vec3) -> Arc<super::BrickM
 
         let noise_sampler = |x: u16, z: u16| {
             let r = ((noise_generator.get([
-                ((pos.x as f64) + (x as f64)) / 256.0,
+            ((pos.x as f64) + (x as f64)) / 256.0,
                 0.0,
                 ((pos.z as f64) + (z as f64)) / 256.0
-            ]) * 64.0)
-                + 448.0) as u16;
+            ]) * 192.0)
+                + 1856.0) as u16;
 
-            r.clamp(0, 511)
+            r.clamp(0, (voxel::CHUNK_VOXEL_SIZE - 1) as u16)
         };
 
         let get_rand_grass_voxel = || -> Voxel {
