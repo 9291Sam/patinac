@@ -207,27 +207,29 @@ impl game::Entity for TestScene
 
                 if let util::Promise::Resolved(chunk) = &*p
                 {
-                    // let manager = chunk.access_data_manager();
+                    let manager = chunk.access_data_manager();
 
-                    // for _ in 0..256
-                    // {
-                    //     let center = (voxel::CHUNK_VOXEL_SIZE / 2) as u16;
-                    //     let edge = 64;
-                    //     let range = (center - edge)..(center + edge);
+                    for _ in 0..256
+                    {
+                        let center = 448u16;
+                        let edge = 64;
+                        let range = (center - edge)..(center + edge);
 
-                    //     let base: glm::U16Vec3 = glm::U16Vec3::new(
-                    //         rand::thread_rng().gen_range(range.clone()),
-                    //         rand::thread_rng().gen_range(range.clone()),
-                    //         rand::thread_rng().gen_range(range.clone())
-                    //     );
+                        let base: glm::U16Vec3 = glm::U16Vec3::new(
+                            rand::thread_rng().gen_range(range.clone()),
+                            rand::thread_rng().gen_range(range.clone()),
+                            rand::thread_rng().gen_range(range.clone())
+                        );
 
-                    //     manager.write_voxel(
-                    //         rand::thread_rng().gen_range(1..=12).try_into().
-                    // unwrap(),         base
-                    //     );
-                    // }
+                        manager.write_voxel(
+                            rand::thread_rng().gen_range(1..=12).try_into().unwrap(),
+                            base
+                        );
+                    }
 
-                    // manager.flush_to_gpu();
+                    log::trace!(" hmmm");
+
+                    manager.flush_to_gpu();
                 }
             })
         };

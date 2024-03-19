@@ -39,6 +39,7 @@ struct Brick
 @group(1) @binding(1) var<storage> brick_buffer: array<Brick>;
 
 var<private> Error: bool = false;
+var<private> ITER_STEPS: u32 = 0;
 
 var<push_constant> id: u32;
 
@@ -143,6 +144,7 @@ fn fs_main(in: VertexOutput, @builtin(front_facing) is_front_face: bool) -> Frag
     let intensity = (s * min(1-x, x)) + 1 - (s / 2);
     out.color *= vec4<f32>(vec3<f32>(intensity), 1.0); // You can adjust the second parameter (0.8) for the desired darkness
 
+    out.color = vec4<f32>(vec3<f32>(f32(ITER_STEPS) / 512.0), 1.0);
 
 
     if (Error)
@@ -238,6 +240,8 @@ fn simple_dda_traversal_bricks(unadjusted_ray: Ray) -> BrickTraversalResult
         }
         let plain: vec3<f32> = ((vec3<f32>(1.0) + rayDirectionSign - vec3<f32>(2.0) * (adjusted_ray.origin - voxelPos)) * rdi);
 
+        ITER_STEPS = ITER_STEPS + 1;
+
         distance = min(plain.x, min(plain.y, plain.z));
         // normal = vec3(equal(vec3(distance), plain)) * rayDirectionSign;
         normal = vec3<f32>(vec3<f32>(distance) == plain) * rayDirectionSign;
@@ -295,6 +299,8 @@ fn traverse_brick_dda(brick: BrickPointer, ray: Ray) -> BrickTraversalResult
         }
 
         let plain: vec3<f32> = ((vec3<f32>(1.0) + rayDirectionSign - vec3<f32>(2.0) * (ray.origin - voxelPos)) * rdi);
+
+    ITER_STEPS = ITER_STEPS + 1;
 
         distance = min(plain.x, min(plain.y, plain.z));
         normal = vec3<f32>(vec3<f32>(distance) == plain) * rayDirectionSign;
