@@ -13,7 +13,7 @@ use bytemuck::{bytes_of, Pod, Zeroable};
 use nalgebra_glm as glm;
 use pollster::FutureExt;
 use strum::IntoEnumIterator;
-use util::{Registrar, SendSyncMutPtr};
+use util::{AtomicF32, AtomicF32F32, AtomicU32U32, Registrar, SendSyncMutPtr};
 use winit::dpi::PhysicalSize;
 use winit::event::*;
 use winit::event_loop::{EventLoop, EventLoopWindowTarget};
@@ -37,9 +37,8 @@ pub struct Renderer
 
     // Rendering views
     // TODO: Window<WindowSize>, Window<DeltaFrameTime>, WindowUpdater<Camera>
-    window_size_x:            AtomicU32, // TODO: AtomicF32F32
-    window_size_y:            AtomicU32,
-    float_delta_frame_time_s: AtomicU32,
+    window_size: AtomicU32U32,
+    delta_time:  AtomicF32,
 
     // Rendering
     thread_id:        ThreadId,
@@ -278,9 +277,8 @@ impl Renderer
             device,
             critical_section: Mutex::new(critical_section),
             global_bind_group_layout: Arc::new(global_bind_group_layout),
-            window_size_x: AtomicU32::new(size.width),
-            window_size_y: AtomicU32::new(size.height),
-            float_delta_frame_time_s: AtomicU32::new(0.0f32.to_bits()),
+            window_size: AtomicU32U32::new((size.width, size.height)),
+            delta_time: AtomicF32::new(0.0f32),
             render_cache
         }
     }
@@ -308,21 +306,14 @@ impl Renderer
 
     pub fn get_framebuffer_size(&self) -> glm::UVec2
     {
-        let loaded_x = self.window_size_x.load(Ordering::SeqCst);
-        let loaded_y = self.window_size_y.load(Ordering::SeqCst);
+        let (loaded_x, loaded_y) = self.window_size.load(Ordering::SeqCst);
 
         glm::UVec2::new(loaded_x, loaded_y)
     }
 
     pub fn get_delta_time(&self) -> f32
     {
-        f32::from_bits(self.float_delta_frame_time_s.load(Ordering::Acquire))
-    }
-
-    fn set_framebuffer_size(&self, new_size: glm::UVec2)
-    {
-        self.window_size_x.store(new_size.x, Ordering::SeqCst);
-        self.window_size_y.store(new_size.y, Ordering::SeqCst);
+        self.delta_time.load(Ordering::SeqCst)
     }
 
     pub fn enter_gfx_loop(
@@ -348,8 +339,6 @@ impl Renderer
              was called from!"
         );
 
-        // Helper Structures
-        // let input_helper = RefCell::new(WinitInputHelper::new());
         let input_manager = InputManager::new(
             window,
             PhysicalSize {
@@ -426,7 +415,8 @@ impl Renderer
 
             if new_size.width > 0 && new_size.height > 0
             {
-                self.set_framebuffer_size(glm::UVec2::new(new_size.width, new_size.height));
+                self.window_size
+                    .store((new_size.width, new_size.height), Ordering::SeqCst);
 
                 config.width = new_size.width;
                 config.height = new_size.height;
@@ -695,8 +685,8 @@ impl Renderer
             self.queue.submit([encoder.finish()]);
             output.present();
 
-            self.float_delta_frame_time_s
-                .store(input_manager.get_delta_time().to_bits(), Ordering::Release);
+            self.delta_time
+                .store(input_manager.get_delta_time(), Ordering::Release);
 
             Ok(())
         };
