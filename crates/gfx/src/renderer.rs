@@ -13,7 +13,7 @@ use bytemuck::{bytes_of, Pod, Zeroable};
 use nalgebra_glm as glm;
 use pollster::FutureExt;
 use strum::IntoEnumIterator;
-use util::{AtomicF32, AtomicF32F32, AtomicU32U32, Registrar, SendSyncMutPtr};
+use util::{AtomicF32, AtomicF32F32, AtomicU32U32, Registrar, SendSyncMutPtr, WindowUpdater};
 use winit::dpi::PhysicalSize;
 use winit::event::*;
 use winit::event_loop::{EventLoop, EventLoopWindowTarget};
@@ -32,11 +32,9 @@ pub struct Renderer
     pub device:                   Arc<wgpu::Device>,
     pub render_cache:             RenderCache,
     pub global_bind_group_layout: Arc<wgpu::BindGroupLayout>,
+    pub camera_updater:           WindowUpdater<Camera>,
 
     renderables: util::Registrar<util::Uuid, Weak<dyn Recordable>>,
-
-    // Rendering views
-    // TODO: Window<WindowSize>, Window<DeltaFrameTime>, WindowUpdater<Camera>
     window_size: AtomicU32U32,
     delta_time:  AtomicF32,
 
@@ -54,6 +52,7 @@ impl Drop for Renderer
             log::error!("Dropping Renderer from a thread it was not created on!")
         }
 
+        //? 2?
         if Arc::strong_count(&self.device) != 2
         {
             log::warn!("Retained device! {}", Arc::strong_count(&self.device))
@@ -212,17 +211,19 @@ impl Renderer
         };
         surface.configure(&device, &config);
 
+        let (camera, camera_updater) = util::Window::new(super::Camera::new(
+            glm::Vec3::new(-658.22, 1062.2232, 623.242),
+            0.318903,
+            -3.978343
+        ));
+
         let critical_section = CriticalSection {
             thread_id: std::thread::current().id(),
             surface,
             config,
             window,
             event_loop,
-            camera: RefCell::new(super::Camera::new(
-                glm::Vec3::new(-658.22, 1062.2232, 623.242),
-                0.318903,
-                -3.978343
-            ))
+            camera
         };
 
         let global_bind_group_layout =
@@ -273,6 +274,7 @@ impl Renderer
         Renderer {
             thread_id: std::thread::current().id(),
             renderables: Registrar::new(),
+            camera_updater,
             queue,
             device,
             critical_section: Mutex::new(critical_section),
@@ -427,7 +429,7 @@ impl Renderer
             }
         };
 
-        let render_func = || -> Result<(), wgpu::SurfaceError> {
+        let render_func = |camera: Camera| -> Result<(), wgpu::SurfaceError> {
             let output = surface.get_current_texture()?;
             let view = output
                 .texture
@@ -462,85 +464,77 @@ impl Renderer
                 maybe_new_id
             };
 
-            {
-                let closure_camera = camera.borrow().clone();
-
-                self.renderables
-                    .access()
-                    .into_iter()
-                    .filter_map(|(ptr, weak_renderable)| {
-                        match weak_renderable.upgrade()
+            self.renderables
+                .access()
+                .into_iter()
+                .filter_map(|(ptr, weak_renderable)| {
+                    match weak_renderable.upgrade()
+                    {
+                        Some(r) =>
                         {
-                            Some(r) =>
-                            {
-                                let record_info =
-                                    r.pre_record_update(self, &closure_camera, &global_bind_group);
+                            let record_info =
+                                r.pre_record_update(self, &camera, &global_bind_group);
 
-                                match record_info
+                            match record_info
+                            {
+                                RecordInfo {
+                                    should_draw: false, ..
+                                } => None,
+                                RecordInfo {
+                                    should_draw: true,
+                                    transform: Some(t),
+                                    bind_groups
+                                } =>
                                 {
-                                    RecordInfo {
-                                        should_draw: false, ..
-                                    } => None,
-                                    RecordInfo {
-                                        should_draw: true,
-                                        transform: Some(t),
-                                        bind_groups
-                                    } =>
-                                    {
-                                        let this_id = get_next_id();
+                                    let this_id = get_next_id();
 
-                                        unsafe {
-                                            shader_mvp_ptr
-                                                .add(this_id as usize)
-                                                .write(closure_camera.get_perspective(self, &t));
+                                    unsafe {
+                                        shader_mvp_ptr
+                                            .add(this_id as usize)
+                                            .write(camera.get_perspective(self, &t));
 
-                                            shader_model_ptr
-                                                .add(this_id as usize)
-                                                .write(t.as_model_matrix())
-                                        };
+                                        shader_model_ptr
+                                            .add(this_id as usize)
+                                            .write(t.as_model_matrix())
+                                    };
 
-                                        Some((r, Some(this_id), bind_groups))
-                                    }
-                                    RecordInfo {
-                                        should_draw: true,
-                                        transform: None,
-                                        bind_groups: g
-                                    } => Some((r, None, g))
+                                    Some((r, Some(this_id), bind_groups))
                                 }
-                            }
-                            None =>
-                            {
-                                self.renderables.delete(ptr);
-                                None
+                                RecordInfo {
+                                    should_draw: true,
+                                    transform: None,
+                                    bind_groups: g
+                                } => Some((r, None, g))
                             }
                         }
-                    })
-                    .for_each(|(r, r_i, bind_groups)| {
-                        renderables_map.get_mut(&r.get_pass_stage()).unwrap().push((
-                            r,
-                            r_i,
-                            bind_groups
-                        ));
-                    });
-            }
+                        None =>
+                        {
+                            self.renderables.delete(ptr);
+                            None
+                        }
+                    }
+                })
+                .for_each(|(r, r_i, bind_groups)| {
+                    renderables_map.get_mut(&r.get_pass_stage()).unwrap().push((
+                        r,
+                        r_i,
+                        bind_groups
+                    ));
+                });
 
             renderables_map.iter_mut().for_each(|(_, renderable_vec)| {
                 renderable_vec.sort_by(|l, r| recordable_ord(&*l.0, &*r.0, &l.2, &r.2))
             });
 
-            let global_info = {
-                let guard = camera.borrow();
-
-                ShaderGlobalInfo {
-                    camera_pos:      guard.get_position(),
-                    _padding:        0.0,
-                    view_projection: guard.get_perspective(
-                        self,
-                        &crate::Transform {
-                            ..Default::default()
-                        }
-                    )
-                }
+            let global_info = ShaderGlobalInfo {
+                camera_pos:      camera.get_position(),
+                _padding:        0.0,
+                view_projection: camera.get_perspective(
+                    self,
+                    &crate::Transform {
+                        ..Default::default()
+                    }
+                )
             };
 
             self.queue
@@ -691,7 +685,8 @@ impl Renderer
             Ok(())
         };
 
-        let handle_input = |control_flow: &EventLoopWindowTarget<()>| {
+        // TODO: remove!
+        let handle_input = |camera: &mut Camera, control_flow: &EventLoopWindowTarget<()>| {
             let move_scale = 10.0
                 * if input_manager.is_key_pressed(KeyCode::ShiftLeft)
                 {
@@ -707,7 +702,7 @@ impl Renderer
             {
                 log::info!(
                     "Camera: {} | Frame Time (ms): {:.03} | FPS: {:.03} | Memory Used: {}",
-                    camera.borrow(),
+                    camera,
                     self.get_delta_time() * 1000.0,
                     1.0 / self.get_delta_time(),
                     util::bytes_as_string(
@@ -719,44 +714,44 @@ impl Renderer
 
             if input_manager.is_key_pressed(KeyCode::KeyW)
             {
-                let v = camera.borrow().get_forward_vector() * move_scale;
+                let v = camera.get_forward_vector() * move_scale;
 
-                camera.borrow_mut().add_position(v * self.get_delta_time());
+                camera.add_position(v * self.get_delta_time());
             };
 
             if input_manager.is_key_pressed(KeyCode::KeyS)
             {
-                let v = camera.borrow().get_forward_vector() * -move_scale;
+                let v = camera.get_forward_vector() * -move_scale;
 
-                camera.borrow_mut().add_position(v * self.get_delta_time());
+                camera.add_position(v * self.get_delta_time());
             };
 
             if input_manager.is_key_pressed(KeyCode::KeyD)
             {
-                let v = camera.borrow().get_right_vector() * move_scale;
+                let v = camera.get_right_vector() * move_scale;
 
-                camera.borrow_mut().add_position(v * self.get_delta_time());
+                camera.add_position(v * self.get_delta_time());
             };
 
             if input_manager.is_key_pressed(KeyCode::KeyA)
             {
-                let v = camera.borrow().get_right_vector() * -move_scale;
+                let v = camera.get_right_vector() * -move_scale;
 
-                camera.borrow_mut().add_position(v * self.get_delta_time());
+                camera.add_position(v * self.get_delta_time());
             };
 
             if input_manager.is_key_pressed(KeyCode::Space)
             {
                 let v = *Transform::global_up_vector() * move_scale;
 
-                camera.borrow_mut().add_position(v * self.get_delta_time());
+                camera.add_position(v * self.get_delta_time());
             };
 
             if input_manager.is_key_pressed(KeyCode::ControlLeft)
             {
                 let v = *Transform::global_up_vector() * -move_scale;
 
-                camera.borrow_mut().add_position(v * self.get_delta_time());
+                camera.add_position(v * self.get_delta_time());
             };
 
             if input_manager.is_key_pressed(KeyCode::KeyP)
@@ -788,12 +783,8 @@ impl Renderer
                 .component_div(&glm::Vec2::repeat(2.0))
                 .component_mul(&self.get_fov());
 
-            {
-                let mut camera_guard = camera.borrow_mut();
-
-                camera_guard.add_yaw(delta_rads.x * rotate_scale); // * self.get_delta_time());
-                camera_guard.add_pitch(delta_rads.y * rotate_scale); //  * self.get_delta_time());
-            }
+            camera.add_yaw(delta_rads.x * rotate_scale); // * self.get_delta_time());
+            camera.add_pitch(delta_rads.y * rotate_scale); //  * self.get_delta_time());
 
             if input_manager.is_key_pressed(KeyCode::Escape)
             {
@@ -828,9 +819,11 @@ impl Renderer
                         {
                             use wgpu::SurfaceError::*;
 
-                            handle_input(control_flow);
+                            let mut camera = camera.get();
 
-                            match render_func()
+                            handle_input(&mut camera, control_flow);
+
+                            match render_func(camera.clone())
                             {
                                 Ok(_) => (),
                                 Err(Timeout) => log::warn!("render timeout!"),
@@ -838,6 +831,8 @@ impl Renderer
                                 Err(Lost) => resize_func(None),
                                 Err(OutOfMemory) => todo!()
                             }
+
+                            self.camera_updater.update(camera);
 
                             window.request_redraw();
                         }
@@ -876,8 +871,7 @@ struct CriticalSection
     config:     wgpu::SurfaceConfiguration,
     window:     Window,
     event_loop: EventLoop<()>,
-
-    camera: RefCell<Camera>
+    camera:     util::Window<Camera>
 }
 
 unsafe impl Sync for CriticalSection {}
