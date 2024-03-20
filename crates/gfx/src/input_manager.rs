@@ -1,26 +1,75 @@
 use std::collections::HashMap;
 
+use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event::{ElementState, Event, KeyEvent, WindowEvent};
 use winit::keyboard::{KeyCode, PhysicalKey};
+use winit::window::Window;
 
-pub(crate) struct InputManager
+const ZERO_POS: PhysicalPosition<f64> = PhysicalPosition {
+    x: 0.0, y: 0.0
+};
+
+pub(crate) struct InputManager<'w>
 {
-    is_key_pressed: HashMap<PhysicalKey, ElementState>
+    window:                   &'w Window,
+    is_key_pressed:           HashMap<PhysicalKey, ElementState>,
+    previous_frame_time:      std::time::Instant,
+    delta_frame_time:         f32,
+    previous_frame_mouse_pos: PhysicalPosition<f64>,
+    best_guess_mouse_pos:     PhysicalPosition<f64>,
+    delta_mouse_pos:          PhysicalPosition<f64>,
+    window_size:              PhysicalSize<u32>
 }
 
-impl InputManager
+// TODO: display scaling
+
+impl InputManager<'_>
 {
-    pub fn new() -> InputManager
+    pub fn new(window: &Window, size: PhysicalSize<u32>) -> InputManager
     {
-        InputManager {
-            is_key_pressed: HashMap::new()
-        }
+        let mut this = InputManager {
+            window,
+            is_key_pressed: HashMap::new(),
+            previous_frame_time: std::time::Instant::now(),
+            delta_frame_time: 0.0,
+            previous_frame_mouse_pos: ZERO_POS,
+            best_guess_mouse_pos: ZERO_POS,
+            delta_mouse_pos: ZERO_POS,
+            window_size: size
+        };
+
+        this.attach_cursor();
+
+        this
     }
 
-    pub fn update_with_event(&mut self, in_event: &Event<()>)
+    pub fn update_with_event(&mut self, event: &Event<()>)
     {
         if let winit::event::Event::WindowEvent {
-            event:
+            event: window_event,
+            ..
+        } = event
+        {
+            match window_event
+            {
+                WindowEvent::RedrawRequested =>
+                {
+                    let now = std::time::Instant::now();
+
+                    self.delta_frame_time = (now - self.previous_frame_time).as_secs_f32();
+
+                    self.previous_frame_time = now;
+
+                    self.delta_mouse_pos = PhysicalPosition {
+                        x: (self.best_guess_mouse_pos.x - self.previous_frame_mouse_pos.x),
+                        y: (self.best_guess_mouse_pos.y - self.previous_frame_mouse_pos.y)
+                    };
+
+                    self.previous_frame_mouse_pos = get_center_screen_pos(self.window_size);
+                    self.window
+                        .set_cursor_position(get_center_screen_pos(self.window_size))
+                        .unwrap();
+                }
                 WindowEvent::KeyboardInput {
                     event:
                         KeyEvent {
@@ -30,13 +79,33 @@ impl InputManager
                         },
                     is_synthetic,
                     ..
-                },
-            ..
-        } = in_event
-        {
-            if !is_synthetic
-            {
-                self.is_key_pressed.insert(*physical_key, *state);
+                } if !is_synthetic =>
+                {
+                    self.is_key_pressed.insert(*physical_key, *state);
+                }
+                WindowEvent::CursorMoved {
+                    position, ..
+                } =>
+                {
+                    self.best_guess_mouse_pos = *position;
+                }
+                // WindowEvent::CursorEntered {
+                //     device_id
+                // } => todo!(),
+                // WindowEvent::CursorLeft {
+                //     device_id
+                // } => todo!(),
+                // WindowEvent::MouseWheel {
+                //     device_id,
+                //     delta,
+                //     phase
+                // } => todo!(),
+                // WindowEvent::MouseInput {
+                //     device_id,
+                //     state,
+                //     button
+                // } => todo!(),
+                _ => ()
             }
         }
     }
@@ -48,5 +117,31 @@ impl InputManager
             Some(v) => *v == ElementState::Pressed,
             None => false
         }
+    }
+
+    pub fn get_mouse_delta(&self) -> (f32, f32)
+    {
+        (self.delta_mouse_pos.x as f32, self.delta_mouse_pos.y as f32)
+    }
+
+    pub fn get_delta_time(&self) -> f32
+    {
+        self.delta_frame_time
+    }
+
+    pub fn attach_cursor(&mut self)
+    {
+        self.previous_frame_mouse_pos = ZERO_POS;
+        self.best_guess_mouse_pos = ZERO_POS;
+
+        self.window.set_cursor_position(ZERO_POS).unwrap();
+    }
+}
+
+fn get_center_screen_pos(window_size: PhysicalSize<u32>) -> PhysicalPosition<f64>
+{
+    PhysicalPosition {
+        x: window_size.width as f64 / 2.0,
+        y: window_size.height as f64 / 2.0
     }
 }

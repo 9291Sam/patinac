@@ -14,7 +14,7 @@ use nalgebra_glm as glm;
 use pollster::FutureExt;
 use strum::IntoEnumIterator;
 use util::{Registrar, SendSyncMutPtr};
-use winit::dpi::PhysicalSize;
+use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event::*;
 use winit::event_loop::{EventLoop, EventLoopWindowTarget};
 use winit::keyboard::KeyCode;
@@ -119,10 +119,7 @@ impl Renderer
 
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: wgpu::Backends::all(),
-            #[cfg(debug_assertions)]
-            flags: wgpu::InstanceFlags::debugging(),
-            #[cfg(not(debug_assertions))]
-            flags: wgpu::InstanceFlags::empty(),
+            flags: wgpu::InstanceFlags::from_build_config().with_env(),
             ..Default::default()
         });
 
@@ -354,7 +351,7 @@ impl Renderer
 
         // Helper Structures
         let input_helper = RefCell::new(WinitInputHelper::new());
-        let input_manager = RefCell::new(InputManager::new());
+        let input_manager = RefCell::new(InputManager::new(window, PhysicalSize { width: config.width, height: config.height }));
 
         let depth_buffer = RefCell::new(create_depth_buffer(&self.device, config));
 
@@ -435,9 +432,7 @@ impl Renderer
             }
         };
 
-        let mut previous_frame_time = std::time::Instant::now();
-
-        let mut render_func = || -> Result<(), wgpu::SurfaceError> {
+        let render_func = || -> Result<(), wgpu::SurfaceError> {
             let output = surface.get_current_texture()?;
             let view = output
                 .texture
@@ -695,14 +690,10 @@ impl Renderer
             self.queue.submit([encoder.finish()]);
             output.present();
 
-            let now = std::time::Instant::now();
-
             self.float_delta_frame_time_s.store(
-                (now - previous_frame_time).as_secs_f32().to_bits(),
+                input_manager.borrow().get_delta_time().to_bits(),
                 Ordering::Release
             );
-
-            previous_frame_time = now;
 
             Ok(())
         };
@@ -781,7 +772,7 @@ impl Renderer
             };
 
             let mouse_diff_px: glm::Vec2 = {
-                let mouse_cords_diff_px_f32: (f32, f32) = input_helper.mouse_diff();
+                let mouse_cords_diff_px_f32: (f32, f32) = input_manager.get_mouse_delta(); // input_helper.mouse_diff();
 
                 glm::Vec2::new(mouse_cords_diff_px_f32.0, mouse_cords_diff_px_f32.1)
             };
@@ -806,17 +797,20 @@ impl Renderer
                 camera_guard.add_pitch(delta_rads.y * rotate_scale); //  * self.get_delta_time());
             }
 
-            if input_helper.key_pressed(KeyCode::Escape)
+            if input_manager.is_key_pressed(KeyCode::Escape)
             {
                 control_flow.exit();
             }
         };
 
-        window.set_cursor_visible(false);
-        #[cfg(target_os = "macos")]
-        window.set_cursor_grab(CursorGrabMode::Locked).unwrap();
-        #[cfg(not(target_os = "macos"))]
-        window.set_cursor_grab(CursorGrabMode::Confined).unwrap();
+        input_manager.borrow_mut().attach_cursor();
+
+        // TODO: sort out that this doesnt work wayland
+        // window.set_cursor_visible(false);
+        // #[cfg(target_os = "macos")]
+        // window.set_cursor_grab(CursorGrabMode::Locked).unwrap();
+        // #[cfg(not(target_os = "macos"))]
+        // window.set_cursor_grab(CursorGrabMode::Confined).unwrap();
 
         let _ = event_loop.run_on_demand(|event, control_flow| {
             crash_poll_func();
