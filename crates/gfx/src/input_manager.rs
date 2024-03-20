@@ -1,10 +1,13 @@
+use std::collections::hash_map::Entry::*;
 use std::collections::HashMap;
 
-use winit::keyboard::KeyCode;
+use winit::event::{DeviceId, ElementState, Event, KeyEvent, WindowEvent};
+use winit::keyboard::{KeyCode, PhysicalKey};
+use winit::window::WindowId;
 
 struct InputManager
 {
-    is_key_pressed: HashMap<KeyCode, bool>
+    is_key_pressed: HashMap<PhysicalKey, ElementState>
 }
 
 impl InputManager
@@ -16,17 +19,47 @@ impl InputManager
         }
     }
 
-    pub fn update_with_event(event: &winit::event::Event<()>)
+    pub fn update_with_event(
+        &mut self,
+        this_device_id: &DeviceId,
+        this_window_id: &WindowId,
+        in_event: &Event<()>
+    )
     {
-        match event {
-            winit::event::Event::NewEvents(_) => todo!(),
-            winit::event::Event::WindowEvent { window_id, event } => todo!(),
-            winit::event::Event::DeviceEvent { device_id, event } => todo!(),
-            winit::event::Event::UserEvent(_) => todo!(),
-            winit::event::Event::Suspended => todo!(),
-            winit::event::Event::Resumed => todo!(),
-            winit::event::Event::AboutToWait => todo!(),
-            winit::event::Event::LoopExiting => todo!(),
-            winit::event::Event::MemoryWarning => todo!(),
+        if let winit::event::Event::WindowEvent {
+            window_id,
+            event
+        } = in_event
+        {
+            if window_id == this_window_id
+            {
+                if let WindowEvent::KeyboardInput {
+                    device_id,
+                    event,
+                    is_synthetic
+                } = event
+                {
+                    if !is_synthetic && this_device_id == device_id
+                    {
+                        let KeyEvent {
+                            physical_key,
+                            state,
+                            ..
+                        } = event;
+
+                        self.is_key_pressed.insert(*physical_key, *state);
+                    }
+                }
+            }
         }
     }
+
+    pub fn is_key_pressed(&self, key: KeyCode) -> bool
+    {
+        match self.is_key_pressed.get(&PhysicalKey::Code(key))
+        {
+            Some(v) => *v == ElementState::Pressed,
+            None => false
+        }
+    }
+}

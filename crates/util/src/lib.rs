@@ -130,13 +130,9 @@ pub fn bytes_as_string(bytes: f64, suffix: SuffixType) -> String
 
     let base = size.log10() / UNIT.log10();
 
-    let result = format!("{:.3}", UNIT.powf(base - base.floor()),)
-        .trim_end_matches(".0")
-        .to_owned();
-
     // Add suffix
     [
-        &result,
+        format!("{:.3}", UNIT.powf(base - base.floor()),).trim_end_matches(".0"),
         match suffix
         {
             SuffixType::Short => SHORT_SUFFIX,
