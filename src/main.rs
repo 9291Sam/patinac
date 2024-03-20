@@ -9,7 +9,13 @@ fn main()
     log::set_logger(logger).unwrap();
     log::set_max_level(log::LevelFilter::Trace);
 
-    *util::access_global_thread_pool().write().unwrap() = Some(util::ThreadPool::new());
+    *util::access_global_thread_pool().write().unwrap() = Some(util::ThreadPool::new(
+        std::thread::available_parallelism()
+            .unwrap()
+            .get()
+            .saturating_sub(2)
+            .max(2)
+    ));
 
     let crash_handler = util::CrashHandler::new();
 

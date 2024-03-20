@@ -24,7 +24,7 @@ use winit_input_helper::WinitInputHelper;
 
 use crate::recordables::{recordable_ord, PassStage, RecordInfo, Recordable};
 use crate::render_cache::{GenericPass, RenderCache};
-use crate::{Camera, GenericPipeline, Transform};
+use crate::{Camera, GenericPipeline, InputManager, Transform};
 
 #[derive(Debug)]
 pub struct Renderer
@@ -354,6 +354,7 @@ impl Renderer
 
         // Helper Structures
         let input_helper = RefCell::new(WinitInputHelper::new());
+        let input_manager = RefCell::new(InputManager::new());
 
         let depth_buffer = RefCell::new(create_depth_buffer(&self.device, config));
 
@@ -710,9 +711,10 @@ impl Renderer
             // TODO: do the trig thing so that diagonal isn't faster!
 
             let input_helper = input_helper.borrow();
+            let input_manager = input_manager.borrow();
 
             let move_scale = 10.0
-                * if input_helper.key_held(KeyCode::ShiftLeft)
+                * if input_manager.is_key_pressed(KeyCode::ShiftLeft)
                 {
                     25.0
                 }
@@ -722,7 +724,7 @@ impl Renderer
                 };
             let rotate_scale = 10.0;
 
-            if input_helper.key_held(KeyCode::KeyK)
+            if input_manager.is_key_pressed(KeyCode::KeyK)
             {
                 log::info!(
                     "Camera: {} | Frame Time (ms): {:.03} | FPS: {:.03} | Memory Used: {}",
@@ -736,42 +738,42 @@ impl Renderer
                 );
             }
 
-            if input_helper.key_held(KeyCode::KeyW)
+            if input_manager.is_key_pressed(KeyCode::KeyW)
             {
                 let v = camera.borrow().get_forward_vector() * move_scale;
 
                 camera.borrow_mut().add_position(v * self.get_delta_time());
             };
 
-            if input_helper.key_held(KeyCode::KeyS)
+            if input_manager.is_key_pressed(KeyCode::KeyS)
             {
                 let v = camera.borrow().get_forward_vector() * -move_scale;
 
                 camera.borrow_mut().add_position(v * self.get_delta_time());
             };
 
-            if input_helper.key_held(KeyCode::KeyD)
+            if input_manager.is_key_pressed(KeyCode::KeyD)
             {
                 let v = camera.borrow().get_right_vector() * move_scale;
 
                 camera.borrow_mut().add_position(v * self.get_delta_time());
             };
 
-            if input_helper.key_held(KeyCode::KeyA)
+            if input_manager.is_key_pressed(KeyCode::KeyA)
             {
                 let v = camera.borrow().get_right_vector() * -move_scale;
 
                 camera.borrow_mut().add_position(v * self.get_delta_time());
             };
 
-            if input_helper.key_held(KeyCode::Space)
+            if input_manager.is_key_pressed(KeyCode::Space)
             {
                 let v = *Transform::global_up_vector() * move_scale;
 
                 camera.borrow_mut().add_position(v * self.get_delta_time());
             };
 
-            if input_helper.key_held(KeyCode::ControlLeft)
+            if input_manager.is_key_pressed(KeyCode::ControlLeft)
             {
                 let v = *Transform::global_up_vector() * -move_scale;
 
@@ -825,6 +827,7 @@ impl Renderer
             }
 
             input_helper.borrow_mut().update(&event);
+            input_manager.borrow_mut().update_with_event(&event);
 
             match event
             {

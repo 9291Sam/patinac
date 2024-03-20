@@ -1,3 +1,4 @@
+use core::num;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering::*;
 use std::sync::RwLock;
@@ -211,11 +212,11 @@ pub struct ThreadPool
 impl ThreadPool
 {
     #[allow(clippy::new_without_default)]
-    pub fn new() -> ThreadPool
+    pub fn new(number_of_workers: usize) -> ThreadPool
     {
         let (sender, receiver) = crossbeam::channel::unbounded();
 
-        let threads = (0..(std::thread::available_parallelism().unwrap().into_integer() * 2))
+        let threads = (0..number_of_workers)
             .map(|idx| {
                 let this_receiver: Receiver<Box<dyn FnOnce() + Send>> = receiver.clone();
 

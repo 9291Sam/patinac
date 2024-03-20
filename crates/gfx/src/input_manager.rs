@@ -5,7 +5,7 @@ use winit::event::{DeviceId, ElementState, Event, KeyEvent, WindowEvent};
 use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::window::WindowId;
 
-struct InputManager
+pub(crate) struct InputManager
 {
     is_key_pressed: HashMap<PhysicalKey, ElementState>
 }
@@ -19,37 +19,26 @@ impl InputManager
         }
     }
 
-    pub fn update_with_event(
-        &mut self,
-        this_device_id: &DeviceId,
-        this_window_id: &WindowId,
-        in_event: &Event<()>
-    )
+    pub fn update_with_event(&mut self, in_event: &Event<()>)
     {
         if let winit::event::Event::WindowEvent {
-            window_id,
-            event
-        } = in_event
-        {
-            if window_id == this_window_id
-            {
-                if let WindowEvent::KeyboardInput {
-                    device_id,
-                    event,
-                    is_synthetic
-                } = event
-                {
-                    if !is_synthetic && this_device_id == device_id
-                    {
-                        let KeyEvent {
+            event:
+                WindowEvent::KeyboardInput {
+                    event:
+                        KeyEvent {
                             physical_key,
                             state,
                             ..
-                        } = event;
-
-                        self.is_key_pressed.insert(*physical_key, *state);
-                    }
-                }
+                        },
+                    is_synthetic,
+                    ..
+                },
+            ..
+        } = in_event
+        {
+            if !is_synthetic
+            {
+                self.is_key_pressed.insert(*physical_key, *state);
             }
         }
     }

@@ -7,7 +7,7 @@ mod recordables;
 mod render_cache;
 mod renderer;
 
-pub use input_manager::*;
+pub(crate) use input_manager::*;
 pub use linalg::*;
 pub use recordables::{DrawId, PassStage, RecordInfo, Recordable};
 pub use render_cache::{

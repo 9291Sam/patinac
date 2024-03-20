@@ -41,7 +41,7 @@ itertools = "0.12.1"
 noise = "0.8.2"
 rand = "0.8.5"
 winit = "0.29"
-wgpu = "0.19.1"
+wgpu = "0.19.3"
 strum = { version = "0.26", features = ["derive"] }
 nalgebra-glm = { version = "0.18.0", features = ["convert-bytemuck"] }
 nalgebra = "0.32.3"
