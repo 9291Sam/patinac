@@ -1,9 +1,7 @@
-use std::collections::hash_map::Entry::*;
 use std::collections::HashMap;
 
-use winit::event::{DeviceId, ElementState, Event, KeyEvent, WindowEvent};
+use winit::event::{ElementState, Event, KeyEvent, WindowEvent};
 use winit::keyboard::{KeyCode, PhysicalKey};
-use winit::window::WindowId;
 
 pub(crate) struct InputManager
 {

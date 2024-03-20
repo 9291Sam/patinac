@@ -46,8 +46,6 @@ fn main()
                 move |continue_func, _, _| local_game.clone().enter_tick_loop(continue_func)
             );
 
-            // TODO: if I put an enter_constrained here it hangs like the debug menu
-
             // TODO: replace poll func with loop checking one for checking for long running
             // loops
             let local_renderer = renderer.clone();
