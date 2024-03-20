@@ -13,3 +13,4 @@ util = { workspace = true }
 nalgebra-glm = { workspace = true }
 strum = { workspace = true }
 bytemuck = { workspace = true }
+dashmap = { workspace = true }

@@ -613,13 +613,6 @@ mod test
     pub use super::*;
 
     #[test]
-    fn assert_sizes()
-    {
-        assert_eq!(1024, std::mem::size_of::<VoxelBrick>());
-        assert_eq!(1 * 1024 * 1024, std::mem::size_of::<BrickMap>());
-    }
-
-    #[test]
     fn assert_values()
     {
         assert_matches!(

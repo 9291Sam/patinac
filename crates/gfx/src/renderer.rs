@@ -37,7 +37,7 @@ pub struct Renderer
 
     // Rendering views
     // TODO: Window<WindowSize>, Window<DeltaFrameTime>, WindowUpdater<Camera>
-    window_size_x:            AtomicU32,
+    window_size_x:            AtomicU32, // TODO: AtomicF32F32
     window_size_y:            AtomicU32,
     float_delta_frame_time_s: AtomicU32,
 
@@ -705,7 +705,7 @@ impl Renderer
 
         let handle_input = |control_flow: &EventLoopWindowTarget<()>| {
             // TODO: do the trig thing so that diagonal isn't faster!
-            let input_manager = input_manager.borrow();
+            let mut input_manager = input_manager.borrow_mut();
 
             let move_scale = 10.0
                 * if input_manager.is_key_pressed(KeyCode::ShiftLeft)
@@ -772,6 +772,16 @@ impl Renderer
                 let v = *Transform::global_up_vector() * -move_scale;
 
                 camera.borrow_mut().add_position(v * self.get_delta_time());
+            };
+
+            if input_manager.is_key_pressed(KeyCode::KeyP)
+            {
+                input_manager.attach_cursor();
+            };
+
+            if input_manager.is_key_pressed(KeyCode::KeyO)
+            {
+                input_manager.detach_cursor();
             };
 
             let mouse_diff_px: glm::Vec2 = {
@@ -849,7 +859,6 @@ impl Renderer
                         _ => ()
                     }
                 }
-                Event::MemoryWarning => self.render_cache.trim(),
                 _ => ()
             }
 

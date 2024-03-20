@@ -4,6 +4,7 @@
 
 mod allocator;
 mod r#async;
+mod atomics;
 mod crash_handler;
 mod global_allocator;
 mod log;
@@ -16,6 +17,7 @@ use std::sync::Arc;
 
 pub use allocator::*;
 pub use r#async::*;
+pub use atomics::*;
 pub use crash_handler::*;
 pub use global_allocator::*;
 pub use log::*;
