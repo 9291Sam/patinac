@@ -1,5 +1,4 @@
-use std::collections::HashMap;
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::atomic::Ordering;
 use std::sync::Mutex;
 
 use dashmap::DashMap;

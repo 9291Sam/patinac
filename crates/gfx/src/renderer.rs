@@ -350,13 +350,13 @@ impl Renderer
 
         // Helper Structures
         // let input_helper = RefCell::new(WinitInputHelper::new());
-        let input_manager = RefCell::new(InputManager::new(
+        let input_manager = InputManager::new(
             window,
             PhysicalSize {
                 width:  config.width,
                 height: config.height
             }
-        ));
+        );
 
         let depth_buffer = RefCell::new(create_depth_buffer(&self.device, config));
 
@@ -695,18 +695,13 @@ impl Renderer
             self.queue.submit([encoder.finish()]);
             output.present();
 
-            self.float_delta_frame_time_s.store(
-                input_manager.borrow().get_delta_time().to_bits(),
-                Ordering::Release
-            );
+            self.float_delta_frame_time_s
+                .store(input_manager.get_delta_time().to_bits(), Ordering::Release);
 
             Ok(())
         };
 
         let handle_input = |control_flow: &EventLoopWindowTarget<()>| {
-            // TODO: do the trig thing so that diagonal isn't faster!
-            let mut input_manager = input_manager.borrow_mut();
-
             let move_scale = 10.0
                 * if input_manager.is_key_pressed(KeyCode::ShiftLeft)
                 {
@@ -816,7 +811,7 @@ impl Renderer
             }
         };
 
-        input_manager.borrow_mut().attach_cursor();
+        input_manager.attach_cursor();
 
         let _ = event_loop.run_on_demand(|event, control_flow| {
             crash_poll_func();
@@ -826,7 +821,7 @@ impl Renderer
                 control_flow.exit();
             }
 
-            input_manager.borrow_mut().update_with_event(&event);
+            input_manager.update_with_event(&event);
 
             match event
             {

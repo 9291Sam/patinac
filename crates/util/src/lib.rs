@@ -143,19 +143,3 @@ pub fn bytes_as_string(bytes: f64, suffix: SuffixType) -> String
     ]
     .join(" ")
 }
-
-// struct StaticMutex<T: ?Sized>
-// {
-//     t: UnsafeCell<T>
-// }
-
-// unsafe impl<T: ?Sized> Sync for StaticMutex<T> {}
-// unsafe impl<T: ?Sized + Send> Send for StaticMutex<T> {}
-
-// impl<T: ?Sized> StaticMutex<T>
-// {
-//     pub fn get_mut(&mut self) -> &mut T
-//     {
-//         &mut *self.t.get_mut()
-//     }
-// }
