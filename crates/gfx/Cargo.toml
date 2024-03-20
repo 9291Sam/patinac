@@ -14,3 +14,4 @@ nalgebra-glm = { workspace = true }
 strum = { workspace = true }
 bytemuck = { workspace = true }
 dashmap = { workspace = true }
+oneshot = { workspace = true }

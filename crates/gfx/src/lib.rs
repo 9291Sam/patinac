@@ -7,7 +7,7 @@ mod recordables;
 mod render_cache;
 mod renderer;
 
-pub(crate) use input_manager::*;
+pub use input_manager::*;
 pub use linalg::*;
 pub use recordables::{DrawId, PassStage, RecordInfo, Recordable};
 pub use render_cache::{
@@ -20,6 +20,7 @@ pub use render_cache::{
 };
 pub use renderer::Renderer;
 pub use wgpu;
+pub use winit::keyboard::KeyCode;
 
 pub mod glm
 {

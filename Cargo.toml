@@ -21,6 +21,7 @@ voxel = { workspace = true }
 verdigris = { workspace = true }
 gui = { workspace = true }
 log = { workspace = true }
+oneshot = { workspace = true }
 sys-locale.workspace = true
 
 [workspace.dependencies]

@@ -12,7 +12,8 @@ const ZERO_POS: PhysicalPosition<f64> = PhysicalPosition {
     x: 0.0, y: 0.0
 };
 
-pub(crate) struct InputManager<'w>
+#[derive(Debug)]
+pub struct InputManager<'w>
 {
     window:           &'w Window,
     is_key_pressed:   DashMap<PhysicalKey, ElementState>,
@@ -22,6 +23,7 @@ pub(crate) struct InputManager<'w>
     delta_mouse_pos_px: AtomicF32F32
 }
 
+#[derive(Debug)]
 struct InputManagerCriticalSection
 {
     previous_frame_time:      std::time::Instant,

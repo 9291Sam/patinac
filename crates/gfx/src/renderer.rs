@@ -322,7 +322,8 @@ impl Renderer
         &self,
         should_continue: &dyn Fn() -> bool,
         request_terminate: &dyn Fn(),
-        crash_poll_func: &dyn Fn()
+        crash_poll_func: &dyn Fn(),
+        out_input_manager: oneshot::Sender<Arc<InputManager>>
     )
     {
         let mut guard = self.critical_section.lock().unwrap();
@@ -341,13 +342,15 @@ impl Renderer
              was called from!"
         );
 
-        let input_manager = InputManager::new(
+        let input_manager = Arc::new(InputManager::new(
             window,
             PhysicalSize {
                 width:  config.width,
                 height: config.height
             }
-        );
+        ));
+
+        out_input_manager.send(input_manager.clone()).unwrap();
 
         let depth_buffer = RefCell::new(create_depth_buffer(&self.device, config));
 
@@ -687,105 +690,6 @@ impl Renderer
 
         // TODO: remove!
         let handle_input = |camera: &mut Camera, control_flow: &EventLoopWindowTarget<()>| {
-            let move_scale = 10.0
-                * if input_manager.is_key_pressed(KeyCode::ShiftLeft)
-                {
-                    25.0
-                }
-                else
-                {
-                    4.0
-                };
-            let rotate_scale = 10.0;
-
-            if input_manager.is_key_pressed(KeyCode::KeyK)
-            {
-                log::info!(
-                    "Camera: {} | Frame Time (ms): {:.03} | FPS: {:.03} | Memory Used: {}",
-                    camera,
-                    self.get_delta_time() * 1000.0,
-                    1.0 / self.get_delta_time(),
-                    util::bytes_as_string(
-                        util::get_bytes_of_active_allocations() as f64,
-                        util::SuffixType::Full
-                    )
-                );
-            }
-
-            if input_manager.is_key_pressed(KeyCode::KeyW)
-            {
-                let v = camera.get_forward_vector() * move_scale;
-
-                camera.add_position(v * self.get_delta_time());
-            };
-
-            if input_manager.is_key_pressed(KeyCode::KeyS)
-            {
-                let v = camera.get_forward_vector() * -move_scale;
-
-                camera.add_position(v * self.get_delta_time());
-            };
-
-            if input_manager.is_key_pressed(KeyCode::KeyD)
-            {
-                let v = camera.get_right_vector() * move_scale;
-
-                camera.add_position(v * self.get_delta_time());
-            };
-
-            if input_manager.is_key_pressed(KeyCode::KeyA)
-            {
-                let v = camera.get_right_vector() * -move_scale;
-
-                camera.add_position(v * self.get_delta_time());
-            };
-
-            if input_manager.is_key_pressed(KeyCode::Space)
-            {
-                let v = *Transform::global_up_vector() * move_scale;
-
-                camera.add_position(v * self.get_delta_time());
-            };
-
-            if input_manager.is_key_pressed(KeyCode::ControlLeft)
-            {
-                let v = *Transform::global_up_vector() * -move_scale;
-
-                camera.add_position(v * self.get_delta_time());
-            };
-
-            if input_manager.is_key_pressed(KeyCode::KeyP)
-            {
-                input_manager.attach_cursor();
-            };
-
-            if input_manager.is_key_pressed(KeyCode::KeyO)
-            {
-                input_manager.detach_cursor();
-            };
-
-            let mouse_diff_px: glm::Vec2 = {
-                let mouse_cords_diff_px_f32: (f32, f32) = input_manager.get_mouse_delta();
-
-                glm::Vec2::new(mouse_cords_diff_px_f32.0, mouse_cords_diff_px_f32.1)
-            };
-
-            let screen_size_px: glm::Vec2 = {
-                let screen_size_u32 = self.get_framebuffer_size();
-
-                glm::Vec2::new(screen_size_u32.x as f32, screen_size_u32.y as f32)
-            };
-
-            // delta over the whole screen -1 -> 1
-            let normalized_delta = mouse_diff_px.component_div(&screen_size_px);
-
-            let delta_rads = normalized_delta
-                .component_div(&glm::Vec2::repeat(2.0))
-                .component_mul(&self.get_fov());
-
-            camera.add_yaw(delta_rads.x * rotate_scale); // * self.get_delta_time());
-            camera.add_pitch(delta_rads.y * rotate_scale); //  * self.get_delta_time());
-
             if input_manager.is_key_pressed(KeyCode::Escape)
             {
                 control_flow.exit();
@@ -860,6 +764,11 @@ impl Renderer
             stencil:             wgpu::StencilState::default(),
             bias:                wgpu::DepthBiasState::default()
         }
+    }
+
+    pub fn get_input_manager(&self) -> &InputManager
+    {
+        self.
     }
 }
 

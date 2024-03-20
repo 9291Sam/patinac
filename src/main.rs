@@ -40,10 +40,18 @@ fn main()
                 gui::DebugMenu::new(&renderer)
             });
 
+            let (tx, rx) = oneshot::channel::<Arc<gfx::InputManager>>();
+
             let local_game = game.clone();
             handle.enter_constrained_thread(
                 "Game Tick Thread".to_string(),
-                move |continue_func, _, _| local_game.clone().enter_tick_loop(continue_func)
+                move |continue_func, _, _| local_game.enter_tick_loop(continue_func)
+            );
+
+            let local_game = game.clone();
+            handle.enter_constrained_thread(
+                "Game Camera Thread".to_string(),
+                move |continue_func, _, _| local_game.enter_camera_loop(continue_func)
             );
 
             // TODO: replace poll func with loop checking one for checking for long running
