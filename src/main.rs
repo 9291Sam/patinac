@@ -1,10 +1,3 @@
-#![feature(stmt_expr_attributes)]
-#![feature(if_let_guard)]
-#![feature(associated_type_defaults)]
-#![feature(const_trait_impl)]
-#![feature(trait_upcasting)]
-#![feature(effects)]
-
 use std::sync::Arc;
 
 fn main()

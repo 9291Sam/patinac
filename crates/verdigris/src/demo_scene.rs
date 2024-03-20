@@ -7,7 +7,7 @@ use gfx::glm::{self};
 use itertools::iproduct;
 use noise::NoiseFn;
 use rand::Rng;
-use voxel::{Voxel, VOXEL_BRICK_EDGE_LENGTH};
+use voxel::Voxel;
 
 #[derive(Debug)]
 pub struct TestScene
@@ -72,13 +72,12 @@ fn create_and_fill(brick_game: &game::Game, pos: glm::Vec3) -> Arc<super::BrickM
         let random_generator = RefCell::new(rand::thread_rng());
 
         let noise_sampler = |x: u16, z: u16| {
-
             let b = voxel::CHUNK_VOXEL_SIZE as f64;
 
             let h = 84.0f64;
 
             let r = ((noise_generator.get([
-            ((pos.x as f64) + (x as f64)) / 256.0,
+                ((pos.x as f64) + (x as f64)) / 256.0,
                 0.0,
                 ((pos.z as f64) + (z as f64)) / 256.0
             ]) * h)
@@ -227,7 +226,8 @@ impl game::Entity for TestScene
                 //         );
 
                 //         manager.write_voxel(
-                //             rand::thread_rng().gen_range(1..=12).try_into().unwrap(),
+                //
+                // rand::thread_rng().gen_range(1..=12).try_into().unwrap(),
                 //             base
                 //         );
                 //     }

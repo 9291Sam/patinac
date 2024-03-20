@@ -4,7 +4,7 @@ use winit::keyboard::KeyCode;
 
 struct InputManager
 {
-    key_states: HashMap<KeyCode, KeyPressedState>
+    is_key_pressed: HashMap<KeyCode, bool>
 }
 
 impl InputManager
@@ -12,33 +12,21 @@ impl InputManager
     pub fn new() -> InputManager
     {
         InputManager {
-            key_states: todo!()
+            is_key_pressed: HashMap::new()
         }
     }
 
-    // pub fn update_key_state(&mut self, key: KeyCode, new_state: KeyPressedState)
-    // {}
-
-    // pub fn get_key_state(&self, key: KeyCode)
-    // {
-    //     self.key_states.get(&key).unwrap()
-    // }
-
-    // attach and detach cursor
-}
-
-///      ╔═════╗      Released
-///      ║  ^  ║
-/// ═════╝  |  ╚═════ Pressed
-///   ^  ^  ^  ^  ^
-///   \>          \> Pressed
-///      \>          Releasing
-///         \>       Released
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-enum KeyPressedState
-{
-    Pressed,
-    Releasing,
-    Released,
-    Pressing
-}
+    pub fn update_with_event(event: &winit::event::Event<()>)
+    {
+        match event {
+            winit::event::Event::NewEvents(_) => todo!(),
+            winit::event::Event::WindowEvent { window_id, event } => todo!(),
+            winit::event::Event::DeviceEvent { device_id, event } => todo!(),
+            winit::event::Event::UserEvent(_) => todo!(),
+            winit::event::Event::Suspended => todo!(),
+            winit::event::Event::Resumed => todo!(),
+            winit::event::Event::AboutToWait => todo!(),
+            winit::event::Event::LoopExiting => todo!(),
+            winit::event::Event::MemoryWarning => todo!(),
+        }
+    }

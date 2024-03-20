@@ -524,8 +524,6 @@ impl Renderer
                             }
                         }
                     })
-                    // .collect::<Vec<_>>()
-                    // .into_iter()
                     .for_each(|(r, r_i, bind_groups)| {
                         renderables_map.get_mut(&r.get_pass_stage()).unwrap().push((
                             r,
@@ -731,8 +729,9 @@ impl Renderer
                     camera.borrow(),
                     self.get_delta_time() * 1000.0,
                     1.0 / self.get_delta_time(),
-                    util::bytes_as_string::<{ util::SuffixType::Full }>(
-                        util::get_bytes_of_active_allocations() as f64
+                    util::bytes_as_string(
+                        util::get_bytes_of_active_allocations() as f64,
+                        util::SuffixType::Full
                     )
                 );
             }

@@ -2,3 +2,4 @@ target
 *log.txt
 patinac_log.txt
 flamegraph.svg
+rustc-ice*

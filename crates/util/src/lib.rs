@@ -1,10 +1,6 @@
-#![feature(adt_const_params)]
 #![feature(map_try_insert)]
-#![feature(maybe_uninit_as_bytes)]
 #![feature(allocator_api)]
 #![feature(slice_ptr_get)]
-#![feature(trait_alias)]
-#![feature(type_alias_impl_trait)]
 
 mod allocator;
 mod r#async;
@@ -15,7 +11,6 @@ mod registrar;
 mod uuid;
 mod window;
 
-use std::marker::ConstParamTy;
 use std::ops::Deref;
 use std::sync::Arc;
 
@@ -109,14 +104,14 @@ impl<T> From<*mut T> for SendSyncMutPtr<T>
     }
 }
 
-#[derive(ConstParamTy, PartialEq, Eq)]
+#[derive(PartialEq, Eq)]
 pub enum SuffixType
 {
     Short,
     Full
 }
 
-pub fn bytes_as_string<const SUFFIX: SuffixType>(bytes: f64) -> String
+pub fn bytes_as_string(bytes: f64, suffix: SuffixType) -> String
 {
     const FULL_SUFFIX: &[&str] = &[
         "B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB", "RiB", "QiB"
@@ -142,7 +137,7 @@ pub fn bytes_as_string<const SUFFIX: SuffixType>(bytes: f64) -> String
     // Add suffix
     [
         &result,
-        match SUFFIX
+        match suffix
         {
             SuffixType::Short => SHORT_SUFFIX,
             SuffixType::Full => FULL_SUFFIX

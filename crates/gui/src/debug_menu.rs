@@ -2,8 +2,6 @@ use std::borrow::Cow;
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 
-use glyphon::Color;
-
 #[derive(Debug)]
 pub struct DebugMenu
 {
@@ -173,8 +171,9 @@ r#"╔═══════════════════╦════�
 ╚═══════════════════╩════════════╝"#,
                 1.0 / renderer.get_delta_time(),
                 renderer.get_delta_time() * 1000.0,
-                util::bytes_as_string::<{ util::SuffixType::Short }>(
-                    util::get_bytes_of_active_allocations() as f64
+                util::bytes_as_string(
+                    util::get_bytes_of_active_allocations() as f64,
+                    util::SuffixType::Short
                 )
             ),
             glyphon::Attrs::new().family(glyphon::Family::Monospace),

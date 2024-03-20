@@ -64,8 +64,9 @@ impl Game
             .insert(entity.get_uuid(), Arc::downgrade(&entity));
     }
 
-    pub fn enter_camera_loop(&self, poll_continue_func: &dyn Fn() -> bool)
+    pub fn enter_camera_loop(&self, _poll_continue_func: &dyn Fn() -> bool)
     {
+        todo!()
         // let mut prev = std::time::Instant::now();
         // let mut delta_time: f64;
 
