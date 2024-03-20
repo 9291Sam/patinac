@@ -60,15 +60,22 @@ impl InputManager<'_>
 
                     self.previous_frame_time = now;
 
+                    self.previous_frame_mouse_pos = get_center_screen_pos(self.window_size);
+                    self.window
+                        .set_cursor_position(get_center_screen_pos(self.window_size))
+                        .unwrap();
+
                     self.delta_mouse_pos = PhysicalPosition {
                         x: (self.best_guess_mouse_pos.x - self.previous_frame_mouse_pos.x),
                         y: (self.best_guess_mouse_pos.y - self.previous_frame_mouse_pos.y)
                     };
 
-                    self.previous_frame_mouse_pos = get_center_screen_pos(self.window_size);
-                    self.window
-                        .set_cursor_position(get_center_screen_pos(self.window_size))
-                        .unwrap();
+                    log::trace!(
+                        "delta: {:?} | best guess: {:?} | previous: {:?}",
+                        self.delta_mouse_pos,
+                        self.best_guess_mouse_pos,
+                        self.previous_frame_mouse_pos
+                    );
                 }
                 WindowEvent::KeyboardInput {
                     event:
