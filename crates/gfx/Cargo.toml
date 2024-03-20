@@ -6,7 +6,6 @@ edition = "2021"
 [dependencies]
 log = { workspace = true }
 wgpu = { workspace = true }
-winit_input_helper = { workspace = true }
 winit = { workspace = true }
 pollster = { workspace = true }
 nalgebra = { workspace = true }

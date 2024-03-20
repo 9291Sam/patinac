@@ -18,7 +18,8 @@ pub(crate) struct InputManager<'w>
     previous_frame_mouse_pos: PhysicalPosition<f64>,
     best_guess_mouse_pos:     PhysicalPosition<f64>,
     delta_mouse_pos:          PhysicalPosition<f64>,
-    window_size:              PhysicalSize<u32>
+    window_size:              PhysicalSize<u32>,
+    is_cursor_attached:       bool
 }
 
 // TODO: display scaling
@@ -35,7 +36,8 @@ impl InputManager<'_>
             previous_frame_mouse_pos: ZERO_POS,
             best_guess_mouse_pos: ZERO_POS,
             delta_mouse_pos: ZERO_POS,
-            window_size: size
+            window_size: size,
+            is_cursor_attached: true
         };
 
         this.attach_cursor();
@@ -60,25 +62,21 @@ impl InputManager<'_>
 
                     self.previous_frame_time = now;
 
-                    self.delta_mouse_pos = PhysicalPosition {
-                        x: (self.best_guess_mouse_pos.x - self.previous_frame_mouse_pos.x),
-                        y: (self.best_guess_mouse_pos.y - self.previous_frame_mouse_pos.y)
-                    };
+                    if self.is_cursor_attached
+                    {
+                        self.delta_mouse_pos = PhysicalPosition {
+                            x: (self.best_guess_mouse_pos.x - self.previous_frame_mouse_pos.x),
+                            y: (self.best_guess_mouse_pos.y - self.previous_frame_mouse_pos.y)
+                        };
 
-                    let c = get_center_screen_pos(self.window_size);
+                        let c = get_center_screen_pos(self.window_size);
 
-                    self.previous_frame_mouse_pos = c;
+                        self.previous_frame_mouse_pos = c;
 
-                    self.window.set_cursor_position(c).unwrap();
+                        self.window.set_cursor_position(c).unwrap();
 
-                    self.best_guess_mouse_pos = c;
-
-                    log::trace!(
-                        "delta: {:?} | best guess: {:?} | previous: {:?}",
-                        self.delta_mouse_pos,
-                        self.best_guess_mouse_pos,
-                        self.previous_frame_mouse_pos
-                    );
+                        self.best_guess_mouse_pos = c;
+                    }
                 }
                 WindowEvent::KeyboardInput {
                     event:
@@ -141,8 +139,21 @@ impl InputManager<'_>
 
     pub fn attach_cursor(&mut self)
     {
+        self.is_cursor_attached = true;
+
         self.previous_frame_mouse_pos = ZERO_POS;
         self.best_guess_mouse_pos = ZERO_POS;
+
+        self.window.set_cursor_position(ZERO_POS).unwrap();
+    }
+
+    pub fn detach_cursor(&mut self)
+    {
+        self.is_cursor_attached = false;
+
+        self.previous_frame_mouse_pos = ZERO_POS;
+        self.best_guess_mouse_pos = ZERO_POS;
+        self.delta_mouse_pos = ZERO_POS;
 
         self.window.set_cursor_position(ZERO_POS).unwrap();
     }

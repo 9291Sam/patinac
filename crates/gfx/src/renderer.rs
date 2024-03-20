@@ -14,13 +14,12 @@ use nalgebra_glm as glm;
 use pollster::FutureExt;
 use strum::IntoEnumIterator;
 use util::{Registrar, SendSyncMutPtr};
-use winit::dpi::{PhysicalPosition, PhysicalSize};
+use winit::dpi::PhysicalSize;
 use winit::event::*;
 use winit::event_loop::{EventLoop, EventLoopWindowTarget};
 use winit::keyboard::KeyCode;
 use winit::platform::run_on_demand::EventLoopExtRunOnDemand;
-use winit::window::{CursorGrabMode, Window, WindowBuilder};
-use winit_input_helper::WinitInputHelper;
+use winit::window::{Window, WindowBuilder};
 
 use crate::recordables::{recordable_ord, PassStage, RecordInfo, Recordable};
 use crate::render_cache::{GenericPass, RenderCache};
@@ -350,8 +349,14 @@ impl Renderer
         );
 
         // Helper Structures
-        let input_helper = RefCell::new(WinitInputHelper::new());
-        let input_manager = RefCell::new(InputManager::new(window, PhysicalSize { width: config.width, height: config.height }));
+        // let input_helper = RefCell::new(WinitInputHelper::new());
+        let input_manager = RefCell::new(InputManager::new(
+            window,
+            PhysicalSize {
+                width:  config.width,
+                height: config.height
+            }
+        ));
 
         let depth_buffer = RefCell::new(create_depth_buffer(&self.device, config));
 
@@ -700,8 +705,6 @@ impl Renderer
 
         let handle_input = |control_flow: &EventLoopWindowTarget<()>| {
             // TODO: do the trig thing so that diagonal isn't faster!
-
-            let input_helper = input_helper.borrow();
             let input_manager = input_manager.borrow();
 
             let move_scale = 10.0
@@ -772,7 +775,7 @@ impl Renderer
             };
 
             let mouse_diff_px: glm::Vec2 = {
-                let mouse_cords_diff_px_f32: (f32, f32) = input_manager.get_mouse_delta(); // input_helper.mouse_diff();
+                let mouse_cords_diff_px_f32: (f32, f32) = input_manager.get_mouse_delta();
 
                 glm::Vec2::new(mouse_cords_diff_px_f32.0, mouse_cords_diff_px_f32.1)
             };
@@ -805,13 +808,6 @@ impl Renderer
 
         input_manager.borrow_mut().attach_cursor();
 
-        // TODO: sort out that this doesnt work wayland
-        // window.set_cursor_visible(false);
-        // #[cfg(target_os = "macos")]
-        // window.set_cursor_grab(CursorGrabMode::Locked).unwrap();
-        // #[cfg(not(target_os = "macos"))]
-        // window.set_cursor_grab(CursorGrabMode::Confined).unwrap();
-
         let _ = event_loop.run_on_demand(|event, control_flow| {
             crash_poll_func();
 
@@ -820,7 +816,6 @@ impl Renderer
                 control_flow.exit();
             }
 
-            input_helper.borrow_mut().update(&event);
             input_manager.borrow_mut().update_with_event(&event);
 
             match event
