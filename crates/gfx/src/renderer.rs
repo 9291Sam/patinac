@@ -314,7 +314,6 @@ impl Renderer
         &self,
         should_continue: &dyn Fn() -> bool,
         request_terminate: &dyn Fn(),
-        crash_poll_func: &dyn Fn(),
         camera_update_func: &dyn Fn(&InputManager, f32) -> Camera
     )
     {
@@ -693,8 +692,6 @@ impl Renderer
         input_manager.attach_cursor();
 
         let _ = event_loop.run_on_demand(|event, control_flow| {
-            crash_poll_func();
-
             if !should_continue()
             {
                 control_flow.exit();

@@ -208,6 +208,7 @@ use std::thread::{Scope, ScopedJoinHandle, Thread, ThreadId};
 //     }
 // }
 
+#[derive(Debug)]
 pub struct CrashInfo
 {
     thread_name: String,
@@ -236,64 +237,77 @@ pub fn panic_payload_as_cow(payload: &(dyn Any + Send)) -> Cow<'static, str>
     }
 }
 
-pub struct CrashHandler {}
-
 static THREAD_CRASH_INFOS: OnceLock<Mutex<HashMap<ThreadId, CrashInfo>>> = OnceLock::new();
 static SHOULD_LOOPS_KEEP_ITERATING: AtomicBool = AtomicBool::new(true);
 
-pub type ShouldLoopsContinue = dyn Fn() -> bool;
-pub type TerminateLoops = dyn Fn();
+pub type ShouldLoopsContinue = dyn Fn() -> bool + Send + Sync;
+pub type TerminateLoops = dyn Fn() + Send + Sync;
 
-impl CrashHandler
+pub fn handle_crashes(
+    // thread spawn func, not labeled for lifetime reasons
+    func: impl FnOnce(
+        &dyn (Fn(Box<dyn FnOnce() + Send>)),
+        Arc<ShouldLoopsContinue>,
+        Arc<TerminateLoops>
+    ) + UnwindSafe
+)
 {
-    pub fn start(
-        &self, // thread spawn func, not labeled for lifetime reasons
-        func: impl FnOnce(&dyn (Fn(Box<dyn FnOnce() + Send>)), &ShouldLoopsContinue, &TerminateLoops) + UnwindSafe
-    )
-    {
-        assert!(
-            THREAD_CRASH_INFOS
-                .try_insert(Mutex::new(HashMap::new()))
-                .is_ok()
+    assert!(
+        THREAD_CRASH_INFOS
+            .try_insert(Mutex::new(HashMap::new()))
+            .is_ok()
+    );
+
+    std::panic::set_hook(Box::new(|panic_info| {
+        let thread = std::thread::current();
+
+        THREAD_CRASH_INFOS.get().unwrap().lock().unwrap().insert(
+            thread.id(),
+            CrashInfo {
+                thread_name: thread.name().unwrap_or("???").to_string(),
+                panic_time:  std::time::Instant::now(),
+                backtrace:   std::backtrace::Backtrace::capture(),
+                message:     panic_payload_as_cow(panic_info.payload())
+            }
         );
 
-        std::panic::set_hook(Box::new(|panic_info| {
-            let thread = std::thread::current();
+        SHOULD_LOOPS_KEEP_ITERATING.store(false, Ordering::Release)
+    }));
 
-            THREAD_CRASH_INFOS.get().unwrap().lock().unwrap().insert(
-                thread.id(),
-                CrashInfo {
-                    thread_name: thread.name().unwrap_or("???").to_string(),
-                    panic_time:  std::time::Instant::now(),
-                    backtrace:   std::backtrace::Backtrace::capture(),
-                    message:     panic_payload_as_cow(panic_info.payload())
-                }
-            );
+    let should_loops_continue = || SHOULD_LOOPS_KEEP_ITERATING.load(Acquire);
+    let terminate_loops = || SHOULD_LOOPS_KEEP_ITERATING.store(false, Release);
 
-            SHOULD_LOOPS_KEEP_ITERATING.store(false, Ordering::Release)
-        }));
+    std::thread::scope(|thread_scope| {
+        let spawned_handles: Mutex<HashMap<ThreadId, ScopedJoinHandle<'_, ()>>> =
+            Mutex::new(HashMap::new());
 
-        let should_loops_continue = || SHOULD_LOOPS_KEEP_ITERATING.load(Acquire);
-        let terminate_loops = || SHOULD_LOOPS_KEEP_ITERATING.store(false, Release);
+        let new_thread_func = |execute: Box<dyn FnOnce() + Send>| {
+            let join_handle = thread_scope.spawn(execute);
 
-        std::thread::scope(|thread_scope| {
-            let spawned_handles: Mutex<HashMap<ThreadId, ScopedJoinHandle<'_, ()>>> =
-                Mutex::new(HashMap::new());
+            spawned_handles
+                .lock()
+                .unwrap()
+                .insert(join_handle.thread().id(), join_handle);
+        };
 
-            let new_thread_func = |execute: Box<dyn FnOnce() + Send>| {
-                let join_handle = thread_scope.spawn(execute);
-
-                spawned_handles
-                    .lock()
-                    .unwrap()
-                    .insert(join_handle.thread().id(), join_handle);
-            };
-
-            // if this thread crashes it still puts its info in THREAD_CRASH_INFOS
-            let _ = std::panic::catch_unwind(|| func(&new_thread_func, &should_loops_continue, &terminate_loops));
-
-            // func has finished, threads are joined.
-            terminate_loops();
+        // if this thread crashes it still puts its info in THREAD_CRASH_INFOS
+        let _ = std::panic::catch_unwind(|| {
+            func(
+                &new_thread_func,
+                Arc::new(should_loops_continue),
+                Arc::new(terminate_loops)
+            )
         });
-    }
+
+        // func has finished, threads are joined.
+        terminate_loops();
+    });
+
+    THREAD_CRASH_INFOS
+        .get()
+        .unwrap()
+        .lock()
+        .unwrap()
+        .iter()
+        .for_each(|e| log::error!("{:?}", e.1))
 }

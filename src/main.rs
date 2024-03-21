@@ -17,54 +17,37 @@ fn main()
             .max(2)
     ));
 
-    let crash_handler = util::CrashHandler::new();
-
-    crash_handler.start(|new_thread_func| {});
-
-    crash_handler.into_guarded_scope(|handle| {
-        let renderer = handle.enter_constrained("Renderer Creation".to_string(), |_, _, _| {
-            Arc::new(unsafe {
-                gfx::Renderer::new(format!("Patinac {}", env!("CARGO_PKG_VERSION")))
-            })
+    util::handle_crashes(|new_thread_func, should_loops_continue, terminate_loops| {
+        let renderer = Arc::new(unsafe {
+            gfx::Renderer::new(format!("Patinac {}", env!("CARGO_PKG_VERSION")))
         });
 
-        let game = handle.enter_constrained("Game Creation".to_string(), |_, _, _| {
-            game::Game::new(renderer.clone())
-        });
+        let game = game::Game::new(renderer.clone());
 
         {
-            let _verdigris = handle
-                .enter_constrained("Verdigris Creation".to_string(), |_, _, _| {
-                    verdigris::TestScene::new(game.clone())
-                });
-
-            let _debug_menu = handle.enter_constrained("Game Creation".to_string(), |_, _, _| {
-                gui::DebugMenu::new(&renderer)
-            });
+            let _verdigris = verdigris::TestScene::new(game.clone());
+            let _debug_menu = gui::DebugMenu::new(&renderer);
 
             let game_tick = game.clone();
-            handle.enter_constrained_thread(
-                "Game Tick Thread".to_string(),
-                move |continue_func, _, _| game_tick.enter_tick_loop(continue_func)
-            );
+            let game_continue = should_loops_continue.clone();
+            new_thread_func(Box::new(move || game_tick.enter_tick_loop(&*game_continue)));
 
             let input_game = game.clone();
-            let input_update_func = |input_manager: &gfx::InputManager, camera_delta_time: f32| {
-                input_game.poll_input_updates(input_manager, camera_delta_time)
-            };
+            let input_update_func =
+                move |input_manager: &gfx::InputManager, camera_delta_time: f32| {
+                    input_game.poll_input_updates(input_manager, camera_delta_time)
+                };
 
-            let local_renderer = renderer.clone();
-            handle.enter_constrained(
-                "Gfx Loop".to_string(),
-                move |continue_func, terminate_func, crash_poll_func| {
-                    local_renderer.enter_gfx_loop(
-                        continue_func,
-                        terminate_func,
-                        crash_poll_func,
-                        &input_update_func
-                    )
-                }
-            );
+            let renderer_tick = renderer.clone();
+            let renderer_continue = should_loops_continue.clone();
+            let renderer_terminate = terminate_loops.clone();
+            new_thread_func(Box::new(move || {
+                renderer_tick.enter_gfx_loop(
+                    &*renderer_continue,
+                    &*renderer_terminate,
+                    &input_update_func
+                )
+            }));
         }
 
         util::access_global_thread_pool()
@@ -84,8 +67,6 @@ fn main()
             log::warn!("Renderer was retained!")
         }
     });
-
-    crash_handler.finish();
 
     logger.stop_worker();
 }
