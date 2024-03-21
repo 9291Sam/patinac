@@ -132,7 +132,7 @@ impl gfx::Recordable for DebugMenu
     fn pre_record_update(
         &self,
         renderer: &gfx::Renderer,
-        _: &gfx::Camera,
+        camera: &gfx::Camera,
         _: &std::sync::Arc<gfx::wgpu::BindGroup>
     ) -> gfx::RecordInfo
     {
@@ -168,13 +168,16 @@ r#"╔═══════════════════╦════�
 ║  Frame Time (ms)  ║ {:<10.3} ║
 ╠═══════════════════╬════════════╣
 ║     Ram Usage     ║ {:<10} ║
-╚═══════════════════╩════════════╝"#,
+╠═══════════════════╬════════════╩══════╗
+║  Camera Position  ║ {} ║
+╚═══════════════════╩═══════════════════╝"#,
                 1.0 / renderer.get_delta_time(),
                 renderer.get_delta_time() * 1000.0,
                 util::bytes_as_string(
                     util::get_bytes_of_active_allocations() as f64,
                     util::SuffixType::Short
-                )
+                ),
+                camera.get_position(),
             ),
             glyphon::Attrs::new().family(glyphon::Family::Monospace),
             glyphon::Shaping::Advanced
@@ -204,7 +207,7 @@ r#"╔═══════════════════╦════�
                             left:   0,
                             top:    0,
                             right:  600,
-                            bottom: 160
+                            bottom: 320
                         },
                         default_color: glyphon::Color::rgb(255, 255, 255)
                     }],

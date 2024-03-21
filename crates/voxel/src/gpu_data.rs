@@ -211,22 +211,22 @@ pub struct VoxelChunkDataManager
 {
     renderer: Arc<gfx::Renderer>,
 
-    window_voxel_bind_group: util::Window<Arc<wgpu::BindGroup>>,
-    buffer_critical_section: Mutex<VoxelChunkDataManagerBufferCriticalSection>,
+    window_voxel_bind_group:     util::Window<Arc<wgpu::BindGroup>>,
+    pub buffer_critical_section: Mutex<VoxelChunkDataManagerBufferCriticalSection>,
 
     bind_group_layout: Arc<wgpu::BindGroupLayout>
 }
 
-struct VoxelChunkDataManagerBufferCriticalSection
+pub struct VoxelChunkDataManagerBufferCriticalSection
 {
-    cpu_brick_map:   Box<BrickMap>,
-    gpu_brick_map:   wgpu::Buffer,
-    delta_brick_map: BTreeSet<util::SendSyncMutPtr<VoxelBrickPointer>>,
+    pub cpu_brick_map: Box<BrickMap>,
+    gpu_brick_map:     wgpu::Buffer,
+    delta_brick_map:   BTreeSet<util::SendSyncMutPtr<VoxelBrickPointer>>,
 
-    cpu_brick_buffer:   Vec<VoxelBrick>,
-    gpu_brick_buffer:   wgpu::Buffer,
-    delta_brick_buffer: BTreeSet<util::SendSyncMutPtr<VoxelBrick>>,
-    needs_resize_flush: bool,
+    pub cpu_brick_buffer: Vec<VoxelBrick>,
+    gpu_brick_buffer:     wgpu::Buffer,
+    delta_brick_buffer:   BTreeSet<util::SendSyncMutPtr<VoxelBrick>>,
+    needs_resize_flush:   bool,
 
     voxel_bind_group:                Arc<wgpu::BindGroup>,
     window_updater_voxel_bind_group: util::WindowUpdater<Arc<wgpu::BindGroup>>,
@@ -512,6 +512,37 @@ impl VoxelChunkDataManager
         this_brick.write()[voxel_pos.x as usize][voxel_pos.y as usize][voxel_pos.z as usize] = v;
 
         delta_brick_buffer.insert((this_brick as *mut VoxelBrick).into());
+    }
+
+    pub fn read_voxel(&self, pos: ChunkPosition) -> Voxel
+    {
+        let voxel_pos = glm::U16Vec3::new(
+            pos.x % VOXEL_BRICK_EDGE_LENGTH as u16,
+            pos.y % VOXEL_BRICK_EDGE_LENGTH as u16,
+            pos.z % VOXEL_BRICK_EDGE_LENGTH as u16
+        );
+
+        let brick_pos = glm::U16Vec3::new(
+            pos.x / VOXEL_BRICK_EDGE_LENGTH as u16,
+            pos.y / VOXEL_BRICK_EDGE_LENGTH as u16,
+            pos.z / VOXEL_BRICK_EDGE_LENGTH as u16
+        );
+
+        let guard = &*self.buffer_critical_section.lock().unwrap();
+
+        let ptr =
+            guard.cpu_brick_map[brick_pos.x as usize][brick_pos.y as usize][brick_pos.z as usize];
+
+        match ptr.classify()
+        {
+            VoxelBrickPointerType::Null => Voxel::Air,
+            VoxelBrickPointerType::ValidBrickPointer(ptr) =>
+            {
+                guard.cpu_brick_buffer.get(ptr as usize).unwrap().data[voxel_pos.x as usize]
+                    [voxel_pos.y as usize][voxel_pos.z as usize]
+            }
+            VoxelBrickPointerType::Voxel(v) => v
+        }
     }
 
     pub fn get_bind_group(&self) -> Arc<wgpu::BindGroup>

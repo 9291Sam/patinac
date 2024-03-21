@@ -8,6 +8,11 @@ use crate::Entity;
 
 pub struct TickTag(());
 
+pub trait World: Send + Sync
+{
+    fn get_height(&self, pos: glm::Vec3) -> f32;
+}
+
 #[derive(Debug)]
 pub struct Game
 {
@@ -16,7 +21,8 @@ pub struct Game
     entities:         util::Registrar<util::Uuid, Weak<dyn Entity>>,
     float_delta_time: AtomicU32,
     float_time_alive: AtomicU64,
-    camera:           Mutex<gfx::Camera>
+    camera:           Mutex<gfx::Camera>,
+    world:            Mutex<Option<Weak<dyn World>>>
 }
 
 impl Drop for Game
@@ -46,7 +52,8 @@ impl Game
                     glm::Vec3::new(-658.22, 1062.2232, 623.242),
                     0.318903,
                     -3.978343
-                ))
+                )),
+                world: Mutex::new(None)
             }
         })
     }
@@ -73,6 +80,11 @@ impl Game
             .insert(entity.get_uuid(), Arc::downgrade(&entity));
     }
 
+    pub fn register_chunk(&self, chunk: Weak<dyn World>)
+    {
+        *self.world.lock().unwrap() = Some(chunk);
+    }
+
     pub fn poll_input_updates(
         &self,
         input_manager: &gfx::InputManager,
@@ -92,19 +104,7 @@ impl Game
             };
         let rotate_scale = 10.0;
 
-        if input_manager.is_key_pressed(gfx::KeyCode::KeyK)
-        {
-            log::info!(
-                "Camera: {} | Frame Time (ms): {:.03} | FPS: {:.03} | Memory Used: {}",
-                camera,
-                self.get_delta_time() * 1000.0,
-                1.0 / self.get_delta_time(),
-                util::bytes_as_string(
-                    util::get_bytes_of_active_allocations() as f64,
-                    util::SuffixType::Full
-                )
-            );
-        }
+        camera.add_position(glm::Vec3::new(0.0, -10.0, 0.0) * camera_delta_time);
 
         if input_manager.is_key_pressed(gfx::KeyCode::KeyW)
         {
@@ -183,6 +183,23 @@ impl Game
             camera.add_pitch(delta_rads.y * rotate_scale);
         }
 
+        // process world interaction
+
+        // if let Some(w) = &*self.world.lock().unwrap()
+        // {
+        //     if let Some(world) = w.upgrade()
+        //     {
+        //         let p = camera.get_position().y;
+        //         let target: f32 = world.get_height(camera.get_position());
+
+        //         let diff = target - p;
+        //         if diff > 0.0
+        //         {
+        //             camera.add_position(glm::Vec3::new(0.0, diff, 0.0));
+        //         }
+        //     }
+        // };
+
         camera.clone()
     }
 
@@ -209,7 +226,6 @@ impl Game
 
             let strong_game = self.this_weak.upgrade().unwrap();
 
-            // TODO: deadlock and too long detection
             self.entities
                 .access()
                 .into_iter()

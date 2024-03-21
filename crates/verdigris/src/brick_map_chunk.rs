@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, Weak};
 
 use bytemuck::{cast_slice, Pod, Zeroable};
 use game::{Entity, Positionable};
@@ -11,7 +11,7 @@ use gfx::{
     CacheablePipelineLayoutDescriptor,
     CacheableRenderPipelineDescriptor
 };
-use voxel::VoxelChunkDataManager;
+use voxel::{Voxel, VoxelChunkDataManager};
 
 #[derive(Debug)]
 pub struct BrickMapChunk
@@ -150,6 +150,7 @@ impl BrickMapChunk
         });
 
         game.register(this.clone());
+        game.register_chunk(Arc::downgrade(&(this.clone() as Arc<dyn game::World>)));
         renderer.register(this.clone());
 
         this
@@ -158,6 +159,36 @@ impl BrickMapChunk
     pub fn access_data_manager(&self) -> &VoxelChunkDataManager
     {
         &self.voxel_chunk_data
+    }
+}
+
+impl game::World for BrickMapChunk
+{
+    fn get_height(&self, pos: glm::Vec3) -> f32
+    {
+        let me_pos = *self.position.lock().unwrap();
+
+        let (x, z) = (
+            pos.x.floor() - me_pos.x - voxel::CHUNK_VOXEL_SIZE as f32,
+            pos.z.floor() - me_pos.z - voxel::CHUNK_VOXEL_SIZE as f32
+        );
+
+        log::trace!("polling at {x} {z}");
+
+        let x = x.clamp(0.0, voxel::CHUNK_VOXEL_SIZE as f32) as usize;
+        let z = z.clamp(0.0, voxel::CHUNK_VOXEL_SIZE as f32) as usize;
+
+        for y in 0..voxel::CHUNK_VOXEL_SIZE
+        {
+            let sample_pos = glm::U16Vec3::new(x as u16, y as u16, z as u16);
+
+            if self.voxel_chunk_data.read_voxel(sample_pos) != Voxel::Air
+            {
+                return y as f32 + me_pos.y + voxel::CHUNK_VOXEL_SIZE as f32;
+            }
+        }
+
+        return 0.0;
     }
 }
 
