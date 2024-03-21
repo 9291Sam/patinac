@@ -2,8 +2,8 @@ use std::any::Any;
 use std::borrow::Cow;
 use std::fmt::Display;
 use std::panic::{RefUnwindSafe, UnwindSafe};
-use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering::*;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, Mutex, Once};
 use std::thread::{Scope, ScopedJoinHandle};
@@ -255,4 +255,64 @@ pub fn panic_payload_as_cow(payload: &(dyn Any + Send)) -> Cow<'static, str>
     {
         Cow::Owned(format!("{:#?}", Any::type_id(payload)))
     }
+}
+
+///
+
+const MAX_NUMBER_OF_CRASHABLE_SCOPES: usize = 16;
+const SCOPE_CRASH_INFO_DEFAULT: Mutex<Option<CrashInfo>> = Mutex::new(None);
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+struct ScopeId
+{
+    raw_id: usize
+}
+
+impl ScopeId
+{
+    pub fn new() -> Self
+    {
+        static NEXT_FREE_SCOPE_ID: AtomicUsize = AtomicUsize::new(0);
+
+        let maybe_scope_id = NEXT_FREE_SCOPE_ID.fetch_add(1, Ordering::SeqCst);
+
+        if (maybe_scope_id < MAX_NUMBER_OF_CRASHABLE_SCOPES)
+        {
+            Self {
+                raw_id: maybe_scope_id
+            }
+        }
+        else
+        {
+            unreachable!(
+                "Tried to create more than {} CrashScope s",
+                MAX_NUMBER_OF_CRASHABLE_SCOPES
+            );
+        }
+    }
+}
+
+static SCOPE_CRASH_INFO: [Mutex<Option<CrashInfo>>; MAX_NUMBER_OF_CRASHABLE_SCOPES] =
+    [SCOPE_CRASH_INFO_DEFAULT; MAX_NUMBER_OF_CRASHABLE_SCOPES];
+
+fn insert_crash_info(id: ScopeId, crash_info: CrashInfo)
+{
+    assert!(
+        SCOPE_CRASH_INFO[id.raw_id]
+            .lock()
+            .unwrap()
+            .replace(crash_info)
+            .is_none()
+    );
+}
+
+fn collect_all_crash_infos() -> [Option<CrashInfo>; MAX_NUMBER_OF_CRASHABLE_SCOPES]
+{
+    static ONCE: Once = Once::new();
+
+    assert!(!ONCE.is_completed());
+
+    ONCE.call_once(|| {});
+
+    std::array::from_fn(|idx| SCOPE_CRASH_INFO[idx].lock().unwrap().take())
 }

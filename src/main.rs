@@ -51,8 +51,6 @@ fn main()
                 input_game.poll_input_updates(input_manager, camera_delta_time)
             };
 
-            // TODO: replace poll func with loop checking one for checking for long running
-            // loops
             let local_renderer = renderer.clone();
             handle.enter_constrained(
                 "Gfx Loop".to_string(),
