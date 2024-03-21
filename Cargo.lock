@@ -619,6 +619,7 @@ version = "0.0.0"
 dependencies = [
  "gfx",
  "log",
+ "oneshot",
  "rand 0.8.5",
  "util",
  "voxel",

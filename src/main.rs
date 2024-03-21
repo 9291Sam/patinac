@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{Arc, Condvar, Mutex};
 
 fn main()
 {
@@ -40,18 +40,22 @@ fn main()
                 gui::DebugMenu::new(&renderer)
             });
 
-            let (tx, rx) = oneshot::channel::<Arc<gfx::InputManager>>();
-
             let local_game = game.clone();
             handle.enter_constrained_thread(
                 "Game Tick Thread".to_string(),
                 move |continue_func, _, _| local_game.enter_tick_loop(continue_func)
             );
 
+            let input_manager: Arc<(Mutex<Option<Arc<gfx::InputManager>>>, Condvar)> =
+                Arc::new((Mutex::new(None), Condvar::new()));
+
             let local_game = game.clone();
+            let local_input_manager_arc = input_manager.clone();
             handle.enter_constrained_thread(
                 "Game Camera Thread".to_string(),
-                move |continue_func, _, _| local_game.enter_camera_loop(continue_func)
+                move |continue_func, _, _| {
+                    local_game.enter_camera_loop(&local_input_manager_arc, continue_func)
+                }
             );
 
             // TODO: replace poll func with loop checking one for checking for long running
@@ -60,7 +64,14 @@ fn main()
             handle.enter_constrained(
                 "Gfx Loop".to_string(),
                 move |continue_func, terminate_func, crash_poll_func| {
-                    local_renderer.enter_gfx_loop(continue_func, terminate_func, crash_poll_func)
+                    let local_input_manager = input_manager.clone();
+
+                    local_renderer.enter_gfx_loop(
+                        continue_func,
+                        terminate_func,
+                        crash_poll_func,
+                        &local_input_manager
+                    )
                 }
             );
         }

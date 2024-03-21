@@ -6,7 +6,7 @@ use std::ops::Deref;
 use std::panic::{RefUnwindSafe, UnwindSafe};
 use std::sync::atomic::AtomicU32;
 use std::sync::atomic::Ordering::{self};
-use std::sync::{Arc, Mutex, Weak};
+use std::sync::{Arc, Condvar, Mutex, Weak};
 use std::thread::ThreadId;
 
 use bytemuck::{bytes_of, Pod, Zeroable};
@@ -102,17 +102,19 @@ impl Renderer
     pub unsafe fn new(window_title: impl Into<String>) -> Self
     {
         let event_loop = EventLoop::new().unwrap();
-        let window = WindowBuilder::new()
-            .with_inner_size(PhysicalSize {
-                width:  1920,
-                height: 1080
-            })
-            .with_title(window_title)
-            .with_position(winit::dpi::PhysicalPosition {
-                x: 100, y: 100
-            })
-            .build(&event_loop)
-            .unwrap();
+        let window = Arc::new(
+            WindowBuilder::new()
+                .with_inner_size(PhysicalSize {
+                    width:  1920,
+                    height: 1080
+                })
+                .with_title(window_title)
+                .with_position(winit::dpi::PhysicalPosition {
+                    x: 100, y: 100
+                })
+                .build(&event_loop)
+                .unwrap()
+        );
 
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: wgpu::Backends::all(),
@@ -323,7 +325,7 @@ impl Renderer
         should_continue: &dyn Fn() -> bool,
         request_terminate: &dyn Fn(),
         crash_poll_func: &dyn Fn(),
-        out_input_manager: oneshot::Sender<Arc<InputManager>>
+        out_input_manager: &(Mutex<Option<Arc<InputManager>>>, Condvar)
     )
     {
         let mut guard = self.critical_section.lock().unwrap();
@@ -343,14 +345,15 @@ impl Renderer
         );
 
         let input_manager = Arc::new(InputManager::new(
-            window,
+            window.clone(),
             PhysicalSize {
                 width:  config.width,
                 height: config.height
             }
         ));
 
-        out_input_manager.send(input_manager.clone()).unwrap();
+        *out_input_manager.0.lock().unwrap() = Some(input_manager.clone());
+        out_input_manager.1.notify_one();
 
         let depth_buffer = RefCell::new(create_depth_buffer(&self.device, config));
 
@@ -765,11 +768,6 @@ impl Renderer
             bias:                wgpu::DepthBiasState::default()
         }
     }
-
-    pub fn get_input_manager(&self) -> &InputManager
-    {
-        self.
-    }
 }
 
 #[derive(Debug)]
@@ -778,7 +776,7 @@ struct CriticalSection
     thread_id:  ThreadId,
     surface:    wgpu::Surface<'static>,
     config:     wgpu::SurfaceConfiguration,
-    window:     Window,
+    window:     Arc<Window>,
     event_loop: EventLoop<()>,
     camera:     util::Window<Camera>
 }

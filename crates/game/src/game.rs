@@ -1,6 +1,6 @@
 use std::sync::atomic::Ordering::*;
 use std::sync::atomic::{AtomicU32, AtomicU64};
-use std::sync::{Arc, Weak};
+use std::sync::{Arc, Condvar, Mutex, Weak};
 use std::time::Duration;
 
 use gfx::glm;
@@ -69,10 +69,24 @@ impl Game
 
     pub fn enter_camera_loop(
         &self,
-        input_manager: &gfx::InputManager,
+        input_manager_receiver: &(Mutex<Option<Arc<gfx::InputManager>>>, Condvar),
         poll_continue_func: &dyn Fn() -> bool
     )
     {
+        let input_manager = {
+            let mut guard = input_manager_receiver.0.lock().unwrap();
+
+            while (*guard).is_none()
+            {
+                guard = input_manager_receiver
+                    .1
+                    .wait(input_manager_receiver.0.lock().unwrap())
+                    .unwrap();
+            }
+
+            guard.take().unwrap()
+        };
+
         let mut prev = std::time::Instant::now();
         let mut camera_delta_time: f32;
 
@@ -187,6 +201,8 @@ impl Game
 
             camera.add_yaw(delta_rads.x * rotate_scale); // * self.get_delta_time());
             camera.add_pitch(delta_rads.y * rotate_scale); //  * self.get_delta_time());
+
+            self.get_renderer().camera_updater.update(camera.clone());
 
             std::thread::sleep(Duration::from_millis(1));
         }

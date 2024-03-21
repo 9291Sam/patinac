@@ -10,3 +10,4 @@ util = { workspace = true }
 voxel = { workspace = true }
 log = { workspace = true }
 rand = { workspace = true }
+oneshot = { workspace = true }

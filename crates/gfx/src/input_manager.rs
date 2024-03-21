@@ -1,5 +1,5 @@
 use std::sync::atomic::Ordering;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use dashmap::DashMap;
 use util::{AtomicF32, AtomicF32F32};
@@ -13,9 +13,9 @@ const ZERO_POS: PhysicalPosition<f64> = PhysicalPosition {
 };
 
 #[derive(Debug)]
-pub struct InputManager<'w>
+pub struct InputManager
 {
-    window:           &'w Window,
+    window:           Arc<Window>,
     is_key_pressed:   DashMap<PhysicalKey, ElementState>,
     critical_section: Mutex<InputManagerCriticalSection>,
 
@@ -35,9 +35,9 @@ struct InputManagerCriticalSection
 
 // TODO: display scaling
 
-impl InputManager<'_>
+impl InputManager
 {
-    pub fn new(window: &Window, size: PhysicalSize<u32>) -> InputManager
+    pub fn new(window: Arc<Window>, size: PhysicalSize<u32>) -> InputManager
     {
         let this = InputManager {
             window,
