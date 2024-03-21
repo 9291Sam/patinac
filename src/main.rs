@@ -3,7 +3,25 @@ use std::sync::Arc;
 fn main()
 {
     #[cfg(debug_assertions)]
-    std::env::set_var("RUST_BACKTRACE", "full");
+    {
+        std::env::set_var("RUST_BACKTRACE", "full");
+
+        // remove old logs
+        std::fs::read_dir(".").unwrap().for_each(|p| {
+            let dir_entry = p.unwrap();
+
+            if dir_entry.file_type().unwrap().is_file()
+            {
+                let name = dir_entry.file_name();
+                let name_as_str = name.to_string_lossy();
+
+                if name_as_str.starts_with("patinac") && name_as_str.ends_with(".txt")
+                {
+                    std::fs::remove_file(dir_entry.path()).unwrap();
+                }
+            }
+        });
+    }
 
     let logger: &'static mut util::AsyncLogger = Box::leak(Box::new(util::AsyncLogger::new()));
     log::set_logger(logger).unwrap();
