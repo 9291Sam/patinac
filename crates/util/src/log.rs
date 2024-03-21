@@ -103,12 +103,7 @@ impl log::Log for AsyncLogger
             }
         }
 
-        let mut working_time_string = chrono::Local::now()
-            .format("%b %m/%d/%Y %T%.6f")
-            .to_string();
-
-        working_time_string.replace_range(23..24, ":");
-        working_time_string.insert(27, ':');
+        let working_time_string = format_chrono_time(chrono::Local::now());
 
         let file_path: String;
 
@@ -151,4 +146,14 @@ impl log::Log for AsyncLogger
     }
 
     fn flush(&self) {}
+}
+
+pub fn format_chrono_time(time: chrono::DateTime<chrono::Local>) -> String
+{
+    let mut working_time_string = time.format("%b %m/%d/%Y %T%.6f").to_string();
+
+    working_time_string.replace_range(23..24, ":");
+    working_time_string.insert(27, ':');
+
+    working_time_string
 }

@@ -1,4 +1,4 @@
-use std::sync::{Arc, Condvar, Mutex};
+use std::sync::Arc;
 
 fn main()
 {
@@ -30,7 +30,10 @@ fn main()
 
             let game_tick = game.clone();
             let game_continue = should_loops_continue.clone();
-            new_thread_func(Box::new(move || game_tick.enter_tick_loop(&*game_continue)));
+            new_thread_func(
+                "Game Tick Thread".into(),
+                Box::new(move || game_tick.enter_tick_loop(&*game_continue))
+            );
 
             let input_game = game.clone();
             let input_update_func =
@@ -38,16 +41,11 @@ fn main()
                     input_game.poll_input_updates(input_manager, camera_delta_time)
                 };
 
-            let renderer_tick = renderer.clone();
-            let renderer_continue = should_loops_continue.clone();
-            let renderer_terminate = terminate_loops.clone();
-            new_thread_func(Box::new(move || {
-                renderer_tick.enter_gfx_loop(
-                    &*renderer_continue,
-                    &*renderer_terminate,
-                    &input_update_func
-                )
-            }));
+            renderer.enter_gfx_loop(
+                &*should_loops_continue,
+                &*terminate_loops,
+                &input_update_func
+            )
         }
 
         util::access_global_thread_pool()

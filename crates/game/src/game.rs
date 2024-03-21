@@ -3,6 +3,7 @@ use std::sync::atomic::{AtomicU32, AtomicU64};
 use std::sync::{Arc, Condvar, Mutex, Weak};
 
 use gfx::glm;
+use rand::Rng;
 
 use crate::Entity;
 
@@ -18,9 +19,6 @@ pub struct Game
     float_time_alive: AtomicU64,
     camera:           Mutex<gfx::Camera>
 }
-
-#[derive(Debug)]
-struct InputCriticalSection {}
 
 impl Drop for Game
 {

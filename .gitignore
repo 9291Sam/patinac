@@ -3,3 +3,4 @@ target
 patinac_log.txt
 flamegraph.svg
 rustc-ice*
+patinac_crash*.txt
