@@ -1,10 +1,8 @@
-use core::num;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering::*;
 use std::sync::RwLock;
 use std::thread::JoinHandle;
 
-use bytemuck::Contiguous;
 use crossbeam::channel::{Receiver, Sender};
 
 #[derive(Debug)]

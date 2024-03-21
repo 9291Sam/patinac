@@ -3,36 +3,27 @@ use std::sync::Arc;
 fn main()
 {
     #[cfg(debug_assertions)]
-    {
-        std::env::set_var("RUST_BACKTRACE", "full");
+    std::fs::read_dir(".").unwrap().for_each(|p| {
+        let dir_entry = p.unwrap();
 
-        // remove old logs
-        std::fs::read_dir(".").unwrap().for_each(|p| {
-            let dir_entry = p.unwrap();
+        if dir_entry.file_type().unwrap().is_file()
+        {
+            let name = dir_entry.file_name();
+            let name_as_str = name.to_string_lossy();
 
-            if dir_entry.file_type().unwrap().is_file()
+            if name_as_str.starts_with("patinac") && name_as_str.ends_with(".txt")
             {
-                let name = dir_entry.file_name();
-                let name_as_str = name.to_string_lossy();
-
-                if name_as_str.starts_with("patinac") && name_as_str.ends_with(".txt")
-                {
-                    std::fs::remove_file(dir_entry.path()).unwrap();
-                }
+                std::fs::remove_file(dir_entry.path()).unwrap();
             }
-        });
-    }
+        }
+    });
 
     let logger: &'static mut util::AsyncLogger = Box::leak(Box::new(util::AsyncLogger::new()));
     log::set_logger(logger).unwrap();
     log::set_max_level(log::LevelFilter::Trace);
 
     *util::access_global_thread_pool().write().unwrap() = Some(util::ThreadPool::new(
-        std::thread::available_parallelism()
-            .unwrap()
-            .get()
-            .saturating_sub(4)
-            .max(2)
+        std::thread::available_parallelism().unwrap().get().max(3) - 1
     ));
 
     util::handle_crashes(|new_thread_func, should_loops_continue, terminate_loops| {

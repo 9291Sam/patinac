@@ -6,14 +6,14 @@ use std::ops::Deref;
 use std::panic::{RefUnwindSafe, UnwindSafe};
 use std::sync::atomic::AtomicU32;
 use std::sync::atomic::Ordering::{self};
-use std::sync::{Arc, Condvar, Mutex, Weak};
+use std::sync::{Arc, Mutex, Weak};
 use std::thread::ThreadId;
 
 use bytemuck::{bytes_of, Pod, Zeroable};
 use nalgebra_glm as glm;
 use pollster::FutureExt;
 use strum::IntoEnumIterator;
-use util::{AtomicF32, AtomicF32F32, AtomicU32U32, Registrar, SendSyncMutPtr, WindowUpdater};
+use util::{AtomicF32, AtomicU32U32, Registrar, SendSyncMutPtr};
 use winit::dpi::PhysicalSize;
 use winit::event::*;
 use winit::event_loop::{EventLoop, EventLoopWindowTarget};
@@ -23,7 +23,7 @@ use winit::window::{Window, WindowBuilder};
 
 use crate::recordables::{recordable_ord, PassStage, RecordInfo, Recordable};
 use crate::render_cache::{GenericPass, RenderCache};
-use crate::{Camera, GenericPipeline, InputManager, Transform};
+use crate::{Camera, GenericPipeline, InputManager};
 
 #[derive(Debug)]
 pub struct Renderer
@@ -332,15 +332,14 @@ impl Renderer
              was called from!"
         );
 
-        let input_manager = Arc::new(InputManager::new(
+        let input_manager = InputManager::new(
             window.clone(),
             PhysicalSize {
                 width:  config.width,
                 height: config.height
             }
-        ));
+        );
 
-        // TODO: remove arc from input manager
         let mut camera = camera_update_func(&input_manager, self.get_delta_time());
 
         let depth_buffer = RefCell::new(create_depth_buffer(&self.device, config));
@@ -730,6 +729,7 @@ impl Renderer
                         _ => ()
                     }
                 }
+                Event::MemoryWarning => self.render_cache.trim(),
                 _ => ()
             }
 

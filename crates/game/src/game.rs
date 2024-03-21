@@ -3,7 +3,6 @@ use std::sync::atomic::{AtomicU32, AtomicU64};
 use std::sync::{Arc, Mutex, Weak};
 
 use gfx::glm;
-use rand::Rng;
 
 use crate::Entity;
 
@@ -228,10 +227,6 @@ impl Game
                 .map(|strong_entity| {
                     let local = strong_game.clone();
                     util::run_async(move || {
-                        if rand::thread_rng().gen_bool(0.0001)
-                        {
-                            panic!("oop!");
-                        }
                         strong_entity.tick(&local, TickTag(()));
                     })
                 })

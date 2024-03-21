@@ -44,11 +44,8 @@ impl Display for CrashInfo
     {
         write!(
             f,
-            "Thread {} has crashed @ [{}] and {} with message: {}",
-            self.thread_name,
-            super::format_chrono_time(self.panic_time),
-            self.panic_location,
-            self.message
+            "Thread {} has crashed @ {} with message: {}",
+            self.thread_name, self.panic_location, self.message
         )
     }
 }
