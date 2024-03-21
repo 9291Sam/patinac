@@ -13,7 +13,7 @@ fn main()
         std::thread::available_parallelism()
             .unwrap()
             .get()
-            .saturating_sub(2)
+            .saturating_sub(4)
             .max(2)
     ));
 

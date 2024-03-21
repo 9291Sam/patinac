@@ -110,7 +110,7 @@ impl Game
                 }
                 else
                 {
-                    4.0
+                    20.0
                 };
             let rotate_scale = 10.0;
 
@@ -199,12 +199,19 @@ impl Game
                 .component_div(&glm::Vec2::repeat(2.0))
                 .component_mul(&self.get_renderer().get_fov());
 
-            camera.add_yaw(delta_rads.x * rotate_scale); // * self.get_delta_time());
-            camera.add_pitch(delta_rads.y * rotate_scale); //  * self.get_delta_time());
+            if (self.renderer.get_delta_time() != 0.0)
+            {
+                camera.add_yaw(
+                    delta_rads.x * rotate_scale * camera_delta_time /* / self.renderer.
+                                                                     * get_delta_time() */
+                );
+                camera.add_pitch(
+                    delta_rads.y * rotate_scale * camera_delta_time /* / self.renderer.
+                                                                     * get_delta_time() */
+                );
+            }
 
             self.get_renderer().camera_updater.update(camera.clone());
-
-            std::thread::sleep(Duration::from_millis(1));
         }
     }
 
