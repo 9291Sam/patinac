@@ -1,7 +1,6 @@
 use std::sync::atomic::Ordering::*;
 use std::sync::atomic::{AtomicU32, AtomicU64};
 use std::sync::{Arc, Condvar, Mutex, Weak};
-use std::time::Duration;
 
 use gfx::glm;
 
@@ -9,14 +8,19 @@ use crate::Entity;
 
 pub struct TickTag(());
 
+#[derive(Debug)]
 pub struct Game
 {
     this_weak:        Weak<Game>,
     renderer:         Arc<gfx::Renderer>,
     entities:         util::Registrar<util::Uuid, Weak<dyn Entity>>,
     float_delta_time: AtomicU32,
-    float_time_alive: AtomicU64
+    float_time_alive: AtomicU64,
+    camera:           Mutex<gfx::Camera>
 }
+
+#[derive(Debug)]
+struct InputCriticalSection {}
 
 impl Drop for Game
 {
@@ -40,7 +44,12 @@ impl Game
                 entities: util::Registrar::new(),
                 float_delta_time: AtomicU32::new(0.0f32.to_bits()),
                 float_time_alive: AtomicU64::new(0.0f64.to_bits()),
-                this_weak: this_weak.clone()
+                this_weak: this_weak.clone(),
+                camera: Mutex::new(gfx::Camera::new(
+                    glm::Vec3::new(-658.22, 1062.2232, 623.242),
+                    0.318903,
+                    -3.978343
+                ))
             }
         })
     }
@@ -67,152 +76,117 @@ impl Game
             .insert(entity.get_uuid(), Arc::downgrade(&entity));
     }
 
-    pub fn enter_camera_loop(
+    pub fn poll_input_updates(
         &self,
-        input_manager_receiver: &(Mutex<Option<Arc<gfx::InputManager>>>, Condvar),
-        poll_continue_func: &dyn Fn() -> bool
-    )
+        input_manager: &gfx::InputManager,
+        camera_delta_time: f32
+    ) -> gfx::Camera
     {
-        let input_manager = {
-            let mut guard = input_manager_receiver.0.lock().unwrap();
+        let mut camera = self.camera.lock().unwrap();
 
-            while (*guard).is_none()
+        let move_scale = 10.0
+            * if input_manager.is_key_pressed(gfx::KeyCode::ShiftLeft)
             {
-                guard = input_manager_receiver
-                    .1
-                    .wait(input_manager_receiver.0.lock().unwrap())
-                    .unwrap();
+                25.0
             }
+            else
+            {
+                4.0
+            };
+        let rotate_scale = 10.0;
 
-            guard.take().unwrap()
+        if input_manager.is_key_pressed(gfx::KeyCode::KeyK)
+        {
+            log::info!(
+                "Camera: {} | Frame Time (ms): {:.03} | FPS: {:.03} | Memory Used: {}",
+                camera,
+                self.get_delta_time() * 1000.0,
+                1.0 / self.get_delta_time(),
+                util::bytes_as_string(
+                    util::get_bytes_of_active_allocations() as f64,
+                    util::SuffixType::Full
+                )
+            );
+        }
+
+        if input_manager.is_key_pressed(gfx::KeyCode::KeyW)
+        {
+            let v = camera.get_forward_vector() * move_scale;
+
+            camera.add_position(v * camera_delta_time);
         };
 
-        let mut prev = std::time::Instant::now();
-        let mut camera_delta_time: f32;
-
-        let mut camera = gfx::Camera::new(
-            glm::Vec3::new(-658.22, 1062.2232, 623.242),
-            0.318903,
-            -3.978343
-        );
-
-        while poll_continue_func()
+        if input_manager.is_key_pressed(gfx::KeyCode::KeyS)
         {
-            let now = std::time::Instant::now();
+            let v = camera.get_forward_vector() * -move_scale;
 
-            camera_delta_time = (now - prev).as_secs_f32();
-            prev = now;
+            camera.add_position(v * camera_delta_time);
+        };
 
-            let move_scale = 10.0
-                * if input_manager.is_key_pressed(gfx::KeyCode::ShiftLeft)
-                {
-                    25.0
-                }
-                else
-                {
-                    20.0
-                };
-            let rotate_scale = 10.0;
+        if input_manager.is_key_pressed(gfx::KeyCode::KeyD)
+        {
+            let v = camera.get_right_vector() * move_scale;
 
-            if input_manager.is_key_pressed(gfx::KeyCode::KeyK)
-            {
-                log::info!(
-                    "Camera: {} | Frame Time (ms): {:.03} | FPS: {:.03} | Memory Used: {}",
-                    camera,
-                    self.get_delta_time() * 1000.0,
-                    1.0 / self.get_delta_time(),
-                    util::bytes_as_string(
-                        util::get_bytes_of_active_allocations() as f64,
-                        util::SuffixType::Full
-                    )
-                );
-            }
+            camera.add_position(v * camera_delta_time);
+        };
 
-            if input_manager.is_key_pressed(gfx::KeyCode::KeyW)
-            {
-                let v = camera.get_forward_vector() * move_scale;
+        if input_manager.is_key_pressed(gfx::KeyCode::KeyA)
+        {
+            let v = camera.get_right_vector() * -move_scale;
 
-                camera.add_position(v * camera_delta_time);
-            };
+            camera.add_position(v * camera_delta_time);
+        };
 
-            if input_manager.is_key_pressed(gfx::KeyCode::KeyS)
-            {
-                let v = camera.get_forward_vector() * -move_scale;
+        if input_manager.is_key_pressed(gfx::KeyCode::Space)
+        {
+            let v = *gfx::Transform::global_up_vector() * move_scale;
 
-                camera.add_position(v * camera_delta_time);
-            };
+            camera.add_position(v * camera_delta_time);
+        };
 
-            if input_manager.is_key_pressed(gfx::KeyCode::KeyD)
-            {
-                let v = camera.get_right_vector() * move_scale;
+        if input_manager.is_key_pressed(gfx::KeyCode::ControlLeft)
+        {
+            let v = *gfx::Transform::global_up_vector() * -move_scale;
 
-                camera.add_position(v * camera_delta_time);
-            };
+            camera.add_position(v * camera_delta_time);
+        };
 
-            if input_manager.is_key_pressed(gfx::KeyCode::KeyA)
-            {
-                let v = camera.get_right_vector() * -move_scale;
+        if input_manager.is_key_pressed(gfx::KeyCode::KeyP)
+        {
+            input_manager.attach_cursor();
+        };
 
-                camera.add_position(v * camera_delta_time);
-            };
+        if input_manager.is_key_pressed(gfx::KeyCode::KeyO)
+        {
+            input_manager.detach_cursor();
+        };
 
-            if input_manager.is_key_pressed(gfx::KeyCode::Space)
-            {
-                let v = *gfx::Transform::global_up_vector() * move_scale;
+        let mouse_diff_px: glm::Vec2 = {
+            let mouse_cords_diff_px_f32: (f32, f32) = input_manager.get_mouse_delta();
 
-                camera.add_position(v * camera_delta_time);
-            };
+            glm::Vec2::new(mouse_cords_diff_px_f32.0, mouse_cords_diff_px_f32.1)
+        };
 
-            if input_manager.is_key_pressed(gfx::KeyCode::ControlLeft)
-            {
-                let v = *gfx::Transform::global_up_vector() * -move_scale;
+        let screen_size_px: glm::Vec2 = {
+            let screen_size_u32 = self.get_renderer().get_framebuffer_size();
 
-                camera.add_position(v * camera_delta_time);
-            };
+            glm::Vec2::new(screen_size_u32.x as f32, screen_size_u32.y as f32)
+        };
 
-            if input_manager.is_key_pressed(gfx::KeyCode::KeyP)
-            {
-                input_manager.attach_cursor();
-            };
+        // delta over the whole screen -1 -> 1
+        let normalized_delta = mouse_diff_px.component_div(&screen_size_px);
 
-            if input_manager.is_key_pressed(gfx::KeyCode::KeyO)
-            {
-                input_manager.detach_cursor();
-            };
+        let delta_rads = normalized_delta
+            .component_div(&glm::Vec2::repeat(2.0))
+            .component_mul(&self.get_renderer().get_fov());
 
-            let mouse_diff_px: glm::Vec2 = {
-                let mouse_cords_diff_px_f32: (f32, f32) = input_manager.get_mouse_delta();
-
-                glm::Vec2::new(mouse_cords_diff_px_f32.0, mouse_cords_diff_px_f32.1)
-            };
-
-            let screen_size_px: glm::Vec2 = {
-                let screen_size_u32 = self.get_renderer().get_framebuffer_size();
-
-                glm::Vec2::new(screen_size_u32.x as f32, screen_size_u32.y as f32)
-            };
-
-            // delta over the whole screen -1 -> 1
-            let normalized_delta = mouse_diff_px.component_div(&screen_size_px);
-
-            let delta_rads = normalized_delta
-                .component_div(&glm::Vec2::repeat(2.0))
-                .component_mul(&self.get_renderer().get_fov());
-
-            if (self.renderer.get_delta_time() != 0.0)
-            {
-                camera.add_yaw(
-                    delta_rads.x * rotate_scale * camera_delta_time /* / self.renderer.
-                                                                     * get_delta_time() */
-                );
-                camera.add_pitch(
-                    delta_rads.y * rotate_scale * camera_delta_time /* / self.renderer.
-                                                                     * get_delta_time() */
-                );
-            }
-
-            self.get_renderer().camera_updater.update(camera.clone());
+        if self.renderer.get_delta_time() != 0.0
+        {
+            camera.add_yaw(delta_rads.x * rotate_scale);
+            camera.add_pitch(delta_rads.y * rotate_scale);
         }
+
+        camera.clone()
     }
 
     pub fn enter_tick_loop(&self, poll_continue_func: &dyn Fn() -> bool)

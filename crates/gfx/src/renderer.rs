@@ -32,11 +32,9 @@ pub struct Renderer
     pub device:                   Arc<wgpu::Device>,
     pub render_cache:             RenderCache,
     pub global_bind_group_layout: Arc<wgpu::BindGroupLayout>,
-    pub camera_updater:           WindowUpdater<Camera>,
-
-    renderables: util::Registrar<util::Uuid, Weak<dyn Recordable>>,
-    window_size: AtomicU32U32,
-    delta_time:  AtomicF32,
+    renderables:                  util::Registrar<util::Uuid, Weak<dyn Recordable>>,
+    window_size:                  AtomicU32U32,
+    delta_time:                   AtomicF32,
 
     // Rendering
     thread_id:        ThreadId,
@@ -213,19 +211,12 @@ impl Renderer
         };
         surface.configure(&device, &config);
 
-        let (camera, camera_updater) = util::Window::new(super::Camera::new(
-            glm::Vec3::new(-658.22, 1062.2232, 623.242),
-            0.318903,
-            -3.978343
-        ));
-
         let critical_section = CriticalSection {
             thread_id: std::thread::current().id(),
             surface,
             config,
             window,
-            event_loop,
-            camera
+            event_loop
         };
 
         let global_bind_group_layout =
@@ -276,7 +267,6 @@ impl Renderer
         Renderer {
             thread_id: std::thread::current().id(),
             renderables: Registrar::new(),
-            camera_updater,
             queue,
             device,
             critical_section: Mutex::new(critical_section),
@@ -325,7 +315,7 @@ impl Renderer
         should_continue: &dyn Fn() -> bool,
         request_terminate: &dyn Fn(),
         crash_poll_func: &dyn Fn(),
-        out_input_manager: &(Mutex<Option<Arc<InputManager>>>, Condvar)
+        camera_update_func: &dyn Fn(&InputManager, f32) -> Camera
     )
     {
         let mut guard = self.critical_section.lock().unwrap();
@@ -334,8 +324,7 @@ impl Renderer
             surface,
             config,
             window,
-            event_loop,
-            camera
+            event_loop
         } = &mut *guard;
 
         assert!(
@@ -352,8 +341,8 @@ impl Renderer
             }
         ));
 
-        *out_input_manager.0.lock().unwrap() = Some(input_manager.clone());
-        out_input_manager.1.notify_one();
+        // TODO: remove arc from input manager
+        let mut camera = camera_update_func(&input_manager, self.get_delta_time());
 
         let depth_buffer = RefCell::new(create_depth_buffer(&self.device, config));
 
@@ -693,6 +682,8 @@ impl Renderer
 
         // TODO: remove!
         let handle_input = |camera: &mut Camera, control_flow: &EventLoopWindowTarget<()>| {
+            *camera = camera_update_func(&input_manager, self.get_delta_time());
+
             if input_manager.is_key_pressed(KeyCode::Escape)
             {
                 control_flow.exit();
@@ -726,8 +717,6 @@ impl Renderer
                         {
                             use wgpu::SurfaceError::*;
 
-                            let mut camera = camera.get();
-
                             handle_input(&mut camera, control_flow);
 
                             match render_func(camera.clone())
@@ -738,8 +727,6 @@ impl Renderer
                                 Err(Lost) => resize_func(None),
                                 Err(OutOfMemory) => todo!()
                             }
-
-                            self.camera_updater.update(camera);
 
                             window.request_redraw();
                         }
@@ -777,8 +764,7 @@ struct CriticalSection
     surface:    wgpu::Surface<'static>,
     config:     wgpu::SurfaceConfiguration,
     window:     Arc<Window>,
-    event_loop: EventLoop<()>,
-    camera:     util::Window<Camera>
+    event_loop: EventLoop<()>
 }
 
 unsafe impl Sync for CriticalSection {}
