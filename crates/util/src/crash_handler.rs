@@ -109,7 +109,6 @@ impl CrashHandler
         assert!(!INIT_ONCE.is_completed());
         INIT_ONCE.call_once(|| {});
 
-        // TODO: capture backtrace
         std::panic::set_hook(Box::new(|info| {
             if info.payload().type_id() == std::any::TypeId::of::<CrashInfo>()
             {
