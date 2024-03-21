@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use std::sync::{Arc, Mutex, Weak};
+use std::sync::{Arc, Mutex};
 
 use bytemuck::{cast_slice, Pod, Zeroable};
 use game::{Entity, Positionable};
@@ -169,14 +169,14 @@ impl game::World for BrickMapChunk
         let me_pos = *self.position.lock().unwrap();
 
         let (x, z) = (
-            pos.x.floor() - me_pos.x - voxel::CHUNK_VOXEL_SIZE as f32,
-            pos.z.floor() - me_pos.z - voxel::CHUNK_VOXEL_SIZE as f32
+            pos.x.floor() + me_pos.x + voxel::CHUNK_VOXEL_SIZE as f32,
+            pos.z.floor() + me_pos.z + voxel::CHUNK_VOXEL_SIZE as f32
         );
 
-        log::trace!("polling at {x} {z}");
+        let x = x.clamp(0.0, voxel::CHUNK_VOXEL_SIZE as f32 - 1.0) as usize;
+        let z = z.clamp(0.0, voxel::CHUNK_VOXEL_SIZE as f32 - 1.0) as usize;
 
-        let x = x.clamp(0.0, voxel::CHUNK_VOXEL_SIZE as f32) as usize;
-        let z = z.clamp(0.0, voxel::CHUNK_VOXEL_SIZE as f32) as usize;
+        let mut height = 0.0;
 
         for y in 0..voxel::CHUNK_VOXEL_SIZE
         {
@@ -184,11 +184,11 @@ impl game::World for BrickMapChunk
 
             if self.voxel_chunk_data.read_voxel(sample_pos) != Voxel::Air
             {
-                return y as f32 + me_pos.y + voxel::CHUNK_VOXEL_SIZE as f32;
+                height = y as f32 - me_pos.y - voxel::CHUNK_VOXEL_SIZE as f32 + 1.0;
             }
         }
 
-        return 0.0;
+        height
     }
 }
 

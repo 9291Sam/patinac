@@ -162,22 +162,28 @@ impl gfx::Recordable for DebugMenu
         buffer.set_text(
             font_system,
             &format!(
-r#"╔═══════════════════╦════════════╗
-║ Frames per second ║ {:<10.3} ║
-╠═══════════════════╬════════════╣
-║  Frame Time (ms)  ║ {:<10.3} ║
-╠═══════════════════╬════════════╣
-║     Ram Usage     ║ {:<10} ║
-╠═══════════════════╬════════════╩══════╗
-║  Camera Position  ║ {} ║
-╚═══════════════════╩═══════════════════╝"#,
+r#"╔═════════════════════╦════════════╗
+║  Frames per second  ║ {:<10.3} ║
+╠═════════════════════╬════════════╣
+║   Frame Time (ms)   ║ {:<10.3} ║
+╠═════════════════════╬════════════╣
+║      Ram Usage      ║ {:<10} ║
+╠═════════════════════╬════════════╣
+║ Camera Position (x) ║ {:<10.3} ║
+╠═════════════════════╬════════════╣
+║ Camera Position (y) ║ {:<10.3} ║
+╠═════════════════════╬════════════╣
+║ Camera Position (z) ║ {:<10.3} ║
+╚═════════════════════╩════════════╝"#,
                 1.0 / renderer.get_delta_time(),
                 renderer.get_delta_time() * 1000.0,
                 util::bytes_as_string(
                     util::get_bytes_of_active_allocations() as f64,
                     util::SuffixType::Short
                 ),
-                camera.get_position(),
+                camera.get_position().x,
+                camera.get_position().y,
+                camera.get_position().z,
             ),
             glyphon::Attrs::new().family(glyphon::Family::Monospace),
             glyphon::Shaping::Advanced

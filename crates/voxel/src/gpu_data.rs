@@ -211,22 +211,22 @@ pub struct VoxelChunkDataManager
 {
     renderer: Arc<gfx::Renderer>,
 
-    window_voxel_bind_group:     util::Window<Arc<wgpu::BindGroup>>,
-    pub buffer_critical_section: Mutex<VoxelChunkDataManagerBufferCriticalSection>,
+    window_voxel_bind_group: util::Window<Arc<wgpu::BindGroup>>,
+    buffer_critical_section: Mutex<VoxelChunkDataManagerBufferCriticalSection>,
 
     bind_group_layout: Arc<wgpu::BindGroupLayout>
 }
 
 pub struct VoxelChunkDataManagerBufferCriticalSection
 {
-    pub cpu_brick_map: Box<BrickMap>,
-    gpu_brick_map:     wgpu::Buffer,
-    delta_brick_map:   BTreeSet<util::SendSyncMutPtr<VoxelBrickPointer>>,
+    cpu_brick_map:   Box<BrickMap>,
+    gpu_brick_map:   wgpu::Buffer,
+    delta_brick_map: BTreeSet<util::SendSyncMutPtr<VoxelBrickPointer>>,
 
-    pub cpu_brick_buffer: Vec<VoxelBrick>,
-    gpu_brick_buffer:     wgpu::Buffer,
-    delta_brick_buffer:   BTreeSet<util::SendSyncMutPtr<VoxelBrick>>,
-    needs_resize_flush:   bool,
+    cpu_brick_buffer:   Vec<VoxelBrick>,
+    gpu_brick_buffer:   wgpu::Buffer,
+    delta_brick_buffer: BTreeSet<util::SendSyncMutPtr<VoxelBrick>>,
+    needs_resize_flush: bool,
 
     voxel_bind_group:                Arc<wgpu::BindGroup>,
     window_updater_voxel_bind_group: util::WindowUpdater<Arc<wgpu::BindGroup>>,
@@ -516,6 +516,14 @@ impl VoxelChunkDataManager
 
     pub fn read_voxel(&self, pos: ChunkPosition) -> Voxel
     {
+        let unsigned_bound = (BRICK_MAP_EDGE_SIZE * VOXEL_BRICK_EDGE_LENGTH) as u16;
+
+        assert!(pos.x < unsigned_bound, "Bound {} is out of bounds", pos.x);
+
+        assert!(pos.y < unsigned_bound, "Bound {} is out of bounds", pos.y);
+
+        assert!(pos.z < unsigned_bound, "Bound {} is out of bounds", pos.z);
+
         let voxel_pos = glm::U16Vec3::new(
             pos.x % VOXEL_BRICK_EDGE_LENGTH as u16,
             pos.y % VOXEL_BRICK_EDGE_LENGTH as u16,

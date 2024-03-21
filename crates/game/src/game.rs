@@ -96,15 +96,13 @@ impl Game
         let move_scale = 10.0
             * if input_manager.is_key_pressed(gfx::KeyCode::ShiftLeft)
             {
-                25.0
+                10.0
             }
             else
             {
                 4.0
             };
         let rotate_scale = 10.0;
-
-        camera.add_position(glm::Vec3::new(0.0, -10.0, 0.0) * camera_delta_time);
 
         if input_manager.is_key_pressed(gfx::KeyCode::KeyW)
         {
@@ -184,21 +182,22 @@ impl Game
         }
 
         // process world interaction
+        camera.add_position(glm::Vec3::new(0.0, -100.0, 0.0) * camera_delta_time);
 
-        // if let Some(w) = &*self.world.lock().unwrap()
-        // {
-        //     if let Some(world) = w.upgrade()
-        //     {
-        //         let p = camera.get_position().y;
-        //         let target: f32 = world.get_height(camera.get_position());
+        if let Some(w) = &*self.world.lock().unwrap()
+        {
+            if let Some(world) = w.upgrade()
+            {
+                let p = camera.get_position().y;
+                let target: f32 = world.get_height(camera.get_position()) + 32.5;
 
-        //         let diff = target - p;
-        //         if diff > 0.0
-        //         {
-        //             camera.add_position(glm::Vec3::new(0.0, diff, 0.0));
-        //         }
-        //     }
-        // };
+                let diff = target - p;
+                if diff > 0.0
+                {
+                    camera.add_position(glm::Vec3::new(0.0, diff, 0.0));
+                }
+            }
+        };
 
         camera.clone()
     }

@@ -91,15 +91,10 @@ pub fn handle_crashes(
             .is_ok()
     );
 
+    // let default_hook = std::panic::take_hook();
+
     std::panic::set_hook(Box::new(move |panic_info| {
         static PRINT_THREADS_PANIC_MESSAGE_ONCE: Once = Once::new();
-
-        PRINT_THREADS_PANIC_MESSAGE_ONCE.call_once(|| {
-            log::error!(
-                "Thread {} has panicked",
-                std::thread::current().name().unwrap_or("???")
-            )
-        });
 
         let thread = std::thread::current();
 
@@ -132,6 +127,19 @@ pub fn handle_crashes(
                 message:        panic_payload_as_cow(panic_info.payload())
             }
         );
+
+        PRINT_THREADS_PANIC_MESSAGE_ONCE.call_once(|| {
+            log::error!(
+                "{}",
+                THREAD_CRASH_INFOS
+                    .get()
+                    .unwrap()
+                    .lock()
+                    .unwrap()
+                    .get(&thread.id())
+                    .unwrap()
+            )
+        });
 
         SHOULD_LOOPS_KEEP_ITERATING.store(false, Ordering::Release);
     }));
