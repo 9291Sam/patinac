@@ -1,4 +1,5 @@
 #![feature(map_try_insert)]
+#![feature(once_cell_try_insert)]
 #![feature(allocator_api)]
 #![feature(slice_ptr_get)]
 

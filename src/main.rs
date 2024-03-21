@@ -19,6 +19,8 @@ fn main()
 
     let crash_handler = util::CrashHandler::new();
 
+    crash_handler.start(|new_thread_func| {});
+
     crash_handler.into_guarded_scope(|handle| {
         let renderer = handle.enter_constrained("Renderer Creation".to_string(), |_, _, _| {
             Arc::new(unsafe {
