@@ -241,15 +241,14 @@ pub struct CrashHandler {}
 static THREAD_CRASH_INFOS: OnceLock<Mutex<HashMap<ThreadId, CrashInfo>>> = OnceLock::new();
 static SHOULD_LOOPS_KEEP_ITERATING: AtomicBool = AtomicBool::new(true);
 
-pub type ThreadSpawnFunc = dyn (Fn(Box<dyn FnOnce() + Send>));
-pub type ShouldLoopsIterate = dyn Fn() -> bool;
+pub type ShouldLoopsContinue = dyn Fn() -> bool;
 pub type TerminateLoops = dyn Fn();
 
 impl CrashHandler
 {
     pub fn start(
-        &self,
-        func: impl FnOnce(&ThreadSpawnFunc, &ShouldLoopsIterate, &TerminateLoops) + UnwindSafe
+        &self, // thread spawn func, not labeled for lifetime reasons
+        func: impl FnOnce(&dyn (Fn(Box<dyn FnOnce() + Send>)), &ShouldLoopsContinue, &TerminateLoops) + UnwindSafe
     )
     {
         assert!(
@@ -274,6 +273,9 @@ impl CrashHandler
             SHOULD_LOOPS_KEEP_ITERATING.store(false, Ordering::Release)
         }));
 
+        let should_loops_continue = || SHOULD_LOOPS_KEEP_ITERATING.load(Acquire);
+        let terminate_loops = || SHOULD_LOOPS_KEEP_ITERATING.store(false, Release);
+
         std::thread::scope(|thread_scope| {
             let spawned_handles: Mutex<HashMap<ThreadId, ScopedJoinHandle<'_, ()>>> =
                 Mutex::new(HashMap::new());
@@ -286,13 +288,9 @@ impl CrashHandler
                     .unwrap()
                     .insert(join_handle.thread().id(), join_handle);
             };
-            let should_loops_iterate = || SHOULD_LOOPS_KEEP_ITERATING.load(Acquire);
-            let terminate_loops = || SHOULD_LOOPS_KEEP_ITERATING.store(false, Release);
 
             // if this thread crashes it still puts its info in THREAD_CRASH_INFOS
-            let _ = std::panic::catch_unwind(|| {
-                func(&new_thread_func, &should_loops_iterate, &terminate_loops)
-            });
+            let _ = std::panic::catch_unwind(|| func(&new_thread_func, &should_loops_continue, &terminate_loops));
 
             // func has finished, threads are joined.
             terminate_loops();
