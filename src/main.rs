@@ -1,3 +1,4 @@
+use std::num::NonZeroUsize;
 use std::sync::Arc;
 
 fn main()
@@ -23,7 +24,9 @@ fn main()
     log::set_max_level(log::LevelFilter::Trace);
 
     *util::access_global_thread_pool().write().unwrap() = Some(util::ThreadPool::new(
-        std::thread::available_parallelism().unwrap().get().max(3) - 1
+        std::thread::available_parallelism()
+            .unwrap_or(NonZeroUsize::new(1).unwrap())
+            .get()
     ));
 
     util::handle_crashes(|new_thread_func, should_loops_continue, terminate_loops| {
