@@ -149,7 +149,7 @@ fn fs_main(in: VertexOutput, @builtin(front_facing) is_front_face: bool) -> Frag
     let intensity = (s * min(1-x, x)) + 1 - (s / 2);
     out.color *= vec4<f32>(vec3<f32>(intensity), 1.0); // You can adjust the second parameter (0.8) for the desired darkness
 
-    out.color = vec4<f32>(vec3<f32>(f32(ITER_STEPS) / 512.0), 1.0);
+    // out.color = vec4<f32>(vec3<f32>(f32(ITER_STEPS) / 512.0), 1.0);
 
 
     if (Error)
