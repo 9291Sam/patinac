@@ -26,9 +26,14 @@ const HalfBrickEdgeLength: u32 = 4;
 const BrickMapEdgeLength: u32 = 256;
 const VoxelsChunkEdge: u32 = 2048;
 
-struct Brick
+struct OldBrick
 {
     u16_brick_data: array<array<array<u32, HalfBrickEdgeLength>, BrickEdgeLength>, BrickEdgeLength>,
+}
+
+struct Brick
+{
+    bit_data: array<u32, 16>,
 }
 
 @group(0) @binding(0) var<uniform> global_info: GlobalInfo;
@@ -144,7 +149,7 @@ fn fs_main(in: VertexOutput, @builtin(front_facing) is_front_face: bool) -> Frag
     let intensity = (s * min(1-x, x)) + 1 - (s / 2);
     out.color *= vec4<f32>(vec3<f32>(intensity), 1.0); // You can adjust the second parameter (0.8) for the desired darkness
 
-    // out.color = vec4<f32>(vec3<f32>(f32(ITER_STEPS) / 512.0), 1.0);
+    out.color = vec4<f32>(vec3<f32>(f32(ITER_STEPS) / 512.0), 1.0);
 
 
     if (Error)
@@ -313,19 +318,29 @@ fn traverse_brick_dda(brick: BrickPointer, ray: Ray) -> BrickTraversalResult
 
 const ERROR_COLOR: vec4<f32> = vec4<f32>(1.0, 0.0, 1.0, 1.0);
 
+// fn Brick_accessOld(me: BrickPointer, pos: vec3<u32>) -> u32
+// {
+//     // return select(0u, 1u, pos.x == pos.y);
+//     let last: u32 = pos.z % 2;
+
+//     let val: u32 = brick_buffer[me].u16_brick_data[pos.x][pos.y][pos.z / 2];
+
+//     switch (last)
+//     {
+//         case 0u: { return extractBits(val, 0u, 16u);  }
+//         case 1u: { return extractBits(val, 16u, 16u); }
+//         default: { return 0u; }
+//     }
+// }
+
 fn Brick_access(me: BrickPointer, pos: vec3<u32>) -> u32
 {
-    // return select(0u, 1u, pos.x == pos.y);
-    let last: u32 = pos.z % 2;
 
-    let val: u32 = brick_buffer[me].u16_brick_data[pos.x][pos.y][pos.z / 2];
+    let index: u32 = (pos[0] * 64 + pos[1] * 8 + pos[2]) / 32;
+    let bit_offset: u32 = (pos[0] * 64 + pos[1] * 8 + pos[2]) % 32;
+    let bit_mask: u32 = u32(1) << bit_offset;
 
-    switch (last)
-    {
-        case 0u: { return extractBits(val, 0u, 16u);  }
-        case 1u: { return extractBits(val, 16u, 16u); }
-        default: { return 0u; }
-    }
+    return u32(u32(brick_buffer[me].bit_data[index] & bit_mask) != u32(0));
 }
 
 

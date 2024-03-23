@@ -64,46 +64,46 @@ impl Voxel
     }
 }
 
-#[derive(Debug, Clone, Copy, Pod, Zeroable)]
-#[repr(C)]
-pub struct VoxelBrick
-{
-    data: [[[Voxel; VOXEL_BRICK_EDGE_LENGTH]; VOXEL_BRICK_EDGE_LENGTH]; VOXEL_BRICK_EDGE_LENGTH]
-}
+// #[derive(Debug, Clone, Copy, Pod, Zeroable)]
+// #[repr(C)]
+// pub struct VoxelBrick
+// {
+//     data: [[[Voxel; VOXEL_BRICK_EDGE_LENGTH]; VOXEL_BRICK_EDGE_LENGTH];
+// VOXEL_BRICK_EDGE_LENGTH] }
 
 const VOXEL_STORAGE_BITS: usize =
     VOXEL_BRICK_EDGE_LENGTH * VOXEL_BRICK_EDGE_LENGTH * VOXEL_BRICK_EDGE_LENGTH;
 const VOXEL_STORAGE_BYTES: usize = VOXEL_STORAGE_BITS.div_ceil(8);
 
-impl VoxelBrick
-{
-    pub fn new_empty() -> VoxelBrick
-    {
-        VoxelBrick {
-            data: [[[Voxel::Air; VOXEL_BRICK_EDGE_LENGTH]; VOXEL_BRICK_EDGE_LENGTH];
-                VOXEL_BRICK_EDGE_LENGTH]
-        }
-    }
+// impl VoxelBrick
+// {
+//     pub fn new_empty() -> VoxelBrick
+//     {
+//         VoxelBrick {
+//             data: [[[Voxel::Air; VOXEL_BRICK_EDGE_LENGTH];
+// VOXEL_BRICK_EDGE_LENGTH];                 VOXEL_BRICK_EDGE_LENGTH]
+//         }
+//     }
 
-    pub fn write(&mut self, pos: glm::U16Vec3, voxel: Voxel)
-    {
-        self.data[pos.x as usize][pos.y as usize][pos.z as usize] = voxel
-    }
+//     pub fn write(&mut self, pos: glm::U16Vec3, voxel: Voxel)
+//     {
+//         self.data[pos.x as usize][pos.y as usize][pos.z as usize] = voxel
+//     }
 
-    pub fn fill(&mut self, voxel: Voxel)
-    {
-        for slice in self.data.iter_mut()
-        {
-            for layer in slice.iter_mut()
-            {
-                for v in layer.iter_mut()
-                {
-                    *v = voxel;
-                }
-            }
-        }
-    }
-}
+//     pub fn fill(&mut self, voxel: Voxel)
+//     {
+//         for slice in self.data.iter_mut()
+//         {
+//             for layer in slice.iter_mut()
+//             {
+//                 for v in layer.iter_mut()
+//                 {
+//                     *v = voxel;
+//                 }
+//             }
+//         }
+//     }
+// }
 
 /// Value Table
 /// TODO: flip the range on its head so that 0 is a valid brick pointer and that
@@ -225,9 +225,9 @@ pub struct VoxelChunkDataManagerBufferCriticalSection
     gpu_brick_map:   wgpu::Buffer,
     delta_brick_map: BTreeSet<util::SendSyncMutPtr<VoxelBrickPointer>>,
 
-    cpu_brick_buffer:   Vec<VoxelBrick>,
+    cpu_brick_buffer:   Vec<BitBrick>,
     gpu_brick_buffer:   wgpu::Buffer,
-    delta_brick_buffer: BTreeSet<util::SendSyncMutPtr<VoxelBrick>>,
+    delta_brick_buffer: BTreeSet<util::SendSyncMutPtr<BitBrick>>,
     needs_resize_flush: bool,
 
     voxel_bind_group:                Arc<wgpu::BindGroup>,
@@ -270,7 +270,7 @@ impl VoxelChunkDataManager
         let gpu_brick_buffer = r.create_buffer(&wgpu::BufferDescriptor {
             label:              Some("Voxel Chunk Data Manager Brick Buffer"),
             usage:              wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::STORAGE,
-            size:               std::mem::size_of::<VoxelBrick>() as u64
+            size:               std::mem::size_of::<BitBrick>() as u64
                 * number_of_starting_bricks as u64,
             mapped_at_creation: false
         });
@@ -307,7 +307,7 @@ impl VoxelChunkDataManager
                 .unwrap(),
                 gpu_brick_map,
                 delta_brick_map: BTreeSet::new(),
-                cpu_brick_buffer: vec![VoxelBrick::new_empty(); number_of_starting_bricks],
+                cpu_brick_buffer: vec![BitBrick::new(false); number_of_starting_bricks],
                 gpu_brick_buffer,
                 delta_brick_buffer: BTreeSet::new(),
                 needs_resize_flush: false,
@@ -433,7 +433,7 @@ impl VoxelChunkDataManager
 
                     let new_len = ((cpu_brick_buffer.len() as f64) * 1.25) as usize;
 
-                    cpu_brick_buffer.resize(new_len, VoxelBrick::new_empty());
+                    cpu_brick_buffer.resize(new_len, BitBrick::new(false));
 
                     let _ = std::mem::replace(
                         gpu_brick_buffer,
@@ -441,7 +441,7 @@ impl VoxelChunkDataManager
                             label:              Some("Voxel Chunk Data Manager Brick Buffer"),
                             usage:              wgpu::BufferUsages::COPY_DST
                                 | wgpu::BufferUsages::STORAGE,
-                            size:               std::mem::size_of::<VoxelBrick>() as u64
+                            size:               std::mem::size_of::<BitBrick>() as u64
                                 * cpu_brick_buffer.len() as u64,
                             mapped_at_creation: false
                         })
@@ -495,9 +495,9 @@ impl VoxelChunkDataManager
                 // fill brick
                 let brick_to_fill = &mut cpu_brick_buffer[this_brick_ptr.get_ptr() as usize];
 
-                brick_to_fill.fill(old_solid_voxel);
+                brick_to_fill.fill(old_solid_voxel != Voxel::Air);
 
-                delta_brick_buffer.insert((brick_to_fill as *mut VoxelBrick).into());
+                delta_brick_buffer.insert((brick_to_fill as *mut BitBrick).into());
             }
             VoxelBrickPointerType::Null =>
             {
@@ -511,11 +511,11 @@ impl VoxelChunkDataManager
         }
 
         // write voxel
-        let this_brick: &mut VoxelBrick = &mut cpu_brick_buffer[this_brick_ptr.get_ptr() as usize];
+        let this_brick: &mut BitBrick = &mut cpu_brick_buffer[this_brick_ptr.get_ptr() as usize];
 
-        this_brick.write(voxel_pos, v);
+        this_brick.write_voxel(voxel_pos, v != Voxel::Air);
 
-        delta_brick_buffer.insert((this_brick as *mut VoxelBrick).into());
+        delta_brick_buffer.insert((this_brick as *mut BitBrick).into());
     }
 
     pub fn read_voxel(&self, pos: ChunkPosition) -> Voxel
@@ -550,8 +550,18 @@ impl VoxelChunkDataManager
             VoxelBrickPointerType::Null => Voxel::Air,
             VoxelBrickPointerType::ValidBrickPointer(ptr) =>
             {
-                guard.cpu_brick_buffer.get(ptr as usize).unwrap().data[voxel_pos.x as usize]
-                    [voxel_pos.y as usize][voxel_pos.z as usize]
+                if guard
+                    .cpu_brick_buffer
+                    .get(ptr as usize)
+                    .unwrap()
+                    .read_voxel(voxel_pos)
+                {
+                    Voxel::Rock0
+                }
+                else
+                {
+                    Voxel::Air
+                }
             }
             VoxelBrickPointerType::Voxel(v) => v
         }
@@ -600,7 +610,7 @@ impl VoxelChunkDataManager
             .write_buffer(gpu_brick_buffer, 0, unsafe {
                 slice::from_raw_parts(
                     cpu_brick_buffer.as_ptr() as *const _,
-                    cpu_brick_buffer.len() * std::mem::size_of::<VoxelBrick>()
+                    cpu_brick_buffer.len() * std::mem::size_of::<BitBrick>()
                 )
             });
 
@@ -638,13 +648,13 @@ impl VoxelChunkDataManager
             )
         });
 
-        let head_brick_buffer: *const VoxelBrick = &cpu_brick_buffer[0] as *const _;
+        let head_brick_buffer: *const BitBrick = &cpu_brick_buffer[0] as *const _;
 
         delta_brick_buffer.extract_if(|_| true).for_each(|ptr| {
             self.renderer.queue.write_buffer(
                 gpu_brick_buffer,
                 unsafe { ptr.byte_offset_from(head_brick_buffer).try_into().unwrap() },
-                unsafe { bytes_of::<VoxelBrick>(&**ptr) }
+                unsafe { bytes_of::<BitBrick>(&**ptr) }
             )
         })
     }
@@ -716,6 +726,11 @@ impl BitBrick
         {
             self.bit_data[index] &= !bit_mask;
         }
+    }
+
+    fn fill(&mut self, filled: bool)
+    {
+        *self = Self::new(filled);
     }
 }
 
