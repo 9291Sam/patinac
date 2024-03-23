@@ -1,10 +1,18 @@
+use std::borrow::Cow;
 use std::sync::{Arc, Mutex};
 
-use bytemuck::{Pod, Zeroable};
-use gfx::{glm, wgpu, CacheableFragmentState, CacheablePipelineLayoutDescriptor, CacheableRenderPipelineDescriptor};
+use bytemuck::{cast_slice, Pod, Zeroable};
+use gfx::wgpu::util::{BufferInitDescriptor, DeviceExt};
+use gfx::wgpu::{self};
+use gfx::{
+    glm,
+    CacheableFragmentState,
+    CacheablePipelineLayoutDescriptor,
+    CacheableRenderPipelineDescriptor
+};
 
 #[derive(Debug)]
-struct RasterizedVoxelChunk
+pub struct RasterizedVoxelChunk
 {
     uuid:              util::Uuid,
     vertex_buffer:     wgpu::Buffer,
@@ -17,7 +25,7 @@ struct RasterizedVoxelChunk
 
 impl RasterizedVoxelChunk
 {
-    pub fn new(game: &game::Game, transform: gfx::Transform) -> RasterizedVoxelChunk
+    pub fn new(game: &game::Game, transform: gfx::Transform) -> Arc<RasterizedVoxelChunk>
     {
         let uuid = util::Uuid::new();
 
@@ -39,13 +47,13 @@ impl RasterizedVoxelChunk
                     }]
                 });
 
-        let pipeline  = game.get_renderer().render_cache.cache_render_pipeline(
+        let pipeline = game.get_renderer().render_cache.cache_render_pipeline(
             CacheableRenderPipelineDescriptor {
                 label:                 "RasterizedVoxelChunk Pipeline".into(),
                 layout:                Some(pipeline_layout),
                 vertex_module:         shader.clone(),
                 vertex_entry_point:    "vs_main".into(),
-                vertex_buffer_layouts: vec![Vertex::describe_layout()],
+                vertex_buffer_layouts: vec![VoxelVertex::describe()],
                 fragment_state:        Some(CacheableFragmentState {
                     module:      shader,
                     entry_point: "fs_main".into(),
@@ -74,7 +82,26 @@ impl RasterizedVoxelChunk
             }
         );
 
-        RasterizedVoxelChunk {}
+        let this = Arc::new(RasterizedVoxelChunk {
+            uuid,
+            vertex_buffer: renderer.create_buffer_init(&BufferInitDescriptor {
+                label:    Some(&"RasterizedVoxelChunk Vertex Buffer"),
+                contents: cast_slice(&VOXEL_VERTICES),
+                usage:    wgpu::BufferUsages::VERTEX
+            }),
+            index_buffer: renderer.create_buffer_init(&BufferInitDescriptor {
+                label:    Some(&"RasterizedVoxelChunk Index Buffer"),
+                contents: cast_slice(&VOXEL_INDICES),
+                usage:    wgpu::BufferUsages::INDEX
+            }),
+            number_of_indices: VOXEL_INDICES.len() as u32,
+            pipeline,
+            transform: Mutex::new(transform)
+        });
+
+        renderer.register(this.clone());
+
+        this
     }
 }
 
@@ -82,7 +109,7 @@ impl gfx::Recordable for RasterizedVoxelChunk
 {
     fn get_name(&self) -> std::borrow::Cow<'_, str>
     {
-        todo!()
+        Cow::Borrowed("")
     }
 
     fn get_uuid(&self) -> util::Uuid
@@ -131,54 +158,54 @@ impl gfx::Recordable for RasterizedVoxelChunk
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Zeroable, Pod)]
-struct Vertex
+struct VoxelVertex
 {
     position: glm::Vec3
 }
 
-impl Vertex
+impl VoxelVertex
 {
-    const ATTRIBUTES: [wgpu::VertexAttribute; 1] = wgpu::vertex_attr_array![0 => Float32x3];
+    const ATTRS: [wgpu::VertexAttribute; 1] = wgpu::vertex_attr_array![0 => Float32x3];
 
-    pub fn describe_layout() -> wgpu::VertexBufferLayout<'static>
+    pub fn describe() -> wgpu::VertexBufferLayout<'static>
     {
         wgpu::VertexBufferLayout {
             array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
             step_mode:    wgpu::VertexStepMode::Vertex,
-            attributes:   &Self::ATTRIBUTES
+            attributes:   &Self::ATTRS
         }
     }
 }
 
-const CUBE_VERTICES: [Vertex; 8] = [
-    Vertex {
+const VOXEL_VERTICES: [VoxelVertex; 8] = [
+    VoxelVertex {
         position: glm::Vec3::new(0.0, 0.0, 0.0)
     },
-    Vertex {
+    VoxelVertex {
         position: glm::Vec3::new(0.0, 0.0, 1.0)
     },
-    Vertex {
+    VoxelVertex {
         position: glm::Vec3::new(0.0, 1.0, 0.0)
     },
-    Vertex {
+    VoxelVertex {
         position: glm::Vec3::new(0.0, 1.0, 1.0)
     },
-    Vertex {
+    VoxelVertex {
         position: glm::Vec3::new(1.0, 0.0, 0.0)
     },
-    Vertex {
+    VoxelVertex {
         position: glm::Vec3::new(1.0, 0.0, 1.0)
     },
-    Vertex {
+    VoxelVertex {
         position: glm::Vec3::new(1.0, 1.0, 0.0)
     },
-    Vertex {
+    VoxelVertex {
         position: glm::Vec3::new(1.0, 1.0, 1.0)
     }
 ];
 
 #[rustfmt::skip]
-const CUBE_INDICES: [u16; 36] = [
+const VOXEL_INDICES: [u32; 36] = [
     6, 2, 7,
     2, 3, 7,
     0, 4, 5,

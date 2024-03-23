@@ -13,6 +13,7 @@ use voxel::Voxel;
 pub struct TestScene
 {
     brick_map_chunk: Mutex<util::Promise<Vec<util::Promise<Arc<super::BrickMapChunk>>>>>,
+    raster:          Arc<super::RasterizedVoxelChunk>,
     id:              util::Uuid
 }
 
@@ -49,7 +50,14 @@ impl TestScene
                 })
                 .into()
             ),
-            id:              util::Uuid::new()
+            id:              util::Uuid::new(),
+            raster:          super::RasterizedVoxelChunk::new(
+                &game,
+                gfx::Transform {
+                    translation: glm::Vec3::new(10.0, 1048.0, 5.0),
+                    ..Default::default()
+                }
+            )
         });
 
         game.register(this.clone());

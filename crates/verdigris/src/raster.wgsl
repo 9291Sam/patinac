@@ -12,9 +12,13 @@ struct GlobalInfo
     view_projection: mat4x4<f32>
 }
 
+alias Matricies = array<mat4x4<f32>, 1024>;
+
 @group(0) @binding(0) var<uniform> global_info: GlobalInfo;
 @group(0) @binding(1) var<uniform> global_model_view_projection: Matricies;
 @group(0) @binding(2) var<uniform> global_model: Matricies;
+
+var<push_constant> id: u32;
 
 @vertex
 fn vs_main(input: VertexInput) -> VertexOutput
@@ -35,6 +39,5 @@ struct FragmentOutput
 @fragment
 fn fs_main(in: VertexOutput) -> FragmentOutput
 {
-    return FragmentOutput(in.clip_position.xyz % vec3<f32>(1.0), 1.0);
-
+    return FragmentOutput(vec4<f32>(in.clip_position.xyz % vec3<f32>(1.0), 1.0));
 }

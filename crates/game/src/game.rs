@@ -49,7 +49,7 @@ impl Game
                 float_time_alive: AtomicU64::new(0.0f64.to_bits()),
                 this_weak: this_weak.clone(),
                 camera: Mutex::new(gfx::Camera::new(
-                    glm::Vec3::new(-658.22, 1062.2232, 623.242),
+                    glm::Vec3::new(0.0, 1024.0, 0.0),
                     0.318903,
                     -3.978343
                 )),
@@ -181,23 +181,23 @@ impl Game
             camera.add_pitch(delta_rads.y * rotate_scale);
         }
 
-        // process world interaction
-        camera.add_position(glm::Vec3::new(0.0, -100.0, 0.0) * camera_delta_time);
+        // // process world interaction
+        // camera.add_position(glm::Vec3::new(0.0, -100.0, 0.0) * camera_delta_time);
 
-        if let Some(w) = &*self.world.lock().unwrap()
-        {
-            if let Some(world) = w.upgrade()
-            {
-                let p = camera.get_position().y;
-                let target: f32 = world.get_height(camera.get_position()) + 32.5;
+        // if let Some(w) = &*self.world.lock().unwrap()
+        // {
+        //     if let Some(world) = w.upgrade()
+        //     {
+        //         let p = camera.get_position().y;
+        //         let target: f32 = world.get_height(camera.get_position()) + 32.5;
 
-                let diff = target - p;
-                if diff > 0.0
-                {
-                    camera.add_position(glm::Vec3::new(0.0, diff, 0.0));
-                }
-            }
-        };
+        //         let diff = target - p;
+        //         if diff > 0.0
+        //         {
+        //             camera.add_position(glm::Vec3::new(0.0, diff, 0.0));
+        //         }
+        //     }
+        // };
 
         camera.clone()
     }
