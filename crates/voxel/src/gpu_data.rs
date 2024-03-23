@@ -71,6 +71,10 @@ pub struct VoxelBrick
     data: [[[Voxel; VOXEL_BRICK_EDGE_LENGTH]; VOXEL_BRICK_EDGE_LENGTH]; VOXEL_BRICK_EDGE_LENGTH]
 }
 
+const VOXEL_STORAGE_BITS: usize =
+    VOXEL_BRICK_EDGE_LENGTH * VOXEL_BRICK_EDGE_LENGTH * VOXEL_BRICK_EDGE_LENGTH;
+const VOXEL_STORAGE_BYTES: usize = VOXEL_STORAGE_BITS.div_ceil(8);
+
 impl VoxelBrick
 {
     pub fn new_empty() -> VoxelBrick
@@ -81,11 +85,9 @@ impl VoxelBrick
         }
     }
 
-    pub fn write(
-        &mut self
-    ) -> &mut [[[Voxel; VOXEL_BRICK_EDGE_LENGTH]; VOXEL_BRICK_EDGE_LENGTH]; VOXEL_BRICK_EDGE_LENGTH]
+    pub fn write(&mut self, pos: glm::U16Vec3, voxel: Voxel)
     {
-        &mut self.data
+        self.data[pos.x as usize][pos.y as usize][pos.z as usize] = voxel
     }
 
     pub fn fill(&mut self, voxel: Voxel)
@@ -252,6 +254,8 @@ impl VoxelChunkDataManager
     pub fn new(renderer: Arc<gfx::Renderer>, bind_group_layout: Arc<wgpu::BindGroupLayout>)
     -> Self
     {
+        assert!(VOXEL_BRICK_EDGE_LENGTH == 8);
+
         let number_of_starting_bricks = BRICK_MAP_EDGE_SIZE * BRICK_MAP_EDGE_SIZE * 2;
 
         let r = renderer.clone();
@@ -509,7 +513,7 @@ impl VoxelChunkDataManager
         // write voxel
         let this_brick: &mut VoxelBrick = &mut cpu_brick_buffer[this_brick_ptr.get_ptr() as usize];
 
-        this_brick.write()[voxel_pos.x as usize][voxel_pos.y as usize][voxel_pos.z as usize] = v;
+        this_brick.write(voxel_pos, v);
 
         delta_brick_buffer.insert((this_brick as *mut VoxelBrick).into());
     }
@@ -646,6 +650,75 @@ impl VoxelChunkDataManager
     }
 }
 
+#[derive(Debug, Clone, Copy, Pod, Zeroable)]
+#[repr(C)]
+pub struct BitBrick
+{
+    bit_data: [u32; 16]
+}
+
+impl BitBrick
+{
+    pub fn new(filled: bool) -> BitBrick
+    {
+        let fill_val = if filled
+        {
+            !0
+        }
+        else
+        {
+            0
+        };
+
+        BitBrick {
+            bit_data: [fill_val; 16]
+        }
+    }
+
+    fn read_voxel(&self, pos: glm::U16Vec3) -> bool
+    {
+        // Verify if each component of the input position is in the range [0, 7]
+        for &p in pos.iter()
+        {
+            if p > 7
+            {
+                panic!("Position out of range");
+            }
+        }
+
+        let index = (pos[0] as usize * 64 + pos[1] as usize * 8 + pos[2] as usize) / 32;
+        let bit_offset = (pos[0] as usize * 64 + pos[1] as usize * 8 + pos[2] as usize) % 32;
+        let bit_mask = 1 << bit_offset;
+
+        self.bit_data[index] & bit_mask != 0
+    }
+
+    fn write_voxel(&mut self, pos: glm::U16Vec3, voxel: bool)
+    {
+        // Verify if each component of the input position is in the range [0, 7]
+        for &p in pos.iter()
+        {
+            if p > 7
+            {
+                panic!("Position out of range");
+            }
+        }
+
+        let index = (pos[0] as usize * 64 + pos[1] as usize * 8 + pos[2] as usize) / 32;
+        let bit_offset = (pos[0] as usize * 64 + pos[1] as usize * 8 + pos[2] as usize) % 32;
+        let bit_mask = 1 << bit_offset;
+
+        if voxel
+        {
+            self.bit_data[index] |= bit_mask;
+        }
+        else
+        {
+            self.bit_data[index] &= !bit_mask;
+        }
+    }
+}
+
 #[cfg(test)]
 mod test
 {
@@ -684,6 +757,50 @@ mod test
                 VoxelBrickPointer::new_ptr(i).classify(),
                 VoxelBrickPointerType::ValidBrickPointer(_i)
             );
+        }
+    }
+
+    // chatgpt wrote this... this is good.
+    #[test]
+    fn test_read_write_voxel()
+    {
+        let mut brick = BitBrick::new(false);
+
+        // Test filling in one bit at a time and then accessing it
+        for x in 0..8
+        {
+            for y in 0..8
+            {
+                for z in 0..8
+                {
+                    let pos = glm::U16Vec3::new(x, y, z);
+                    brick.write_voxel(pos, true);
+
+                    assert_eq!(brick.read_voxel(pos), true);
+
+                    // Verify other bits remain unchanged
+                    for xx in 0..8
+                    {
+                        for yy in 0..8
+                        {
+                            for zz in 0..8
+                            {
+                                let other_pos = glm::U16Vec3::new(xx, yy, zz);
+
+                                if pos == other_pos
+                                {
+                                    continue;
+                                }
+
+                                assert_eq!(brick.read_voxel(other_pos), false);
+                            }
+                        }
+                    }
+
+                    brick.write_voxel(pos, false);
+                    assert_eq!(brick.read_voxel(pos), false);
+                }
+            }
         }
     }
 }
