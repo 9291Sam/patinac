@@ -14,12 +14,13 @@ use gfx::{
 #[derive(Debug)]
 pub struct RasterizedVoxelChunk
 {
-    uuid:              util::Uuid,
-    vertex_buffer:     wgpu::Buffer,
-    index_buffer:      wgpu::Buffer,
-    instance_buffer:   wgpu::Buffer,
-    number_of_indices: u32,
-    pipeline:          Arc<gfx::GenericPipeline>,
+    uuid:                util::Uuid,
+    vertex_buffer:       wgpu::Buffer,
+    index_buffer:        wgpu::Buffer,
+    instance_buffer:     wgpu::Buffer,
+    number_of_instances: u32,
+    number_of_indices:   u32,
+    pipeline:            Arc<gfx::GenericPipeline>,
 
     transform: Mutex<gfx::Transform>
 }
@@ -86,6 +87,33 @@ impl RasterizedVoxelChunk
             }
         );
 
+        let instances: &[RasterizedVoxelVertexOffsetPosition] = &[
+            RasterizedVoxelVertexOffsetPosition {
+                offset: glm::I16Vec4::new(1, 3, 0, 0)
+            },
+            RasterizedVoxelVertexOffsetPosition {
+                offset: glm::I16Vec4::new(2, 3, 0, 0)
+            },
+            RasterizedVoxelVertexOffsetPosition {
+                offset: glm::I16Vec4::new(3, 3, 1, 0)
+            },
+            RasterizedVoxelVertexOffsetPosition {
+                offset: glm::I16Vec4::new(1, 2, 0, 0)
+            },
+            RasterizedVoxelVertexOffsetPosition {
+                offset: glm::I16Vec4::new(3, 3, 0, 0)
+            },
+            RasterizedVoxelVertexOffsetPosition {
+                offset: glm::I16Vec4::new(4, 3, 4, 0)
+            },
+            RasterizedVoxelVertexOffsetPosition {
+                offset: glm::I16Vec4::new(6, 3, 0, 0)
+            },
+            RasterizedVoxelVertexOffsetPosition {
+                offset: glm::I16Vec4::new(0, 3, 1, 0)
+            }
+        ];
+
         let this = Arc::new(RasterizedVoxelChunk {
             uuid,
             vertex_buffer: renderer.create_buffer_init(&BufferInitDescriptor {
@@ -100,34 +128,10 @@ impl RasterizedVoxelChunk
             }),
             instance_buffer: renderer.create_buffer_init(&BufferInitDescriptor {
                 label:    Some("RasterizedVoxelChunk Instance Buffer"),
-                contents: cast_slice(&[
-                    RasterizedVoxelVertexOffsetPosition {
-                        offset: glm::I16Vec4::new(1, 3, 0, 0)
-                    },
-                    RasterizedVoxelVertexOffsetPosition {
-                        offset: glm::I16Vec4::new(2, 3, 0, 0)
-                    },
-                    RasterizedVoxelVertexOffsetPosition {
-                        offset: glm::I16Vec4::new(3, 3, 1, 0)
-                    },
-                    RasterizedVoxelVertexOffsetPosition {
-                        offset: glm::I16Vec4::new(1, 2, 0, 0)
-                    },
-                    RasterizedVoxelVertexOffsetPosition {
-                        offset: glm::I16Vec4::new(3, 3, 0, 0)
-                    },
-                    RasterizedVoxelVertexOffsetPosition {
-                        offset: glm::I16Vec4::new(4, 3, 4, 0)
-                    },
-                    RasterizedVoxelVertexOffsetPosition {
-                        offset: glm::I16Vec4::new(6, 3, 0, 0)
-                    },
-                    RasterizedVoxelVertexOffsetPosition {
-                        offset: glm::I16Vec4::new(0, 3, 1, 0)
-                    }
-                ]),
+                contents: cast_slice(&instances),
                 usage:    wgpu::BufferUsages::VERTEX
             }),
+            number_of_instances: instances.len() as u32,
             number_of_indices: VOXEL_INDICES.len() as u32,
             pipeline,
             transform: Mutex::new(transform)
@@ -187,7 +191,7 @@ impl gfx::Recordable for RasterizedVoxelChunk
         pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
         pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
         pass.set_push_constants(wgpu::ShaderStages::VERTEX, 0, bytemuck::bytes_of(&id));
-        pass.draw_indexed(0..self.number_of_indices, 0, 0..8);
+        pass.draw_indexed(0..self.number_of_indices, 0, 0..self.number_of_instances);
     }
 }
 
