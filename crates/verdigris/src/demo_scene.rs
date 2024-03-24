@@ -30,8 +30,6 @@ impl TestScene
             //             .map(|(x, z)| -> util::Promise<_> {
             //                 let local_game = brick_game.clone();
 
-            //                 std::thread::sleep(Duration::from_millis(25));
-
             //                 let chunk_edge_len = voxel::CHUNK_VOXEL_SIZE as f32;
 
             //                 util::run_async(move || {

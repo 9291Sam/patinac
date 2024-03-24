@@ -128,7 +128,7 @@ impl RasterizedVoxelChunk
             }),
             instance_buffer: renderer.create_buffer_init(&BufferInitDescriptor {
                 label:    Some("RasterizedVoxelChunk Instance Buffer"),
-                contents: cast_slice(&instances),
+                contents: cast_slice(instances),
                 usage:    wgpu::BufferUsages::VERTEX
             }),
             number_of_instances: instances.len() as u32,
@@ -210,7 +210,7 @@ impl RasterizedVoxelVertexOffsetPosition
     {
         wgpu::VertexBufferLayout {
             array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
-            step_mode:    wgpu::VertexStepMode::Vertex,
+            step_mode:    wgpu::VertexStepMode::Instance,
             attributes:   &Self::ATTRS
         }
     }
