@@ -12,9 +12,9 @@ use voxel::Voxel;
 #[derive(Debug)]
 pub struct TestScene
 {
-    brick_map_chunk: Mutex<util::Promise<Vec<util::Promise<Arc<super::BrickMapChunk>>>>>,
-    raster:          Arc<super::RasterizedVoxelChunk>,
-    id:              util::Uuid
+    // brick_map_chunk: Mutex<util::Promise<Vec<util::Promise<Arc<super::BrickMapChunk>>>>>,
+    raster: Arc<super::RasterizedVoxelChunk>,
+    id:     util::Uuid
 }
 
 impl TestScene
@@ -24,37 +24,37 @@ impl TestScene
         let brick_game = game.clone();
         let chunk_r = 0;
         let this = Arc::new(TestScene {
-            brick_map_chunk: Mutex::new(
-                util::run_async(move || {
-                    iproduct!(-chunk_r..=chunk_r, -chunk_r..=chunk_r)
-                        .map(|(x, z)| -> util::Promise<_> {
-                            let local_game = brick_game.clone();
+            // brick_map_chunk: Mutex::new(
+            //     util::run_async(move || {
+            //         iproduct!(-chunk_r..=chunk_r, -chunk_r..=chunk_r)
+            //             .map(|(x, z)| -> util::Promise<_> {
+            //                 let local_game = brick_game.clone();
 
-                            std::thread::sleep(Duration::from_millis(25));
+            //                 std::thread::sleep(Duration::from_millis(25));
 
-                            let chunk_edge_len = voxel::CHUNK_VOXEL_SIZE as f32;
+            //                 let chunk_edge_len = voxel::CHUNK_VOXEL_SIZE as f32;
 
-                            util::run_async(move || {
-                                create_and_fill(
-                                    &local_game,
-                                    glm::Vec3::new(
-                                        (x as f32) * chunk_edge_len - chunk_edge_len / 2.0,
-                                        -chunk_edge_len / 2.0,
-                                        (z as f32) * chunk_edge_len - chunk_edge_len / 2.0
-                                    )
-                                )
-                            })
-                            .into()
-                        })
-                        .collect()
-                })
-                .into()
-            ),
-            id:              util::Uuid::new(),
-            raster:          super::RasterizedVoxelChunk::new(
+            //                 util::run_async(move || {
+            //                     create_and_fill(
+            //                         &local_game,
+            //                         glm::Vec3::new(
+            //                             (x as f32) * chunk_edge_len - chunk_edge_len / 2.0,
+            //                             -chunk_edge_len / 2.0,
+            //                             (z as f32) * chunk_edge_len - chunk_edge_len / 2.0
+            //                         )
+            //                     )
+            //                 })
+            //                 .into()
+            //             })
+            //             .collect()
+            //     })
+            //     .into()
+            // ),
+            id:     util::Uuid::new(),
+            raster: super::RasterizedVoxelChunk::new(
                 &game,
                 gfx::Transform {
-                    translation: glm::Vec3::new(10.0, 1048.0, 5.0),
+                    translation: glm::Vec3::new(35.0, 975.0, -35.0),
                     ..Default::default()
                 }
             )
@@ -208,43 +208,43 @@ impl game::Entity for TestScene
 
     fn tick(&self, _: &game::Game, _: game::TickTag)
     {
-        let mut guard = self.brick_map_chunk.lock().unwrap();
+        // let mut guard = self.brick_map_chunk.lock().unwrap();
 
-        guard.poll_ref();
+        // guard.poll_ref();
 
-        if let util::Promise::Resolved(chunk_vec) = &mut *guard
-        {
-            chunk_vec.iter_mut().for_each(|p| {
-                p.poll_ref();
+        // if let util::Promise::Resolved(chunk_vec) = &mut *guard
+        // {
+        //     chunk_vec.iter_mut().for_each(|p| {
+        //         p.poll_ref();
 
-                // if let util::Promise::Resolved(chunk) = &*p
-                // {
-                //     let manager = chunk.access_data_manager();
+        //         // if let util::Promise::Resolved(chunk) = &*p
+        //         // {
+        //         //     let manager = chunk.access_data_manager();
 
-                //     for _ in 0..256
-                //     {
-                //         let center = 448u16;
-                //         let edge = 64;
-                //         let range = (center - edge)..(center + edge);
+        //         //     for _ in 0..256
+        //         //     {
+        //         //         let center = 448u16;
+        //         //         let edge = 64;
+        //         //         let range = (center - edge)..(center + edge);
 
-                //         let base: glm::U16Vec3 = glm::U16Vec3::new(
-                //             rand::thread_rng().gen_range(range.clone()),
-                //             rand::thread_rng().gen_range(range.clone()),
-                //             rand::thread_rng().gen_range(range.clone())
-                //         );
+        //         //         let base: glm::U16Vec3 = glm::U16Vec3::new(
+        //         //             rand::thread_rng().gen_range(range.clone()),
+        //         //             rand::thread_rng().gen_range(range.clone()),
+        //         //             rand::thread_rng().gen_range(range.clone())
+        //         //         );
 
-                //         manager.write_voxel(
-                //
-                // rand::thread_rng().gen_range(1..=12).try_into().unwrap(),
-                //             base
-                //         );
-                //     }
+        //         //         manager.write_voxel(
+        //         //
+        //         // rand::thread_rng().gen_range(1..=12).try_into().unwrap(),
+        //         //             base
+        //         //         );
+        //         //     }
 
-                //     log::trace!(" hmmm");
+        //         //     log::trace!(" hmmm");
 
-                //     manager.flush_to_gpu();
-                // }
-            })
-        };
+        //         //     manager.flush_to_gpu();
+        //         // }
+        //     })
+        // };
     }
 }
