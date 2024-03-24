@@ -9,6 +9,8 @@ use noise::NoiseFn;
 use rand::Rng;
 use voxel::Voxel;
 
+use crate::{RasterizedVoxelChunk, RasterizedVoxelVertexOffsetPosition};
+
 #[derive(Debug)]
 pub struct TestScene
 {
@@ -23,31 +25,7 @@ impl TestScene
     {
         let brick_game = game.clone();
         let chunk_r = 0;
-        let this = Arc::new(TestScene {
-            // brick_map_chunk: Mutex::new(
-            //     util::run_async(move || {
-            //         iproduct!(-chunk_r..=chunk_r, -chunk_r..=chunk_r)
-            //             .map(|(x, z)| -> util::Promise<_> {
-            //                 let local_game = brick_game.clone();
-
-            //                 let chunk_edge_len = voxel::CHUNK_VOXEL_SIZE as f32;
-
-            //                 util::run_async(move || {
-            //                     create_and_fill(
-            //                         &local_game,
-            //                         glm::Vec3::new(
-            //                             (x as f32) * chunk_edge_len - chunk_edge_len / 2.0,
-            //                             -chunk_edge_len / 2.0,
-            //                             (z as f32) * chunk_edge_len - chunk_edge_len / 2.0
-            //                         )
-            //                     )
-            //                 })
-            //                 .into()
-            //             })
-            //             .collect()
-            //     })
-            //     .into()
-            // ),
+        let mut this = Arc::new(TestScene {
             id:     util::Uuid::new(),
             raster: super::RasterizedVoxelChunk::new(
                 &game,
@@ -57,6 +35,29 @@ impl TestScene
                 }
             )
         });
+
+        let noise_generator = noise::SuperSimplex::new(
+            (234782378948923489238948972347234789342u128 % u32::MAX as u128) as u32
+        );
+
+        let noise_sampler = |x: i16, z: i16| {
+            let h = 84.0f64;
+
+            (noise_generator.get([(x as f64) / 256.0, 0.0, (z as f64) / 256.0]) * h) as i16
+        };
+
+        let v = iproduct!(0..1024, 0..1024)
+            .map(|(x, z)| {
+                RasterizedVoxelVertexOffsetPosition {
+                    offset: glm::I16Vec4::new(x, noise_sampler(x, z), z, 0)
+                }
+            })
+            .collect::<Vec<_>>();
+
+        let t: &mut TestScene = Arc::get_mut(&mut this).unwrap();
+        let c: &mut RasterizedVoxelChunk = unsafe { Arc::get_mut_unchecked(&mut t.raster) };
+
+        c.update_voxels(v);
 
         game.register(this.clone());
 

@@ -1,3 +1,5 @@
+#![feature(get_mut_unchecked)]
+
 mod brick_map_chunk;
 mod demo_scene;
 mod raster;

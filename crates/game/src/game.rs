@@ -49,7 +49,7 @@ impl Game
                 float_time_alive: AtomicU64::new(0.0f64.to_bits()),
                 this_weak: this_weak.clone(),
                 camera: Mutex::new(gfx::Camera::new(
-                    glm::Vec3::new(0.0, 0.0, 0.0),
+                    glm::Vec3::new(0.0, 16.0, 0.0),
                     0.318903,
                     -3.978343
                 )),
@@ -93,10 +93,10 @@ impl Game
     {
         let mut camera = self.camera.lock().unwrap();
 
-        let move_scale = 1.0
+        let move_scale = 10.0
             * if input_manager.is_key_pressed(gfx::KeyCode::ShiftLeft)
             {
-                10.0
+                22.0
             }
             else
             {

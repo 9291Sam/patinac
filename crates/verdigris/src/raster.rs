@@ -14,13 +14,13 @@ use gfx::{
 #[derive(Debug)]
 pub struct RasterizedVoxelChunk
 {
-    uuid:                util::Uuid,
-    vertex_buffer:       wgpu::Buffer,
-    index_buffer:        wgpu::Buffer,
-    instance_buffer:     wgpu::Buffer,
-    number_of_instances: u32,
-    number_of_indices:   u32,
-    pipeline:            Arc<gfx::GenericPipeline>,
+    renderer:        Arc<gfx::Renderer>,
+    uuid:            util::Uuid,
+    vertex_buffer:   wgpu::Buffer,
+    index_buffer:    wgpu::Buffer,
+    voxel_positions: Vec<RasterizedVoxelVertexOffsetPosition>,
+    instance_buffer: wgpu::Buffer,
+    pipeline:        Arc<gfx::GenericPipeline>,
 
     transform: Mutex<gfx::Transform>
 }
@@ -131,15 +131,31 @@ impl RasterizedVoxelChunk
                 contents: cast_slice(instances),
                 usage:    wgpu::BufferUsages::VERTEX
             }),
-            number_of_instances: instances.len() as u32,
-            number_of_indices: VOXEL_INDICES.len() as u32,
+            voxel_positions: Vec::from_iter(instances.iter().cloned()),
             pipeline,
-            transform: Mutex::new(transform)
+            transform: Mutex::new(transform),
+            renderer: game.get_renderer().clone()
         });
 
         renderer.register(this.clone());
 
         this
+    }
+
+    pub fn update_voxels(
+        &mut self,
+        positions: impl IntoIterator<Item = RasterizedVoxelVertexOffsetPosition>
+    )
+    {
+        let instances: Vec<RasterizedVoxelVertexOffsetPosition> = positions.into_iter().collect();
+
+        self.instance_buffer = self.renderer.create_buffer_init(&BufferInitDescriptor {
+            label:    Some("Raster Instance Buffer"),
+            contents: bytemuck::cast_slice(&instances[..]),
+            usage:    wgpu::BufferUsages::VERTEX
+        });
+
+        self.voxel_positions = instances;
     }
 }
 
@@ -191,15 +207,19 @@ impl gfx::Recordable for RasterizedVoxelChunk
         pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
         pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
         pass.set_push_constants(wgpu::ShaderStages::VERTEX, 0, bytemuck::bytes_of(&id));
-        pass.draw_indexed(0..self.number_of_indices, 0, 0..self.number_of_instances);
+        pass.draw_indexed(
+            0..VOXEL_INDICES.len() as u32,
+            0,
+            0..self.voxel_positions.len() as u32
+        );
     }
 }
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Zeroable, Pod)]
-struct RasterizedVoxelVertexOffsetPosition
+pub struct RasterizedVoxelVertexOffsetPosition
 {
-    offset: glm::I16Vec4
+    pub offset: glm::I16Vec4
 }
 
 impl RasterizedVoxelVertexOffsetPosition
