@@ -93,7 +93,7 @@ impl Game
     {
         let mut camera = self.camera.lock().unwrap();
 
-        let move_scale = 10.0
+        let move_scale = 1.0
             * if input_manager.is_key_pressed(gfx::KeyCode::ShiftLeft)
             {
                 10.0

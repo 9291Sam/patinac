@@ -5,6 +5,7 @@ struct VertexInput {
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
+    @location(0) color: vec3<f32>
 }
 
 struct GlobalInfo
@@ -30,11 +31,12 @@ fn vs_main(input: VertexInput) -> VertexOutput
         vec4<f32>(1.0, 0.0, 0.0, 0.0),
         vec4<f32>(0.0, 1.0, 0.0, 0.0),
         vec4<f32>(0.0, 0.0, 1.0, 0.0),
-        vec4<f32>(vec3<f32>(input.voxel_offset.xyz), 1.0),
+        vec4<f32>(vec3<f32>(input.voxel_offset.xyz), 1.0)
     );
 
     out.clip_position = global_info.view_projection * model * vec4<f32>(input.position, 1.0);
-
+    out.color = input.position;
+  
     return out;
 }
 
@@ -47,5 +49,5 @@ struct FragmentOutput
 @fragment
 fn fs_main(in: VertexOutput) -> FragmentOutput
 {
-    return FragmentOutput(vec4<f32>(in.clip_position.xyz % vec3<f32>(1.0), 1.0));
+    return FragmentOutput(vec4<f32>(in.color, 1.0));
 }
