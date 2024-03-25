@@ -12,7 +12,7 @@ use gfx::{
 };
 
 #[derive(Debug)]
-pub struct RasterizedVoxelChunk
+pub struct RasterChunk
 {
     renderer:        Arc<gfx::Renderer>,
     uuid:            util::Uuid,
@@ -25,9 +25,9 @@ pub struct RasterizedVoxelChunk
     transform: Mutex<gfx::Transform>
 }
 
-impl RasterizedVoxelChunk
+impl RasterChunk
 {
-    pub fn new(game: &game::Game, transform: gfx::Transform) -> Arc<RasterizedVoxelChunk>
+    pub fn new(game: &game::Game, transform: gfx::Transform) -> Arc<RasterChunk>
     {
         let uuid = util::Uuid::new();
 
@@ -41,7 +41,7 @@ impl RasterizedVoxelChunk
             renderer
                 .render_cache
                 .cache_pipeline_layout(CacheablePipelineLayoutDescriptor {
-                    label:                "RasterizedVoxelChunk Pipeline Layout".into(),
+                    label:                "RasterChunk Pipeline Layout".into(),
                     bind_group_layouts:   vec![renderer.global_bind_group_layout.clone()],
                     push_constant_ranges: vec![wgpu::PushConstantRange {
                         stages: wgpu::ShaderStages::VERTEX,
@@ -51,7 +51,7 @@ impl RasterizedVoxelChunk
 
         let pipeline = game.get_renderer().render_cache.cache_render_pipeline(
             CacheableRenderPipelineDescriptor {
-                label:                 "RasterizedVoxelChunk Pipeline".into(),
+                label:                 "RasterChunk Pipeline".into(),
                 layout:                Some(pipeline_layout),
                 vertex_module:         shader.clone(),
                 vertex_entry_point:    "vs_main".into(),
@@ -114,20 +114,20 @@ impl RasterizedVoxelChunk
             }
         ];
 
-        let this = Arc::new(RasterizedVoxelChunk {
+        let this = Arc::new(RasterChunk {
             uuid,
             vertex_buffer: renderer.create_buffer_init(&BufferInitDescriptor {
-                label:    Some("RasterizedVoxelChunk Vertex Buffer"),
+                label:    Some("RasterChunk Vertex Buffer"),
                 contents: cast_slice(&VOXEL_VERTICES),
                 usage:    wgpu::BufferUsages::VERTEX
             }),
             index_buffer: renderer.create_buffer_init(&BufferInitDescriptor {
-                label:    Some("RasterizedVoxelChunk Index Buffer"),
+                label:    Some("RasterChunk Index Buffer"),
                 contents: cast_slice(&VOXEL_INDICES),
                 usage:    wgpu::BufferUsages::INDEX
             }),
             instance_buffer: renderer.create_buffer_init(&BufferInitDescriptor {
-                label:    Some("RasterizedVoxelChunk Instance Buffer"),
+                label:    Some("RasterChunk Instance Buffer"),
                 contents: cast_slice(instances),
                 usage:    wgpu::BufferUsages::VERTEX
             }),
@@ -159,7 +159,7 @@ impl RasterizedVoxelChunk
     }
 }
 
-impl gfx::Recordable for RasterizedVoxelChunk
+impl gfx::Recordable for RasterChunk
 {
     fn get_name(&self) -> std::borrow::Cow<'_, str>
     {
@@ -183,8 +183,8 @@ impl gfx::Recordable for RasterizedVoxelChunk
 
     fn pre_record_update(
         &self,
-        renderer: &gfx::Renderer,
-        camera: &gfx::Camera,
+        _: &gfx::Renderer,
+        _: &gfx::Camera,
         global_bind_group: &std::sync::Arc<gfx::wgpu::BindGroup>
     ) -> gfx::RecordInfo
     {

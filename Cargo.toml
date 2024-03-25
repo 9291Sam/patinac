@@ -8,7 +8,6 @@ members = [
     "crates/util",
     "crates/gfx",
     "crates/game",
-    "crates/voxel",
     "crates/verdigris",
     "crates/gui",
 ]
@@ -17,7 +16,6 @@ members = [
 util = { workspace = true }
 gfx = { workspace = true }
 game = { workspace = true }
-voxel = { workspace = true }
 verdigris = { workspace = true }
 gui = { workspace = true }
 log = { workspace = true }
@@ -28,7 +26,6 @@ sys-locale.workspace = true
 util = { path = "crates/util" }
 gfx = { path = "crates/gfx" }
 game = { path = "crates/game" }
-voxel = { path = "crates/voxel" }
 verdigris = { path = "crates/verdigris" }
 gui = { path = "crates/gui" }
 log = { version = "0.4.20", features = ["std"] }
@@ -39,7 +36,7 @@ image = { version = "0.25", default-features = false, features = [
 ] }
 tobj = "4.0.1"
 itertools = "0.12.1"
-noise = "0.8.2"
+noise = "0.9.0"
 rand = "0.8.5"
 winit = "0.29"
 wgpu = "0.19.3"

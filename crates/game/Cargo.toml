@@ -7,7 +7,6 @@ edition = "2021"
 [dependencies]
 gfx = { workspace = true }
 util = { workspace = true }
-voxel = { workspace = true }
 log = { workspace = true }
 rand = { workspace = true }
 oneshot = { workspace = true }

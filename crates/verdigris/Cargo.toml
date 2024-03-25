@@ -5,7 +5,6 @@ edition = "2021"
 
 [dependencies]
 bytemuck = { workspace = true }
-voxel = { workspace = true }
 rand = { workspace = true }
 game = { workspace = true }
 util = { workspace = true }

@@ -37,7 +37,7 @@ fn main()
         let game = game::Game::new(renderer.clone());
 
         {
-            let _verdigris = verdigris::TestScene::new(game.clone());
+            let _verdigris = verdigris::DemoScene::new(game.clone());
             let _debug_menu = gui::DebugMenu::new(&renderer);
 
             let game_tick = game.clone();
