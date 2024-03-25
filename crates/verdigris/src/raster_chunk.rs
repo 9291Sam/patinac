@@ -14,11 +14,13 @@ use gfx::{
 #[derive(Debug)]
 pub struct RasterChunk
 {
-    renderer:        Arc<gfx::Renderer>,
-    uuid:            util::Uuid,
-    vertex_buffer:   wgpu::Buffer,
-    index_buffer:    wgpu::Buffer,
-    voxel_positions: Vec<RasterizedVoxelVertexOffsetPosition>,
+    renderer: Arc<gfx::Renderer>,
+    uuid:     util::Uuid,
+
+    vertex_buffer: wgpu::Buffer,
+    index_buffer:  wgpu::Buffer,
+
+    voxel_positions: Vec<RasterChunkVoxelInstance>,
     instance_buffer: wgpu::Buffer,
     pipeline:        Arc<gfx::GenericPipeline>,
 
@@ -57,7 +59,7 @@ impl RasterChunk
                 vertex_entry_point:    "vs_main".into(),
                 vertex_buffer_layouts: vec![
                     VoxelVertex::describe(),
-                    RasterizedVoxelVertexOffsetPosition::describe(),
+                    RasterChunkVoxelInstance::describe(),
                 ],
                 fragment_state:        Some(CacheableFragmentState {
                     module:      shader,
@@ -69,7 +71,7 @@ impl RasterChunk
                     })]
                 }),
                 primitive_state:       wgpu::PrimitiveState {
-                    topology:           wgpu::PrimitiveTopology::TriangleList,
+                    topology:           wgpu::PrimitiveTopology::TriangleStrip,
                     strip_index_format: None,
                     front_face:         wgpu::FrontFace::Cw,
                     cull_mode:          Some(wgpu::Face::Back),
@@ -87,43 +89,18 @@ impl RasterChunk
             }
         );
 
-        let instances: &[RasterizedVoxelVertexOffsetPosition] = &[
-            RasterizedVoxelVertexOffsetPosition {
-                offset: glm::I16Vec4::new(1, 3, 0, 0)
-            },
-            RasterizedVoxelVertexOffsetPosition {
-                offset: glm::I16Vec4::new(2, 3, 0, 0)
-            },
-            RasterizedVoxelVertexOffsetPosition {
-                offset: glm::I16Vec4::new(3, 3, 1, 0)
-            },
-            RasterizedVoxelVertexOffsetPosition {
-                offset: glm::I16Vec4::new(1, 2, 0, 0)
-            },
-            RasterizedVoxelVertexOffsetPosition {
-                offset: glm::I16Vec4::new(3, 3, 0, 0)
-            },
-            RasterizedVoxelVertexOffsetPosition {
-                offset: glm::I16Vec4::new(4, 3, 4, 0)
-            },
-            RasterizedVoxelVertexOffsetPosition {
-                offset: glm::I16Vec4::new(6, 3, 0, 0)
-            },
-            RasterizedVoxelVertexOffsetPosition {
-                offset: glm::I16Vec4::new(0, 3, 1, 0)
-            }
-        ];
+        let instances: &[RasterChunkVoxelInstance] = &[];
 
         let this = Arc::new(RasterChunk {
             uuid,
             vertex_buffer: renderer.create_buffer_init(&BufferInitDescriptor {
                 label:    Some("RasterChunk Vertex Buffer"),
-                contents: cast_slice(&VOXEL_VERTICES),
+                contents: cast_slice(&VOXEL_STRIP_VERTICES),
                 usage:    wgpu::BufferUsages::VERTEX
             }),
             index_buffer: renderer.create_buffer_init(&BufferInitDescriptor {
                 label:    Some("RasterChunk Index Buffer"),
-                contents: cast_slice(&VOXEL_INDICES),
+                contents: cast_slice(&VOXEL_STRIP_INDICES),
                 usage:    wgpu::BufferUsages::INDEX
             }),
             instance_buffer: renderer.create_buffer_init(&BufferInitDescriptor {
@@ -142,12 +119,9 @@ impl RasterChunk
         this
     }
 
-    pub fn update_voxels(
-        &mut self,
-        positions: impl IntoIterator<Item = RasterizedVoxelVertexOffsetPosition>
-    )
+    pub fn update_voxels(&mut self, positions: impl IntoIterator<Item = RasterChunkVoxelInstance>)
     {
-        let instances: Vec<RasterizedVoxelVertexOffsetPosition> = positions.into_iter().collect();
+        let instances: Vec<RasterChunkVoxelInstance> = positions.into_iter().collect();
 
         self.instance_buffer = self.renderer.create_buffer_init(&BufferInitDescriptor {
             label:    Some("Raster Instance Buffer"),
@@ -208,7 +182,7 @@ impl gfx::Recordable for RasterChunk
         pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
         pass.set_push_constants(wgpu::ShaderStages::VERTEX, 0, bytemuck::bytes_of(&id));
         pass.draw_indexed(
-            0..VOXEL_INDICES.len() as u32,
+            0..VOXEL_STRIP_INDICES.len() as u32,
             0,
             0..self.voxel_positions.len() as u32
         );
@@ -217,14 +191,44 @@ impl gfx::Recordable for RasterChunk
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Zeroable, Pod)]
-pub struct RasterizedVoxelVertexOffsetPosition
+pub struct RasterChunkVoxelInstance
 {
-    pub offset: glm::I16Vec4
+    data: u32
 }
 
-impl RasterizedVoxelVertexOffsetPosition
+impl RasterChunkVoxelInstance
 {
-    const ATTRS: [wgpu::VertexAttribute; 1] = wgpu::vertex_attr_array![1 => Sint16x4];
+    const ATTRS: [wgpu::VertexAttribute; 1] = wgpu::vertex_attr_array![1 => Uint32];
+
+    pub fn new(x: u32, y: u32, z: u32, voxel: u32) -> Self
+    {
+        let five_bit_mask: u32 = 0b1_1111;
+
+        assert!(x <= five_bit_mask);
+        assert!(y <= five_bit_mask);
+        assert!(z <= five_bit_mask);
+
+        let x_data = five_bit_mask & x;
+        let y_data = (five_bit_mask & y) << 5;
+        let z_data = (five_bit_mask & z) << 10;
+        let v_data = (five_bit_mask & voxel) << 15;
+
+        Self {
+            data: x_data | y_data | z_data | v_data
+        }
+    }
+
+    pub fn destructure(self) -> (u32, u32, u32, u32)
+    {
+        let five_bit_mask: u32 = 0b1_1111;
+
+        let x = five_bit_mask & self.data;
+        let y = five_bit_mask & (self.data >> 5);
+        let z = five_bit_mask & (self.data >> 10);
+        let v = five_bit_mask & (self.data >> 15);
+
+        (x, y, z, v)
+    }
 
     pub fn describe() -> wgpu::VertexBufferLayout<'static>
     {
@@ -257,45 +261,74 @@ impl VoxelVertex
     }
 }
 
-const VOXEL_VERTICES: [VoxelVertex; 8] = [
+const VOXEL_STRIP_VERTICES: [VoxelVertex; 8] = [
     VoxelVertex {
-        position: glm::Vec3::new(0.0, 0.0, 0.0)
-    },
-    VoxelVertex {
-        position: glm::Vec3::new(0.0, 0.0, 1.0)
+        position: glm::Vec3::new(1.0, 1.0, 0.0)
     },
     VoxelVertex {
         position: glm::Vec3::new(0.0, 1.0, 0.0)
     },
     VoxelVertex {
-        position: glm::Vec3::new(0.0, 1.0, 1.0)
-    },
-    VoxelVertex {
         position: glm::Vec3::new(1.0, 0.0, 0.0)
     },
     VoxelVertex {
-        position: glm::Vec3::new(1.0, 0.0, 1.0)
-    },
-    VoxelVertex {
-        position: glm::Vec3::new(1.0, 1.0, 0.0)
+        position: glm::Vec3::new(0.0, 0.0, 0.0)
     },
     VoxelVertex {
         position: glm::Vec3::new(1.0, 1.0, 1.0)
+    },
+    VoxelVertex {
+        position: glm::Vec3::new(0.0, 1.0, 1.0)
+    },
+    VoxelVertex {
+        position: glm::Vec3::new(0.0, 0.0, 1.0)
+    },
+    VoxelVertex {
+        position: glm::Vec3::new(1.0, 0.0, 1.0)
     }
 ];
 
-#[rustfmt::skip]
-const VOXEL_INDICES: [u16; 36] = [
-    6, 2, 7,
-    2, 3, 7,
-    0, 4, 5,
-    1, 0, 5,
-    0, 2, 6,
-    4, 0, 6,
-    3, 1, 7,
-    1, 5, 7,
-    2, 0, 3,
-    0, 1, 3,
-    4, 6, 7,
-    5, 4, 7
-];
+// const VOXEL_VERTICES: [VoxelVertex; 8] = [
+//     VoxelVertex {
+//         position: glm::Vec3::new(0.0, 0.0, 0.0)
+//     },
+//     VoxelVertex {
+//         position: glm::Vec3::new(0.0, 0.0, 1.0)
+//     },
+//     VoxelVertex {
+//         position: glm::Vec3::new(0.0, 1.0, 0.0)
+//     },
+//     VoxelVertex {
+//         position: glm::Vec3::new(0.0, 1.0, 1.0)
+//     },
+//     VoxelVertex {
+//         position: glm::Vec3::new(1.0, 0.0, 0.0)
+//     },
+//     VoxelVertex {
+//         position: glm::Vec3::new(1.0, 0.0, 1.0)
+//     },
+//     VoxelVertex {
+//         position: glm::Vec3::new(1.0, 1.0, 0.0)
+//     },
+//     VoxelVertex {
+//         position: glm::Vec3::new(1.0, 1.0, 1.0)
+//     }
+// ];
+
+// #[rustfmt::skip]
+// const VOXEL_INDICES: [u16; 36] = [
+//     6, 2, 7,
+//     2, 3, 7,
+//     0, 4, 5,
+//     1, 0, 5,
+//     0, 2, 6,
+//     4, 0, 6,
+//     3, 1, 7,
+//     1, 5, 7,
+//     2, 0, 3,
+//     0, 1, 3,
+//     4, 6, 7,
+//     5, 4, 7
+// ];
+
+const VOXEL_STRIP_INDICES: [u16; 14] = [3, 2, 6, 7, 4, 2, 0, 3, 1, 6, 5, 4, 1, 0];

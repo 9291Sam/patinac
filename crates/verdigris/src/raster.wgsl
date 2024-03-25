@@ -1,6 +1,6 @@
 struct VertexInput {
     @location(0) position: vec3<f32>,
-    @location(1) voxel_offset: vec4<i32>,
+    @location(1) voxel_data: u32,
 }
 
 struct VertexOutput {
@@ -27,15 +27,22 @@ fn vs_main(input: VertexInput) -> VertexOutput
 {
     var out: VertexOutput;
 
+    let five_bit_mask: u32 = u32(31);
+
+    let x: u32 = five_bit_mask &  input.voxel_data;
+    let y: u32 = five_bit_mask & (input.voxel_data >> u32(5));
+    let z: u32 = five_bit_mask & (input.voxel_data >> u32(10));
+    let v: u32 = five_bit_mask & (input.voxel_data >> u32(15));
+
     let model = mat4x4<f32>(
         vec4<f32>(1.0, 0.0, 0.0, 0.0),
         vec4<f32>(0.0, 1.0, 0.0, 0.0),
         vec4<f32>(0.0, 0.0, 1.0, 0.0),
-        vec4<f32>(vec3<f32>(input.voxel_offset.xyz), 1.0)
+        vec4<f32>(f32(x), f32(y), f32(z), 1.0)
     );
 
     out.clip_position = global_info.view_projection * model * vec4<f32>(input.position, 1.0);
-    out.voxel = u32(input.voxel_offset.w);
+    out.voxel = u32(v);
   
     return out;
 }

@@ -6,7 +6,7 @@ use itertools::iproduct;
 use noise::NoiseFn;
 use rand::Rng;
 
-use crate::{RasterChunk, RasterizedVoxelVertexOffsetPosition};
+use crate::{RasterChunk, RasterChunkVoxelInstance};
 
 #[derive(Debug)]
 pub struct DemoScene
@@ -35,29 +35,21 @@ impl DemoScene
         );
 
         let noise_sampler = |x: i16, z: i16| {
-            let h = 84.0f64;
+            let h = 8.0f64;
 
-            (noise_generator.get([(x as f64) / 256.0, 0.0, (z as f64) / 256.0]) * h) as i16
+            (noise_generator.get([(x as f64) / 256.0, 0.0, (z as f64) / 256.0]) * h) + 16.0
         };
 
-        let d = 1024;
-
-        let mut v = iproduct!(-d..d, -d..d)
+        let v = iproduct!(0..32, 0..32)
             .map(|(x, z)| {
-                RasterizedVoxelVertexOffsetPosition {
-                    offset: glm::I16Vec4::new(
-                        x,
-                        noise_sampler(x, z),
-                        z,
-                        rand::thread_rng().gen_range(1..=12)
-                    )
-                }
+                RasterChunkVoxelInstance::new(
+                    x.try_into().unwrap(),
+                    (noise_sampler(x, z) as u32).try_into().unwrap(),
+                    z.try_into().unwrap(),
+                    rand::thread_rng().gen_range(1..=12)
+                )
             })
             .collect::<Vec<_>>();
-
-        v.push(RasterizedVoxelVertexOffsetPosition {
-            offset: glm::I16Vec4::new(0, 512, 0, 0)
-        });
 
         let t: &mut DemoScene = Arc::get_mut(&mut this).unwrap();
         let c: &mut RasterChunk = unsafe { Arc::get_mut_unchecked(&mut t.raster) };

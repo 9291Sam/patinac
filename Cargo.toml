@@ -21,7 +21,6 @@ gui = { workspace = true }
 log = { workspace = true }
 oneshot = { workspace = true }
 sys-locale.workspace = true
-
 [workspace.dependencies]
 util = { path = "crates/util" }
 gfx = { path = "crates/gfx" }
