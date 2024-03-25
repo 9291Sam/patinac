@@ -46,7 +46,9 @@ impl TestScene
             (noise_generator.get([(x as f64) / 256.0, 0.0, (z as f64) / 256.0]) * h) as i16
         };
 
-        let v = iproduct!(0..1024, 0..1024)
+        let d = 1024;
+
+        let v = iproduct!(-d..d, -d..d)
             .map(|(x, z)| {
                 RasterizedVoxelVertexOffsetPosition {
                     offset: glm::I16Vec4::new(x, noise_sampler(x, z), z, 0)
