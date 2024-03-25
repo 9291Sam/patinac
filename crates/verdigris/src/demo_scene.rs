@@ -6,12 +6,12 @@ use itertools::iproduct;
 use noise::NoiseFn;
 use rand::Rng;
 
-use crate::{RasterChunk, RasterChunkVoxelInstance};
+use crate::{FaceVoxelChunk, FaceVoxelChunkVoxelInstance};
 
 #[derive(Debug)]
 pub struct DemoScene
 {
-    chunks: Vec<Arc<RasterChunk>>,
+    chunks: Vec<Arc<FaceVoxelChunk>>,
     id:     util::Uuid
 }
 
@@ -19,6 +19,8 @@ impl DemoScene
 {
     pub fn new(game: Arc<game::Game>) -> Arc<Self>
     {
+        let start = std::time::Instant::now();
+
         let mut this = DemoScene {
             id:     util::Uuid::new(),
             chunks: Vec::new()
@@ -33,7 +35,7 @@ impl DemoScene
             let w_x = 32.0 * o_x as f32;
             let w_z = 32.0 * o_z as f32;
 
-            let mut chunk = RasterChunk::new(
+            let mut chunk = FaceVoxelChunk::new(
                 &game,
                 gfx::Transform {
                     translation: glm::Vec3::new(w_x, 0.0, w_z),
@@ -63,10 +65,11 @@ impl DemoScene
                     continue;
                 }
 
-                v.push(RasterChunkVoxelInstance::new(
+                v.push(FaceVoxelChunkVoxelInstance::new(
                     x.try_into().unwrap(),
                     y,
                     z.try_into().unwrap(),
+                    0,
                     rand::thread_rng().gen_range(1..=12)
                 ))
             }
@@ -79,6 +82,10 @@ impl DemoScene
         let this = Arc::new(this);
 
         game.register(this.clone());
+
+        let end = std::time::Instant::now();
+
+        log::info!("Generated chunks in {}ms", (end - start).as_millis());
 
         this
     }
