@@ -34,14 +34,7 @@ fn vs_main(input: VertexInput) -> VertexOutput
     let z: u32 = five_bit_mask & (input.voxel_data >> u32(10));
     let v: u32 = five_bit_mask & (input.voxel_data >> u32(15));
 
-    let model = mat4x4<f32>(
-        vec4<f32>(1.0, 0.0, 0.0, 0.0),
-        vec4<f32>(0.0, 1.0, 0.0, 0.0),
-        vec4<f32>(0.0, 0.0, 1.0, 0.0),
-        vec4<f32>(f32(x), f32(y), f32(z), 1.0)
-    );
-
-    out.clip_position = global_info.view_projection * model * vec4<f32>(input.position, 1.0);
+    out.clip_position = global_model_view_projection[id] * vec4<f32>(input.position + vec3<f32>(f32(x), f32(y), f32(z)), 1.0);
     out.voxel = u32(v);
   
     return out;

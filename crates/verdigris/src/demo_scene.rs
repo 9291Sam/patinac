@@ -11,7 +11,7 @@ use crate::{RasterChunk, RasterChunkVoxelInstance};
 #[derive(Debug)]
 pub struct DemoScene
 {
-    raster: Arc<RasterChunk>,
+    chunks: Vec<Arc<RasterChunk>>,
     id:     util::Uuid
 }
 
@@ -19,42 +19,64 @@ impl DemoScene
 {
     pub fn new(game: Arc<game::Game>) -> Arc<Self>
     {
-        let mut this = Arc::new(DemoScene {
+        let mut this = DemoScene {
             id:     util::Uuid::new(),
-            raster: super::RasterChunk::new(
-                &game,
-                gfx::Transform {
-                    translation: glm::Vec3::new(35.0, 975.0, -35.0),
-                    ..Default::default()
-                }
-            )
-        });
+            chunks: Vec::new()
+        };
 
         let noise_generator = noise::SuperSimplex::new(
             (234782378948923489238948972347234789342u128 % u32::MAX as u128) as u32
         );
 
-        let noise_sampler = |x: i16, z: i16| {
-            let h = 8.0f64;
+        for (o_x, o_z) in iproduct!(-8..8, -8..8)
+        {
+            let w_x = 32.0 * o_x as f32;
+            let w_z = 32.0 * o_z as f32;
 
-            (noise_generator.get([(x as f64) / 256.0, 0.0, (z as f64) / 256.0]) * h) + 16.0
-        };
+            let mut chunk = RasterChunk::new(
+                &game,
+                gfx::Transform {
+                    translation: glm::Vec3::new(w_x, 0.0, w_z),
+                    ..Default::default()
+                }
+            );
 
-        let v = iproduct!(0..32, 0..32)
-            .map(|(x, z)| {
-                RasterChunkVoxelInstance::new(
+            let noise_sampler = |x: i16, z: i16| {
+                let h = 8.0f64;
+
+                (noise_generator.get([
+                    (x as f64 + w_x as f64) / 256.0,
+                    0.0,
+                    (z as f64 + w_z as f64) / 256.0
+                ]) * h)
+                    + 16.0
+            };
+
+            let mut v = Vec::new();
+
+            for (x, y, z) in iproduct!(0..32, 0..32, 0..32)
+            {
+                let val = noise_sampler(x, z) as u32;
+
+                if val < y
+                {
+                    continue;
+                }
+
+                v.push(RasterChunkVoxelInstance::new(
                     x.try_into().unwrap(),
-                    (noise_sampler(x, z) as u32).try_into().unwrap(),
+                    y,
                     z.try_into().unwrap(),
                     rand::thread_rng().gen_range(1..=12)
-                )
-            })
-            .collect::<Vec<_>>();
+                ))
+            }
 
-        let t: &mut DemoScene = Arc::get_mut(&mut this).unwrap();
-        let c: &mut RasterChunk = unsafe { Arc::get_mut_unchecked(&mut t.raster) };
+            unsafe { Arc::get_mut_unchecked(&mut chunk) }.update_voxels(v);
 
-        c.update_voxels(v);
+            this.chunks.push(chunk);
+        }
+
+        let this = Arc::new(this);
 
         game.register(this.clone());
 
