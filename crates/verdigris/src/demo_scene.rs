@@ -70,7 +70,7 @@ impl DemoScene
                     x.try_into().unwrap(),
                     y,
                     z.try_into().unwrap(),
-                    VoxelFace::Front,
+                    VoxelFace::Top,
                     rand::thread_rng().gen_range(1..=12)
                 ))
             }

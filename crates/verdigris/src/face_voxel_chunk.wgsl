@@ -37,16 +37,25 @@ fn vs_main(input: VertexInput) -> VertexOutput
     let f: u32 = three_bit_mask & (input.voxel_data >> u32(15));
     let v: u32 = five_bit_mask  & (input.voxel_data >> u32(18));
 
-    // let offset_array: array<array<vec3<f32>, 6>, 4> = array<array<vec3<f32>, 6>, 4>(
-    //     array<vec3<f32>, 6>()
-    // )
+    var offset_array: array<array<vec3<f32>, 4>, 6> = array<array<vec3<f32>, 4>, 6>(
+        // Front
+        array<vec3<f32>, 4>(vec3<f32>(0.0), vec3<f32>(0.0), vec3<f32>(0.0), vec3<f32>(0.0)),
 
-    let offset_position = input.position; 
-    //  + 
-    //     offest_array[vertex_index][f];
+        // Back
+        array<vec3<f32>, 4>(vec3<f32>(1.0), vec3<f32>(1.0), vec3<f32>(1.0), vec3<f32>(1.0)),
+
+        // Top
+        array<vec3<f32>, 4>(vec3<f32>(0.0, 1.0, 0.0), vec3<f32>(0.0, 0.0, 1.0), vec3<f32>(0.0, 1.0, 0.0), vec3<f32>(0.0, 0.0, 1.0)),
+        
+        array<vec3<f32>, 4>(vec3<f32>(0.0), vec3<f32>(0.0), vec3<f32>(0.0), vec3<f32>(0.0)),
+        array<vec3<f32>, 4>(vec3<f32>(0.0), vec3<f32>(0.0), vec3<f32>(0.0), vec3<f32>(0.0)),
+        array<vec3<f32>, 4>(vec3<f32>(0.0), vec3<f32>(0.0), vec3<f32>(0.0), vec3<f32>(0.0))
+    );
+
+    let offset_position = vec3<f32>(input.position, 0.0) + offset_array[f][input.vertex_index];
 
     out.clip_position = global_model_view_projection[id] * vec4<f32>(
-        vec3<f32>(input.position, 0.0) + vec3<f32>(f32(x), f32(y), f32(z)), 
+        offset_position + vec3<f32>(f32(x), f32(y), f32(z)), 
         1.0);
     out.voxel = u32(v);
   
