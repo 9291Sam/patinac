@@ -6,7 +6,7 @@ use itertools::iproduct;
 use noise::NoiseFn;
 use rand::Rng;
 
-use crate::{FaceVoxelChunk, FaceVoxelChunkVoxelInstance};
+use crate::{FaceVoxelChunk, FaceVoxelChunkVoxelInstance, VoxelFace};
 
 #[derive(Debug)]
 pub struct DemoScene
@@ -30,7 +30,8 @@ impl DemoScene
             (234782378948923489238948972347234789342u128 % u32::MAX as u128) as u32
         );
 
-        for (o_x, o_z) in iproduct!(-8..8, -8..8)
+        for (o_x, o_z) in iproduct!(0..1, 0..1)
+        // iproduct!(-8..8, -8..8)
         {
             let w_x = 32.0 * o_x as f32;
             let w_z = 32.0 * o_z as f32;
@@ -69,7 +70,7 @@ impl DemoScene
                     x.try_into().unwrap(),
                     y,
                     z.try_into().unwrap(),
-                    0,
+                    VoxelFace::Front,
                     rand::thread_rng().gen_range(1..=12)
                 ))
             }

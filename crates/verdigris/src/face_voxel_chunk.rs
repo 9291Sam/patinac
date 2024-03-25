@@ -71,7 +71,7 @@ impl FaceVoxelChunk
                     })]
                 }),
                 primitive_state:       wgpu::PrimitiveState {
-                    topology:           wgpu::PrimitiveTopology::TriangleStrip,
+                    topology:           wgpu::PrimitiveTopology::TriangleList,
                     strip_index_format: None,
                     front_face:         wgpu::FrontFace::Cw,
                     cull_mode:          Some(wgpu::Face::Back),
@@ -203,10 +203,12 @@ impl FaceVoxelChunkVoxelInstance
 {
     const ATTRS: [wgpu::VertexAttribute; 1] = wgpu::vertex_attr_array![1 => Uint32];
 
-    pub fn new(x: u32, y: u32, z: u32, face: u32, voxel: u32) -> Self
+    pub fn new(x: u32, y: u32, z: u32, face: VoxelFace, voxel: u32) -> Self
     {
         let five_bit_mask: u32 = 0b1_1111;
         let three_bit_mask: u32 = 0b111;
+
+        let face = face as u32;
 
         assert!(x <= five_bit_mask);
         assert!(y <= five_bit_mask);
@@ -225,16 +227,18 @@ impl FaceVoxelChunkVoxelInstance
         }
     }
 
-    pub fn destructure(self) -> (u32, u32, u32, u32)
+    pub fn destructure(self) -> (u32, u32, VoxelFace, u32)
     {
         let five_bit_mask: u32 = 0b1_1111;
+        let three_bit_mask: u32 = 0b111;
 
         let x = five_bit_mask & self.data;
         let y = five_bit_mask & (self.data >> 5);
         let z = five_bit_mask & (self.data >> 10);
-        let v = five_bit_mask & (self.data >> 15);
+        let f = three_bit_mask & (self.data >> 15);
+        let v = five_bit_mask & (self.data >> 18);
 
-        (x, y, z, v)
+        (x, y, VoxelFace::try_from(f).unwrap(), v)
     }
 
     pub fn describe() -> wgpu::VertexBufferLayout<'static>
@@ -268,6 +272,36 @@ impl VoxelVertex
     }
 }
 
+#[repr(u32)]
+pub enum VoxelFace
+{
+    Front  = 0,
+    Back   = 1,
+    Top    = 2,
+    Bottom = 3,
+    Left   = 4,
+    Right  = 5
+}
+
+impl TryFrom<u32> for VoxelFace
+{
+    type Error = u32;
+
+    fn try_from(value: u32) -> Result<Self, Self::Error>
+    {
+        match value
+        {
+            0 => Ok(VoxelFace::Front),
+            1 => Ok(VoxelFace::Back),
+            2 => Ok(VoxelFace::Top),
+            3 => Ok(VoxelFace::Bottom),
+            4 => Ok(VoxelFace::Left),
+            5 => Ok(VoxelFace::Right),
+            _ => Err(value)
+        }
+    }
+}
+
 const VOXEL_FACE_VERTICES: [VoxelVertex; 4] = [
     VoxelVertex {
         p: glm::Vec2::new(0.0, 0.0)
@@ -283,4 +317,6 @@ const VOXEL_FACE_VERTICES: [VoxelVertex; 4] = [
     }
 ];
 
-const VOXEL_FACE_INDICES: [u16; 6] = [0, 1, 2, 2, 3, 1];
+const VOXEL_FACE_INDICES: [u16; 6] = [0, 1, 2, 2, 1, 3];
+
+//

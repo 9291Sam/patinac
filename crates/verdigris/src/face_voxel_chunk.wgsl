@@ -1,4 +1,5 @@
 struct VertexInput {
+    @builtin(vertex_index) vertex_index: u32,
     @location(0) position: vec2<f32>,
     @location(1) voxel_data: u32,
 }
@@ -35,6 +36,14 @@ fn vs_main(input: VertexInput) -> VertexOutput
     let z: u32 = five_bit_mask  & (input.voxel_data >> u32(10));
     let f: u32 = three_bit_mask & (input.voxel_data >> u32(15));
     let v: u32 = five_bit_mask  & (input.voxel_data >> u32(18));
+
+    // let offset_array: array<array<vec3<f32>, 6>, 4> = array<array<vec3<f32>, 6>, 4>(
+    //     array<vec3<f32>, 6>()
+    // )
+
+    let offset_position = input.position; 
+    //  + 
+    //     offest_array[vertex_index][f];
 
     out.clip_position = global_model_view_projection[id] * vec4<f32>(
         vec3<f32>(input.position, 0.0) + vec3<f32>(f32(x), f32(y), f32(z)), 
