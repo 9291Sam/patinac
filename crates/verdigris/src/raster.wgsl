@@ -31,7 +31,7 @@ fn vs_main(input: VertexInput) -> VertexOutput
         vec4<f32>(1.0, 0.0, 0.0, 0.0),
         vec4<f32>(0.0, 1.0, 0.0, 0.0),
         vec4<f32>(0.0, 0.0, 1.0, 0.0),
-        vec4<f32>(vec3<f32>(input.voxel_offset.xyz), 1.0)
+        vec4<f32>(vec3<f32>(input.voxel_offset.xyz), 1.0 / 2.0)
     );
 
     out.clip_position = global_info.view_projection * model * vec4<f32>(input.position, 1.0);

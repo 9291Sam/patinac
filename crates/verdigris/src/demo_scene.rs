@@ -46,15 +46,23 @@ impl TestScene
             (noise_generator.get([(x as f64) / 256.0, 0.0, (z as f64) / 256.0]) * h) as i16
         };
 
+<<<<<<< HEAD
         let d = 1024;
 
         let v = iproduct!(-d..d, -d..d)
+=======
+        let mut v = iproduct!(0..1024, 0..1024)
+>>>>>>> a0b76a48e08669a64244bf17d7807a77ecd87f89
             .map(|(x, z)| {
                 RasterizedVoxelVertexOffsetPosition {
                     offset: glm::I16Vec4::new(x, noise_sampler(x, z), z, 0)
                 }
             })
             .collect::<Vec<_>>();
+
+        v.push(RasterizedVoxelVertexOffsetPosition {
+            offset: glm::I16Vec4::new(0, 512, 0, 0)
+        });
 
         let t: &mut TestScene = Arc::get_mut(&mut this).unwrap();
         let c: &mut RasterizedVoxelChunk = unsafe { Arc::get_mut_unchecked(&mut t.raster) };
