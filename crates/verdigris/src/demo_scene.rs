@@ -30,30 +30,34 @@ impl DemoScene
             (234782378948923489238948972347234789342u128 % u32::MAX as u128) as u32
         );
 
+        let mut number_of_faces = 0;
+
         let e = 1;
         for (o_x, o_z) in iproduct!(-e..=e, -e..=e)
         {
             let w_x = 512.0 * o_x as f32;
             let w_z = 512.0 * o_z as f32;
 
+            let scale = 1.0;
+
             let mut chunk = FaceVoxelChunk::new(
                 &game,
                 gfx::Transform {
-                    translation: glm::Vec3::new(w_x - 256.0, 0.0, w_z - 256.0),
+                    translation: glm::Vec3::new(scale * w_x - 256.0, 0.0, scale * w_z - 256.0),
+                    scale: glm::Vec3::new(scale, scale, scale),
                     ..Default::default()
                 }
             );
 
             let noise_sampler = |x: i32, z: i32| {
-                let h = 31.0f64;
+                let h = 128.0f64;
 
                 (noise_generator.get([
                     (x as f64 + w_x as f64) / 256.0,
                     0.0,
                     (z as f64 + w_z as f64) / 256.0
-                ]) * h
-                    / 2.0)
-                    + 16.0
+                ]) * h)
+                    + h
             };
 
             let occupied = |x: i32, y: i32, z: i32| noise_sampler(x, z) as i32 > y;
@@ -78,7 +82,8 @@ impl DemoScene
 
                         if !occupied(x as i32 + dir.x, y as i32 + dir.y, z as i32 + dir.z)
                         {
-                            v.push(FaceVoxelChunkVoxelInstance::new(x, y, z, 0, 0, f, c))
+                            v.push(FaceVoxelChunkVoxelInstance::new(x, y, z, 0, 0, f, c));
+                            number_of_faces += 1;
                         }
                     });
                 }
@@ -95,7 +100,11 @@ impl DemoScene
 
         let end = std::time::Instant::now();
 
-        log::info!("Generated chunks in {}ms", (end - start).as_millis());
+        log::info!(
+            "Generated chunks in {}ms with {} faces",
+            (end - start).as_millis(),
+            number_of_faces
+        );
 
         this
     }
