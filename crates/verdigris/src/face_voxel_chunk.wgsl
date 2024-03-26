@@ -1,7 +1,7 @@
 struct VertexInput {
     @builtin(vertex_index) vertex_index: u32,
     @location(0) position: vec2<f32>,
-    @location(1) voxel_data: u32,
+    @location(1) voxel_data: vec2<u32>,
 }
 
 struct VertexOutput {
@@ -31,12 +31,20 @@ fn vs_main(input: VertexInput) -> VertexOutput
     let nine_bit_mask: u32 = u32(511);
     let three_bit_mask: u32 = u32(7);
     let two_bit_mask: u32 = u32(3);
+    let five_bit_mask: u32 = u32(31);
+    let four_bit_mask: u32 = u32(15);
 
-    let x: u32 = nine_bit_mask  &  input.voxel_data;
-    let y: u32 = nine_bit_mask  & (input.voxel_data >> u32(9));
-    let z: u32 = nine_bit_mask  & (input.voxel_data >> u32(18));
-    let f: u32 = three_bit_mask & (input.voxel_data >> u32(27));
-    let v: u32 = two_bit_mask  & (input.voxel_data >> u32(30));
+    let x_pos: u32 = input.voxel_data[0] & nine_bit_mask;
+    let y_pos: u32 = (input.voxel_data[0] >> 9) & nine_bit_mask;
+    let z_pos: u32 = (input.voxel_data[0] >> 18) & nine_bit_mask;
+
+    let l_width_lo: u32 = (input.voxel_data[0] >> 27) & five_bit_mask;
+    let l_width_hi: u32 = (input.voxel_data[1] & four_bit_mask) << 5;
+
+    let l_width: u32 = l_width_lo | l_width_hi;
+    let w_width: u32 = (input.voxel_data[1] >> 4) & nine_bit_mask;
+    let face_id: u32 = (input.voxel_data[1] >> 13) & three_bit_mask;
+    let voxel_id: u32 = (input.voxel_data[1] >> 16);
 
     var offset_array: array<array<vec3<f32>, 4>, 6> = array<array<vec3<f32>, 4>, 6>(
         // Front
@@ -58,12 +66,12 @@ fn vs_main(input: VertexInput) -> VertexOutput
         array<vec3<f32>, 4>(vec3<f32>(1.0, 0.0, 0.0), vec3<f32>(1.0, 0.0, 0.0), vec3<f32>(0.0, 0.0, 1.0), vec3<f32>(0.0, 0.0, 1.0))
     );
 
-    let offset_position = vec3<f32>(input.position, 0.0) + offset_array[f][input.vertex_index];
+    let offset_position = vec3<f32>(input.position, 0.0) + offset_array[face_id][input.vertex_index];
 
     out.clip_position = global_model_view_projection[id] * vec4<f32>(
-        offset_position + vec3<f32>(f32(x), f32(y), f32(z)), 
+        offset_position + vec3<f32>(f32(x_pos), f32(y_pos), f32(z_pos)), 
         1.0);
-    out.voxel = u32(v);
+    out.voxel = u32(voxel_id);
   
     return out;
 }
