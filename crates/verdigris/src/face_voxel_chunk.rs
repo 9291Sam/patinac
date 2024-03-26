@@ -1,10 +1,11 @@
 use std::borrow::Cow;
+use std::num::NonZeroU64;
 use std::sync::{Arc, Mutex};
 
 use bytemuck::{cast_slice, Pod, Zeroable};
 use compile_warning::compile_warning;
 use gfx::wgpu::util::{BufferInitDescriptor, DeviceExt};
-use gfx::wgpu::{self};
+use gfx::wgpu::{self, BindGroupDescriptor, BindGroupLayoutDescriptor};
 use gfx::{
     glm,
     CacheableFragmentState,
@@ -18,12 +19,12 @@ pub struct FaceVoxelChunk
     renderer: Arc<gfx::Renderer>,
     uuid:     util::Uuid,
 
-    vertex_buffer: wgpu::Buffer,
-    index_buffer:  wgpu::Buffer,
+    voxel_positions:   Vec<FaceVoxelChunkVoxelInstance>,
+    voxel_data_buffer: wgpu::Buffer,
 
-    voxel_positions: Vec<FaceVoxelChunkVoxelInstance>,
-    instance_buffer: wgpu::Buffer,
-    pipeline:        Arc<gfx::GenericPipeline>,
+    voxel_data_bind_group_layout: Arc<wgpu::BindGroupLayout>,
+    voxel_data_bind_group:        Arc<wgpu::BindGroup>,
+    pipeline:                     Arc<gfx::GenericPipeline>,
 
     transform: Mutex<gfx::Transform>
 }
@@ -40,12 +41,36 @@ impl FaceVoxelChunk
             .render_cache
             .cache_shader_module(wgpu::include_wgsl!("face_voxel_chunk.wgsl"));
 
+        static BINDINGS: &[wgpu::BindGroupLayoutEntry] = &[wgpu::BindGroupLayoutEntry {
+            binding:    0,
+            visibility: wgpu::ShaderStages::VERTEX,
+            ty:         wgpu::BindingType::Buffer {
+                ty:                 wgpu::BufferBindingType::Storage {
+                    read_only: true
+                },
+                has_dynamic_offset: false,
+                min_binding_size:   None
+            },
+            count:      None
+        }];
+
+        let bind_group_layout =
+            renderer
+                .render_cache
+                .cache_bind_group_layout(BindGroupLayoutDescriptor {
+                    label:   Some("Face Voxel Chunk Bind Group"),
+                    entries: BINDINGS
+                });
+
         let pipeline_layout =
             renderer
                 .render_cache
                 .cache_pipeline_layout(CacheablePipelineLayoutDescriptor {
                     label:                "FaceVoxelChunk Pipeline Layout".into(),
-                    bind_group_layouts:   vec![renderer.global_bind_group_layout.clone()],
+                    bind_group_layouts:   vec![
+                        renderer.global_bind_group_layout.clone(),
+                        bind_group_layout.clone(),
+                    ],
                     push_constant_ranges: vec![wgpu::PushConstantRange {
                         stages: wgpu::ShaderStages::VERTEX,
                         range:  0..(std::mem::size_of::<u32>() as u32)
@@ -58,10 +83,7 @@ impl FaceVoxelChunk
                 layout:                Some(pipeline_layout),
                 vertex_module:         shader.clone(),
                 vertex_entry_point:    "vs_main".into(),
-                vertex_buffer_layouts: vec![
-                    VoxelVertex::describe(),
-                    FaceVoxelChunkVoxelInstance::describe(),
-                ],
+                vertex_buffer_layouts: vec![],
                 fragment_state:        Some(CacheableFragmentState {
                     module:      shader,
                     entry_point: "fs_main".into(),
@@ -90,29 +112,28 @@ impl FaceVoxelChunk
             }
         );
 
-        let instances: &[FaceVoxelChunkVoxelInstance] = &[];
+        let instances: [FaceVoxelChunkVoxelInstance; 1] = [FaceVoxelChunkVoxelInstance::new(
+            0,
+            0,
+            0,
+            1,
+            1,
+            VoxelFace::Top,
+            0
+        )];
+
+        let (instances, buffer, bind_group) =
+            Self::create_voxel_buffer_and_bind_group(renderer, &bind_group_layout, instances);
 
         let this = Arc::new(FaceVoxelChunk {
             uuid,
-            vertex_buffer: renderer.create_buffer_init(&BufferInitDescriptor {
-                label:    Some("FaceVoxelChunk Vertex Buffer"),
-                contents: cast_slice(&VOXEL_FACE_VERTICES),
-                usage:    wgpu::BufferUsages::VERTEX
-            }),
-            index_buffer: renderer.create_buffer_init(&BufferInitDescriptor {
-                label:    Some("FaceVoxelChunk Index Buffer"),
-                contents: cast_slice(&VOXEL_FACE_INDICES),
-                usage:    wgpu::BufferUsages::INDEX
-            }),
-            instance_buffer: renderer.create_buffer_init(&BufferInitDescriptor {
-                label:    Some("FaceVoxelChunk Instance Buffer"),
-                contents: cast_slice(instances),
-                usage:    wgpu::BufferUsages::VERTEX
-            }),
             voxel_positions: Vec::from_iter(instances.iter().cloned()),
             pipeline,
             transform: Mutex::new(transform),
-            renderer: game.get_renderer().clone()
+            renderer: game.get_renderer().clone(),
+            voxel_data_buffer: buffer,
+            voxel_data_bind_group: bind_group,
+            voxel_data_bind_group_layout: bind_group_layout
         });
 
         renderer.register(this.clone());
@@ -125,15 +146,45 @@ impl FaceVoxelChunk
         positions: impl IntoIterator<Item = FaceVoxelChunkVoxelInstance>
     )
     {
-        let instances: Vec<FaceVoxelChunkVoxelInstance> = positions.into_iter().collect();
-
-        self.instance_buffer = self.renderer.create_buffer_init(&BufferInitDescriptor {
-            label:    Some("Raster Instance Buffer"),
-            contents: bytemuck::cast_slice(&instances[..]),
-            usage:    wgpu::BufferUsages::VERTEX
-        });
+        let (instances, buffer, bind_group) = Self::create_voxel_buffer_and_bind_group(
+            &self.renderer,
+            &self.voxel_data_bind_group_layout,
+            positions
+        );
 
         self.voxel_positions = instances;
+        self.voxel_data_buffer = buffer;
+        self.voxel_data_bind_group = bind_group;
+    }
+
+    fn create_voxel_buffer_and_bind_group(
+        renderer: &gfx::Renderer,
+        layout: &wgpu::BindGroupLayout,
+        positions: impl IntoIterator<Item = FaceVoxelChunkVoxelInstance>
+    ) -> (
+        Vec<FaceVoxelChunkVoxelInstance>,
+        wgpu::Buffer,
+        Arc<wgpu::BindGroup>
+    )
+    {
+        let instances: Vec<FaceVoxelChunkVoxelInstance> = positions.into_iter().collect();
+
+        let voxel_data_buffer = renderer.create_buffer_init(&BufferInitDescriptor {
+            label:    Some("Raster Face Instance Buffer"),
+            contents: bytemuck::cast_slice(&instances[..]),
+            usage:    wgpu::BufferUsages::STORAGE
+        });
+
+        let bind_group = renderer.create_bind_group(&BindGroupDescriptor {
+            label: Some("Voxel Face data bind group"),
+            layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding:  0,
+                resource: voxel_data_buffer.as_entire_binding()
+            }]
+        });
+
+        (instances, voxel_data_buffer, Arc::new(bind_group))
     }
 }
 
@@ -169,7 +220,12 @@ impl gfx::Recordable for FaceVoxelChunk
         gfx::RecordInfo {
             should_draw: true,
             transform:   Some(self.transform.lock().unwrap().clone()),
-            bind_groups: [Some(global_bind_group.clone()), None, None, None]
+            bind_groups: [
+                Some(global_bind_group.clone()),
+                Some(self.voxel_data_bind_group.clone()),
+                None,
+                None
+            ]
         }
     }
 
@@ -181,15 +237,8 @@ impl gfx::Recordable for FaceVoxelChunk
             unreachable!()
         };
 
-        pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-        pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
-        pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
         pass.set_push_constants(wgpu::ShaderStages::VERTEX, 0, bytemuck::bytes_of(&id));
-        pass.draw_indexed(
-            0..VOXEL_FACE_INDICES.len() as u32,
-            0,
-            0..self.voxel_positions.len() as u32
-        );
+        pass.draw(0..(self.voxel_positions.len() as u32 * 6 as u32), 0..1);
     }
 }
 
@@ -286,27 +335,6 @@ impl FaceVoxelChunkVoxelInstance
     }
 }
 
-#[repr(C)]
-#[derive(Debug, Clone, Copy, Zeroable, Pod)]
-struct VoxelVertex
-{
-    p: glm::Vec2
-}
-
-impl VoxelVertex
-{
-    const ATTRS: [wgpu::VertexAttribute; 1] = wgpu::vertex_attr_array![0 => Float32x2];
-
-    pub fn describe() -> wgpu::VertexBufferLayout<'static>
-    {
-        wgpu::VertexBufferLayout {
-            array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
-            step_mode:    wgpu::VertexStepMode::Vertex,
-            attributes:   &Self::ATTRS
-        }
-    }
-}
-
 #[repr(u32)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum VoxelFace
@@ -366,25 +394,6 @@ impl TryFrom<u32> for VoxelFace
         }
     }
 }
-
-const VOXEL_FACE_VERTICES: [VoxelVertex; 4] = [
-    VoxelVertex {
-        p: glm::Vec2::new(0.0, 0.0)
-    },
-    VoxelVertex {
-        p: glm::Vec2::new(0.0, 1.0)
-    },
-    VoxelVertex {
-        p: glm::Vec2::new(1.0, 0.0)
-    },
-    VoxelVertex {
-        p: glm::Vec2::new(1.0, 1.0)
-    }
-];
-
-const VOXEL_FACE_INDICES: [u16; 6] = [0, 1, 2, 2, 1, 3];
-
-//
 
 #[cfg(test)]
 mod tests

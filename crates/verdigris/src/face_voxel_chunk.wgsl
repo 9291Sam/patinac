@@ -1,7 +1,5 @@
 struct VertexInput {
-    @builtin(vertex_index) vertex_index: u32,
-    @location(0) position: vec2<f32>,
-    @location(1) voxel_data: vec2<u32>,
+    @builtin(vertex_index) vertex_index: u32
 }
 
 struct VertexOutput {
@@ -21,6 +19,8 @@ alias Matricies = array<mat4x4<f32>, 1024>;
 @group(0) @binding(1) var<uniform> global_model_view_projection: Matricies;
 @group(0) @binding(2) var<uniform> global_model: Matricies;
 
+@group(1) @binding(0) var<storage, read> VoxelDataBuffer: array<array<u32, 2>>;
+
 var<push_constant> id: u32;
 
 @vertex
@@ -28,45 +28,62 @@ fn vs_main(input: VertexInput) -> VertexOutput
 {
     var out: VertexOutput;
 
+
+    var offset_array: array<array<vec3<f32>, 6>, 6> = array<array<vec3<f32>, 6>, 6>(
+        // Front
+        array<vec3<f32>, 6>(vec3<f32>(0.0),          vec3<f32>(0.0),            vec3<f32>(0.0),vec3<f32>(0.0),                       vec3<f32>(0.0), vec3<f32>(0.0)),
+
+        // Back
+        array<vec3<f32>, 6>(vec3<f32>(1.0, 0.0, 1.0), vec3<f32>(1.0, 0.0, 1.0), vec3<f32>(-1.0, 0.0, 1.0),vec3<f32>(-1.0, 0.0, 1.0),  vec3<f32>(1.0, 0.0, 1.0), vec3<f32>(-1.0, 0.0, 1.0)),
+
+        // Top
+        array<vec3<f32>, 6>(vec3<f32>(0.0, 1.0, 0.0), vec3<f32>(0.0, 0.0, 1.0), vec3<f32>(0.0, 1.0, 0.0),vec3<f32>(0.0, 1.0, 0.0),  vec3<f32>(0.0, 0.0, 1.0), vec3<f32>(0.0, 0.0, 1.0)),
+
+        // Bottom
+        array<vec3<f32>, 6>(vec3<f32>(0.0, 0.0, 1.0), vec3<f32>(0.0, -1.0, 0.0), vec3<f32>(0.0, 0.0, 1.0),vec3<f32>(0.0, 0.0, 1.0),  vec3<f32>(0.0, -1.0, 0.0), vec3<f32>(0.0, -1.0, 0.0)),
+        
+        // Left
+        array<vec3<f32>, 6>(vec3<f32>(0.0, 0.0, 1.0), vec3<f32>(0.0, 0.0, 1.0), vec3<f32>(-1.0, 0.0, 0.0),vec3<f32>(-1.0, 0.0, 0.0),   vec3<f32>(0.0, 0.0, 1.0), vec3<f32>(-1.0, 0.0, 0.0)),
+
+        // Right 
+        array<vec3<f32>, 6>(vec3<f32>(1.0, 0.0, 0.0), vec3<f32>(1.0, 0.0, 0.0), vec3<f32>(0.0, 0.0, 1.0), vec3<f32>(0.0, 0.0, 1.0) , vec3<f32>(1.0, 0.0, 0.0), vec3<f32>(0.0, 0.0, 1.0))
+    );
+
+    var face_vertices: array<vec3<f32>, 6> = array<vec3<f32>, 6>(
+        vec3<f32>(0.0, 0.0, 0.0),
+        vec3<f32>(0.0, 1.0, 0.0),
+        vec3<f32>(1.0, 0.0, 0.0),
+        vec3<f32>(1.0, 0.0, 0.0),
+        vec3<f32>(0.0, 1.0, 0.0),
+        vec3<f32>(1.0, 1.0, 0.0)
+    );
+
+    let face_number = input.vertex_index / 6;
+    let vertex_within_face = input.vertex_index % 6;
+
+
+    let voxel_data: array<u32, 2> = VoxelDataBuffer[face_number];
+
     let nine_bit_mask: u32 = u32(511);
     let three_bit_mask: u32 = u32(7);
     let two_bit_mask: u32 = u32(3);
     let five_bit_mask: u32 = u32(31);
     let four_bit_mask: u32 = u32(15);
 
-    let x_pos: u32 = input.voxel_data[0] & nine_bit_mask;
-    let y_pos: u32 = (input.voxel_data[0] >> 9) & nine_bit_mask;
-    let z_pos: u32 = (input.voxel_data[0] >> 18) & nine_bit_mask;
+    let x_pos: u32 = voxel_data[0] & nine_bit_mask;
+    let y_pos: u32 = (voxel_data[0] >> 9) & nine_bit_mask;
+    let z_pos: u32 = (voxel_data[0] >> 18) & nine_bit_mask;
 
-    let l_width_lo: u32 = (input.voxel_data[0] >> 27) & five_bit_mask;
-    let l_width_hi: u32 = (input.voxel_data[1] & four_bit_mask) << 5;
+    let l_width_lo: u32 = (voxel_data[0] >> 27) & five_bit_mask;
+    let l_width_hi: u32 = (voxel_data[1] & four_bit_mask) << 5;
 
     let l_width: u32 = l_width_lo | l_width_hi;
-    let w_width: u32 = (input.voxel_data[1] >> 4) & nine_bit_mask;
-    let face_id: u32 = (input.voxel_data[1] >> 13) & three_bit_mask;
-    let voxel_id: u32 = (input.voxel_data[1] >> 16);
+    let w_width: u32 = (voxel_data[1] >> 4) & nine_bit_mask;
+    let face_id: u32 = (voxel_data[1] >> 13) & three_bit_mask;
+    let voxel_id: u32 = (voxel_data[1] >> 16);
 
-    var offset_array: array<array<vec3<f32>, 4>, 6> = array<array<vec3<f32>, 4>, 6>(
-        // Front
-        array<vec3<f32>, 4>(vec3<f32>(0.0), vec3<f32>(0.0), vec3<f32>(0.0), vec3<f32>(0.0)),
 
-        // Back
-        array<vec3<f32>, 4>(vec3<f32>(1.0, 0.0, 1.0), vec3<f32>(1.0, 0.0, 1.0), vec3<f32>(-1.0, 0.0, 1.0), vec3<f32>(-1.0, 0.0, 1.0)),
-
-        // Top
-        array<vec3<f32>, 4>(vec3<f32>(0.0, 1.0, 0.0), vec3<f32>(0.0, 0.0, 1.0), vec3<f32>(0.0, 1.0, 0.0), vec3<f32>(0.0, 0.0, 1.0)),
-
-        // Bottom
-        array<vec3<f32>, 4>(vec3<f32>(0.0, 0.0, 1.0), vec3<f32>(0.0, -1.0, 0.0), vec3<f32>(0.0, 0.0, 1.0), vec3<f32>(0.0, -1.0, 0.0)),
-        
-        // Left
-        array<vec3<f32>, 4>(vec3<f32>(0.0, 0.0, 1.0), vec3<f32>(0.0, 0.0, 1.0), vec3<f32>(-1.0, 0.0, 0.0), vec3<f32>(-1.0, 0.0, 0.0)),
-
-        // Right 
-        array<vec3<f32>, 4>(vec3<f32>(1.0, 0.0, 0.0), vec3<f32>(1.0, 0.0, 0.0), vec3<f32>(0.0, 0.0, 1.0), vec3<f32>(0.0, 0.0, 1.0))
-    );
-
-    let offset_position = vec3<f32>(input.position, 0.0) + offset_array[face_id][input.vertex_index];
+    let offset_position = face_vertices[vertex_within_face] + offset_array[face_id][vertex_within_face];
 
     out.clip_position = global_model_view_projection[id] * vec4<f32>(
         offset_position + vec3<f32>(f32(x_pos), f32(y_pos), f32(z_pos)), 
