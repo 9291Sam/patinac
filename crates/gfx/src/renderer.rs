@@ -724,6 +724,8 @@ impl Renderer
                                 Err(OutOfMemory) => todo!()
                             }
 
+                            // log::trace!("frametime (ms): {}", self.get_delta_time() * 1000.0);
+
                             window.request_redraw();
                         }
                         _ => ()

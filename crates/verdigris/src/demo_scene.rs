@@ -30,8 +30,8 @@ impl DemoScene
             (234782378948923489238948972347234789342u128 % u32::MAX as u128) as u32
         );
 
-        for (o_x, o_z) in iproduct!(0..1, 0..1)
-        // iproduct!(-8..8, -8..8)
+        let e = 15;
+        for (o_x, o_z) in iproduct!(-e..e, -e..e)
         {
             let w_x = 32.0 * o_x as f32;
             let w_z = 32.0 * o_z as f32;
@@ -44,35 +44,39 @@ impl DemoScene
                 }
             );
 
-            let noise_sampler = |x: i16, z: i16| {
-                let h = 8.0f64;
+            let noise_sampler = |x: i32, z: i32| {
+                let h = 31.0f64;
 
                 (noise_generator.get([
                     (x as f64 + w_x as f64) / 256.0,
                     0.0,
                     (z as f64 + w_z as f64) / 256.0
-                ]) * h)
+                ]) * h
+                    / 2.0)
                     + 16.0
             };
 
+            let occupied = |x: i32, y: i32, z: i32| noise_sampler(x, z) as i32 > y;
+
             let mut v = Vec::new();
 
-            for (x, y, z) in iproduct!(0..32, 0..32, 0..32)
+            for (x, y, z) in iproduct!(0..32u32, 0..32u32, 0..32u32)
             {
-                let val = noise_sampler(x, z) as u32;
-
-                if val < y
+                if !occupied(x as i32, y as i32, z as i32)
                 {
                     continue;
                 }
 
-                v.push(FaceVoxelChunkVoxelInstance::new(
-                    x.try_into().unwrap(),
-                    y,
-                    z.try_into().unwrap(),
-                    VoxelFace::Top,
-                    rand::thread_rng().gen_range(1..=12)
-                ))
+                let c = rand::thread_rng().gen_range(1..=12);
+
+                VoxelFace::iter().for_each(|f| {
+                    let dir = f.get_axis();
+
+                    if !occupied(x as i32 + dir.x, y as i32 + dir.y, z as i32 + dir.z)
+                    {
+                        v.push(FaceVoxelChunkVoxelInstance::new(x, y, z, f, c))
+                    }
+                });
             }
 
             unsafe { Arc::get_mut_unchecked(&mut chunk) }.update_voxels(v);

@@ -227,7 +227,7 @@ impl FaceVoxelChunkVoxelInstance
         }
     }
 
-    pub fn destructure(self) -> (u32, u32, VoxelFace, u32)
+    pub fn destructure(self) -> (u32, u32, u32, VoxelFace, u32)
     {
         let five_bit_mask: u32 = 0b1_1111;
         let three_bit_mask: u32 = 0b111;
@@ -238,7 +238,7 @@ impl FaceVoxelChunkVoxelInstance
         let f = three_bit_mask & (self.data >> 15);
         let v = five_bit_mask & (self.data >> 18);
 
-        (x, y, VoxelFace::try_from(f).unwrap(), v)
+        (x, y, z, VoxelFace::try_from(f).unwrap(), v)
     }
 
     pub fn describe() -> wgpu::VertexBufferLayout<'static>
@@ -273,6 +273,7 @@ impl VoxelVertex
 }
 
 #[repr(u32)]
+#[derive(Debug, Clone, Copy)]
 pub enum VoxelFace
 {
     Front  = 0,
@@ -281,6 +282,35 @@ pub enum VoxelFace
     Bottom = 3,
     Left   = 4,
     Right  = 5
+}
+
+impl VoxelFace
+{
+    pub fn iter() -> impl Iterator<Item = VoxelFace>
+    {
+        [
+            VoxelFace::Front,
+            VoxelFace::Back,
+            VoxelFace::Top,
+            VoxelFace::Bottom,
+            VoxelFace::Left,
+            VoxelFace::Right
+        ]
+        .into_iter()
+    }
+
+    pub fn get_axis(self) -> glm::I32Vec3
+    {
+        match self
+        {
+            VoxelFace::Front => glm::I32Vec3::new(0, 0, -1),
+            VoxelFace::Back => glm::I32Vec3::new(0, 0, 1),
+            VoxelFace::Top => glm::I32Vec3::new(0, 1, 0),
+            VoxelFace::Bottom => glm::I32Vec3::new(0, -1, 0),
+            VoxelFace::Left => glm::I32Vec3::new(-1, 0, 0),
+            VoxelFace::Right => glm::I32Vec3::new(1, 0, 0)
+        }
+    }
 }
 
 impl TryFrom<u32> for VoxelFace
