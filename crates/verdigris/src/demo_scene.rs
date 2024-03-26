@@ -32,7 +32,7 @@ impl DemoScene
 
         let mut number_of_faces = 0;
 
-        let e = 1;
+        let e = 0;
         for (o_x, o_z) in iproduct!(-e..=e, -e..=e)
         {
             let w_x = 512.0 * o_x as f32;

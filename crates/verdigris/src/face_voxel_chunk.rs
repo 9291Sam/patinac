@@ -155,6 +155,11 @@ impl FaceVoxelChunk
         self.voxel_positions = instances;
         self.voxel_data_buffer = buffer;
         self.voxel_data_bind_group = bind_group;
+
+        log::trace!(
+            "{} bytes of voxel faces",
+            self.voxel_positions.len() * std::mem::size_of::<FaceVoxelChunkVoxelInstance>()
+        )
     }
 
     fn create_voxel_buffer_and_bind_group(
