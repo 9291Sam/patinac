@@ -370,6 +370,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "compile_warning"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4f4d0d2f1a8a6e94c7aa10bef3d98b2ba412e0dd04591edfa41cf1a24419298d"
+
+[[package]]
 name = "concurrent-queue"
 version = "2.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1428,6 +1434,7 @@ checksum = "de3145af08024dea9fa9914f381a17b8fc6034dfb00f3a84013f7ff43f29ed4c"
 name = "patinac"
 version = "0.0.0-0"
 dependencies = [
+ "compile_warning",
  "game",
  "gfx",
  "gui",
@@ -2236,6 +2243,7 @@ name = "verdigris"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
+ "compile_warning",
  "game",
  "gfx",
  "itertools",

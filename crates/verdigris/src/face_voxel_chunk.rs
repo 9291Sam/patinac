@@ -2,6 +2,7 @@ use std::borrow::Cow;
 use std::sync::{Arc, Mutex};
 
 use bytemuck::{cast_slice, Pod, Zeroable};
+use compile_warning::compile_warning;
 use gfx::wgpu::util::{BufferInitDescriptor, DeviceExt};
 use gfx::wgpu::{self};
 use gfx::{
@@ -196,49 +197,83 @@ impl gfx::Recordable for FaceVoxelChunk
 #[derive(Debug, Clone, Copy, Zeroable, Pod)]
 pub struct FaceVoxelChunkVoxelInstance
 {
-    data: u32
+    ///   x [0]    y [1]
+    /// [0,   8] [      ] | 9 + 0 bits  | x_pos
+    /// [9,  17] [      ] | 9 + 0 bits  | y_pos
+    /// [18, 26] [      ] | 9 + 0 bits  | z_pos
+    /// [27, 31] [0,   3] | 5 + 4 bits  | l_width
+    /// [      ] [4,  12] | 0 + 9 bits  | w_width
+    /// [      ] [13, 15] | 0 + 3 bits  | face id
+    /// [      ] [16, 31] | 0 + 16 bits | voxel id
+    data: glm::U32Vec2
 }
 
 impl FaceVoxelChunkVoxelInstance
 {
-    const ATTRS: [wgpu::VertexAttribute; 1] = wgpu::vertex_attr_array![1 => Uint32];
+    const ATTRS: [wgpu::VertexAttribute; 1] = wgpu::vertex_attr_array![1 => Uint32x2];
 
-    pub fn new(x: u32, y: u32, z: u32, face: VoxelFace, voxel: u32) -> Self
+    #[inline(always)]
+    pub fn new(
+        x_pos: u32,
+        y_pos: u32,
+        z_pos: u32,
+        l_width: u32,
+        w_width: u32,
+        face_id: VoxelFace,
+        voxel: u16
+    ) -> Self
     {
-        let five_bit_mask: u32 = 0b1_1111;
+        let sixteen_bit_mask: u32 = 0b1111_1111_1111_1111;
+        let nine_bit_mask: u32 = 0b1_1111_1111;
         let three_bit_mask: u32 = 0b111;
 
-        let face = face as u32;
+        let face = face_id as u32;
+        let voxel = voxel as u32;
 
-        assert!(x <= five_bit_mask);
-        assert!(y <= five_bit_mask);
-        assert!(z <= five_bit_mask);
+        assert!(x_pos <= nine_bit_mask);
+        assert!(y_pos <= nine_bit_mask);
+        assert!(z_pos <= nine_bit_mask);
+        assert!(l_width <= nine_bit_mask);
+        assert!(w_width <= nine_bit_mask);
         assert!(face <= three_bit_mask);
-        assert!(voxel <= five_bit_mask);
+        // don't need to assert voxel as its already a u16
 
-        let x_data = five_bit_mask & x; // [0, 4]
-        let y_data = (five_bit_mask & y) << 5; // [5, 9]
-        let z_data = (five_bit_mask & z) << 10; // [10, 14]
-        let f_data = (three_bit_mask & face) << 15; // [15, 17]
-        let v_data = (five_bit_mask & voxel) << 18; // [18, 22]
+        let x_data = nine_bit_mask & x_pos;
+        let y_data = (nine_bit_mask & y_pos) << 9;
+        let z_data = (nine_bit_mask & z_pos) << 18;
+        let l_data_lo = (nine_bit_mask & l_width) << 27;
+
+        let l_data_hi = (nine_bit_mask & l_width) >> 5;
+        let w_data = (nine_bit_mask & w_width) << 4;
+        let f_data = (three_bit_mask & face) << 13;
+        let v_data = (sixteen_bit_mask & voxel) << 16;
 
         Self {
-            data: x_data | y_data | z_data | f_data | v_data
+            data: glm::U32Vec2::new(
+                x_data | y_data | z_data | l_data_lo,
+                l_data_hi | w_data | f_data | v_data
+            )
         }
     }
 
-    pub fn destructure(self) -> (u32, u32, u32, VoxelFace, u32)
+    pub fn destructure(self) -> (u32, u32, u32, u32, u32, VoxelFace, u16)
     {
-        let five_bit_mask: u32 = 0b1_1111;
+        let nine_bit_mask: u32 = 0b1_1111_1111;
         let three_bit_mask: u32 = 0b111;
 
-        let x = five_bit_mask & self.data;
-        let y = five_bit_mask & (self.data >> 5);
-        let z = five_bit_mask & (self.data >> 10);
-        let f = three_bit_mask & (self.data >> 15);
-        let v = five_bit_mask & (self.data >> 18);
+        let x_pos = self.data[0] & nine_bit_mask;
+        let y_pos = (self.data[0] >> 9) & nine_bit_mask;
+        let z_pos = (self.data[0] >> 18) & nine_bit_mask;
 
-        (x, y, z, VoxelFace::try_from(f).unwrap(), v)
+        let l_width_lo = (self.data[0] >> 27) & 0b11111;
+        let l_width_hi = (self.data[1] & 0b1111) << 5;
+
+        let l_width = l_width_lo | l_width_hi;
+        let w_width = (self.data[1] >> 4) & nine_bit_mask;
+        let face_id = VoxelFace::try_from((self.data[1] >> 13) & three_bit_mask).unwrap();
+        let voxel_id = (self.data[1] >> 16) as u16;
+
+        (x_pos, y_pos, z_pos, l_width, w_width, face_id, voxel_id)
     }
 
     pub fn describe() -> wgpu::VertexBufferLayout<'static>
@@ -273,7 +308,7 @@ impl VoxelVertex
 }
 
 #[repr(u32)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum VoxelFace
 {
     Front  = 0,
@@ -350,3 +385,92 @@ const VOXEL_FACE_VERTICES: [VoxelVertex; 4] = [
 const VOXEL_FACE_INDICES: [u16; 6] = [0, 1, 2, 2, 1, 3];
 
 //
+
+#[cfg(test)]
+mod tests
+{
+    use rand::Rng;
+
+    use super::*;
+
+    #[test]
+    fn test_new_instance()
+    {
+        let instance = FaceVoxelChunkVoxelInstance::new(5, 6, 7, 8, 9, VoxelFace::Front, 123);
+        let (x_pos, y_pos, z_pos, l_width, w_width, face_id, voxel_id) = instance.destructure();
+        assert_eq!(x_pos, 5);
+        assert_eq!(y_pos, 6);
+        assert_eq!(z_pos, 7);
+        assert_eq!(l_width, 8);
+        assert_eq!(w_width, 9);
+        assert_eq!(face_id, VoxelFace::Front);
+        assert_eq!(voxel_id, 123);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_new_instance_overflow_x_pos()
+    {
+        let _ = FaceVoxelChunkVoxelInstance::new(512, 6, 7, 8, 9, VoxelFace::Front, 123);
+    }
+
+    #[test]
+    fn test_destructure_instance()
+    {
+        let instance = FaceVoxelChunkVoxelInstance::new(5, 6, 7, 8, 9, VoxelFace::Front, 123);
+        let (x_pos, y_pos, z_pos, l_width, w_width, face_id, voxel_id) = instance.destructure();
+        assert_eq!(x_pos, 5);
+        assert_eq!(y_pos, 6);
+        assert_eq!(z_pos, 7);
+        assert_eq!(l_width, 8);
+        assert_eq!(w_width, 9);
+        assert_eq!(face_id, VoxelFace::Front);
+        assert_eq!(voxel_id, 123);
+    }
+
+    #[test]
+    fn test_new_and_destructure_instance()
+    {
+        let mut rng = rand::thread_rng();
+
+        for _ in 0..10000
+        {
+            let x_pos = rng.gen_range(0..=0x1FF); // 9 bits
+            let y_pos = rng.gen_range(0..=0x1FF); // 9 bits
+            let z_pos = rng.gen_range(0..=0x1FF); // 9 bits
+            let l_width = rng.gen_range(0..=0x1FF); // 9 bits
+            let w_width = rng.gen_range(0..=0x1FF); // 9 bits
+            let face_id = VoxelFace::try_from(rng.gen_range(0..=5)).unwrap(); // 3 bits
+            let voxel_id = rng.gen_range(0..=0xFFFF); // 16 bits
+
+            let instance = FaceVoxelChunkVoxelInstance::new(
+                x_pos, y_pos, z_pos, l_width, w_width, face_id, voxel_id
+            );
+            let (x_pos_d, y_pos_d, z_pos_d, l_width_d, w_width_d, face_id_d, voxel_id_d) =
+                instance.destructure();
+
+            assert_eq!(x_pos, x_pos_d);
+            assert_eq!(y_pos, y_pos_d);
+            assert_eq!(z_pos, z_pos_d);
+            assert_eq!(l_width, l_width_d);
+            assert_eq!(w_width, w_width_d);
+            assert_eq!(face_id, face_id_d);
+            assert_eq!(voxel_id, voxel_id_d);
+        }
+    }
+
+    #[test]
+    fn test_vertex_buffer_layout()
+    {
+        let layout = FaceVoxelChunkVoxelInstance::describe();
+        assert_eq!(
+            layout.array_stride,
+            std::mem::size_of::<FaceVoxelChunkVoxelInstance>() as wgpu::BufferAddress
+        );
+        assert_eq!(layout.step_mode, wgpu::VertexStepMode::Instance);
+        assert_eq!(layout.attributes.len(), 1);
+        assert_eq!(layout.attributes[0].format, wgpu::VertexFormat::Uint32x2);
+        assert_eq!(layout.attributes[0].offset, 0);
+        assert_eq!(layout.attributes[0].shader_location, 1);
+    }
+}

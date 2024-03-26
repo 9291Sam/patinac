@@ -28,14 +28,15 @@ fn vs_main(input: VertexInput) -> VertexOutput
 {
     var out: VertexOutput;
 
-    let five_bit_mask: u32 = u32(31);
+    let nine_bit_mask: u32 = u32(511);
     let three_bit_mask: u32 = u32(7);
+    let two_bit_mask: u32 = u32(3);
 
-    let x: u32 = five_bit_mask  &  input.voxel_data;
-    let y: u32 = five_bit_mask  & (input.voxel_data >> u32(5));
-    let z: u32 = five_bit_mask  & (input.voxel_data >> u32(10));
-    let f: u32 = three_bit_mask & (input.voxel_data >> u32(15));
-    let v: u32 = five_bit_mask  & (input.voxel_data >> u32(18));
+    let x: u32 = nine_bit_mask  &  input.voxel_data;
+    let y: u32 = nine_bit_mask  & (input.voxel_data >> u32(9));
+    let z: u32 = nine_bit_mask  & (input.voxel_data >> u32(18));
+    let f: u32 = three_bit_mask & (input.voxel_data >> u32(27));
+    let v: u32 = two_bit_mask  & (input.voxel_data >> u32(30));
 
     var offset_array: array<array<vec3<f32>, 4>, 6> = array<array<vec3<f32>, 4>, 6>(
         // Front

@@ -30,16 +30,16 @@ impl DemoScene
             (234782378948923489238948972347234789342u128 % u32::MAX as u128) as u32
         );
 
-        let e = 15;
-        for (o_x, o_z) in iproduct!(-e..e, -e..e)
+        let e = 1;
+        for (o_x, o_z) in iproduct!(-e..=e, -e..=e)
         {
-            let w_x = 32.0 * o_x as f32;
-            let w_z = 32.0 * o_z as f32;
+            let w_x = 512.0 * o_x as f32;
+            let w_z = 512.0 * o_z as f32;
 
             let mut chunk = FaceVoxelChunk::new(
                 &game,
                 gfx::Transform {
-                    translation: glm::Vec3::new(w_x, 0.0, w_z),
+                    translation: glm::Vec3::new(w_x - 256.0, 0.0, w_z - 256.0),
                     ..Default::default()
                 }
             );
@@ -60,23 +60,28 @@ impl DemoScene
 
             let mut v = Vec::new();
 
-            for (x, y, z) in iproduct!(0..32u32, 0..32u32, 0..32u32)
+            for (x, z) in iproduct!(0..512u32, 0..512u32)
             {
-                if !occupied(x as i32, y as i32, z as i32)
+                let h = noise_sampler(x as i32, z as i32) as u32;
+
+                for y in h.saturating_sub(8)..h.saturating_add(8)
                 {
-                    continue;
-                }
-
-                let c = rand::thread_rng().gen_range(1..=12);
-
-                VoxelFace::iter().for_each(|f| {
-                    let dir = f.get_axis();
-
-                    if !occupied(x as i32 + dir.x, y as i32 + dir.y, z as i32 + dir.z)
+                    if !occupied(x as i32, y as i32, z as i32)
                     {
-                        v.push(FaceVoxelChunkVoxelInstance::new(x, y, z, f, c))
+                        continue;
                     }
-                });
+
+                    let c = rand::thread_rng().gen_range(1..=12);
+
+                    VoxelFace::iter().for_each(|f| {
+                        let dir = f.get_axis();
+
+                        if !occupied(x as i32 + dir.x, y as i32 + dir.y, z as i32 + dir.z)
+                        {
+                            v.push(FaceVoxelChunkVoxelInstance::new(x, y, z, 0, 0, f, c))
+                        }
+                    });
+                }
             }
 
             unsafe { Arc::get_mut_unchecked(&mut chunk) }.update_voxels(v);
