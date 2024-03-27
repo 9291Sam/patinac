@@ -1,5 +1,6 @@
 struct VertexInput {
-    @builtin(vertex_index) vertex_index: u32
+    @builtin(vertex_index) vertex_index: u32,
+    @location(0) voxel_data: vec2<u32>,
 }
 
 struct VertexOutput {
@@ -18,8 +19,6 @@ alias Matricies = array<mat4x4<f32>, 1024>;
 @group(0) @binding(0) var<uniform> global_info: GlobalInfo;
 @group(0) @binding(1) var<uniform> global_model_view_projection: Matricies;
 @group(0) @binding(2) var<uniform> global_model: Matricies;
-
-@group(1) @binding(0) var<storage, read> VoxelDataBuffer: array<array<u32, 2>>;
 
 var<push_constant> id: u32;
 
@@ -58,11 +57,10 @@ fn vs_main(input: VertexInput) -> VertexOutput
         vec3<f32>(1.0, 1.0, 0.0)
     );
 
-    let face_number = input.vertex_index / 6;
     let vertex_within_face = input.vertex_index % 6;
 
 
-    let voxel_data: array<u32, 2> = VoxelDataBuffer[face_number];
+    let voxel_data: vec2<u32> = input.voxel_data;
 
     let nine_bit_mask: u32 = u32(511);
     let three_bit_mask: u32 = u32(7);
