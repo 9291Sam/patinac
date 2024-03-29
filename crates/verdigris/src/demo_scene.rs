@@ -1,17 +1,20 @@
 use std::borrow::Cow;
-use std::sync::Arc;
+use std::cell::RefCell;
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use gfx::glm::{self};
 use itertools::iproduct;
 use noise::NoiseFn;
 use rand::Rng;
 
-use crate::{FaceVoxelChunk, FaceVoxelChunkVoxelInstance, VoxelFace};
+use crate::{RasterChunk, RasterChunkVoxelPoint};
 
 #[derive(Debug)]
 pub struct DemoScene
 {
-    chunks: Vec<Arc<FaceVoxelChunk>>,
+    // brick_map_chunk: Mutex<util::Promise<Vec<util::Promise<Arc<super::BrickMapChunk>>>>>,
+    raster: Arc<RasterChunk>,
     id:     util::Uuid
 }
 
@@ -19,96 +22,166 @@ impl DemoScene
 {
     pub fn new(game: Arc<game::Game>) -> Arc<Self>
     {
-        let start = std::time::Instant::now();
-
-        let mut this = DemoScene {
+        let brick_game = game.clone();
+        let chunk_r = 0;
+        let mut this = Arc::new(DemoScene {
             id:     util::Uuid::new(),
-            chunks: Vec::new()
-        };
+            raster: RasterChunk::new(
+                &game,
+                gfx::Transform {
+                    translation: glm::Vec3::new(0.0, 0.0, 0.0),
+                    ..Default::default()
+                }
+            )
+        });
 
         let noise_generator = noise::SuperSimplex::new(
             (234782378948923489238948972347234789342u128 % u32::MAX as u128) as u32
         );
 
-        let mut number_of_faces = 0;
+        let noise_sampler = |x, z| {
+            let h = 84.0f64;
 
-        let e = 0;
-        for (o_x, o_z) in iproduct!(-e..=e, -e..=e)
-        {
-            let w_x = 512.0 * o_x as f32;
-            let w_z = 512.0 * o_z as f32;
+            (noise_generator.get([(x as f64) / 256.0, 0.0, (z as f64) / 256.0]) * h)
+        };
 
-            let scale = 1.0;
+        let v = iproduct!(0..31, 0..31)
+            .map(|(x, z)| {
+                RasterChunkVoxelPoint::new(
+                    x,
+                    noise_sampler(x, z).clamp(0.0, 32.0) as u32,
+                    z,
+                    rand::thread_rng().gen_range(1..=12)
+                )
+            })
+            .collect::<Vec<_>>();
 
-            let mut chunk = FaceVoxelChunk::new(
-                &game,
-                gfx::Transform {
-                    translation: glm::Vec3::new(scale * w_x - 256.0, 0.0, scale * w_z - 256.0),
-                    scale: glm::Vec3::new(scale, scale, scale),
-                    ..Default::default()
-                }
-            );
+        let t: &mut DemoScene = Arc::get_mut(&mut this).unwrap();
+        let c: &mut RasterChunk = unsafe { Arc::get_mut_unchecked(&mut t.raster) };
 
-            let noise_sampler = |x: i32, z: i32| {
-                let h = 128.0f64;
-
-                (noise_generator.get([
-                    (x as f64 + w_x as f64) / 256.0,
-                    0.0,
-                    (z as f64 + w_z as f64) / 256.0
-                ]) * h)
-                    + h
-            };
-
-            let occupied = |x: i32, y: i32, z: i32| noise_sampler(x, z) as i32 > y;
-
-            let mut v = Vec::new();
-
-            for (x, z) in iproduct!(0..512u32, 0..512u32)
-            {
-                let h = noise_sampler(x as i32, z as i32) as u32;
-
-                for y in h.saturating_sub(8)..h.saturating_add(8)
-                {
-                    if !occupied(x as i32, y as i32, z as i32)
-                    {
-                        continue;
-                    }
-
-                    let c = rand::thread_rng().gen_range(1..=12);
-
-                    VoxelFace::iter().for_each(|f| {
-                        let dir = f.get_axis();
-
-                        if !occupied(x as i32 + dir.x, y as i32 + dir.y, z as i32 + dir.z)
-                        {
-                            v.push(FaceVoxelChunkVoxelInstance::new(x, y, z, 0, 0, f, c));
-                            number_of_faces += 1;
-                        }
-                    });
-                }
-            }
-
-            unsafe { Arc::get_mut_unchecked(&mut chunk) }.update_voxels(v);
-
-            this.chunks.push(chunk);
-        }
-
-        let this = Arc::new(this);
+        c.update_voxels(v);
 
         game.register(this.clone());
-
-        let end = std::time::Instant::now();
-
-        log::info!(
-            "Generated chunks in {}ms with {} faces",
-            (end - start).as_millis(),
-            number_of_faces
-        );
 
         this
     }
 }
+
+// fn create_and_fill(brick_game: &game::Game, pos: glm::Vec3) ->
+// Arc<super::BrickMapChunk> {
+//     let chunk = super::BrickMapChunk::new(brick_game, pos);
+
+//     {
+//         let data_manager: &voxel::VoxelChunkDataManager =
+// chunk.access_data_manager();
+
+//         let noise_generator = noise::SuperSimplex::new(
+//             (234782378948923489238948972347234789342u128 % u32::MAX as u128)
+// as u32         );
+
+//         let random_generator = RefCell::new(rand::thread_rng());
+
+//         let noise_sampler = |x: u16, z: u16| {
+//             let b = voxel::CHUNK_VOXEL_SIZE as f64;
+
+//             let h = 84.0f64;
+
+//             let r = ((noise_generator.get([
+//                 ((pos.x as f64) + (x as f64)) / 256.0,
+//                 0.0,
+//                 ((pos.z as f64) + (z as f64)) / 256.0
+//             ]) * h)
+//                 + (b - h)) as u16;
+
+//             r.clamp(0, (voxel::CHUNK_VOXEL_SIZE - 1) as u16)
+//         };
+
+//         let get_rand_grass_voxel = || -> Voxel {
+//             random_generator
+//                 .borrow_mut()
+//                 .gen_range(7..=12)
+//                 .try_into()
+//                 .unwrap()
+//         };
+
+//         let get_rand_stone_voxel = || -> Voxel {
+//             random_generator
+//                 .borrow_mut()
+//                 .gen_range(1..=6)
+//                 .try_into()
+//                 .unwrap()
+//         };
+
+//         let c = voxel::BRICK_MAP_EDGE_SIZE as u16;
+
+//         for (x, y, z) in iproduct!(0..c, 0..c, 0..c)
+//         {
+//             let pos = glm::U16Vec3::new(x, y, z);
+
+//             data_manager.write_brick(get_rand_stone_voxel(), pos);
+//         }
+
+//         for (b_x, b_z) in iproduct!(0..c, 0..c)
+//         {
+//             let mut top_free_brick_height: u16 = 0;
+//             // iter over columns
+//             for (l_x, l_z) in iproduct!(0..8, 0..8)
+//             {
+//                 let chunk_x = b_x * voxel::VOXEL_BRICK_EDGE_LENGTH as u16 +
+// l_x;                 let chunk_z = b_z * voxel::VOXEL_BRICK_EDGE_LENGTH as
+// u16 + l_z;
+
+//                 let height = noise_sampler(chunk_x, chunk_z);
+
+//                 let pos = glm::U16Vec3::new(chunk_x, height, chunk_z);
+
+//                 top_free_brick_height = top_free_brick_height
+//                     .max(height.div_euclid(voxel::VOXEL_BRICK_EDGE_LENGTH as
+// u16) + 1);
+
+//                 data_manager.write_voxel(get_rand_grass_voxel(), pos);
+//             }
+
+//             for h in top_free_brick_height..(voxel::BRICK_MAP_EDGE_SIZE as
+// u16)             {
+//                 data_manager.write_brick(Voxel::Air, glm::U16Vec3::new(b_x,
+// h, b_z));             }
+
+//             for (l_x, l_z) in iproduct!(
+//                 0..voxel::VOXEL_BRICK_EDGE_LENGTH as u16,
+//                 0..voxel::VOXEL_BRICK_EDGE_LENGTH as u16
+//             )
+//             {
+//                 let chunk_x = b_x * voxel::VOXEL_BRICK_EDGE_LENGTH as u16 +
+// l_x;                 let chunk_z = b_z * voxel::VOXEL_BRICK_EDGE_LENGTH as
+// u16 + l_z;
+
+//                 let grass_height = noise_sampler(chunk_x, chunk_z);
+
+//                 let pos = glm::U16Vec3::new(chunk_x, grass_height + 1,
+// chunk_z);
+
+//                 for y_p in pos.y
+//                     ..(top_free_brick_height * voxel::VOXEL_BRICK_EDGE_LENGTH
+// as u16
+//                         + voxel::VOXEL_BRICK_EDGE_LENGTH as u16)
+//                 {
+//                     data_manager.write_voxel(
+//                         Voxel::Air,
+//                         glm::U16Vec3::new(
+//                             chunk_x,
+//                             y_p.clamp(0, (voxel::CHUNK_VOXEL_SIZE as u16) -
+// 1),                             chunk_z
+//                         )
+//                     );
+//                 }
+//             }
+//         }
+//         data_manager.flush_entire();
+//     }
+
+//     chunk
+// }
 
 impl game::EntityCastDepot for DemoScene
 {

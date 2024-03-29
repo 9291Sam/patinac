@@ -17,12 +17,10 @@ pub struct RasterChunk
     renderer: Arc<gfx::Renderer>,
     uuid:     util::Uuid,
 
-    vertex_buffer: wgpu::Buffer,
-    index_buffer:  wgpu::Buffer,
+    vertex_buffer:      wgpu::Buffer,
+    number_of_vertices: u32,
 
-    voxel_positions: Vec<RasterChunkVoxelInstance>,
-    instance_buffer: wgpu::Buffer,
-    pipeline:        Arc<gfx::GenericPipeline>,
+    pipeline: Arc<gfx::GenericPipeline>,
 
     transform: Mutex<gfx::Transform>
 }
@@ -57,10 +55,7 @@ impl RasterChunk
                 layout:                Some(pipeline_layout),
                 vertex_module:         shader.clone(),
                 vertex_entry_point:    "vs_main".into(),
-                vertex_buffer_layouts: vec![
-                    VoxelVertex::describe(),
-                    RasterChunkVoxelInstance::describe(),
-                ],
+                vertex_buffer_layouts: vec![RasterChunkVoxelPoint::describe()],
                 fragment_state:        Some(CacheableFragmentState {
                     module:      shader,
                     entry_point: "fs_main".into(),
@@ -71,7 +66,7 @@ impl RasterChunk
                     })]
                 }),
                 primitive_state:       wgpu::PrimitiveState {
-                    topology:           wgpu::PrimitiveTopology::TriangleStrip,
+                    topology:           wgpu::PrimitiveTopology::TriangleList,
                     strip_index_format: None,
                     front_face:         wgpu::FrontFace::Cw,
                     cull_mode:          Some(wgpu::Face::Back),
@@ -89,8 +84,6 @@ impl RasterChunk
             }
         );
 
-        let instances: &[RasterChunkVoxelInstance] = &[];
-
         let this = Arc::new(RasterChunk {
             uuid,
             vertex_buffer: renderer.create_buffer_init(&BufferInitDescriptor {
@@ -98,17 +91,7 @@ impl RasterChunk
                 contents: cast_slice(&VOXEL_STRIP_VERTICES),
                 usage:    wgpu::BufferUsages::VERTEX
             }),
-            index_buffer: renderer.create_buffer_init(&BufferInitDescriptor {
-                label:    Some("RasterChunk Index Buffer"),
-                contents: cast_slice(&VOXEL_STRIP_INDICES),
-                usage:    wgpu::BufferUsages::INDEX
-            }),
-            instance_buffer: renderer.create_buffer_init(&BufferInitDescriptor {
-                label:    Some("RasterChunk Instance Buffer"),
-                contents: cast_slice(instances),
-                usage:    wgpu::BufferUsages::VERTEX
-            }),
-            voxel_positions: Vec::from_iter(instances.iter().cloned()),
+            number_of_vertices: 0,
             pipeline,
             transform: Mutex::new(transform),
             renderer: game.get_renderer().clone()
@@ -119,17 +102,33 @@ impl RasterChunk
         this
     }
 
-    pub fn update_voxels(&mut self, positions: impl IntoIterator<Item = RasterChunkVoxelInstance>)
+    pub fn update_voxels(&mut self, positions: impl IntoIterator<Item = RasterChunkVoxelPoint>)
     {
-        let instances: Vec<RasterChunkVoxelInstance> = positions.into_iter().collect();
+        let instances: Vec<RasterChunkVoxelPoint> = positions
+            .into_iter()
+            .flat_map(|p| {
+                VOXEL_LIST_INDICES.iter().map(move |i| {
+                    let (x, y, z, v) = p.destructure();
+                    let (xx, yy, zz) = {
+                        let a = VOXEL_STRIP_VERTICES[*i as usize];
 
-        self.instance_buffer = self.renderer.create_buffer_init(&BufferInitDescriptor {
-            label:    Some("Raster Instance Buffer"),
+                        (a.x as u32, a.y as u32, a.z as u32)
+                    };
+
+                    RasterChunkVoxelPoint::new(x + xx, y + yy, z + zz, v)
+                })
+            })
+            .collect();
+
+        self.vertex_buffer = self.renderer.create_buffer_init(&BufferInitDescriptor {
+            label:    Some("Raster Vertex Buffer"),
             contents: bytemuck::cast_slice(&instances[..]),
             usage:    wgpu::BufferUsages::VERTEX
         });
 
-        self.voxel_positions = instances;
+        self.number_of_vertices = instances.len() as u32;
+
+        // self.voxel_positions = instances;
     }
 }
 
@@ -177,36 +176,34 @@ impl gfx::Recordable for RasterChunk
             unreachable!()
         };
 
+        log::trace!("tracing raster");
+
         pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-        pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
-        pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
         pass.set_push_constants(wgpu::ShaderStages::VERTEX, 0, bytemuck::bytes_of(&id));
-        pass.draw_indexed(
-            0..VOXEL_STRIP_INDICES.len() as u32,
-            0,
-            0..self.voxel_positions.len() as u32
-        );
+        pass.draw(0..VOXEL_STRIP_INDICES.len() as u32, 0..1);
     }
 }
 
+// TODO: index buffer because its faster
+
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Zeroable, Pod)]
-pub struct RasterChunkVoxelInstance
+pub struct RasterChunkVoxelPoint
 {
     data: u32
 }
 
-impl RasterChunkVoxelInstance
+impl RasterChunkVoxelPoint
 {
-    const ATTRS: [wgpu::VertexAttribute; 1] = wgpu::vertex_attr_array![1 => Uint32];
+    const ATTRS: [wgpu::VertexAttribute; 1] = wgpu::vertex_attr_array![0 => Uint32];
 
     pub fn new(x: u32, y: u32, z: u32, voxel: u32) -> Self
     {
         let five_bit_mask: u32 = 0b1_1111;
 
-        assert!(x <= five_bit_mask);
-        assert!(y <= five_bit_mask);
-        assert!(z <= five_bit_mask);
+        assert!(x <= five_bit_mask, "{x}");
+        assert!(y <= five_bit_mask, "{y}");
+        assert!(z <= five_bit_mask, "{z}");
 
         let x_data = five_bit_mask & x;
         let y_data = (five_bit_mask & y) << 5;
@@ -240,95 +237,31 @@ impl RasterChunkVoxelInstance
     }
 }
 
-#[repr(C)]
-#[derive(Debug, Clone, Copy, Zeroable, Pod)]
-struct VoxelVertex
-{
-    position: glm::Vec3
-}
-
-impl VoxelVertex
-{
-    const ATTRS: [wgpu::VertexAttribute; 1] = wgpu::vertex_attr_array![0 => Float32x3];
-
-    pub fn describe() -> wgpu::VertexBufferLayout<'static>
-    {
-        wgpu::VertexBufferLayout {
-            array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
-            step_mode:    wgpu::VertexStepMode::Vertex,
-            attributes:   &Self::ATTRS
-        }
-    }
-}
-
-const VOXEL_STRIP_VERTICES: [VoxelVertex; 8] = [
-    VoxelVertex {
-        position: glm::Vec3::new(1.0, 1.0, 0.0)
-    },
-    VoxelVertex {
-        position: glm::Vec3::new(0.0, 1.0, 0.0)
-    },
-    VoxelVertex {
-        position: glm::Vec3::new(1.0, 0.0, 0.0)
-    },
-    VoxelVertex {
-        position: glm::Vec3::new(0.0, 0.0, 0.0)
-    },
-    VoxelVertex {
-        position: glm::Vec3::new(1.0, 1.0, 1.0)
-    },
-    VoxelVertex {
-        position: glm::Vec3::new(0.0, 1.0, 1.0)
-    },
-    VoxelVertex {
-        position: glm::Vec3::new(0.0, 0.0, 1.0)
-    },
-    VoxelVertex {
-        position: glm::Vec3::new(1.0, 0.0, 1.0)
-    }
+const VOXEL_STRIP_VERTICES: [glm::IVec3; 8] = [
+    glm::IVec3::new(1, 1, 0),
+    glm::IVec3::new(0, 1, 0),
+    glm::IVec3::new(1, 0, 0),
+    glm::IVec3::new(0, 0, 0),
+    glm::IVec3::new(1, 1, 1),
+    glm::IVec3::new(0, 1, 1),
+    glm::IVec3::new(0, 0, 1),
+    glm::IVec3::new(1, 0, 1)
 ];
 
-// const VOXEL_VERTICES: [VoxelVertex; 8] = [
-//     VoxelVertex {
-//         position: glm::Vec3::new(0.0, 0.0, 0.0)
-//     },
-//     VoxelVertex {
-//         position: glm::Vec3::new(0.0, 0.0, 1.0)
-//     },
-//     VoxelVertex {
-//         position: glm::Vec3::new(0.0, 1.0, 0.0)
-//     },
-//     VoxelVertex {
-//         position: glm::Vec3::new(0.0, 1.0, 1.0)
-//     },
-//     VoxelVertex {
-//         position: glm::Vec3::new(1.0, 0.0, 0.0)
-//     },
-//     VoxelVertex {
-//         position: glm::Vec3::new(1.0, 0.0, 1.0)
-//     },
-//     VoxelVertex {
-//         position: glm::Vec3::new(1.0, 1.0, 0.0)
-//     },
-//     VoxelVertex {
-//         position: glm::Vec3::new(1.0, 1.0, 1.0)
-//     }
-// ];
-
-// #[rustfmt::skip]
-// const VOXEL_INDICES: [u16; 36] = [
-//     6, 2, 7,
-//     2, 3, 7,
-//     0, 4, 5,
-//     1, 0, 5,
-//     0, 2, 6,
-//     4, 0, 6,
-//     3, 1, 7,
-//     1, 5, 7,
-//     2, 0, 3,
-//     0, 1, 3,
-//     4, 6, 7,
-//     5, 4, 7
-// ];
+#[rustfmt::skip]
+const VOXEL_LIST_INDICES: [u16; 36] = [
+    6, 2, 7,
+    2, 3, 7,
+    0, 4, 5,
+    1, 0, 5,
+    0, 2, 6,
+    4, 0, 6,
+    3, 1, 7,
+    1, 5, 7,
+    2, 0, 3,
+    0, 1, 3,
+    4, 6, 7,
+    5, 4, 7
+];
 
 const VOXEL_STRIP_INDICES: [u16; 14] = [3, 2, 6, 7, 4, 2, 0, 3, 1, 6, 5, 4, 1, 0];
