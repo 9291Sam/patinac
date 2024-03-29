@@ -13,41 +13,40 @@ use crate::{RasterChunk, RasterChunkVoxelPoint};
 #[derive(Debug)]
 pub struct DemoScene
 {
-    raster: Arc<RasterChunk>,
-    id:     util::Uuid
+    // raster: Arc<RasterChunk>,
+    id: util::Uuid
 }
 
 impl DemoScene
 {
     pub fn new(game: Arc<game::Game>) -> Arc<Self>
     {
-        let noise_generator = noise::SuperSimplex::new(
-            (234782378948923489238948972347234789342u128 % u32::MAX as u128) as u32
-        );
+        // let noise_generator = noise::SuperSimplex::new(
+        //     (234782378948923489238948972347234789342u128 % u32::MAX as u128) as u32
+        // );
 
-        let noise_sampler = |x, z| {
-            let h = 84.0f64;
+        // let noise_sampler = |x, z| {
+        //     let h = 84.0f64;
 
-            noise_generator.get([(x as f64) / 256.0, 0.0, (z as f64) / 256.0]) * h
-        };
+        //     noise_generator.get([(x as f64) / 256.0, 0.0, (z as f64) / 256.0]) * h
+        // };
 
         let this = Arc::new(DemoScene {
-            id:     util::Uuid::new(),
-            raster: RasterChunk::new(
-                &game,
-                gfx::Transform {
-                    translation: glm::Vec3::new(0.0, 0.0, 0.0),
-                    ..Default::default()
-                },
-                iproduct!(0..31, 0..31).map(|(x, z)| {
-                    RasterChunkVoxelPoint::new(
-                        x,
-                        noise_sampler(x, z).clamp(0.0, 32.0) as u32,
-                        z,
-                        rand::thread_rng().gen_range(1..=12)
-                    )
-                })
-            )
+            id: util::Uuid::new() /* raster: RasterChunk::new(
+                                   *     &game,
+                                   *     gfx::Transform {
+                                   *         translation: glm::Vec3::new(0.0, 0.0, 0.0),
+                                   *         ..Default::default()
+                                   *     },
+                                   *     iproduct!(0..31, 0..31).map(|(x, z)| {
+                                   *         RasterChunkVoxelPoint::new(
+                                   *             x,
+                                   *             noise_sampler(x, z).clamp(0.0, 32.0) as u32,
+                                   *             z,
+                                   *             rand::thread_rng().gen_range(1..=12)
+                                   *         )
+                                   *     })
+                                   * ) */
         });
 
         game.register(this.clone());
@@ -204,7 +203,7 @@ impl game::Entity for DemoScene
 
     fn tick(&self, _: &game::Game, _: game::TickTag)
     {
-        std::hint::black_box(self.raster.clone());
+        // std::hint::black_box(self.raster.clone());
         // let mut guard = self.brick_map_chunk.lock().unwrap();
 
         // guard.poll_ref();

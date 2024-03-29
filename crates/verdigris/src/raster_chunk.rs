@@ -118,7 +118,7 @@ impl RasterChunk
                 VOXEL_LIST_INDICES.iter().map(move |i| {
                     let (x, y, z, v) = p.destructure();
                     let (xx, yy, zz) = {
-                        let a = VOXEL_STRIP_VERTICES[*i as usize];
+                        let a = VOXEL_LIST_VERTICES[*i as usize];
 
                         (a.x as u32, a.y as u32, a.z as u32)
                     };
@@ -127,8 +127,6 @@ impl RasterChunk
                 })
             })
             .collect();
-
-        instances.iter().for_each(|e| log::trace!("{e:?}"));
 
         self.vertex_buffer = self.renderer.create_buffer_init(&BufferInitDescriptor {
             label:    Some("Raster Vertex Buffer {}"),
@@ -171,8 +169,6 @@ impl gfx::Recordable for RasterChunk
     {
         let t = self.transform.lock().unwrap().clone();
 
-        log::trace!("prerec {t:?}");
-
         gfx::RecordInfo {
             should_draw: true,
             transform:   Some(t),
@@ -187,8 +183,6 @@ impl gfx::Recordable for RasterChunk
         {
             unreachable!()
         };
-
-        log::trace!("tracing raster {}", self.number_of_vertices);
 
         pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
         pass.set_push_constants(wgpu::ShaderStages::VERTEX, 0, bytemuck::bytes_of(&id));
@@ -259,6 +253,18 @@ const VOXEL_STRIP_VERTICES: [glm::IVec3; 8] = [
     glm::IVec3::new(0, 0, 1),
     glm::IVec3::new(1, 0, 1)
 ];
+const VOXEL_STRIP_INDICES: [u16; 14] = [3, 2, 6, 7, 4, 2, 0, 3, 1, 6, 5, 4, 1, 0];
+
+const VOXEL_LIST_VERTICES: [glm::IVec3; 8] = [
+    glm::IVec3::new(0, 0, 0),
+    glm::IVec3::new(0, 0, 1),
+    glm::IVec3::new(0, 1, 0),
+    glm::IVec3::new(0, 1, 1),
+    glm::IVec3::new(1, 0, 0),
+    glm::IVec3::new(1, 0, 1),
+    glm::IVec3::new(1, 1, 0),
+    glm::IVec3::new(1, 1, 1)
+];
 
 #[rustfmt::skip]
 const VOXEL_LIST_INDICES: [u16; 36] = [
@@ -275,5 +281,3 @@ const VOXEL_LIST_INDICES: [u16; 36] = [
     4, 6, 7,
     5, 4, 7
 ];
-
-const VOXEL_STRIP_INDICES: [u16; 14] = [3, 2, 6, 7, 4, 2, 0, 3, 1, 6, 5, 4, 1, 0];
