@@ -27,7 +27,11 @@ pub struct RasterChunk
 
 impl RasterChunk
 {
-    pub fn new(game: &game::Game, transform: gfx::Transform) -> Arc<RasterChunk>
+    pub fn new(
+        game: &game::Game,
+        transform: gfx::Transform,
+        positions: impl IntoIterator<Item = RasterChunkVoxelPoint>
+    ) -> Arc<RasterChunk>
     {
         let uuid = util::Uuid::new();
 
@@ -69,7 +73,7 @@ impl RasterChunk
                     topology:           wgpu::PrimitiveTopology::TriangleList,
                     strip_index_format: None,
                     front_face:         wgpu::FrontFace::Cw,
-                    cull_mode:          Some(wgpu::Face::Back),
+                    cull_mode:          None,
                     polygon_mode:       wgpu::PolygonMode::Fill,
                     unclipped_depth:    false,
                     conservative:       false
@@ -84,10 +88,10 @@ impl RasterChunk
             }
         );
 
-        let this = Arc::new(RasterChunk {
+        let mut this = RasterChunk {
             uuid,
             vertex_buffer: renderer.create_buffer_init(&BufferInitDescriptor {
-                label:    Some("RasterChunk Vertex Buffer"),
+                label:    Some("RasterChunk Vertex BuffeASDDSr"),
                 contents: cast_slice(&VOXEL_STRIP_VERTICES),
                 usage:    wgpu::BufferUsages::VERTEX
             }),
@@ -95,7 +99,11 @@ impl RasterChunk
             pipeline,
             transform: Mutex::new(transform),
             renderer: game.get_renderer().clone()
-        });
+        };
+
+        this.update_voxels(positions);
+
+        let this = Arc::new(this);
 
         renderer.register(this.clone());
 
@@ -120,15 +128,15 @@ impl RasterChunk
             })
             .collect();
 
+        instances.iter().for_each(|e| log::trace!("{e:?}"));
+
         self.vertex_buffer = self.renderer.create_buffer_init(&BufferInitDescriptor {
-            label:    Some("Raster Vertex Buffer"),
+            label:    Some("Raster Vertex Buffer {}"),
             contents: bytemuck::cast_slice(&instances[..]),
             usage:    wgpu::BufferUsages::VERTEX
         });
 
         self.number_of_vertices = instances.len() as u32;
-
-        // self.voxel_positions = instances;
     }
 }
 
@@ -161,9 +169,13 @@ impl gfx::Recordable for RasterChunk
         global_bind_group: &std::sync::Arc<gfx::wgpu::BindGroup>
     ) -> gfx::RecordInfo
     {
+        let t = self.transform.lock().unwrap().clone();
+
+        log::trace!("prerec {t:?}");
+
         gfx::RecordInfo {
             should_draw: true,
-            transform:   Some(self.transform.lock().unwrap().clone()),
+            transform:   Some(t),
             bind_groups: [Some(global_bind_group.clone()), None, None, None]
         }
     }
@@ -176,11 +188,11 @@ impl gfx::Recordable for RasterChunk
             unreachable!()
         };
 
-        log::trace!("tracing raster");
+        log::trace!("tracing raster {}", self.number_of_vertices);
 
         pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
         pass.set_push_constants(wgpu::ShaderStages::VERTEX, 0, bytemuck::bytes_of(&id));
-        pass.draw(0..VOXEL_STRIP_INDICES.len() as u32, 0..1);
+        pass.draw(0..self.number_of_vertices, 0..1);
     }
 }
 
@@ -231,7 +243,7 @@ impl RasterChunkVoxelPoint
     {
         wgpu::VertexBufferLayout {
             array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
-            step_mode:    wgpu::VertexStepMode::Instance,
+            step_mode:    wgpu::VertexStepMode::Vertex,
             attributes:   &Self::ATTRS
         }
     }
