@@ -26,12 +26,13 @@ fn vs_main(input: VertexInput) -> VertexOutput
 {
     var out: VertexOutput;
 
-    let five_bit_mask: u32 = u32(31);
+    let ten_bit_mask: u32 = u32(1023);
+    let two_bit_mask: u32 = u32(3);
 
-    let x: u32 = five_bit_mask &  input.voxel_data;
-    let y: u32 = five_bit_mask & (input.voxel_data >> u32(5));
-    let z: u32 = five_bit_mask & (input.voxel_data >> u32(10));
-    let v: u32 = five_bit_mask & (input.voxel_data >> u32(15));
+    let x: u32 = ten_bit_mask &  input.voxel_data;
+    let y: u32 = ten_bit_mask & (input.voxel_data >> u32(10));
+    let z: u32 = ten_bit_mask & (input.voxel_data >> u32(20));
+    let v: u32 = two_bit_mask & (input.voxel_data >> u32(30));
 
     out.clip_position = global_model_view_projection[id] * vec4<f32>(f32(x), f32(y), f32(z), 1.0);
     out.voxel = u32(v);

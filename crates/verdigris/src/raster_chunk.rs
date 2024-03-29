@@ -205,16 +205,18 @@ impl RasterChunkVoxelPoint
 
     pub fn new(x: u32, y: u32, z: u32, voxel: u32) -> Self
     {
-        let five_bit_mask: u32 = 0b1_1111;
+        let two_bit_mask: u32 = 0b11;
+        let ten_bit_mask: u32 = 0b11_1111_1111;
 
-        assert!(x <= five_bit_mask, "{x}");
-        assert!(y <= five_bit_mask, "{y}");
-        assert!(z <= five_bit_mask, "{z}");
+        assert!(x <= ten_bit_mask, "{x}");
+        assert!(y <= ten_bit_mask, "{y}");
+        assert!(z <= ten_bit_mask, "{z}");
+        assert!(voxel <= two_bit_mask, "{voxel}");
 
-        let x_data = five_bit_mask & x;
-        let y_data = (five_bit_mask & y) << 5;
-        let z_data = (five_bit_mask & z) << 10;
-        let v_data = (five_bit_mask & voxel) << 15;
+        let x_data = ten_bit_mask & x;
+        let y_data = (ten_bit_mask & y) << 10;
+        let z_data = (ten_bit_mask & z) << 20;
+        let v_data = (two_bit_mask & voxel) << 30;
 
         Self {
             data: x_data | y_data | z_data | v_data
@@ -223,12 +225,13 @@ impl RasterChunkVoxelPoint
 
     pub fn destructure(self) -> (u32, u32, u32, u32)
     {
-        let five_bit_mask: u32 = 0b1_1111;
+        let two_bit_mask: u32 = 0b11;
+        let ten_bit_mask: u32 = 0b11_1111_1111;
 
-        let x = five_bit_mask & self.data;
-        let y = five_bit_mask & (self.data >> 5);
-        let z = five_bit_mask & (self.data >> 10);
-        let v = five_bit_mask & (self.data >> 15);
+        let x = ten_bit_mask & self.data;
+        let y = ten_bit_mask & (self.data >> 10);
+        let z = ten_bit_mask & (self.data >> 20);
+        let v = two_bit_mask & (self.data >> 30);
 
         (x, y, z, v)
     }
