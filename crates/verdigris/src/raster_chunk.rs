@@ -90,6 +90,8 @@ impl RasterChunk
 
         let (vertex_buffer, number_of_vertices) = Self::create_voxel_buffer(renderer, faces);
 
+        log::trace!("Created RasterChunk with {} vertices", number_of_vertices);
+
         let this = Arc::new(RasterChunk {
             uuid,
             vertex_buffer,
@@ -252,6 +254,19 @@ pub enum VoxelFaceDirection
 
 impl VoxelFaceDirection
 {
+    pub fn get_axis(self) -> glm::I16Vec3
+    {
+        match self
+        {
+            VoxelFaceDirection::Top => glm::I16Vec3::new(0, 1, 0),
+            VoxelFaceDirection::Bottom => glm::I16Vec3::new(0, -1, 0),
+            VoxelFaceDirection::Left => glm::I16Vec3::new(-1, 0, 0),
+            VoxelFaceDirection::Right => glm::I16Vec3::new(1, 0, 0),
+            VoxelFaceDirection::Front => glm::I16Vec3::new(0, 0, -1),
+            VoxelFaceDirection::Back => glm::I16Vec3::new(0, 0, 1)
+        }
+    }
+
     pub fn iterate() -> impl Iterator<Item = VoxelFaceDirection>
     {
         [

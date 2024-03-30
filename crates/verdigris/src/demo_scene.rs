@@ -31,6 +31,8 @@ impl DemoScene
             noise_generator.get([(x as f64) / 256.0, 0.0, (z as f64) / 256.0]) * h + h
         };
 
+        let occupied = |x: i16, y: i16, z: i16| noise_sampler(x, z) as i16 > y;
+
         let this = Arc::new(DemoScene {
             id:     util::Uuid::new(),
             raster: RasterChunk::new(
@@ -39,14 +41,28 @@ impl DemoScene
                     translation: glm::Vec3::new(0.0, 0.0, 0.0),
                     ..Default::default()
                 },
-                iproduct!(0..1023, 0..1023).flat_map(|(x, z)| {
+                iproduct!(0..1023i16, 0..1023i16).flat_map(|(x, z)| {
                     let voxel = rand::thread_rng().gen_range(0..=3);
+                    let h = noise_sampler(x.into(), z.into()).max(0.0) as u16;
 
-                    VoxelFaceDirection::iterate().map(move |d| {
-                        VoxelFace {
-                            direction: d,
-                            voxel,
-                            position: glm::U16Vec3::new(x, noise_sampler(x, z).max(0.0) as u16, z)
+                    VoxelFaceDirection::iterate().filter_map(move |d| {
+                        let axis = d.get_axis();
+
+                        if occupied(x + axis.x, h as i16 + axis.y, z + axis.z)
+                        {
+                            None
+                        }
+                        else
+                        {
+                            Some(VoxelFace {
+                                direction: d,
+                                voxel,
+                                position: glm::U16Vec3::new(
+                                    x.max(0) as u16,
+                                    h.max(0),
+                                    z.max(0) as u16
+                                )
+                            })
                         }
                     })
                 })
