@@ -30,7 +30,7 @@ impl RasterChunk
     pub fn new(
         game: &game::Game,
         transform: gfx::Transform,
-        positions: impl IntoIterator<Item = RasterChunkVoxelPoint>
+        faces: impl IntoIterator<Item = VoxelFace>
     ) -> Arc<RasterChunk>
     {
         let uuid = util::Uuid::new();
@@ -88,53 +88,40 @@ impl RasterChunk
             }
         );
 
-        let mut this = RasterChunk {
+        let (vertex_buffer, number_of_vertices) = Self::create_voxel_buffer(renderer, faces);
+
+        let this = Arc::new(RasterChunk {
             uuid,
-            vertex_buffer: renderer.create_buffer_init(&BufferInitDescriptor {
-                label:    Some("RasterChunk Vertex BuffeASDDSr"),
-                contents: cast_slice(&VOXEL_STRIP_VERTICES),
-                usage:    wgpu::BufferUsages::VERTEX
-            }),
-            number_of_vertices: 0,
+            vertex_buffer,
+            number_of_vertices: number_of_vertices as u32,
             pipeline,
             transform: Mutex::new(transform),
             renderer: game.get_renderer().clone()
-        };
-
-        this.update_voxels(positions);
-
-        let this = Arc::new(this);
+        });
 
         renderer.register(this.clone());
 
         this
     }
 
-    pub fn update_voxels(&mut self, positions: impl IntoIterator<Item = RasterChunkVoxelPoint>)
+    /// returns the number of vertices in the buffer
+    fn create_voxel_buffer(
+        renderer: &gfx::Renderer,
+        faces: impl IntoIterator<Item = VoxelFace>
+    ) -> (wgpu::Buffer, usize)
     {
-        let instances: Vec<RasterChunkVoxelPoint> = positions
+        let instances: Vec<RasterChunkVoxelPoint> = faces
             .into_iter()
-            .flat_map(|p| {
-                VOXEL_LIST_INDICES.iter().map(move |i| {
-                    let (x, y, z, v) = p.destructure();
-                    let (xx, yy, zz) = {
-                        let a = VOXEL_LIST_VERTICES[*i as usize];
-
-                        (a.x as u32, a.y as u32, a.z as u32)
-                    };
-
-                    RasterChunkVoxelPoint::new(x + xx, y + yy, z + zz, v)
-                })
-            })
+            .flat_map(|face| face.direction.to_face_points(face.position, face.voxel))
             .collect();
 
-        self.vertex_buffer = self.renderer.create_buffer_init(&BufferInitDescriptor {
+        let buffer = renderer.create_buffer_init(&BufferInitDescriptor {
             label:    Some("Raster Vertex Buffer {}"),
             contents: bytemuck::cast_slice(&instances[..]),
             usage:    wgpu::BufferUsages::VERTEX
         });
 
-        self.number_of_vertices = instances.len() as u32;
+        (buffer, instances.len())
     }
 }
 
@@ -190,8 +177,6 @@ impl gfx::Recordable for RasterChunk
     }
 }
 
-// TODO: index buffer because its faster
-
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Zeroable, Pod)]
 pub struct RasterChunkVoxelPoint
@@ -243,6 +228,145 @@ impl RasterChunkVoxelPoint
             step_mode:    wgpu::VertexStepMode::Vertex,
             attributes:   &Self::ATTRS
         }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd)]
+pub struct VoxelFace
+{
+    pub direction: VoxelFaceDirection,
+    pub voxel:     u32,
+    pub position:  glm::U16Vec3
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum VoxelFaceDirection
+{
+    Top,
+    Bottom,
+    Left,
+    Right,
+    Front,
+    Back
+}
+
+impl VoxelFaceDirection
+{
+    pub fn iterate() -> impl Iterator<Item = VoxelFaceDirection>
+    {
+        [
+            VoxelFaceDirection::Top,
+            VoxelFaceDirection::Bottom,
+            VoxelFaceDirection::Left,
+            VoxelFaceDirection::Right,
+            VoxelFaceDirection::Front,
+            VoxelFaceDirection::Back
+        ]
+        .into_iter()
+    }
+
+    #[allow(clippy::just_underscores_and_digits)]
+    pub fn to_face_points(self, pos: glm::U16Vec3, voxel: u32) -> [RasterChunkVoxelPoint; 6]
+    {
+        let (_0, _1, _2, _3) = match self
+        {
+            VoxelFaceDirection::Top =>
+            {
+                (
+                    glm::U16Vec3::new(0, 1, 0),
+                    glm::U16Vec3::new(0, 1, 1),
+                    glm::U16Vec3::new(1, 1, 0),
+                    glm::U16Vec3::new(1, 1, 1)
+                )
+            }
+            VoxelFaceDirection::Bottom =>
+            {
+                (
+                    glm::U16Vec3::new(0, 0, 1),
+                    glm::U16Vec3::new(0, 0, 0),
+                    glm::U16Vec3::new(0, 1, 1),
+                    glm::U16Vec3::new(1, 0, 0)
+                )
+            }
+            VoxelFaceDirection::Left =>
+            {
+                (
+                    glm::U16Vec3::new(0, 0, 1),
+                    glm::U16Vec3::new(0, 1, 1),
+                    glm::U16Vec3::new(0, 0, 0),
+                    glm::U16Vec3::new(0, 1, 0)
+                )
+            }
+            VoxelFaceDirection::Right =>
+            {
+                (
+                    glm::U16Vec3::new(1, 0, 0),
+                    glm::U16Vec3::new(1, 1, 0),
+                    glm::U16Vec3::new(1, 0, 1),
+                    glm::U16Vec3::new(1, 1, 1)
+                )
+            }
+            VoxelFaceDirection::Front =>
+            {
+                (
+                    glm::U16Vec3::new(0, 0, 0),
+                    glm::U16Vec3::new(0, 1, 0),
+                    glm::U16Vec3::new(1, 0, 0),
+                    glm::U16Vec3::new(1, 1, 0)
+                )
+            }
+            VoxelFaceDirection::Back =>
+            {
+                (
+                    glm::U16Vec3::new(0, 0, 1),
+                    glm::U16Vec3::new(0, 1, 1),
+                    glm::U16Vec3::new(1, 0, 1),
+                    glm::U16Vec3::new(1, 1, 1)
+                )
+            }
+        };
+
+        // 0, 1, 2, 2, 1, 3
+
+        let x = pos.x;
+        let y = pos.y;
+        let z = pos.z;
+
+        let vertices: [RasterChunkVoxelPoint; 4] = [
+            RasterChunkVoxelPoint::new(
+                (x + _0.x).into(),
+                (y + _0.y).into(),
+                (z + _0.z).into(),
+                voxel
+            ),
+            RasterChunkVoxelPoint::new(
+                (x + _1.x).into(),
+                (y + _1.y).into(),
+                (z + _1.z).into(),
+                voxel
+            ),
+            RasterChunkVoxelPoint::new(
+                (x + _2.x).into(),
+                (y + _2.y).into(),
+                (z + _2.z).into(),
+                voxel
+            ),
+            RasterChunkVoxelPoint::new(
+                (x + _3.x).into(),
+                (y + _3.y).into(),
+                (z + _3.z).into(),
+                voxel
+            )
+        ];
+
+        [
+            vertices[0],
+            vertices[1],
+            vertices[2],
+            vertices[2],
+            vertices[1],
+            vertices[3]
+        ]
     }
 }
 

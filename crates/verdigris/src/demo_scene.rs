@@ -8,7 +8,7 @@ use itertools::iproduct;
 use noise::NoiseFn;
 use rand::Rng;
 
-use crate::{RasterChunk, RasterChunkVoxelPoint};
+use crate::{RasterChunk, RasterChunkVoxelPoint, VoxelFace, VoxelFaceDirection};
 
 #[derive(Debug)]
 pub struct DemoScene
@@ -21,15 +21,15 @@ impl DemoScene
 {
     pub fn new(game: Arc<game::Game>) -> Arc<Self>
     {
-        let noise_generator = noise::SuperSimplex::new(
-            (234782378948923489238948972347234789342u128 % u32::MAX as u128) as u32
-        );
+        // let noise_generator = noise::SuperSimplex::new(
+        //     (234782378948923489238948972347234789342u128 % u32::MAX as u128) as u32
+        // );
 
-        let noise_sampler = |x, z| {
-            let h = 84.0f64;
+        // let noise_sampler = |x, z| {
+        //     let h = 84.0f64;
 
-            noise_generator.get([(x as f64) / 256.0, 0.0, (z as f64) / 256.0]) * h + h
-        };
+        //     noise_generator.get([(x as f64) / 256.0, 0.0, (z as f64) / 256.0]) * h + h
+        // };
 
         let this = Arc::new(DemoScene {
             id:     util::Uuid::new(),
@@ -39,13 +39,18 @@ impl DemoScene
                     translation: glm::Vec3::new(0.0, 0.0, 0.0),
                     ..Default::default()
                 },
-                iproduct!(0..1023, 0..1023).map(|(x, z)| {
-                    RasterChunkVoxelPoint::new(
-                        x,
-                        noise_sampler(x, z).max(0.0) as u32,
-                        z,
-                        rand::thread_rng().gen_range(0..=3)
-                    )
+                (0..15).flat_map(|x| {
+                    let voxel = rand::thread_rng().gen_range(0..=3);
+                    let z = 5;
+
+                    VoxelFaceDirection::iterate().map(move |d| {
+                        VoxelFace {
+                            direction: d,
+                            voxel,
+                            position: glm::U16Vec3::new(x,5, z)
+                            // position: glm::U16Vec3::new(x, noise_sampler(x, z).max(0.0) as u16, z)
+                        }
+                    })
                 })
             )
         });
