@@ -181,9 +181,12 @@ impl Renderer
             .unwrap();
 
         let desired_present_modes = [
-            // wgpu::PresentMode::Mailbox,
-            // wgpu::PresentMode::FifoRelaxed,
-            // wgpu::PresentMode::Fifo,
+            #[cfg(not(debug_assertions))]
+            wgpu::PresentMode::Mailbox,
+            #[cfg(not(debug_assertions))]
+            wgpu::PresentMode::FifoRelaxed,
+            #[cfg(not(debug_assertions))]
+            wgpu::PresentMode::Fifo,
             wgpu::PresentMode::Immediate
         ];
 
@@ -741,7 +744,7 @@ impl Renderer
             }
         });
 
-        log::info!("event loop returned");
+        log::info!("Event loop returned");
     }
 
     pub fn get_default_depth_state() -> wgpu::DepthStencilState

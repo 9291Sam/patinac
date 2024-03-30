@@ -1,7 +1,5 @@
 use std::borrow::Cow;
-use std::cell::RefCell;
-use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::sync::Arc;
 
 use gfx::glm::{self};
 use itertools::iproduct;
@@ -9,7 +7,7 @@ use noise::NoiseFn;
 use rand::Rng;
 use rayon::iter::{ParallelBridge, ParallelIterator};
 
-use crate::{RasterChunk, RasterChunkVoxelPoint, VoxelFace, VoxelFaceDirection};
+use crate::{RasterChunk, VoxelFace, VoxelFaceDirection};
 
 #[derive(Debug)]
 pub struct DemoScene
@@ -131,44 +129,6 @@ impl game::Entity for DemoScene
 
     fn tick(&self, _: &game::Game, _: game::TickTag)
     {
-        // std::hint::black_box(self.raster.clone());
-        // let mut guard = self.brick_map_chunk.lock().unwrap();
-
-        // guard.poll_ref();
-
-        // if let util::Promise::Resolved(chunk_vec) = &mut *guard
-        // {
-        //     chunk_vec.iter_mut().for_each(|p| {
-        //         p.poll_ref();
-
-        //         // if let util::Promise::Resolved(chunk) = &*p
-        //         // {
-        //         //     let manager = chunk.access_data_manager();
-
-        //         //     for _ in 0..256
-        //         //     {
-        //         //         let center = 448u16;
-        //         //         let edge = 64;
-        //         //         let range = (center - edge)..(center + edge);
-
-        //         //         let base: glm::U16Vec3 = glm::U16Vec3::new(
-        //         //             rand::thread_rng().gen_range(range.clone()),
-        //         //             rand::thread_rng().gen_range(range.clone()),
-        //         //             rand::thread_rng().gen_range(range.clone())
-        //         //         );
-
-        //         //         manager.write_voxel(
-        //         //
-        //         // rand::thread_rng().gen_range(1..=12).try_into().unwrap(),
-        //         //             base
-        //         //         );
-        //         //     }
-
-        //         //     log::trace!(" hmmm");
-
-        //         //     manager.flush_to_gpu();
-        //         // }
-        //     })
-        // };
+        std::hint::black_box(self.raster.clone());
     }
 }

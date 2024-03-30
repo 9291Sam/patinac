@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 use std::sync::{Arc, Mutex};
 
-use bytemuck::{cast_slice, Pod, Zeroable};
+use bytemuck::{Pod, Zeroable};
 use gfx::wgpu::util::{BufferInitDescriptor, DeviceExt};
 use gfx::wgpu::{self};
 use gfx::{
@@ -14,8 +14,7 @@ use gfx::{
 #[derive(Debug)]
 pub struct RasterChunk
 {
-    renderer: Arc<gfx::Renderer>,
-    uuid:     util::Uuid,
+    uuid: util::Uuid,
 
     vertex_buffer:      wgpu::Buffer,
     number_of_vertices: u32,
@@ -95,8 +94,7 @@ impl RasterChunk
             vertex_buffer,
             number_of_vertices: number_of_vertices as u32,
             pipeline,
-            transform: Mutex::new(transform),
-            renderer: game.get_renderer().clone()
+            transform: Mutex::new(transform)
         });
 
         renderer.register(this.clone());
@@ -383,41 +381,42 @@ impl VoxelFaceDirection
     }
 }
 
-const VOXEL_STRIP_VERTICES: [glm::IVec3; 8] = [
-    glm::IVec3::new(1, 1, 0),
-    glm::IVec3::new(0, 1, 0),
-    glm::IVec3::new(1, 0, 0),
-    glm::IVec3::new(0, 0, 0),
-    glm::IVec3::new(1, 1, 1),
-    glm::IVec3::new(0, 1, 1),
-    glm::IVec3::new(0, 0, 1),
-    glm::IVec3::new(1, 0, 1)
-];
-const VOXEL_STRIP_INDICES: [u16; 14] = [3, 2, 6, 7, 4, 2, 0, 3, 1, 6, 5, 4, 1, 0];
+// const VOXEL_STRIP_VERTICES: [glm::IVec3; 8] = [
+//     glm::IVec3::new(1, 1, 0),
+//     glm::IVec3::new(0, 1, 0),
+//     glm::IVec3::new(1, 0, 0),
+//     glm::IVec3::new(0, 0, 0),
+//     glm::IVec3::new(1, 1, 1),
+//     glm::IVec3::new(0, 1, 1),
+//     glm::IVec3::new(0, 0, 1),
+//     glm::IVec3::new(1, 0, 1)
+// ];
+// const VOXEL_STRIP_INDICES: [u16; 14] = [3, 2, 6, 7, 4, 2, 0, 3, 1, 6, 5, 4,
+// 1, 0];
 
-const VOXEL_LIST_VERTICES: [glm::IVec3; 8] = [
-    glm::IVec3::new(0, 0, 0),
-    glm::IVec3::new(0, 0, 1),
-    glm::IVec3::new(0, 1, 0),
-    glm::IVec3::new(0, 1, 1),
-    glm::IVec3::new(1, 0, 0),
-    glm::IVec3::new(1, 0, 1),
-    glm::IVec3::new(1, 1, 0),
-    glm::IVec3::new(1, 1, 1)
-];
+// const VOXEL_LIST_VERTICES: [glm::IVec3; 8] = [
+//     glm::IVec3::new(0, 0, 0),
+//     glm::IVec3::new(0, 0, 1),
+//     glm::IVec3::new(0, 1, 0),
+//     glm::IVec3::new(0, 1, 1),
+//     glm::IVec3::new(1, 0, 0),
+//     glm::IVec3::new(1, 0, 1),
+//     glm::IVec3::new(1, 1, 0),
+//     glm::IVec3::new(1, 1, 1)
+// ];
 
-#[rustfmt::skip]
-const VOXEL_LIST_INDICES: [u16; 36] = [
-    6, 2, 7,
-    2, 3, 7,
-    0, 4, 5,
-    1, 0, 5,
-    0, 2, 6,
-    4, 0, 6,
-    3, 1, 7,
-    1, 5, 7,
-    2, 0, 3,
-    0, 1, 3,
-    4, 6, 7,
-    5, 4, 7
-];
+// #[rustfmt::skip]
+// const VOXEL_LIST_INDICES: [u16; 36] = [
+//     6, 2, 7,
+//     2, 3, 7,
+//     0, 4, 5,
+//     1, 0, 5,
+//     0, 2, 6,
+//     4, 0, 6,
+//     3, 1, 7,
+//     1, 5, 7,
+//     2, 0, 3,
+//     0, 1, 3,
+//     4, 6, 7,
+//     5, 4, 7
+// ];

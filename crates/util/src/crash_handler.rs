@@ -191,7 +191,7 @@ pub fn handle_crashes(
 
     if local_crash_infos.is_empty()
     {
-        log::info!("No threads crashed")
+        log::info!("Patinac exited successfully")
     }
     else
     {
