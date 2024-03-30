@@ -252,6 +252,8 @@ impl ThreadPool
 
         log::info!("Stopping worker threads");
 
-        self.threads.drain(..).for_each(|t| t.join().unwrap());
+        self.threads.drain(..).for_each(|t| {
+            let _ = t.join();
+        });
     }
 }

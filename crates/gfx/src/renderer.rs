@@ -47,7 +47,10 @@ impl Drop for Renderer
     {
         if std::thread::current().id() != self.thread_id
         {
-            log::error!("Dropping Renderer from a thread it was not created on!")
+            log::error!(
+                "Dropping Renderer from a thread ({}) it was not created on!",
+                std::thread::current().name().unwrap_or("???")
+            )
         }
 
         //? 2?

@@ -33,7 +33,7 @@ impl DemoScene
                     let chunk_offset_z = 511.0 * chunk_z as f64 - 256.0;
 
                     let noise_sampler = |x: i16, z: i16| -> i16 {
-                        let h = 512.0f64;
+                        let h = 256.0f64;
 
                         (noise_generator.get([
                             (x as f64 + chunk_offset_x) / 256.0,

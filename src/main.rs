@@ -1,5 +1,5 @@
 use std::num::NonZeroUsize;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 fn main()
 {
@@ -29,12 +29,17 @@ fn main()
             .get()
     ));
 
+    let held_renderer: Mutex<Option<Arc<gfx::Renderer>>> = Mutex::new(None);
+    let held_game: Mutex<Option<Arc<game::Game>>> = Mutex::new(None);
+
     util::handle_crashes(|new_thread_func, should_loops_continue, terminate_loops| {
         let renderer = Arc::new(unsafe {
             gfx::Renderer::new(format!("Patinac {}", env!("CARGO_PKG_VERSION")))
         });
+        *held_renderer.lock().unwrap() = Some(renderer.clone());
 
         let game = game::Game::new(renderer.clone());
+        *held_game.lock().unwrap() = Some(game.clone());
 
         {
             let _verdigris = verdigris::DemoScene::new(game.clone());
@@ -57,7 +62,7 @@ fn main()
                 &*should_loops_continue,
                 &*terminate_loops,
                 &input_update_func
-            )
+            );
         }
 
         util::access_global_thread_pool()
@@ -66,17 +71,41 @@ fn main()
             .take()
             .unwrap()
             .join_threads();
-
-        if Arc::into_inner(game).is_none()
-        {
-            log::warn!("Game was retained!")
-        }
-
-        if Arc::into_inner(renderer).is_none()
-        {
-            log::warn!("Renderer was retained!")
-        }
     });
+
+    if let Ok(Some(arc_game)) = held_game.into_inner()
+    {
+        if let Some(game) = Arc::into_inner(arc_game)
+        {
+            std::mem::drop(game);
+        }
+        else
+        {
+            log::error!("Game was retained!");
+        }
+    }
+    else
+    {
+        log::error!("Game was never created!");
+    };
+
+    if let Ok(Some(arc_renderer)) = held_renderer.into_inner()
+    {
+        if let Some(renderer) = Arc::into_inner(arc_renderer)
+        {
+            std::mem::drop(renderer);
+        }
+        else
+        {
+            log::error!("Renderer was retained!");
+        }
+    }
+    else
+    {
+        log::error!("Renderer was never created!");
+    };
+
+    log::info!("Patinac exited");
 
     logger.stop_worker();
 }
