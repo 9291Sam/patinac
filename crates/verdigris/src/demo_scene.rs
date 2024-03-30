@@ -25,13 +25,13 @@ impl DemoScene
             (234782378948923489238948972347234789342u128 % u32::MAX as u128) as u32
         );
 
-        let noise_sampler = |x, z| {
+        let noise_sampler = |x: i16, z: i16| -> i16 {
             let h = 84.0f64;
 
-            noise_generator.get([(x as f64) / 256.0, 0.0, (z as f64) / 256.0]) * h + h
+            (noise_generator.get([(x as f64) / 256.0, 0.0, (z as f64) / 256.0]) * h + h) as i16
         };
 
-        let occupied = |x: i16, y: i16, z: i16| noise_sampler(x, z) as i16 > y;
+        let occupied = |x: i16, y: i16, z: i16| (y <= noise_sampler(x, z));
 
         let this = Arc::new(DemoScene {
             id:     util::Uuid::new(),
@@ -43,12 +43,16 @@ impl DemoScene
                 },
                 iproduct!(0..1023i16, 0..1023i16).flat_map(|(x, z)| {
                     let voxel = rand::thread_rng().gen_range(0..=3);
-                    let h = noise_sampler(x.into(), z.into()).max(0.0) as u16;
+                    let h = noise_sampler(x, z).max(0) as u16;
 
                     VoxelFaceDirection::iterate().filter_map(move |d| {
                         let axis = d.get_axis();
 
-                        if occupied(x + axis.x, h as i16 + axis.y, z + axis.z)
+                        let sample_x = x + axis.x;
+                        let sample_y = h as i16 + axis.y;
+                        let sample_z = z + axis.z;
+
+                        let r = if occupied(sample_x, sample_y, sample_z)
                         {
                             None
                         }
@@ -63,7 +67,26 @@ impl DemoScene
                                     z.max(0) as u16
                                 )
                             })
+                        };
+
+                        if x == z && z == 0
+                        {
+                            log::trace!(
+                                "Height {} | Axis {}, {}, {} | Result {:?} | Sample {}, {}, {} | \
+                                 Result: {}",
+                                h,
+                                axis.x,
+                                axis.y,
+                                axis.z,
+                                r,
+                                sample_x,
+                                sample_y,
+                                sample_z,
+                                occupied(sample_x, sample_y, sample_z)
+                            );
                         }
+
+                        r
                     })
                 })
             )
