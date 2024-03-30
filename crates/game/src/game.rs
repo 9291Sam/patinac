@@ -49,10 +49,9 @@ impl Game
                 float_time_alive: AtomicU64::new(0.0f64.to_bits()),
                 this_weak: this_weak.clone(),
                 camera: Mutex::new(gfx::Camera::new(
-                    glm::Vec3::new(0.0, 0.0, -5.0),
-                    0.0,
-                    0.0 /* 0.318903,
-                         * -3.978343 */
+                    glm::Vec3::new(-1500.0, 350.0, -1500.0),
+                    0.318903,
+                    -5.478343
                 )),
                 world: Mutex::new(None)
             }
@@ -155,6 +154,11 @@ impl Game
         if input_manager.is_key_pressed(gfx::KeyCode::KeyO)
         {
             input_manager.detach_cursor();
+        };
+
+        if input_manager.is_key_pressed(gfx::KeyCode::KeyK)
+        {
+            log::info!("Camera: {}", camera)
         };
 
         let mouse_diff_px: glm::Vec2 = {

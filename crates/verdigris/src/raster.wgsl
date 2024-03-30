@@ -49,7 +49,7 @@ struct FragmentOutput
 @fragment
 fn fs_main(in: VertexOutput) -> FragmentOutput
 {
-    return FragmentOutput(get_voxel_color(in.voxel));
+    return FragmentOutput(get_voxel_color(in.voxel + 6));
 }
 
 const ERROR_COLOR: vec4<f32> = vec4<f32>(1.0, 0.0, 1.0, 1.0);
