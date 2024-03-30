@@ -212,12 +212,12 @@ impl RasterChunkVoxelPoint
         let face = face_id as u32;
         let voxel = voxel as u32;
 
-        assert!(x_pos <= nine_bit_mask);
-        assert!(y_pos <= nine_bit_mask);
-        assert!(z_pos <= nine_bit_mask);
-        assert!(l_width <= nine_bit_mask);
-        assert!(w_width <= nine_bit_mask);
-        assert!(face <= three_bit_mask);
+        assert!(x_pos <= nine_bit_mask, "{x_pos}");
+        assert!(y_pos <= nine_bit_mask, "{y_pos}");
+        assert!(z_pos <= nine_bit_mask, "{z_pos}");
+        assert!(l_width <= nine_bit_mask, "{l_width}");
+        assert!(w_width <= nine_bit_mask, "{w_width}");
+        assert!(face <= three_bit_mask, "{face}");
         // don't need to assert voxel as its already a u16
 
         let x_data = nine_bit_mask & x_pos;

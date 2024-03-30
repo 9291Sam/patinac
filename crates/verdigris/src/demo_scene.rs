@@ -1,31 +1,30 @@
 use std::borrow::Cow;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use gfx::glm::{self};
 use itertools::iproduct;
 use noise::NoiseFn;
 use rand::Rng;
-use rayon::iter::{ParallelBridge, ParallelIterator};
 
 use crate::{RasterChunk, VoxelFace, VoxelFaceDirection};
 
 #[derive(Debug)]
 pub struct DemoScene
 {
-    raster: Vec<Arc<RasterChunk>>,
+    raster: Mutex<Vec<util::Promise<Arc<RasterChunk>>>>,
     id:     util::Uuid
 }
 
 impl DemoScene
 {
-    pub fn new(game: Arc<game::Game>) -> util::Future<Arc<Self>>
+    pub fn new(game: Arc<game::Game>) -> Arc<Self>
     {
-        util::run_async(move || {
-            let r = 1i16;
+        let r = 1i16;
 
-            let chunks: Vec<Arc<RasterChunk>> = iproduct!(-r..=r, -r..=r)
-                .par_bridge()
-                .map(|(chunk_x, chunk_z)| {
+        let chunks: Vec<util::Promise<Arc<RasterChunk>>> = iproduct!(-r..=r, -r..=r)
+            .map(|(chunk_x, chunk_z)| {
+                let game = game.clone();
+                util::run_async(move || {
                     let noise_generator = noise::SuperSimplex::new(
                         (234782378948923489238948972347234789342u128 % u32::MAX as u128) as u32
                     );
@@ -34,7 +33,7 @@ impl DemoScene
                     let chunk_offset_z = 511.0 * chunk_z as f64 - 256.0;
 
                     let noise_sampler = |x: i16, z: i16| -> i16 {
-                        let h = 84.0f64;
+                        let h = 512.0f64;
 
                         (noise_generator.get([
                             (x as f64 + chunk_offset_x) / 256.0,
@@ -54,6 +53,7 @@ impl DemoScene
                                 0.0,
                                 chunk_offset_z as f32
                             ),
+                            scale: glm::Vec3::new(1.0, 1.0, 1.0),
                             ..Default::default()
                         },
                         iproduct!(0..511i16, 0..511i16).flat_map(|(x, z)| {
@@ -84,17 +84,18 @@ impl DemoScene
                         })
                     )
                 })
-                .collect();
+                .into()
+            })
+            .collect();
 
-            let this = Arc::new(DemoScene {
-                id:     util::Uuid::new(),
-                raster: chunks
-            });
+        let this = Arc::new(DemoScene {
+            id:     util::Uuid::new(),
+            raster: Mutex::new(chunks)
+        });
 
-            game.register(this.clone());
+        game.register(this.clone());
 
-            this
-        })
+        this
     }
 }
 
@@ -130,6 +131,10 @@ impl game::Entity for DemoScene
 
     fn tick(&self, _: &game::Game, _: game::TickTag)
     {
-        std::hint::black_box(self.raster.clone());
+        self.raster
+            .lock()
+            .unwrap()
+            .iter_mut()
+            .for_each(|c| c.poll_ref());
     }
 }
