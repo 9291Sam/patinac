@@ -73,7 +73,7 @@ impl RasterChunk
                     topology:           wgpu::PrimitiveTopology::TriangleList,
                     strip_index_format: None,
                     front_face:         wgpu::FrontFace::Cw,
-                    cull_mode:          None,
+                    cull_mode:          Some(wgpu::Face::Back),
                     polygon_mode:       wgpu::PolygonMode::Fill,
                     unclipped_depth:    false,
                     conservative:       false
@@ -284,7 +284,7 @@ impl VoxelFaceDirection
                 (
                     glm::U16Vec3::new(0, 0, 1),
                     glm::U16Vec3::new(0, 0, 0),
-                    glm::U16Vec3::new(0, 1, 1),
+                    glm::U16Vec3::new(1, 0, 1),
                     glm::U16Vec3::new(1, 0, 0)
                 )
             }
@@ -318,10 +318,10 @@ impl VoxelFaceDirection
             VoxelFaceDirection::Back =>
             {
                 (
-                    glm::U16Vec3::new(0, 0, 1),
-                    glm::U16Vec3::new(0, 1, 1),
                     glm::U16Vec3::new(1, 0, 1),
-                    glm::U16Vec3::new(1, 1, 1)
+                    glm::U16Vec3::new(1, 1, 1),
+                    glm::U16Vec3::new(0, 0, 1),
+                    glm::U16Vec3::new(0, 1, 1)
                 )
             }
         };
