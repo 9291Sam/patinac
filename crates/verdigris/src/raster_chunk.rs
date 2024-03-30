@@ -179,44 +179,83 @@ impl gfx::Recordable for RasterChunk
 #[derive(Debug, Clone, Copy, Zeroable, Pod)]
 pub struct RasterChunkVoxelPoint
 {
-    data: u32
+    ///   x [0]    y [1]
+    /// [0,   8] [      ] | 9 + 0 bits  | x_pos
+    /// [9,  17] [      ] | 9 + 0 bits  | y_pos
+    /// [18, 26] [      ] | 9 + 0 bits  | z_pos
+    /// [27, 31] [0,   3] | 5 + 4 bits  | l_width
+    /// [      ] [4,  12] | 0 + 9 bits  | w_width
+    /// [      ] [13, 15] | 0 + 3 bits  | face id
+    /// [      ] [16, 31] | 0 + 16 bits | voxel id
+    data: glm::U32Vec2
 }
 
 impl RasterChunkVoxelPoint
 {
-    const ATTRS: [wgpu::VertexAttribute; 1] = wgpu::vertex_attr_array![0 => Uint32];
+    const ATTRS: [wgpu::VertexAttribute; 1] = wgpu::vertex_attr_array![0 => Uint32x2];
 
-    pub fn new(x: u32, y: u32, z: u32, voxel: u32) -> Self
+    #[inline(always)]
+    pub fn new(
+        x_pos: u32,
+        y_pos: u32,
+        z_pos: u32,
+        l_width: u32,
+        w_width: u32,
+        face_id: VoxelFaceDirection,
+        voxel: u16
+    ) -> Self
     {
-        let two_bit_mask: u32 = 0b11;
-        let ten_bit_mask: u32 = 0b11_1111_1111;
+        let sixteen_bit_mask: u32 = 0b1111_1111_1111_1111;
+        let nine_bit_mask: u32 = 0b1_1111_1111;
+        let three_bit_mask: u32 = 0b111;
 
-        assert!(x <= ten_bit_mask, "{x}");
-        assert!(y <= ten_bit_mask, "{y}");
-        assert!(z <= ten_bit_mask, "{z}");
-        assert!(voxel <= two_bit_mask, "{voxel}");
+        let face = face_id as u32;
+        let voxel = voxel as u32;
 
-        let x_data = ten_bit_mask & x;
-        let y_data = (ten_bit_mask & y) << 10;
-        let z_data = (ten_bit_mask & z) << 20;
-        let v_data = (two_bit_mask & voxel) << 30;
+        assert!(x_pos <= nine_bit_mask);
+        assert!(y_pos <= nine_bit_mask);
+        assert!(z_pos <= nine_bit_mask);
+        assert!(l_width <= nine_bit_mask);
+        assert!(w_width <= nine_bit_mask);
+        assert!(face <= three_bit_mask);
+        // don't need to assert voxel as its already a u16
+
+        let x_data = nine_bit_mask & x_pos;
+        let y_data = (nine_bit_mask & y_pos) << 9;
+        let z_data = (nine_bit_mask & z_pos) << 18;
+        let l_data_lo = (nine_bit_mask & l_width) << 27;
+
+        let l_data_hi = (nine_bit_mask & l_width) >> 5;
+        let w_data = (nine_bit_mask & w_width) << 4;
+        let f_data = (three_bit_mask & face) << 13;
+        let v_data = (sixteen_bit_mask & voxel) << 16;
 
         Self {
-            data: x_data | y_data | z_data | v_data
+            data: glm::U32Vec2::new(
+                x_data | y_data | z_data | l_data_lo,
+                l_data_hi | w_data | f_data | v_data
+            )
         }
     }
 
-    pub fn destructure(self) -> (u32, u32, u32, u32)
+    pub fn destructure(self) -> (u32, u32, u32, u32, u32, VoxelFaceDirection, u16)
     {
-        let two_bit_mask: u32 = 0b11;
-        let ten_bit_mask: u32 = 0b11_1111_1111;
+        let nine_bit_mask: u32 = 0b1_1111_1111;
+        let three_bit_mask: u32 = 0b111;
 
-        let x = ten_bit_mask & self.data;
-        let y = ten_bit_mask & (self.data >> 10);
-        let z = ten_bit_mask & (self.data >> 20);
-        let v = two_bit_mask & (self.data >> 30);
+        let x_pos = self.data[0] & nine_bit_mask;
+        let y_pos = (self.data[0] >> 9) & nine_bit_mask;
+        let z_pos = (self.data[0] >> 18) & nine_bit_mask;
 
-        (x, y, z, v)
+        let l_width_lo = (self.data[0] >> 27) & 0b11111;
+        let l_width_hi = (self.data[1] & 0b1111) << 5;
+
+        let l_width = l_width_lo | l_width_hi;
+        let w_width = (self.data[1] >> 4) & nine_bit_mask;
+        let face_id = VoxelFaceDirection::try_from((self.data[1] >> 13) & three_bit_mask).unwrap();
+        let voxel_id = (self.data[1] >> 16) as u16;
+
+        (x_pos, y_pos, z_pos, l_width, w_width, face_id, voxel_id)
     }
 
     pub fn describe() -> wgpu::VertexBufferLayout<'static>
@@ -233,19 +272,39 @@ impl RasterChunkVoxelPoint
 pub struct VoxelFace
 {
     pub direction: VoxelFaceDirection,
-    pub voxel:     u32,
-    pub position:  glm::U16Vec3
+    pub voxel:     u16,
+    pub position:  glm::U16Vec3,
+    pub lw_size:   glm::U16Vec2
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum VoxelFaceDirection
 {
-    Top,
-    Bottom,
-    Left,
-    Right,
-    Front,
-    Back
+    Top    = 0,
+    Bottom = 1,
+    Left   = 2,
+    Right  = 3,
+    Front  = 4,
+    Back   = 5
+}
+
+impl TryFrom<u32> for VoxelFaceDirection
+{
+    type Error = ();
+
+    fn try_from(value: u32) -> Result<Self, Self::Error>
+    {
+        match value
+        {
+            0 => Ok(VoxelFaceDirection::Top),
+            1 => Ok(VoxelFaceDirection::Bottom),
+            2 => Ok(VoxelFaceDirection::Left),
+            3 => Ok(VoxelFaceDirection::Right),
+            4 => Ok(VoxelFaceDirection::Front),
+            5 => Ok(VoxelFaceDirection::Back),
+            _ => Err(())
+        }
+    }
 }
 
 impl VoxelFaceDirection
@@ -277,7 +336,7 @@ impl VoxelFaceDirection
     }
 
     #[allow(clippy::just_underscores_and_digits)]
-    pub fn to_face_points(self, pos: glm::U16Vec3, voxel: u32) -> [RasterChunkVoxelPoint; 6]
+    pub fn to_face_points(self, pos: glm::U16Vec3, voxel: u16) -> [RasterChunkVoxelPoint; 6]
     {
         let (_0, _1, _2, _3) = match self
         {
@@ -348,24 +407,36 @@ impl VoxelFaceDirection
                 (x + _0.x).into(),
                 (y + _0.y).into(),
                 (z + _0.z).into(),
+                1,
+                1,
+                self,
                 voxel
             ),
             RasterChunkVoxelPoint::new(
                 (x + _1.x).into(),
                 (y + _1.y).into(),
                 (z + _1.z).into(),
+                1,
+                1,
+                self,
                 voxel
             ),
             RasterChunkVoxelPoint::new(
                 (x + _2.x).into(),
                 (y + _2.y).into(),
                 (z + _2.z).into(),
+                1,
+                1,
+                self,
                 voxel
             ),
             RasterChunkVoxelPoint::new(
                 (x + _3.x).into(),
                 (y + _3.y).into(),
                 (z + _3.z).into(),
+                1,
+                1,
+                self,
                 voxel
             )
         ];

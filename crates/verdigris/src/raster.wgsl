@@ -1,5 +1,5 @@
 struct VertexInput {
-    @location(0) voxel_data: u32,
+    @location(0) voxel_data: vec2<u32>,
 }
 
 struct VertexOutput {
@@ -26,16 +26,29 @@ fn vs_main(input: VertexInput) -> VertexOutput
 {
     var out: VertexOutput;
 
-    let ten_bit_mask: u32 = u32(1023);
+    let voxel_data: vec2<u32> = input.voxel_data;
+
+    let nine_bit_mask: u32 = u32(511);
+    let three_bit_mask: u32 = u32(7);
     let two_bit_mask: u32 = u32(3);
+    let five_bit_mask: u32 = u32(31);
+    let four_bit_mask: u32 = u32(15);
 
-    let x: u32 = ten_bit_mask &  input.voxel_data;
-    let y: u32 = ten_bit_mask & (input.voxel_data >> u32(10));
-    let z: u32 = ten_bit_mask & (input.voxel_data >> u32(20));
-    let v: u32 = two_bit_mask & (input.voxel_data >> u32(30));
+    let x_pos: u32 = voxel_data[0] & nine_bit_mask;
+    let y_pos: u32 = (voxel_data[0] >> 9) & nine_bit_mask;
+    let z_pos: u32 = (voxel_data[0] >> 18) & nine_bit_mask;
 
-    out.clip_position = global_model_view_projection[id] * vec4<f32>(f32(x), f32(y), f32(z), 1.0);
-    out.voxel = u32(v);
+    let l_width_lo: u32 = (voxel_data[0] >> 27) & five_bit_mask;
+    let l_width_hi: u32 = (voxel_data[1] & four_bit_mask) << 5;
+
+    let l_width: u32 = l_width_lo | l_width_hi;
+    let w_width: u32 = (voxel_data[1] >> 4) & nine_bit_mask;
+    let face_id: u32 = (voxel_data[1] >> 13) & three_bit_mask;
+    let voxel_id: u32 = (voxel_data[1] >> 16);
+
+    out.clip_position = global_model_view_projection[id] * 
+        vec4<f32>(f32(x_pos), f32(y_pos), f32(z_pos), 1.0);
+    out.voxel = u32(voxel_id);
   
     return out;
 }

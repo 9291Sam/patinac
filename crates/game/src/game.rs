@@ -49,7 +49,7 @@ impl Game
                 float_time_alive: AtomicU64::new(0.0f64.to_bits()),
                 this_weak: this_weak.clone(),
                 camera: Mutex::new(gfx::Camera::new(
-                    glm::Vec3::new(-1500.0, 350.0, -1500.0),
+                    glm::Vec3::new(-768.0, 350.0, -768.0),
                     0.318903,
                     -5.478343
                 )),

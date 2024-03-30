@@ -30,8 +30,8 @@ impl DemoScene
                         (234782378948923489238948972347234789342u128 % u32::MAX as u128) as u32
                     );
 
-                    let chunk_offset_x = 1023.0 * chunk_x as f64 - 512.0;
-                    let chunk_offset_z = 1023.0 * chunk_z as f64 - 512.0;
+                    let chunk_offset_x = 511.0 * chunk_x as f64 - 256.0;
+                    let chunk_offset_z = 511.0 * chunk_z as f64 - 256.0;
 
                     let noise_sampler = |x: i16, z: i16| -> i16 {
                         let h = 84.0f64;
@@ -56,7 +56,7 @@ impl DemoScene
                             ),
                             ..Default::default()
                         },
-                        iproduct!(0..1023i16, 0..1023i16).flat_map(|(x, z)| {
+                        iproduct!(0..511i16, 0..511i16).flat_map(|(x, z)| {
                             let voxel = rand::thread_rng().gen_range(0..=3);
                             let h = noise_sampler(x, z).max(0) as u16;
 
@@ -72,6 +72,7 @@ impl DemoScene
                                     Some(VoxelFace {
                                         direction: d,
                                         voxel,
+                                        lw_size: glm::U16Vec2::new(1, 1),
                                         position: glm::U16Vec3::new(
                                             x.max(0) as u16,
                                             h.max(0),
