@@ -89,6 +89,11 @@ impl RasterChunk
 
         let (vertex_buffer, number_of_vertices) = Self::create_voxel_buffer(renderer, faces);
 
+        log::trace!(
+            "Created RasterChunk with {} triangles",
+            number_of_vertices / 3
+        );
+
         let this = Arc::new(RasterChunk {
             uuid,
             vertex_buffer,

@@ -21,67 +21,23 @@ impl DemoScene
     {
         let r = 1i16;
 
+        let noise_generator = noise::SuperSimplex::new(
+            (234782378948923489238948972347234789342u128 % u32::MAX as u128) as u32
+        );
+
         let chunks: Vec<util::Promise<Arc<RasterChunk>>> = iproduct!(-r..=r, -r..=r)
             .map(|(chunk_x, chunk_z)| {
                 let game = game.clone();
                 util::run_async(move || {
-                    let noise_generator = noise::SuperSimplex::new(
-                        (234782378948923489238948972347234789342u128 % u32::MAX as u128) as u32
-                    );
-
-                    let chunk_offset_x = 511.0 * chunk_x as f64 - 256.0;
-                    let chunk_offset_z = 511.0 * chunk_z as f64 - 256.0;
-
-                    let noise_sampler = |x: i16, z: i16| -> i16 {
-                        let h = 256.0f64;
-
-                        (noise_generator.get([
-                            (x as f64 + chunk_offset_x) / 256.0,
-                            0.0,
-                            (z as f64 + chunk_offset_z) / 256.0
-                        ]) * h
-                            + h) as i16
-                    };
-
-                    let occupied = |x: i16, y: i16, z: i16| (y <= noise_sampler(x, z));
-
-                    RasterChunk::new(
+                    create_chunk(
                         &game,
-                        gfx::Transform {
-                            translation: glm::Vec3::new(
-                                chunk_offset_x as f32,
-                                0.0,
-                                chunk_offset_z as f32
-                            ),
-                            scale: glm::Vec3::new(1.0, 1.0, 1.0),
-                            ..Default::default()
-                        },
-                        iproduct!(0..511i16, 0..511i16).flat_map(|(x, z)| {
-                            let voxel = rand::thread_rng().gen_range(0..=3);
-                            let h = noise_sampler(x, z).max(0) as u16;
-
-                            VoxelFaceDirection::iterate().filter_map(move |d| {
-                                let axis = d.get_axis();
-
-                                if occupied(x + axis.x, h as i16 + axis.y, z + axis.z)
-                                {
-                                    None
-                                }
-                                else
-                                {
-                                    Some(VoxelFace {
-                                        direction: d,
-                                        voxel,
-                                        lw_size: glm::U16Vec2::new(1, 1),
-                                        position: glm::U16Vec3::new(
-                                            x.max(0) as u16,
-                                            h.max(0),
-                                            z.max(0) as u16
-                                        )
-                                    })
-                                }
-                            })
-                        })
+                        &noise_generator,
+                        glm::DVec3::new(
+                            511.0 * chunk_x as f64 - 256.0,
+                            0.0,
+                            511.0 * chunk_z as f64 - 256.0
+                        ),
+                        1
                     )
                 })
                 .into()
@@ -137,4 +93,65 @@ impl game::Entity for DemoScene
             .iter_mut()
             .for_each(|c| c.poll_ref());
     }
+}
+
+fn create_chunk(
+    game: &game::Game,
+    noise: &impl NoiseFn<f64, 2>,
+    offset: glm::DVec3,
+    scale: i32
+) -> Arc<RasterChunk>
+{
+    let noise_sampler = |x: i32, z: i32| -> i32 {
+        let h = 256.0f64;
+
+        (noise.get([(x as f64 + offset.x) / 256.0, (z as f64 + offset.z) / 256.0]) * h + h) as i32
+    };
+
+    let occupied = |x: i32, y: i32, z: i32| (y <= noise_sampler(x, z));
+
+    assert!(offset.y == 0.0);
+
+    RasterChunk::new(
+        game,
+        gfx::Transform {
+            translation: glm::Vec3::new(offset.x as f32, 0.0, offset.z as f32),
+            scale: glm::Vec3::new(scale as f32, scale as f32, scale as f32),
+            ..Default::default()
+        },
+        iproduct!(0..511i32, 0..511i32).flat_map(|(local_x, local_z)| {
+            let voxel = rand::thread_rng().gen_range(0..=3);
+
+            let world_x = scale * local_x + offset.x as i32;
+            let world_z = scale * local_z + offset.z as i32;
+
+            let h = noise_sampler(world_x, world_z);
+
+            VoxelFaceDirection::iterate().filter_map(move |d| {
+                let axis = d.get_axis();
+
+                if occupied(
+                    world_x + axis.x as i32,
+                    h + axis.y as i32,
+                    world_z + axis.z as i32
+                )
+                {
+                    None
+                }
+                else
+                {
+                    Some(VoxelFace {
+                        direction: d,
+                        voxel,
+                        lw_size: glm::U16Vec2::new(1, 1),
+                        position: glm::U16Vec3::new(
+                            local_x as u16,
+                            h.max(0) as u16,
+                            local_z as u16
+                        )
+                    })
+                }
+            })
+        })
+    )
 }
