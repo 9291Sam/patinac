@@ -13,3 +13,4 @@ gfx = { workspace = true }
 log = { workspace = true }
 itertools = { workspace = true }
 compile_warning = { workspace = true }
+voxel = { workspace = true }

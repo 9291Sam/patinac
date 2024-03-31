@@ -5,8 +5,7 @@ use gfx::glm::{self};
 use itertools::iproduct;
 use noise::NoiseFn;
 use rand::Rng;
-
-use crate::{RasterChunk, VoxelFace, VoxelFaceDirection};
+use voxel::{RasterChunk, VoxelFace, VoxelFaceDirection};
 
 #[derive(Debug)]
 pub struct DemoScene
@@ -42,26 +41,26 @@ impl DemoScene
                 })
                 .into()
             })
-            .chain(
-                iproduct!(-r..=r, -r..=r)
-                    .filter(|(x, z)| !(*x == 0 && *z == 0))
-                    .map(|(x, z)| {
-                        let game = game.clone();
-                        util::run_async(move || {
-                            create_chunk(
-                                &game,
-                                &noise_generator,
-                                glm::DVec3::new(
-                                    511.0 * 3.0 * x as f64 - 256.0 * 3.0,
-                                    0.0,
-                                    511.0 * 3.0 * z as f64 - 256.0 * 3.0
-                                ),
-                                3
-                            )
-                        })
-                        .into()
-                    })
-            )
+            // .chain(
+            //     iproduct!(-r..=r, -r..=r)
+            //         .filter(|(x, z)| !(*x == 0 && *z == 0))
+            //         .map(|(x, z)| {
+            //             let game = game.clone();
+            //             util::run_async(move || {
+            //                 create_chunk(
+            //                     &game,
+            //                     &noise_generator,
+            //                     glm::DVec3::new(
+            //                         511.0 * 3.0 * x as f64 - 256.0 * 3.0,
+            //                         0.0,
+            //                         511.0 * 3.0 * z as f64 - 256.0 * 3.0
+            //                     ),
+            //                     3
+            //                 )
+            //             })
+            //             .into()
+            //         })
+            // )
             .collect();
 
         let this = Arc::new(DemoScene {

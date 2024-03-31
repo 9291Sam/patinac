@@ -10,6 +10,7 @@ members = [
     "crates/game",
     "crates/verdigris",
     "crates/gui",
+    "crates/voxel",
 ]
 
 [dependencies]
@@ -25,6 +26,7 @@ compile_warning.workspace = true
 
 
 [workspace.dependencies]
+voxel = { path = "crates/voxel" }
 util = { path = "crates/util" }
 gfx = { path = "crates/gfx" }
 game = { path = "crates/game" }
