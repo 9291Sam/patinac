@@ -153,10 +153,6 @@ fn create_chunk(
                     VoxelFaceDirection::iterate().filter_map(move |d| {
                         if !occupied(world_x, sample_world_h, world_z)
                         {
-                            if scale == 3
-                            {
-                                log::trace!("skipped {sample_world_h} | h {world_h}");
-                            }
                             return None;
                         }
 
