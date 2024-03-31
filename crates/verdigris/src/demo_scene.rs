@@ -105,7 +105,7 @@ fn create_chunk(
     let noise_sampler = |x: i32, z: i32| -> i32 {
         let h = 256.0f64;
 
-        (noise.get([(x as f64 + offset.x) / 256.0, (z as f64 + offset.z) / 256.0]) * h + h) as i32
+        (noise.get([(x as f64) / 256.0, (z as f64) / 256.0]) * h + h) as i32
     };
 
     let occupied = |x: i32, y: i32, z: i32| (y <= noise_sampler(x, z));
