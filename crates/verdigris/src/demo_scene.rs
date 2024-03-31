@@ -25,6 +25,8 @@ impl DemoScene
             (234782378948923489238948972347234789342u128 % u32::MAX as u128) as u32
         );
 
+        let g2 = game.clone();
+
         let chunks: Vec<util::Promise<Arc<RasterChunk>>> = iproduct!(-r..=r, -r..=r)
             .map(|(chunk_x, chunk_z)| {
                 let game = game.clone();
@@ -42,6 +44,17 @@ impl DemoScene
                 })
                 .into()
             })
+            .chain(std::iter::once(
+                util::run_async(move || {
+                    create_chunk(
+                        &g2,
+                        &noise_generator,
+                        glm::DVec3::new(511.0 * 3 as f64 - 256.0, 0.0, 511.0 * -1 as f64 - 256.0),
+                        3
+                    )
+                })
+                .into()
+            ))
             .collect();
 
         let this = Arc::new(DemoScene {
