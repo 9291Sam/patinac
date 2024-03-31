@@ -25,8 +25,6 @@ impl DemoScene
             (234782378948923489238948972347234789342u128 % u32::MAX as u128) as u32
         );
 
-        let g2 = game.clone();
-
         let chunks: Vec<util::Promise<Arc<RasterChunk>>> = iproduct!(-r..=r, -r..=r)
             .map(|(chunk_x, chunk_z)| {
                 let game = game.clone();
@@ -44,17 +42,26 @@ impl DemoScene
                 })
                 .into()
             })
-            .chain(std::iter::once(
-                util::run_async(move || {
-                    create_chunk(
-                        &g2,
-                        &noise_generator,
-                        glm::DVec3::new(511.0 * 3 as f64 - 256.0, 0.0, 511.0 * -1 as f64 - 256.0),
-                        3
-                    )
-                })
-                .into()
-            ))
+            .chain(
+                iproduct!(-r..=r, -r..=r)
+                    .filter(|(x, z)| !(*x == 0 && *z == 0))
+                    .map(|(x, z)| {
+                        let game = game.clone();
+                        util::run_async(move || {
+                            create_chunk(
+                                &game,
+                                &noise_generator,
+                                glm::DVec3::new(
+                                    511.0 * 3.0 * x as f64 - 256.0 * 3.0,
+                                    0.0,
+                                    511.0 * 3.0 * z as f64 - 256.0 * 3.0
+                                ),
+                                3
+                            )
+                        })
+                        .into()
+                    })
+            )
             .collect();
 
         let this = Arc::new(DemoScene {
@@ -116,7 +123,7 @@ fn create_chunk(
 ) -> Arc<RasterChunk>
 {
     let noise_sampler = |x: i32, z: i32| -> i32 {
-        let h = 256.0f64;
+        let h = 84.0f64;
 
         (noise.get([(x as f64) / 256.0, (z as f64) / 256.0]) * h + h) as i32
     };
@@ -159,7 +166,7 @@ fn create_chunk(
                         lw_size: glm::U16Vec2::new(1, 1),
                         position: glm::U16Vec3::new(
                             local_x as u16,
-                            h.max(0) as u16,
+                            (h.max(0) / scale) as u16,
                             local_z as u16
                         )
                     })
