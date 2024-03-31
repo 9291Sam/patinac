@@ -85,11 +85,7 @@ pub fn handle_crashes(
     ) + UnwindSafe
 )
 {
-    assert!(
-        THREAD_CRASH_INFOS
-            .try_insert(Mutex::new(HashMap::new()))
-            .is_ok()
-    );
+    assert!(THREAD_CRASH_INFOS.set(Mutex::new(HashMap::new())).is_ok());
 
     // let default_hook = std::panic::take_hook();
 

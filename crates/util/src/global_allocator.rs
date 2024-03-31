@@ -92,7 +92,7 @@ unsafe impl std::alloc::GlobalAlloc for GlobalAllocator
                     Layout::from_size_align_unchecked(new_size, old_layout.align())
                 )
                 {
-                    Ok(ptr) => ptr.as_non_null_ptr().as_ptr(),
+                    Ok(ptr) => ptr.as_ptr().as_mut().unwrap_unchecked().as_mut_ptr(),
                     Err(_) => std::ptr::null_mut()
                 }
             }
