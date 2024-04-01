@@ -18,7 +18,7 @@ impl DemoScene
 {
     pub fn new(game: Arc<game::Game>) -> Arc<Self>
     {
-        let r = 1i16;
+        let r = 2i16;
 
         let noise_generator = noise::SuperSimplex::new(
             (234782378948923489238948972347234789342u128 % u32::MAX as u128) as u32
@@ -43,7 +43,7 @@ impl DemoScene
             })
             .chain(
                 iproduct!(-r..=r, -r..=r)
-                    .filter(|(x, z)| !(*x == 0 && *z == 0))
+                    .filter(|(x, z)| x.abs() >= 1 || z.abs() >= 1)
                     .map(|(x, z)| {
                         let game = game.clone();
                         util::run_async(move || {
@@ -145,7 +145,7 @@ fn create_chunk(
             let noise_h_world = noise_sampler(world_x, world_z);
             let local_h = noise_h_world / scale;
             
-            ((-5 + local_h)..(local_h + 5))
+            ((-5 * scale + local_h)..(local_h + 5 * scale))
                 .flat_map(move |sample_h_local| {
                     let sample_h_world = sample_h_local * scale;
                     let voxel = rand::thread_rng().gen_range(0..=3);
@@ -159,9 +159,9 @@ fn create_chunk(
                         let axis = d.get_axis();
 
                         if occupied(
-                            world_x + axis.x as i32,
-                            sample_h_world + axis.y as i32,
-                            world_z + axis.z as i32
+                            world_x + scale * axis.x as i32,
+                            sample_h_world + scale *  axis.y as i32,
+                            world_z + scale * axis.z as i32
                         )
                         {
                             None
