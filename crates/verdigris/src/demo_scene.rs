@@ -18,7 +18,7 @@ impl DemoScene
 {
     pub fn new(game: Arc<game::Game>) -> Arc<Self>
     {
-        let r = 2i16;
+        let r = 1i16;
 
         let noise_generator = noise::SuperSimplex::new(
             (234782378948923489238948972347234789342u128 % u32::MAX as u128) as u32
@@ -55,7 +55,7 @@ impl DemoScene
                                     0.0,
                                     511.0 * 3.0 * z as f64 - 256.0 * 3.0
                                 ),
-                                3
+                                2
                             )
                         })
                         .into()
@@ -144,43 +144,42 @@ fn create_chunk(
 
             let noise_h_world = noise_sampler(world_x, world_z);
             let local_h = noise_h_world / scale;
-            
-            ((-5 * scale + local_h)..(local_h + 5 * scale))
-                .flat_map(move |sample_h_local| {
-                    let sample_h_world = sample_h_local * scale;
-                    let voxel = rand::thread_rng().gen_range(0..=3);
 
-                    VoxelFaceDirection::iterate().filter_map(move |d| {
-                        if !occupied(world_x, sample_h_world, world_z)
-                        {
-                            return None;
-                        }
+            ((-2 + local_h)..(local_h + 2)).flat_map(move |sample_h_local| {
+                let sample_h_world = sample_h_local * scale;
+                let voxel = rand::thread_rng().gen_range(0..=3);
 
-                        let axis = d.get_axis();
+                VoxelFaceDirection::iterate().filter_map(move |d| {
+                    if !occupied(world_x, sample_h_world, world_z)
+                    {
+                        return None;
+                    }
 
-                        if occupied(
-                            world_x + scale * axis.x as i32,
-                            sample_h_world + scale *  axis.y as i32,
-                            world_z + scale * axis.z as i32
-                        )
-                        {
-                            None
-                        }
-                        else
-                        {
-                            Some(VoxelFace {
-                                direction: d,
-                                voxel,
-                                lw_size: glm::U16Vec2::new(1, 1),
-                                position: glm::U16Vec3::new(
-                                    local_x as u16,
-                                    (sample_h_world.max(0) / scale) as u16,
-                                    local_z as u16
-                                )
-                            })
-                        }
-                    })
+                    let axis = d.get_axis();
+
+                    if occupied(
+                        world_x + scale * axis.x as i32,
+                        sample_h_world + scale * axis.y as i32,
+                        world_z + scale * axis.z as i32
+                    )
+                    {
+                        None
+                    }
+                    else
+                    {
+                        Some(VoxelFace {
+                            direction: d,
+                            voxel,
+                            lw_size: glm::U16Vec2::new(1, 1),
+                            position: glm::U16Vec3::new(
+                                local_x as u16,
+                                (sample_h_world.max(0) / scale) as u16,
+                                local_z as u16
+                            )
+                        })
+                    }
                 })
+            })
         })
     )
 }
