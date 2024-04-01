@@ -36,14 +36,15 @@ impl DemoScene
                             0.0,
                             511.0 * chunk_z as f64 - 256.0
                         ),
-                        1
+                        1.0
                     )
                 })
                 .into()
             })
             .chain(
                 iproduct!(-r..=r, -r..=r)
-                    .filter(|(x, z)| x.abs() >= 1 || z.abs() >= 1)
+                    .filter(|(x, z)| *x != 0 || *z != 0)
+                    // .filter(|(x, z)| (*x, *z) == (1, 0) || (*x, *z) == (0, 1))
                     .map(|(x, z)| {
                         let game = game.clone();
                         util::run_async(move || {
@@ -51,11 +52,11 @@ impl DemoScene
                                 &game,
                                 &noise_generator,
                                 glm::DVec3::new(
-                                    511.0 * 3.0 * x as f64 - 256.0 * 3.0,
+                                    768.0 * 2.5 * x as f64 - 256.0 * 2.5,
                                     0.0,
-                                    511.0 * 3.0 * z as f64 - 256.0 * 3.0
+                                    768.0 * 2.5 * z as f64 - 256.0 * 2.5
                                 ),
-                                2
+                                1.5
                             )
                         })
                         .into()
@@ -118,16 +119,16 @@ fn create_chunk(
     game: &game::Game,
     noise: &impl NoiseFn<f64, 2>,
     offset: glm::DVec3,
-    scale: i32
+    scale: f64
 ) -> Arc<RasterChunk>
 {
-    let noise_sampler = |x: i32, z: i32| -> i32 {
+    let noise_sampler = |x: i32, z: i32| -> f64 {
         let h = 84.0f64;
 
-        (noise.get([(x as f64) / 256.0, (z as f64) / 256.0]) * h + h) as i32
+        noise.get([(x as f64) / 256.0, (z as f64) / 256.0]) * h + h
     };
 
-    let occupied = |x: i32, y: i32, z: i32| (y <= noise_sampler(x, z));
+    let occupied = |x: i32, y: i32, z: i32| (y <= noise_sampler(x, z) as i32);
 
     assert!(offset.y == 0.0);
 
@@ -139,18 +140,18 @@ fn create_chunk(
             ..Default::default()
         },
         iproduct!(0..511i32, 0..511i32).flat_map(|(local_x, local_z)| {
-            let world_x = scale * local_x + offset.x as i32;
-            let world_z = scale * local_z + offset.z as i32;
+            let world_x = (scale * local_x as f64 + offset.x) as i32;
+            let world_z = (scale * local_z as f64 + offset.z) as i32;
 
             let noise_h_world = noise_sampler(world_x, world_z);
-            let local_h = noise_h_world / scale;
+            let local_h = (noise_h_world / scale) as i32;
 
             ((-2 + local_h)..(local_h + 2)).flat_map(move |sample_h_local| {
-                let sample_h_world = sample_h_local * scale;
+                let sample_h_world = (sample_h_local as f64) * scale;
                 let voxel = rand::thread_rng().gen_range(0..=3);
 
                 VoxelFaceDirection::iterate().filter_map(move |d| {
-                    if !occupied(world_x, sample_h_world, world_z)
+                    if !occupied(world_x, sample_h_world as i32, world_z)
                     {
                         return None;
                     }
@@ -158,9 +159,9 @@ fn create_chunk(
                     let axis = d.get_axis();
 
                     if occupied(
-                        world_x + scale * axis.x as i32,
-                        sample_h_world + scale * axis.y as i32,
-                        world_z + scale * axis.z as i32
+                        (world_x as f64 + scale * axis.x as f64) as i32,
+                        (sample_h_world + scale * axis.y as f64) as i32,
+                        (world_z as f64 + scale * axis.z as f64) as i32
                     )
                     {
                         None
@@ -173,7 +174,7 @@ fn create_chunk(
                             lw_size: glm::U16Vec2::new(1, 1),
                             position: glm::U16Vec3::new(
                                 local_x as u16,
-                                (sample_h_world.max(0) / scale) as u16,
+                                (sample_h_world.max(0.0) / scale) as u16,
                                 local_z as u16
                             )
                         })
