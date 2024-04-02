@@ -36,31 +36,32 @@ impl DemoScene
                             0.0,
                             511.0 * chunk_z as f64 - 256.0
                         ),
-                        1
+                        1.0
                     )
                 })
                 .into()
             })
-            // .chain(
-            //     iproduct!(-r..=r, -r..=r)
-            //         .filter(|(x, z)| !(*x == 0 && *z == 0))
-            //         .map(|(x, z)| {
-            //             let game = game.clone();
-            //             util::run_async(move || {
-            //                 create_chunk(
-            //                     &game,
-            //                     &noise_generator,
-            //                     glm::DVec3::new(
-            //                         511.0 * 3.0 * x as f64 - 256.0 * 3.0,
-            //                         0.0,
-            //                         511.0 * 3.0 * z as f64 - 256.0 * 3.0
-            //                     ),
-            //                     3
-            //                 )
-            //             })
-            //             .into()
-            //         })
-            // )
+            .chain(
+                iproduct!(-r..=r, -r..=r)
+                    .filter(|(x, z)| *x != 0 || *z != 0)
+                    // .filter(|(x, z)| (*x, *z) == (1, 0) || (*x, *z) == (0, 1))
+                    .map(|(x, z)| {
+                        let game = game.clone();
+                        util::run_async(move || {
+                            create_chunk(
+                                &game,
+                                &noise_generator,
+                                glm::DVec3::new(
+                                    768.0 * 2.5 * x as f64 - 256.0 * 2.5,
+                                    0.0,
+                                    768.0 * 2.5 * z as f64 - 256.0 * 2.5
+                                ),
+                                1.5
+                            )
+                        })
+                        .into()
+                    })
+            )
             .collect();
 
         let this = Arc::new(DemoScene {
@@ -118,16 +119,16 @@ fn create_chunk(
     game: &game::Game,
     noise: &impl NoiseFn<f64, 2>,
     offset: glm::DVec3,
-    scale: i32
+    scale: f64
 ) -> Arc<RasterChunk>
 {
-    let noise_sampler = |x: i32, z: i32| -> i32 {
+    let noise_sampler = |x: i32, z: i32| -> f64 {
         let h = 84.0f64;
 
-        (noise.get([(x as f64) / 256.0, (z as f64) / 256.0]) * h + h) as i32
+        noise.get([(x as f64) / 256.0, (z as f64) / 256.0]) * h + h
     };
 
-    let occupied = |x: i32, y: i32, z: i32| (y <= noise_sampler(x, z));
+    let occupied = |x: i32, y: i32, z: i32| (y <= noise_sampler(x, z) as i32);
 
     assert!(offset.y == 0.0);
 
@@ -139,47 +140,47 @@ fn create_chunk(
             ..Default::default()
         },
         iproduct!(0..511i32, 0..511i32).flat_map(|(local_x, local_z)| {
-            let world_x = scale * local_x + offset.x as i32;
-            let world_z = scale * local_z + offset.z as i32;
+            let world_x = (scale * local_x as f64 + offset.x) as i32;
+            let world_z = (scale * local_z as f64 + offset.z) as i32;
 
-            let world_h = noise_sampler(world_x, world_z);
+            let noise_h_world = noise_sampler(world_x, world_z);
+            let local_h = (noise_h_world / scale) as i32;
 
-            ((-5 + world_h)..(world_h + 5))
-                .step_by(scale as usize)
-                .flat_map(move |sample_world_h| {
-                    let voxel = rand::thread_rng().gen_range(0..=3);
+            ((-2 + local_h)..(local_h + 2)).flat_map(move |sample_h_local| {
+                let sample_h_world = (sample_h_local as f64) * scale;
+                let voxel = rand::thread_rng().gen_range(0..=3);
 
-                    VoxelFaceDirection::iterate().filter_map(move |d| {
-                        if !occupied(world_x, sample_world_h, world_z)
-                        {
-                            return None;
-                        }
+                VoxelFaceDirection::iterate().filter_map(move |d| {
+                    if !occupied(world_x, sample_h_world as i32, world_z)
+                    {
+                        return None;
+                    }
 
-                        let axis = d.get_axis();
+                    let axis = d.get_axis();
 
-                        if occupied(
-                            world_x + axis.x as i32,
-                            sample_world_h + axis.y as i32,
-                            world_z + axis.z as i32
-                        )
-                        {
-                            None
-                        }
-                        else
-                        {
-                            Some(VoxelFace {
-                                direction: d,
-                                voxel,
-                                lw_size: glm::U16Vec2::new(1, 1),
-                                position: glm::U16Vec3::new(
-                                    local_x as u16,
-                                    (sample_world_h.max(0) / scale) as u16,
-                                    local_z as u16
-                                )
-                            })
-                        }
-                    })
+                    if occupied(
+                        (world_x as f64 + scale * axis.x as f64) as i32,
+                        (sample_h_world + scale * axis.y as f64) as i32,
+                        (world_z as f64 + scale * axis.z as f64) as i32
+                    )
+                    {
+                        None
+                    }
+                    else
+                    {
+                        Some(VoxelFace {
+                            direction: d,
+                            voxel,
+                            lw_size: glm::U16Vec2::new(1, 1),
+                            position: glm::U16Vec3::new(
+                                local_x as u16,
+                                (sample_h_world.max(0.0) / scale) as u16,
+                                local_z as u16
+                            )
+                        })
+                    }
                 })
+            })
         })
     )
 }
