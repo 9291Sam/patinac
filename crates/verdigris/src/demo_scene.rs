@@ -44,7 +44,6 @@ impl DemoScene
             .chain(
                 iproduct!(0..=3, 0..=3)
                     .filter(|(x, z)| *x == 0 || *z == 0 || *x == 3 || *z == 3)
-                    // .filter(|(x, z)| (*x, *z) == (1, 0) || (*x, *z) == (0, 1))
                     .map(|(x, z)| {
                         let game = game.clone();
                         util::run_async(move || {
@@ -52,9 +51,9 @@ impl DemoScene
                                 &game,
                                 &noise_generator,
                                 glm::DVec3::new(
-                                    511.0 * 1.5 * x as f64 - 256.0 * 2.0 * 3.0,
+                                    2.5 + (511.0 * 1.5 * x as f64 - 256.0 * 2.0 * 3.0),
                                     0.0,
-                                    511.0 * 1.5 * z as f64 - 256.0 * 2.0 * 3.0
+                                    2.5 + (511.0 * 1.5 * z as f64 - 256.0 * 2.0 * 3.0)
                                 ),
                                 1.5
                             )
@@ -146,7 +145,7 @@ fn create_chunk(
             let noise_h_world = noise_sampler(world_x, world_z);
             let local_h = (noise_h_world / scale) as i32;
 
-            ((-2 + local_h)..(local_h + 2)).flat_map(move |sample_h_local| {
+            ((-4 + local_h)..(local_h + 4)).flat_map(move |sample_h_local| {
                 let sample_h_world = (sample_h_local as f64) * scale;
                 let voxel = rand::thread_rng().gen_range(0..=3);
 
