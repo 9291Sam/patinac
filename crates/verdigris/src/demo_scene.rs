@@ -42,8 +42,8 @@ impl DemoScene
                 .into()
             })
             .chain(
-                iproduct!(0..=4, 0..=4)
-                    .filter(|(x, z)| *x == 0 || *z == 0)
+                iproduct!(0..=3, 0..=3)
+                    .filter(|(x, z)| *x == 0 || *z == 0 || *x == 3 || *z == 3)
                     // .filter(|(x, z)| (*x, *z) == (1, 0) || (*x, *z) == (0, 1))
                     .map(|(x, z)| {
                         let game = game.clone();
@@ -52,9 +52,9 @@ impl DemoScene
                                 &game,
                                 &noise_generator,
                                 glm::DVec3::new(
-                                    511.0 * 1.5 * x as f64 - 256.0 * 1.5 * 3,
+                                    511.0 * 1.5 * x as f64 - 256.0 * 2.0 * 3.0,
                                     0.0,
-                                    511.0 * 1.5 * z as f64 - 256.0 * 1.5 * 3
+                                    511.0 * 1.5 * z as f64 - 256.0 * 2.0 * 3.0
                                 ),
                                 1.5
                             )
