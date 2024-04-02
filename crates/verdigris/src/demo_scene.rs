@@ -147,7 +147,14 @@ fn create_chunk(
 
             ((-4 + local_h)..(local_h + 4)).flat_map(move |sample_h_local| {
                 let sample_h_world = (sample_h_local as f64) * scale;
-                let voxel = rand::thread_rng().gen_range(0..=3);
+                let voxel = if world_x.abs() < 1 || world_z.abs() < 1
+                {
+                    0
+                }
+                else
+                {
+                    rand::thread_rng().gen_range(0..=3)
+                };
 
                 VoxelFaceDirection::iterate().filter_map(move |d| {
                     if !occupied(world_x, sample_h_world as i32, world_z)
