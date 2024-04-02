@@ -6,6 +6,7 @@ use std::sync::{Arc, Mutex};
 pub struct DebugMenu
 {
     id:             util::Uuid,
+    game:           Arc<game::Game>,
     rendering_data: Mutex<DebugMenuCriticalSection>
 }
 
@@ -21,7 +22,7 @@ struct DebugMenuCriticalSection
 
 impl DebugMenu
 {
-    pub fn new(renderer: &gfx::Renderer) -> Arc<Self>
+    pub fn new(renderer: &gfx::Renderer, game: Arc<game::Game>) -> Arc<Self>
     {
         let mut db = glyphon::fontdb::Database::new();
         db.load_font_data(include_bytes!("unifont-15.1.05.otf").into());
@@ -59,7 +60,7 @@ impl DebugMenu
         );
 
         let this = Arc::new(DebugMenu {
-            id:             util::Uuid::new(),
+            id: util::Uuid::new(),
             rendering_data: Mutex::new(DebugMenuCriticalSection {
                 font_system,
                 cache,
@@ -67,7 +68,8 @@ impl DebugMenu
                 text_renderer,
                 buffer,
                 previous_update_time: std::time::Instant::now()
-            })
+            }),
+            game
         });
 
         renderer.register(this.clone());
@@ -167,6 +169,10 @@ r#"╔═════════════════════╦══�
 ╠═════════════════════╬════════════╣
 ║   Frame Time (ms)   ║ {:<10.3} ║
 ╠═════════════════════╬════════════╣
+║  Ticks per second   ║ {:<10.3} ║
+╠═════════════════════╬════════════╣
+║   Tick Time (ms)    ║ {:<10.3} ║
+╠═════════════════════╬════════════╣
 ║      Ram Usage      ║ {:<10} ║
 ╠═════════════════════╬════════════╣
 ║ Camera Position (x) ║ {:<10.3} ║
@@ -177,6 +183,8 @@ r#"╔═════════════════════╦══�
 ╚═════════════════════╩════════════╝"#,
                 1.0 / renderer.get_delta_time(),
                 renderer.get_delta_time() * 1000.0,
+                1.0 / self.game.get_delta_time(),
+                self.game.get_delta_time() * 1000.0,
                 util::bytes_as_string(
                     util::get_bytes_of_active_allocations() as f64,
                     util::SuffixType::Short

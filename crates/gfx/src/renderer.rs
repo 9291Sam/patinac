@@ -165,7 +165,8 @@ impl Renderer
             .request_device(
                 &wgpu::DeviceDescriptor {
                     label:             Some("Device"),
-                    required_features: wgpu::Features::PUSH_CONSTANTS,
+                    required_features: wgpu::Features::PUSH_CONSTANTS
+                        | wgpu::Features::POLYGON_MODE_LINE,
                     required_limits:   adapter.limits()
                 },
                 None

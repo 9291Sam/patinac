@@ -26,7 +26,8 @@ fn main()
     *util::access_global_thread_pool().write().unwrap() = Some(util::ThreadPool::new(
         std::thread::available_parallelism()
             .unwrap_or(NonZeroUsize::new(1).unwrap())
-            .get()
+            .get(),
+        "Patinac async threadpool"
     ));
 
     let held_renderer: Mutex<Option<Arc<gfx::Renderer>>> = Mutex::new(None);
@@ -43,7 +44,7 @@ fn main()
 
         {
             let _verdigris = verdigris::DemoScene::new(game.clone());
-            let _debug_menu = gui::DebugMenu::new(&renderer);
+            let _debug_menu = gui::DebugMenu::new(&renderer, game.clone());
 
             let game_tick = game.clone();
             let game_continue = should_loops_continue.clone();

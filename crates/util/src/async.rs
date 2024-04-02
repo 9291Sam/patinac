@@ -171,27 +171,12 @@ where
     T: Send + 'static,
     F: FnOnce() -> T + Send + 'static
 {
-    let (sender, receiver) = oneshot::channel();
-
-    let future = Future::new(receiver);
-
-    let caller = std::panic::Location::caller();
-
-    THREAD_POOL
+    access_global_thread_pool()
         .read()
-        .unwrap()
+        .expect("Global threadpool was poisoned!")
         .as_ref()
-        .unwrap()
-        .enqueue_function(move || {
-            if let Err(f) = sender.send(func())
-            {
-                log::error!("Tried to send message to killed threadpool! {}", caller);
-
-                f.as_inner();
-            }
-        });
-
-    future
+        .expect("No threadpool was available")
+        .run_async(func)
 }
 
 pub fn access_global_thread_pool() -> &'static RwLock<Option<ThreadPool>>
@@ -210,7 +195,7 @@ pub struct ThreadPool
 impl ThreadPool
 {
     #[allow(clippy::new_without_default)]
-    pub fn new(number_of_workers: usize) -> ThreadPool
+    pub fn new(number_of_workers: usize, name: &str) -> ThreadPool
     {
         let (sender, receiver) = crossbeam::channel::unbounded();
 
@@ -219,7 +204,7 @@ impl ThreadPool
                 let this_receiver: Receiver<Box<dyn FnOnce() + Send>> = receiver.clone();
 
                 std::thread::Builder::new()
-                    .name(format!("Patinac Async Thread #{idx}"))
+                    .name(format!("{name} Thread #{idx}"))
                     .spawn(move || {
                         while let Ok(func) = this_receiver.recv()
                         {
@@ -236,7 +221,31 @@ impl ThreadPool
         }
     }
 
-    fn enqueue_function(&self, func: impl FnOnce() + Send + 'static)
+    #[track_caller]
+    pub fn run_async<T, F>(&self, func: F) -> Future<T>
+    where
+        T: Send + 'static,
+        F: FnOnce() -> T + Send + 'static
+    {
+        let (sender, receiver) = oneshot::channel();
+
+        let future = Future::new(receiver);
+
+        let caller = std::panic::Location::caller();
+
+        self.enqueue_function(move || {
+            if let Err(f) = sender.send(func())
+            {
+                log::error!("Tried to send message to killed threadpool! {}", caller);
+
+                f.as_inner();
+            }
+        });
+
+        future
+    }
+
+    pub fn enqueue_function(&self, func: impl FnOnce() + Send + 'static)
     {
         if let Err(func) = self.sender.send(Box::new(func))
         {
