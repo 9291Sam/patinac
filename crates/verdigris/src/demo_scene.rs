@@ -173,7 +173,7 @@ fn create_chunk(
                 }
                 else
                 {
-                    rand::thread_rng().gen_range(0..=3)
+                    rand::thread_rng().gen_range(1..=12)
                 };
 
                 VoxelFaceDirection::iterate().filter_map(move |d| {

@@ -496,3 +496,46 @@ impl VoxelFaceDirection
 //     4, 6, 7,
 //     5, 4, 7
 // ];
+
+#[cfg(test)]
+mod tests
+{
+    use rand::rngs::SmallRng;
+    use rand::{Rng, SeedableRng};
+
+    use super::*;
+
+    #[test]
+    fn test_new_and_destructure()
+    {
+        // Initialize the random number generator with a fixed seed for reproducibility
+        let mut rng = SmallRng::seed_from_u64(42);
+
+        for _ in 0..10_000
+        {
+            // Generate random values within appropriate ranges
+            let x_pos: u32 = rng.gen_range(0..=0b1_1111_1111);
+            let y_pos: u32 = rng.gen_range(0..=0b1_1111_1111);
+            let z_pos: u32 = rng.gen_range(0..=0b1_1111_1111);
+            let l_width: u32 = rng.gen_range(0..=0b1_1111_1111);
+            let w_width: u32 = rng.gen_range(0..=0b1_1111_1111);
+            let face_id: VoxelFaceDirection = rng.gen_range(0..=5).try_into().unwrap();
+            let voxel_id: u16 = rng.gen();
+
+            let voxel_point = RasterChunkVoxelPoint::new(
+                x_pos, y_pos, z_pos, l_width, w_width, face_id, voxel_id
+            );
+            let (x, y, z, l, w, f, v) = voxel_point.destructure();
+
+            assert_eq!(x, x_pos);
+            assert_eq!(y, y_pos);
+            assert_eq!(z, z_pos);
+            assert_eq!(l, l_width);
+            assert_eq!(w, w_width);
+            assert_eq!(f, face_id);
+            assert_eq!(v, voxel_id);
+        }
+    }
+
+    // Add more tests as needed
+}

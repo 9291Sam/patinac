@@ -9,3 +9,4 @@ game = { workspace = true }
 bytemuck = { workspace = true }
 util = { workspace = true }
 log = { workspace = true }
+rand = {workspace = true}
