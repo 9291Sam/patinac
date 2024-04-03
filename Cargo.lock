@@ -2268,6 +2268,7 @@ dependencies = [
  "game",
  "gfx",
  "log",
+ "rand",
  "util",
 ]
 

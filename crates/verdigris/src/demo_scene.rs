@@ -61,6 +61,26 @@ impl DemoScene
                         .into()
                     })
             )
+            .chain(
+                iproduct!(0..=3, 0..=3)
+                    .filter(|(x, z)| *x == 0 || *z == 0 || *x == 3 || *z == 3)
+                    .map(|(x, z)| {
+                        let game = game.clone();
+                        util::run_async(move || {
+                            create_chunk(
+                                &game,
+                                &noise_generator,
+                                glm::DVec3::new(
+                                    5.5 + (511.0 * 3.0 * x as f64 - 256.0 * 12.0),
+                                    0.0,
+                                    5.5 + (511.0 * 3.0 * z as f64 - 256.0 * 12.0)
+                                ),
+                                3.0
+                            )
+                        })
+                        .into()
+                    })
+            )
             .collect();
 
         let this = Arc::new(DemoScene {
@@ -153,7 +173,7 @@ fn create_chunk(
                 }
                 else
                 {
-                    rand::thread_rng().gen_range(0..=3)
+                    rand::thread_rng().gen_range(1..=12)
                 };
 
                 VoxelFaceDirection::iterate().filter_map(move |d| {
