@@ -212,6 +212,8 @@ impl Game
         let mut prev = std::time::Instant::now();
         let mut delta_time: f64;
 
+        let tick_pool = util::ThreadPool::new(4, "Game Tick");
+
         while poll_continue_func()
         {
             let now = std::time::Instant::now();
@@ -246,7 +248,7 @@ impl Game
                 })
                 .map(|strong_entity| {
                     let local = strong_game.clone();
-                    util::run_async(move || {
+                    tick_pool.run_async(move || {
                         strong_entity.tick(&local, TickTag(()));
                     })
                 })
