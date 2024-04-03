@@ -71,9 +71,9 @@ impl DemoScene
                                 &game,
                                 &noise_generator,
                                 glm::DVec3::new(
-                                    5.5 + (511.0 * 3.0 * x as f64 - 256.0 * 12.0),
+                                    5.5 + (511.0 * 6.0 * x as f64 - 256.0 * 12.0),
                                     0.0,
-                                    5.5 + (511.0 * 3.0 * z as f64 - 256.0 * 12.0)
+                                    5.5 + (511.0 * 6.0 * z as f64 - 256.0 * 12.0)
                                 ),
                                 3.0
                             )
@@ -185,9 +185,9 @@ fn create_chunk(
                     let axis = d.get_axis();
 
                     if occupied(
-                        (world_x as f64 + scale * axis.x as f64) as i32,
-                        (sample_h_world + scale * axis.y as f64) as i32,
-                        (world_z as f64 + scale * axis.z as f64) as i32
+                        (world_x as f64 + scale * 1.001 * axis.x as f64).round() as i32,
+                        (sample_h_world + scale * 1.001 * axis.y as f64).round() as i32,
+                        (world_z as f64 + scale * 1.001 * axis.z as f64).round() as i32
                     )
                     {
                         None
