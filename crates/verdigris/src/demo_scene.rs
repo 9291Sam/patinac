@@ -62,8 +62,8 @@ impl DemoScene
                     })
             )
             .chain(
-                iproduct!(0..=3, 0..=3)
-                    .filter(|(x, z)| *x == 0 || *z == 0 || *x == 3 || *z == 3)
+                iproduct!(0..=4, 0..=4)
+                    .filter(|(x, z)| *x == 0 || *z == 0 || *x == 4 || *z == 4)
                     .map(|(x, z)| {
                         let game = game.clone();
                         util::run_async(move || {
@@ -71,11 +71,11 @@ impl DemoScene
                                 &game,
                                 &noise_generator,
                                 glm::DVec3::new(
-                                    5.5 + (511.0 * 6.0 * x as f64 - 256.0 * 12.0),
+                                    4.5 + (511.0 * 2.0 * x as f64 - 256.0 * 10.0),
                                     0.0,
-                                    5.5 + (511.0 * 6.0 * z as f64 - 256.0 * 12.0)
+                                    4.5 + (511.0 * 2.0 * z as f64 - 256.0 * 10.0)
                                 ),
-                                3.0
+                                2.0
                             )
                         })
                         .into()

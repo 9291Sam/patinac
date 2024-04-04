@@ -96,7 +96,7 @@ impl Game
         let move_scale = 10.0
             * if input_manager.is_key_pressed(gfx::KeyCode::ShiftLeft)
             {
-                220.0
+                22.0
             }
             else
             {

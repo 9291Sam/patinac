@@ -87,8 +87,6 @@ pub fn handle_crashes(
 {
     assert!(THREAD_CRASH_INFOS.set(Mutex::new(HashMap::new())).is_ok());
 
-    // let default_hook = std::panic::take_hook();
-
     std::panic::set_hook(Box::new(move |panic_info| {
         static PRINT_THREADS_PANIC_MESSAGE_ONCE: Once = Once::new();
 

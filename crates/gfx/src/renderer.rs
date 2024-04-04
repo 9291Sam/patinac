@@ -185,7 +185,6 @@ impl Renderer
             .unwrap();
 
         let desired_present_modes = [
-            #[cfg(not(debug_assertions))]
             wgpu::PresentMode::Mailbox,
             #[cfg(not(debug_assertions))]
             wgpu::PresentMode::FifoRelaxed,
@@ -214,7 +213,7 @@ impl Renderer
             present_mode:                  selected_mode.unwrap(),
             alpha_mode:                    surface_caps.alpha_modes[0],
             view_formats:                  vec![],
-            desired_maximum_frame_latency: 2
+            desired_maximum_frame_latency: 3
         };
         surface.configure(&device, &config);
 
