@@ -39,6 +39,8 @@ fn main()
         });
         *held_renderer.lock().unwrap() = Some(renderer.clone());
 
+        log::trace!("Fov: {}", renderer.get_fov());
+
         let game = game::Game::new(renderer.clone());
         *held_game.lock().unwrap() = Some(game.clone());
 
