@@ -1,9 +1,6 @@
 use std::borrow::Cow;
-use std::cell::UnsafeCell;
-use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use dashmap::DashMap;
 use gfx::glm::{self};
 use itertools::iproduct;
 use noise::NoiseFn;
@@ -13,7 +10,7 @@ use voxel::{RasterChunk, VoxelFace, VoxelFaceDirection};
 #[derive(Debug)]
 pub struct DemoScene
 {
-    raster: Mutex<Vec<util::Promise<Arc<RasterChunk>>>>,
+    raster: Mutex<util::Promise<Arc<RasterChunk>>>,
     id:     util::Uuid
 }
 
@@ -21,74 +18,25 @@ impl DemoScene
 {
     pub fn new(game: Arc<game::Game>) -> Arc<Self>
     {
-        let r = 2i16;
-
         let noise_generator = noise::SuperSimplex::new(
             (234782378948923489238948972347234789342u128 % u32::MAX as u128) as u32
         );
 
-        let chunks: Vec<util::Promise<Arc<RasterChunk>>> = iproduct!(-r..=r, -r..=r)
-            .map(|(chunk_x, chunk_z)| {
-                let game = game.clone();
+        let c_game = game.clone();
+
+        let this = Arc::new(DemoScene {
+            id:     util::Uuid::new(),
+            raster: Mutex::new(
                 util::run_async(move || {
                     create_chunk(
-                        &game,
+                        &c_game,
                         &noise_generator,
-                        glm::DVec3::new(
-                            511.0 * chunk_x as f64 - 256.0,
-                            0.0,
-                            511.0 * chunk_z as f64 - 256.0
-                        ),
+                        glm::DVec3::new(-256.0, 0.0, -256.0),
                         1.0
                     )
                 })
                 .into()
-            })
-            // .chain(
-            //     iproduct!(0..=3, 0..=3)
-            //         .filter(|(x, z)| (*x == 0 || *z == 0 || *x == 3 || *z == 3) && x == z)
-            //         .map(|(x, z)| {
-            //             let game = game.clone();
-            //             util::run_async(move || {
-            //                 create_chunk(
-            //                     &game,
-            //                     &noise_generator,
-            //                     glm::DVec3::new(
-            //                         2.5 + (511.0 * 1.5 * x as f64 - 256.0 * 2.0 * 3.0),
-            //                         0.0,
-            //                         2.5 + (511.0 * 1.5 * z as f64 - 256.0 * 2.0 * 3.0)
-            //                     ),
-            //                     1.5
-            //                 )
-            //             })
-            //             .into()
-            //         })
-            // )
-            // .chain(
-            //     iproduct!(0..=4, 0..=4)
-            //         .filter(|(x, z)| (*x == 0 || *z == 0 || *x == 4 || *z == 4) && x == z)
-            //         .map(|(x, z)| {
-            //             let game = game.clone();
-            //             util::run_async(move || {
-            //                 create_chunk(
-            //                     &game,
-            //                     &noise_generator,
-            //                     glm::DVec3::new(
-            //                         4.5 + (511.0 * 2.0 * x as f64 - 256.0 * 10.0),
-            //                         0.0,
-            //                         4.5 + (511.0 * 2.0 * z as f64 - 256.0 * 10.0)
-            //                     ),
-            //                     2.0
-            //                 )
-            //             })
-            //             .into()
-            //         })
-            // )
-            .collect();
-
-        let this = Arc::new(DemoScene {
-            id:     util::Uuid::new(),
-            raster: Mutex::new(chunks)
+            )
         });
 
         game.register(this.clone());
@@ -129,17 +77,7 @@ impl game::Entity for DemoScene
 
     fn tick(&self, _: &game::Game, _: game::TickTag)
     {
-        let mut g = self.raster.lock().unwrap();
-
-        let t = g.iter_mut().fold(0, |sum, c| {
-            c.poll_ref();
-            sum + matches!(c, util::Promise::Resolved(_)) as i32
-        });
-
-        if t == 25
-        {
-            // panic!("Finished generation")
-        }
+        self.raster.lock().unwrap().poll_ref();
     }
 }
 
@@ -150,24 +88,10 @@ fn create_chunk(
     scale: f64
 ) -> Arc<RasterChunk>
 {
-    // let cache: UnsafeCell<HashMap<(i32, i32), f64>> =
-    // UnsafeCell::new(HashMap::new());
-
     let noise_sampler = |x: i32, z: i32| -> f64 {
         let h = 84.0f64;
 
-        // match unsafe { &mut *cache.get() }.entry((x, z))
-        // {
-        //     std::collections::hash_map::Entry::Occupied(kv) => *kv.get(),
-        //     std::collections::hash_map::Entry::Vacant(vv) =>
-        //     {
-        let v = noise.get([(x as f64) / 256.0, (z as f64) / 256.0]) * h + h;
-
-        // vv.insert(v);
-
-        v
-        //     }
-        // }
+        noise.get([(x as f64) / 256.0, (z as f64) / 256.0]) * h + h
     };
 
     let occupied = |x: i32, y: i32, z: i32| (y <= noise_sampler(x, z) as i32);
