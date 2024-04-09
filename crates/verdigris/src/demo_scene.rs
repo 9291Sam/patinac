@@ -1,6 +1,9 @@
 use std::borrow::Cow;
+use std::cell::UnsafeCell;
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
+use dashmap::DashMap;
 use gfx::glm::{self};
 use itertools::iproduct;
 use noise::NoiseFn;
@@ -126,11 +129,17 @@ impl game::Entity for DemoScene
 
     fn tick(&self, _: &game::Game, _: game::TickTag)
     {
-        self.raster
-            .lock()
-            .unwrap()
-            .iter_mut()
-            .for_each(|c| c.poll_ref());
+        let mut g = self.raster.lock().unwrap();
+
+        let t = g.iter_mut().fold(0, |sum, c| {
+            c.poll_ref();
+            sum + matches!(c, util::Promise::Resolved(_)) as i32
+        });
+
+        if t == 25
+        {
+            // panic!("Finished generation")
+        }
     }
 }
 
@@ -141,10 +150,24 @@ fn create_chunk(
     scale: f64
 ) -> Arc<RasterChunk>
 {
+    // let cache: UnsafeCell<HashMap<(i32, i32), f64>> =
+    // UnsafeCell::new(HashMap::new());
+
     let noise_sampler = |x: i32, z: i32| -> f64 {
         let h = 84.0f64;
 
-        noise.get([(x as f64) / 256.0, (z as f64) / 256.0]) * h + h
+        // match unsafe { &mut *cache.get() }.entry((x, z))
+        // {
+        //     std::collections::hash_map::Entry::Occupied(kv) => *kv.get(),
+        //     std::collections::hash_map::Entry::Vacant(vv) =>
+        //     {
+        let v = noise.get([(x as f64) / 256.0, (z as f64) / 256.0]) * h + h;
+
+        // vv.insert(v);
+
+        v
+        //     }
+        // }
     };
 
     let occupied = |x: i32, y: i32, z: i32| (y <= noise_sampler(x, z) as i32);
