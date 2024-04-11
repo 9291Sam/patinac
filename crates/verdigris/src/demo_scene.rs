@@ -96,12 +96,10 @@ fn create_chunk(
 
     let occupied = |x: i32, y: i32, z: i32| (y <= noise_sampler(x, z) as i32);
 
-    assert!(offset.y == 0.0);
-
     RasterChunk::new(
         game,
         gfx::Transform {
-            translation: glm::Vec3::new(offset.x as f32, 0.0, offset.z as f32),
+            translation: glm::Vec3::new(offset.x as f32, -120.0, offset.z as f32),
             scale: glm::Vec3::new(scale as f32, scale as f32, scale as f32),
             ..Default::default()
         },
