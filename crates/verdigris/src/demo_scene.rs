@@ -10,7 +10,7 @@ use voxel::{RasterChunk, VoxelFace, VoxelFaceDirection};
 #[derive(Debug)]
 pub struct DemoScene
 {
-    raster: Mutex<Vec<util::Promise<Arc<RasterChunk>>>>,
+    raster: Mutex<util::Promise<Arc<RasterChunk>>>,
     id:     util::Uuid
 }
 
@@ -18,98 +18,25 @@ impl DemoScene
 {
     pub fn new(game: Arc<game::Game>) -> Arc<Self>
     {
-        let r = 1i16;
-
         let noise_generator = noise::SuperSimplex::new(
             (234782378948923489238948972347234789342u128 % u32::MAX as u128) as u32
         );
 
-        let chunks: Vec<util::Promise<Arc<RasterChunk>>> = iproduct!(-r..=r, -r..=r)
-            .map(|(chunk_x, chunk_z)| {
-                let game = game.clone();
+        let c_game = game.clone();
+
+        let this = Arc::new(DemoScene {
+            id:     util::Uuid::new(),
+            raster: Mutex::new(
                 util::run_async(move || {
                     create_chunk(
-                        &game,
+                        &c_game,
                         &noise_generator,
-                        glm::DVec3::new(
-                            511.0 * chunk_x as f64 - 256.0,
-                            0.0,
-                            511.0 * chunk_z as f64 - 256.0
-                        ),
+                        glm::DVec3::new(-256.0, 0.0, -256.0),
                         1.0
                     )
                 })
                 .into()
-            })
-            .chain(
-                iproduct!(0..=3, 0..=3)
-                    .filter(|(x, z)| *x == 0 || *z == 0 || *x == 3 || *z == 3)
-                    .map(|(x, z)| {
-                        let game = game.clone();
-                        util::run_async(move || {
-                            create_chunk(
-                                &game,
-                                &noise_generator,
-                                glm::DVec3::new(
-                                    2.5 + (511.0 * 1.5 * x as f64 - 256.0 * 2.0 * 3.0),
-                                    0.0,
-                                    2.5 + (511.0 * 1.5 * z as f64 - 256.0 * 2.0 * 3.0)
-                                ),
-                                1.5
-                            )
-                        })
-                        .into()
-                    })
             )
-            .chain(
-                iproduct!(0..=4, 0..=4)
-                    .filter(|(x, z)| *x == 0 || *z == 0 || *x == 4 || *z == 4)
-                    .map(|(x, z)| {
-                        let game = game.clone();
-                        util::run_async(move || {
-                            create_chunk(
-                                &game,
-                                &noise_generator,
-                                glm::DVec3::new(
-                                    4.5 + (511.0 * 2.0 * x as f64 - 256.0 * 10.0),
-                                    0.0,
-                                    4.5 + (511.0 * 2.0 * z as f64 - 256.0 * 10.0)
-                                ),
-                                2.0
-                            )
-                        })
-                        .into()
-                    })
-            )
-            .chain(
-                iproduct!(0..=4, 0..=4)
-                    .filter(|(x, z)| *x == 0 || *z == 0 || *x == 4 || *z == 4)
-                    .map(|(x, z)| {
-                        let game = game.clone();
-                        util::run_async(move || {
-                            create_chunk(
-                                &game,
-                                &noise_generator,
-                                glm::DVec3::new(
-                                    7.133333333333333
-                                        + (511.0 * 3.3333333333333333 * x as f64
-                                            - 256.0 * 16.666666666666666),
-                                    0.0,
-                                    7.133333333333333
-                                        + (511.0 * 3.3333333333333333 * z as f64
-                                            - 256.0 * 16.666666666666666)
-                                ),
-                                3.3333333333333333
-                            )
-                        })
-                        .into()
-                    })
-            )
-            .collect();
-
-        let this = Arc::new(DemoScene {
-            id:     util::Uuid::new(),
-            raster: Mutex::new(chunks)
         });
 
         game.register(this.clone());
@@ -150,11 +77,7 @@ impl game::Entity for DemoScene
 
     fn tick(&self, _: &game::Game, _: game::TickTag)
     {
-        self.raster
-            .lock()
-            .unwrap()
-            .iter_mut()
-            .for_each(|c| c.poll_ref());
+        self.raster.lock().unwrap().poll_ref();
     }
 }
 
