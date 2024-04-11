@@ -18,7 +18,7 @@ impl DemoScene
 {
     pub fn new(game: Arc<game::Game>) -> Arc<Self>
     {
-        let r = 2i16;
+        let r = 1i16;
 
         let noise_generator = noise::SuperSimplex::new(
             (234782378948923489238948972347234789342u128 % u32::MAX as u128) as u32
@@ -41,46 +41,70 @@ impl DemoScene
                 })
                 .into()
             })
-            // .chain(
-            //     iproduct!(0..=3, 0..=3)
-            //         .filter(|(x, z)| (*x == 0 || *z == 0 || *x == 3 || *z == 3) && x == z)
-            //         .map(|(x, z)| {
-            //             let game = game.clone();
-            //             util::run_async(move || {
-            //                 create_chunk(
-            //                     &game,
-            //                     &noise_generator,
-            //                     glm::DVec3::new(
-            //                         2.5 + (511.0 * 1.5 * x as f64 - 256.0 * 2.0 * 3.0),
-            //                         0.0,
-            //                         2.5 + (511.0 * 1.5 * z as f64 - 256.0 * 2.0 * 3.0)
-            //                     ),
-            //                     1.5
-            //                 )
-            //             })
-            //             .into()
-            //         })
-            // )
-            // .chain(
-            //     iproduct!(0..=4, 0..=4)
-            //         .filter(|(x, z)| (*x == 0 || *z == 0 || *x == 4 || *z == 4) && x == z)
-            //         .map(|(x, z)| {
-            //             let game = game.clone();
-            //             util::run_async(move || {
-            //                 create_chunk(
-            //                     &game,
-            //                     &noise_generator,
-            //                     glm::DVec3::new(
-            //                         4.5 + (511.0 * 2.0 * x as f64 - 256.0 * 10.0),
-            //                         0.0,
-            //                         4.5 + (511.0 * 2.0 * z as f64 - 256.0 * 10.0)
-            //                     ),
-            //                     2.0
-            //                 )
-            //             })
-            //             .into()
-            //         })
-            // )
+            .chain(
+                iproduct!(0..=3, 0..=3)
+                    .filter(|(x, z)| *x == 0 || *z == 0 || *x == 3 || *z == 3)
+                    .map(|(x, z)| {
+                        let game = game.clone();
+                        util::run_async(move || {
+                            create_chunk(
+                                &game,
+                                &noise_generator,
+                                glm::DVec3::new(
+                                    2.5 + (511.0 * 1.5 * x as f64 - 256.0 * 2.0 * 3.0),
+                                    0.0,
+                                    2.5 + (511.0 * 1.5 * z as f64 - 256.0 * 2.0 * 3.0)
+                                ),
+                                1.5
+                            )
+                        })
+                        .into()
+                    })
+            )
+            .chain(
+                iproduct!(0..=4, 0..=4)
+                    .filter(|(x, z)| *x == 0 || *z == 0 || *x == 4 || *z == 4)
+                    .map(|(x, z)| {
+                        let game = game.clone();
+                        util::run_async(move || {
+                            create_chunk(
+                                &game,
+                                &noise_generator,
+                                glm::DVec3::new(
+                                    4.5 + (511.0 * 2.0 * x as f64 - 256.0 * 10.0),
+                                    0.0,
+                                    4.5 + (511.0 * 2.0 * z as f64 - 256.0 * 10.0)
+                                ),
+                                2.0
+                            )
+                        })
+                        .into()
+                    })
+            )
+            .chain(
+                iproduct!(0..=4, 0..=4)
+                    .filter(|(x, z)| *x == 0 || *z == 0 || *x == 4 || *z == 4)
+                    .map(|(x, z)| {
+                        let game = game.clone();
+                        util::run_async(move || {
+                            create_chunk(
+                                &game,
+                                &noise_generator,
+                                glm::DVec3::new(
+                                    7.133333333333333
+                                        + (511.0 * 3.3333333333333333 * x as f64
+                                            - 256.0 * 16.666666666666666),
+                                    0.0,
+                                    7.133333333333333
+                                        + (511.0 * 3.3333333333333333 * z as f64
+                                            - 256.0 * 16.666666666666666)
+                                ),
+                                3.3333333333333333
+                            )
+                        })
+                        .into()
+                    })
+            )
             .collect();
 
         let this = Arc::new(DemoScene {
@@ -185,9 +209,9 @@ fn create_chunk(
                     let axis = d.get_axis();
 
                     if occupied(
-                        (world_x as f64 + scale * 1.001 * axis.x as f64).round() as i32,
-                        (sample_h_world + scale * 1.001 * axis.y as f64).round() as i32,
-                        (world_z as f64 + scale * 1.001 * axis.z as f64).round() as i32
+                        (world_x as f64 + scale * 1.01 * axis.x as f64).round() as i32,
+                        (sample_h_world + scale * 1.01 * axis.y as f64).round() as i32,
+                        (world_z as f64 + scale * 1.01 * axis.z as f64).round() as i32
                     )
                     {
                         None

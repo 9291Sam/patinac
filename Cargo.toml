@@ -23,6 +23,7 @@ log = { workspace = true }
 oneshot = { workspace = true }
 sys-locale.workspace = true
 compile_warning.workspace = true
+parry = "0.1.0"
 
 
 [workspace.dependencies]
