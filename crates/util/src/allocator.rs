@@ -99,6 +99,7 @@ impl FreelistAllocator
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub struct OutOfBlocks;
 
+#[cfg(test)]
 mod tests
 {
     #[allow(unused_imports)]

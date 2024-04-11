@@ -5,6 +5,8 @@ struct VertexInput {
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
     @location(0) voxel: u32,
+    @location(1) world_pos: vec3<f32>,
+    @location(2) face: u32,
 }
 
 struct GlobalInfo
@@ -13,11 +15,15 @@ struct GlobalInfo
     view_projection: mat4x4<f32>
 }
 
-alias Matricies = array<mat4x4<f32>, 1024>;
+const NumberOfModels: u32 = 1024;
+
+alias GlobalMatricies = array<mat4x4<f32>, NumberOfModels>;
+alias GlobalPositions = array<vec3<f32>, NumberOfModels>;
 
 @group(0) @binding(0) var<uniform> global_info: GlobalInfo;
-@group(0) @binding(1) var<uniform> global_model_view_projection: Matricies;
-@group(0) @binding(2) var<uniform> global_model: Matricies;
+@group(0) @binding(1) var<uniform> global_model_view_projection: GlobalMatricies;
+@group(0) @binding(2) var<uniform> global_model: GlobalMatricies;
+@group(0) @binding(3) var<uniform> global_pos: GlobalPositions;
 
 var<push_constant> id: u32;
 
@@ -49,6 +55,12 @@ fn vs_main(input: VertexInput) -> VertexOutput
     out.clip_position = global_model_view_projection[id] * 
         vec4<f32>(f32(x_pos), f32(y_pos), f32(z_pos), 1.0);
     out.voxel = u32(voxel_id);
+    
+    let world_pos_intercalc: vec4<f32> = global_model[id] * 
+        vec4<f32>(f32(x_pos), f32(y_pos), f32(z_pos), 1.0);
+
+    out.world_pos = world_pos_intercalc.xyz / world_pos_intercalc.w;
+    out.face = face_id;
   
     return out;
 }
@@ -62,7 +74,13 @@ struct FragmentOutput
 @fragment
 fn fs_main(in: VertexOutput) -> FragmentOutput
 {
-    return FragmentOutput(get_voxel_color(in.voxel));
+    // position and power
+    let light: vec4<f32> = vec4<f32>(-13.0, 18.3, 9.2, 8.0);
+
+    let l = light.xyz - in.world_pos;
+    let normal: vec3<f32> = get_voxel_normal_from_faceid(in.face);
+
+    return FragmentOutput(/* insert color here*/);
 }
 
 const ERROR_COLOR: vec4<f32> = vec4<f32>(1.0, 0.0, 1.0, 1.0);
@@ -85,5 +103,20 @@ fn get_voxel_color(voxel: u32) -> vec4<f32>
         case 11u: {return vec4<f32>(0.0, 0.9, 0.0, 1.0);}  // Very Light Green for Grass4
         case 12u: {return vec4<f32>(0.2, 0.5, 0.2, 1.0);}  // Grey for Grass5
         default: {return ERROR_COLOR;}                      // Error color for unknown voxels
+    }
+}
+
+fn get_voxel_normal_from_faceid(face_id: u32) -> vec3<f32>
+{
+    switch (face_id)
+    {
+        case 0u: {return vec3<f32>(0.0, -1.0, 0.0);}
+        case 1u: {return vec3<f32>(0.0, 1.0, 0.0);}
+        case 2u: {return vec3<f32>(1.0, 0.0, 0.0);}
+        case 3u: {return vec3<f32>(-1.0, 0.0, 0.0);}
+        case 4u: {return vec3<f32>(0.0, 0.0, -1.0);}
+        case 5u: {return vec3<f32>(0.0, 0.0, 1.0);}
+        default: {return vec3<f32>(0.0);}
+
     }
 }
