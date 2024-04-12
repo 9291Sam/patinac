@@ -75,13 +75,13 @@ struct FragmentOutput
 fn fs_main(in: VertexOutput) -> FragmentOutput
 {
     // position and power
-    let light: vec4<f32> = vec4<f32>(-27.0, 4.3, -21.2, 48.0);
+    let light: vec4<f32> = vec4<f32>(-27.0, 4.3, -21.2, 32.0);
 
     let l = light.xyz - in.world_pos;
     let normal: vec3<f32> = get_voxel_normal_from_faceid(in.face);
     let color: vec4<f32> = get_voxel_color(in.voxel);
 
-    return FragmentOutput((dot(normal, l) * color * light.w * (1/ pow(length(l), 2.0))) + 0.01 * color);
+    return FragmentOutput((dot(normal, l) * color * light.w * (1 / pow(length(l), 2.2))) + 0.05 * color);
 }
 
 const ERROR_COLOR: vec4<f32> = vec4<f32>(1.0, 0.0, 1.0, 1.0);
@@ -118,6 +118,5 @@ fn get_voxel_normal_from_faceid(face_id: u32) -> vec3<f32>
         case 4u: {return vec3<f32>(0.0, 0.0, -1.0);}
         case 5u: {return vec3<f32>(0.0, 0.0, 1.0);}
         default: {return vec3<f32>(0.0);}
-
     }
 }
