@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::sync::atomic::Ordering::SeqCst;
 use std::sync::{Arc, Mutex};
 
 use bytemuck::{Pod, Zeroable};
@@ -10,6 +11,7 @@ use gfx::{
     CacheablePipelineLayoutDescriptor,
     CacheableRenderPipelineDescriptor
 };
+use util::AtomicF32;
 
 #[derive(Debug)]
 pub struct RasterChunk
@@ -18,6 +20,7 @@ pub struct RasterChunk
 
     vertex_buffer:      wgpu::Buffer,
     number_of_vertices: u32,
+    time_alive:         AtomicF32,
 
     pipeline: Arc<gfx::GenericPipeline>,
 
@@ -47,8 +50,8 @@ impl RasterChunk
                     label:                "RasterChunk Pipeline Layout".into(),
                     bind_group_layouts:   vec![renderer.global_bind_group_layout.clone()],
                     push_constant_ranges: vec![wgpu::PushConstantRange {
-                        stages: wgpu::ShaderStages::VERTEX,
-                        range:  0..(std::mem::size_of::<u32>() as u32)
+                        stages: wgpu::ShaderStages::VERTEX_FRAGMENT,
+                        range:  0..(std::mem::size_of::<PC>() as u32)
                     }]
                 });
 
@@ -99,7 +102,8 @@ impl RasterChunk
             vertex_buffer,
             number_of_vertices: number_of_vertices as u32,
             pipeline,
-            transform: Mutex::new(transform)
+            transform: Mutex::new(transform),
+            time_alive: AtomicF32::new(0.0)
         });
 
         renderer.register(this.clone());
@@ -152,12 +156,16 @@ impl gfx::Recordable for RasterChunk
 
     fn pre_record_update(
         &self,
-        _: &gfx::Renderer,
+        renderer: &gfx::Renderer,
         _: &gfx::Camera,
         global_bind_group: &std::sync::Arc<gfx::wgpu::BindGroup>
     ) -> gfx::RecordInfo
     {
         let t = self.transform.lock().unwrap().clone();
+        self.time_alive.store(
+            self.time_alive.load(SeqCst) + renderer.get_delta_time(),
+            SeqCst
+        );
 
         gfx::RecordInfo {
             should_draw: true,
@@ -175,9 +183,24 @@ impl gfx::Recordable for RasterChunk
         };
 
         pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-        pass.set_push_constants(wgpu::ShaderStages::VERTEX, 0, bytemuck::bytes_of(&id));
+        pass.set_push_constants(
+            wgpu::ShaderStages::VERTEX_FRAGMENT,
+            0,
+            bytemuck::bytes_of(&PC {
+                id,
+                time_alive: self.time_alive.load(SeqCst)
+            })
+        );
         pass.draw(0..self.number_of_vertices, 0..1);
     }
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Pod, Zeroable)]
+struct PC
+{
+    id:         u32,
+    time_alive: f32
 }
 
 #[repr(C)]

@@ -25,7 +25,13 @@ alias GlobalPositions = array<vec3<f32>, NumberOfModels>;
 @group(0) @binding(2) var<uniform> global_model: GlobalMatricies;
 @group(0) @binding(3) var<uniform> global_pos: GlobalPositions;
 
-var<push_constant> id: u32;
+struct PushConstants
+{
+    id:         u32,
+    time_alive: f32,
+}
+
+var<push_constant> pc: PushConstants;
 
 @vertex
 fn vs_main(input: VertexInput) -> VertexOutput
@@ -52,11 +58,11 @@ fn vs_main(input: VertexInput) -> VertexOutput
     let face_id: u32 = (voxel_data[1] >> 13) & three_bit_mask;
     let voxel_id: u32 = (voxel_data[1] >> 16);
 
-    out.clip_position = global_model_view_projection[id] * 
+    out.clip_position = global_model_view_projection[pc.id] * 
         vec4<f32>(f32(x_pos), f32(y_pos), f32(z_pos), 1.0);
     out.voxel = u32(voxel_id);
     
-    let world_pos_intercalc: vec4<f32> = global_model[id] * 
+    let world_pos_intercalc: vec4<f32> = global_model[pc.id] * 
         vec4<f32>(f32(x_pos), f32(y_pos), f32(z_pos), 1.0);
 
     out.world_pos = world_pos_intercalc.xyz / world_pos_intercalc.w;
@@ -70,18 +76,17 @@ struct FragmentOutput
    @location(0) color: vec4<f32>
 }
 
-
 @fragment
 fn fs_main(in: VertexOutput) -> FragmentOutput
 {
     // position and power
-    let light: vec4<f32> = vec4<f32>(-27.0, 4.3, -21.2, 32.0);
+    let light: vec4<f32> = vec4<f32>(-55.0 + 32.0 * cos(pc.time_alive), -64.3, -44.2 + 32.0 * sin(pc.time_alive), 512.0);
 
     let l = light.xyz - in.world_pos;
     let normal: vec3<f32> = get_voxel_normal_from_faceid(in.face);
     let color: vec4<f32> = get_voxel_color(in.voxel);
 
-    return FragmentOutput((dot(normal, l) * color * light.w * (1 / pow(length(l), 2.2))) + 0.05 * color);
+    return FragmentOutput((dot(normal, normalize(l)) * color * light.w * (1 / pow(length(l), 2.0))) + 0.01 * color);
 }
 
 const ERROR_COLOR: vec4<f32> = vec4<f32>(1.0, 0.0, 1.0, 1.0);
