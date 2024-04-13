@@ -6,6 +6,7 @@ mod linalg;
 mod recordables;
 mod render_cache;
 mod renderer;
+mod voxel_post_processing;
 
 pub use input_manager::*;
 pub use linalg::*;

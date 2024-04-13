@@ -2,13 +2,6 @@ struct VertexInput {
     @location(0) voxel_data: vec2<u32>,
 }
 
-struct VertexOutput {
-    @builtin(position) clip_position: vec4<f32>,
-    @location(0) voxel: u32,
-    @location(1) world_pos: vec3<f32>,
-    @location(2) face: u32,
-}
-
 struct GlobalInfo
 {
     camera_pos: vec4<f32>,
@@ -23,7 +16,6 @@ alias GlobalPositions = array<vec3<f32>, NumberOfModels>;
 @group(0) @binding(0) var<uniform> global_info: GlobalInfo;
 @group(0) @binding(1) var<uniform> global_model_view_projection: GlobalMatricies;
 @group(0) @binding(2) var<uniform> global_model: GlobalMatricies;
-@group(0) @binding(3) var<uniform> global_pos: GlobalPositions;
 
 struct PushConstants
 {
@@ -62,31 +54,40 @@ fn vs_main(input: VertexInput) -> VertexOutput
         vec4<f32>(f32(x_pos), f32(y_pos), f32(z_pos), 1.0);
     out.voxel = u32(voxel_id);
     
-    let world_pos_intercalc: vec4<f32> = global_model[pc.id] * 
-        vec4<f32>(f32(x_pos), f32(y_pos), f32(z_pos), 1.0);
+    // let world_pos_intercalc: vec4<f32> = global_model[pc.id] * 
+    //     vec4<f32>(f32(x_pos), f32(y_pos), f32(z_pos), 1.0);
 
-    out.world_pos = world_pos_intercalc.xyz / world_pos_intercalc.w;
+    // out.world_pos = world_pos_intercalc.xyz / world_pos_intercalc.w;
+    out.voxel_chunk_pos = x_pos | y_pos | z_pos;
     out.face = face_id;
   
     return out;
 }
 
+struct VertexOutput {
+    @builtin(position) clip_position: vec4<f32>,
+    @location(0) voxel: u32,
+    @location(1) voxel_chunk_pos: u32,
+    @location(2) face: u32,
+}
+
 struct FragmentOutput
 {
-   @location(0) color: vec4<f32>
+   @location(0) color: vec2<u32>
 }
 
 @fragment
 fn fs_main(in: VertexOutput) -> FragmentOutput
 {
+    return FragmentOutput(vec2<u32>(in.voxel_chunk_pos, in.voxel));
     // position and power
-    let light: vec4<f32> = vec4<f32>(-55.0 + 32.0 * cos(pc.time_alive), -64.3, -44.2 + 32.0 * sin(pc.time_alive), 512.0);
+    // let light: vec4<f32> = vec4<f32>(-55.0 + 32.0 * cos(pc.time_alive), -64.3, -44.2 + 32.0 * sin(pc.time_alive), 512.0);
 
-    let l = light.xyz - in.world_pos;
-    let normal: vec3<f32> = get_voxel_normal_from_faceid(in.face);
-    let color: vec4<f32> = get_voxel_color(in.voxel);
+    // let l = light.xyz - in.world_pos;
+    // let normal: vec3<f32> = get_voxel_normal_from_faceid(in.face);
+    // let color: vec4<f32> = get_voxel_color(in.voxel);
 
-    return FragmentOutput((dot(normal, normalize(l)) * color * light.w * (1 / pow(length(l), 2.0))) + 0.01 * color);
+    // return FragmentOutput((dot(normal, normalize(l)) * color * light.w * (1 / pow(length(l), 2.0))) + 0.01 * color);
 }
 
 const ERROR_COLOR: vec4<f32> = vec4<f32>(1.0, 0.0, 1.0, 1.0);

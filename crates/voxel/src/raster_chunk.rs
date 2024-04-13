@@ -66,8 +66,8 @@ impl RasterChunk
                     module:      shader,
                     entry_point: "fs_main".into(),
                     targets:     vec![Some(wgpu::ColorTargetState {
-                        format:     gfx::Renderer::SURFACE_TEXTURE_FORMAT,
-                        blend:      Some(wgpu::BlendState::REPLACE),
+                        format:     wgpu::TextureFormat::Rg32Uint,
+                        blend:      None,
                         write_mask: wgpu::ColorWrites::ALL
                     })]
                 }),
@@ -146,7 +146,7 @@ impl gfx::Recordable for RasterChunk
 
     fn get_pass_stage(&self) -> gfx::PassStage
     {
-        gfx::PassStage::SimpleColor
+        gfx::PassStage::VoxelDiscovery
     }
 
     fn get_pipeline(&self) -> Option<&gfx::GenericPipeline>

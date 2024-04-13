@@ -23,6 +23,7 @@ use winit::window::{Window, WindowBuilder};
 
 use crate::recordables::{recordable_ord, PassStage, RecordInfo, Recordable};
 use crate::render_cache::{GenericPass, RenderCache};
+use crate::voxel_post_processing::VoxelColorTransferRecordable;
 use crate::{Camera, GenericPipeline, InputManager};
 
 #[derive(Debug)]
@@ -258,6 +259,16 @@ impl Renderer
                             )
                         },
                         count:      None
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding:    3,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty:         wgpu::BindingType::Texture {
+                            sample_type:    wgpu::TextureSampleType::Uint,
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            multisampled:   false
+                        },
+                        count:      None
                     }
                 ]
             });
@@ -375,6 +386,20 @@ impl Renderer
             mapped_at_creation: false
         });
 
+        let voxel_color_transfer_recordable = Arc::new(VoxelColorTransferRecordable::new(self));
+
+        let voxel_discovery_image = RefCell::new(create_sized_image(
+            &self.device,
+            wgpu::Extent3d {
+                width:                 config.width,
+                height:                config.height,
+                depth_or_array_layers: 1
+            },
+            wgpu::TextureFormat::Rg32Uint,
+            wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+            "Voxel Discovery Image"
+        ));
+
         let global_bind_group = Arc::new(self.create_bind_group(&wgpu::BindGroupDescriptor {
             label:   Some("Global Info Bind Group"),
             layout:  &self.global_bind_group_layout,
@@ -390,21 +415,13 @@ impl Renderer
                 wgpu::BindGroupEntry {
                     binding:  2,
                     resource: global_model_buffer.as_entire_binding()
+                },
+                wgpu::BindGroupEntry {
+                    binding:  3,
+                    resource: wgpu::BindingResource::TextureView(&voxel_discovery_image.borrow().1)
                 }
             ]
         }));
-
-        let voxel_discovery_image = RefCell::new(create_sized_image(
-            &self.device,
-            wgpu::Extent3d {
-                width:                 config.width,
-                height:                config.height,
-                depth_or_array_layers: 1
-            },
-            wgpu::TextureFormat::Rg32Uint,
-            wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
-            "Voxel Discovery Image"
-        ));
 
         // Because of a bug in winit, the first resize command that comes in is borked
         // on Windows https://github.com/rust-windowing/winit/issues/2094
@@ -569,11 +586,19 @@ impl Renderer
                     ));
                 });
 
-            // TODO: insert special compute + raster passes
-
             renderables_map.iter_mut().for_each(|(_, renderable_vec)| {
                 renderable_vec.sort_by(|l, r| recordable_ord(&*l.0, &*r.0, &l.2, &r.2))
             });
+
+            // insert color transfer object
+            renderables_map
+                .get_mut(&PassStage::VoxelColorTransfer)
+                .unwrap()
+                .push((
+                    voxel_color_transfer_recordable.clone(),
+                    None,
+                    [Some(global_bind_group.clone()), None, None, None]
+                ));
 
             let global_info = ShaderGlobalInfo {
                 camera_pos:      camera.get_position(),
