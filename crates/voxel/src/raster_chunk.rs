@@ -146,7 +146,7 @@ impl gfx::Recordable for RasterChunk
 
     fn get_pass_stage(&self) -> gfx::PassStage
     {
-        gfx::PassStage::GraphicsSimpleColor
+        gfx::PassStage::SimpleColor
     }
 
     fn get_pipeline(&self) -> Option<&gfx::GenericPipeline>

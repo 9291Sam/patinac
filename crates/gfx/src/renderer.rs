@@ -16,7 +16,7 @@ use strum::IntoEnumIterator;
 use util::{AtomicF32, AtomicU32U32, Registrar, SendSyncMutPtr};
 use winit::dpi::PhysicalSize;
 use winit::event::*;
-use winit::event_loop::{EventLoop, EventLoopWindowTarget};
+use winit::event_loop::EventLoop;
 use winit::keyboard::KeyCode;
 use winit::platform::run_on_demand::EventLoopExtRunOnDemand;
 use winit::window::{Window, WindowBuilder};
@@ -51,12 +51,6 @@ impl Drop for Renderer
                 "Dropping Renderer from a thread ({}) it was not created on!",
                 std::thread::current().name().unwrap_or("???")
             )
-        }
-
-        //? 2?
-        if Arc::strong_count(&self.device) != 2
-        {
-            log::warn!("Retained device! {}", Arc::strong_count(&self.device))
         }
 
         self.renderables
@@ -348,7 +342,17 @@ impl Renderer
 
         let mut camera = camera_update_func(&input_manager, self.get_delta_time());
 
-        let depth_buffer = RefCell::new(create_depth_buffer(&self.device, config));
+        let depth_buffer = RefCell::new(create_sized_image(
+            &self.device,
+            wgpu::Extent3d {
+                width:                 config.width,
+                height:                config.height,
+                depth_or_array_layers: 1
+            },
+            Renderer::DEPTH_FORMAT,
+            wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+            "Depth Buffer"
+        ));
 
         let global_info_uniform_buffer = self.create_buffer(&wgpu::BufferDescriptor {
             label:              Some("Global Uniform Buffer"),
@@ -390,6 +394,18 @@ impl Renderer
             ]
         }));
 
+        let voxel_discovery_image = RefCell::new(create_sized_image(
+            &self.device,
+            wgpu::Extent3d {
+                width:                 config.width,
+                height:                config.height,
+                depth_or_array_layers: 1
+            },
+            wgpu::TextureFormat::Rg32Uint,
+            wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+            "Voxel Discovery Image"
+        ));
+
         // Because of a bug in winit, the first resize command that comes in is borked
         // on Windows https://github.com/rust-windowing/winit/issues/2094
         // we want to skip the first resize event
@@ -424,13 +440,35 @@ impl Renderer
 
                 surface.configure(&self.device, config);
 
-                *depth_buffer.borrow_mut() = create_depth_buffer(&self.device, config);
+                *depth_buffer.borrow_mut() = create_sized_image(
+                    &self.device,
+                    wgpu::Extent3d {
+                        width:                 config.width,
+                        height:                config.height,
+                        depth_or_array_layers: 1
+                    },
+                    Renderer::DEPTH_FORMAT,
+                    wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+                    "Depth Buffer"
+                );
+
+                *voxel_discovery_image.borrow_mut() = create_sized_image(
+                    &self.device,
+                    wgpu::Extent3d {
+                        width:                 config.width,
+                        height:                config.height,
+                        depth_or_array_layers: 1
+                    },
+                    wgpu::TextureFormat::Rg32Uint,
+                    wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+                    "Voxel Discovery Image"
+                )
             }
         };
 
         let render_func = |camera: Camera| -> Result<(), wgpu::SurfaceError> {
-            let output = surface.get_current_texture()?;
-            let view = output
+            let screen_texture = surface.get_current_texture()?;
+            let screen_texture_view = screen_texture
                 .texture
                 .create_view(&wgpu::TextureViewDescriptor::default());
 
@@ -471,6 +509,16 @@ impl Renderer
                     {
                         Some(r) =>
                         {
+                            assert!(
+                                r.get_pass_stage() != PassStage::VoxelColorTransfer,
+                                "Internal Pass"
+                            );
+
+                            assert!(
+                                r.get_pass_stage() != PassStage::PostVoxelDiscoveryCompute,
+                                "Internal Pass"
+                            );
+
                             let record_info =
                                 r.pre_record_update(self, &camera, &global_bind_group);
 
@@ -521,6 +569,8 @@ impl Renderer
                     ));
                 });
 
+            // TODO: insert special compute + raster passes
+
             renderables_map.iter_mut().for_each(|(_, renderable_vec)| {
                 renderable_vec.sort_by(|l, r| recordable_ord(&*l.0, &*r.0, &l.2, &r.2))
             });
@@ -552,27 +602,28 @@ impl Renderer
             let mut active_pipeline: Option<&GenericPipeline> = None;
             let mut active_bind_groups: [Option<wgpu::Id<wgpu::BindGroup>>; 4] = [None; 4];
 
+            let (_, ref depth_view, _) = *depth_buffer.borrow();
+            let (_, ref voxel_discovery_view, _) = *voxel_discovery_image.borrow();
+
             for pass_type in PassStage::iter()
             {
-                let (_, ref depth_view, _) = *depth_buffer.borrow();
-
                 let mut render_pass: GenericPass = match pass_type
                 {
-                    PassStage::GraphicsSimpleColor =>
+                    PassStage::VoxelDiscovery =>
                     {
                         GenericPass::Render(encoder.begin_render_pass(
                             &wgpu::RenderPassDescriptor {
-                                label:                    Some("Render Pass"),
+                                label:                    Some("Voxel Discovery Pass"),
                                 color_attachments:        &[Some(
                                     wgpu::RenderPassColorAttachment {
-                                        view:           &view,
+                                        view:           voxel_discovery_view,
                                         resolve_target: None,
                                         ops:            wgpu::Operations {
                                             load:  wgpu::LoadOp::Clear(wgpu::Color {
-                                                r: 0.1,
-                                                g: 0.2,
-                                                b: 0.3,
-                                                a: 1.0
+                                                r: 0.0,
+                                                g: 0.0,
+                                                b: 0.0,
+                                                a: 0.0
                                             }),
                                             store: wgpu::StoreOp::Store
                                         }
@@ -593,6 +644,71 @@ impl Renderer
                             }
                         ))
                     }
+                    PassStage::PostVoxelDiscoveryCompute =>
+                    {
+                        GenericPass::Compute(encoder.begin_compute_pass(
+                            &wgpu::ComputePassDescriptor {
+                                label:            Some("Post Voxel Discovery Compute"),
+                                timestamp_writes: None
+                            }
+                        ))
+                    }
+                    PassStage::VoxelColorTransfer =>
+                    {
+                        GenericPass::Render(encoder.begin_render_pass(
+                            &wgpu::RenderPassDescriptor {
+                                label:                    Some("Voxel Color Transfer Pass"),
+                                color_attachments:        &[Some(
+                                    wgpu::RenderPassColorAttachment {
+                                        view:           &screen_texture_view,
+                                        resolve_target: None,
+                                        ops:            wgpu::Operations {
+                                            load:  wgpu::LoadOp::Clear(wgpu::Color {
+                                                r: 0.1,
+                                                g: 0.2,
+                                                b: 0.3,
+                                                a: 1.0
+                                            }),
+                                            store: wgpu::StoreOp::Store
+                                        }
+                                    }
+                                )],
+                                depth_stencil_attachment: None,
+                                occlusion_query_set:      None,
+                                timestamp_writes:         None
+                            }
+                        ))
+                    }
+                    PassStage::SimpleColor =>
+                    {
+                        GenericPass::Render(encoder.begin_render_pass(
+                            &wgpu::RenderPassDescriptor {
+                                label:                    Some("Simple Color Pass"),
+                                color_attachments:        &[Some(
+                                    wgpu::RenderPassColorAttachment {
+                                        view:           &screen_texture_view,
+                                        resolve_target: None,
+                                        ops:            wgpu::Operations {
+                                            load:  wgpu::LoadOp::Load,
+                                            store: wgpu::StoreOp::Store
+                                        }
+                                    }
+                                )],
+                                depth_stencil_attachment: Some(
+                                    wgpu::RenderPassDepthStencilAttachment {
+                                        view:        depth_view,
+                                        depth_ops:   Some(wgpu::Operations {
+                                            load:  wgpu::LoadOp::Load,
+                                            store: wgpu::StoreOp::Store
+                                        }),
+                                        stencil_ops: None
+                                    }
+                                ),
+                                occlusion_query_set:      None,
+                                timestamp_writes:         None
+                            }
+                        ))
+                    }
                     PassStage::MenuRender =>
                     {
                         GenericPass::Render(encoder.begin_render_pass(
@@ -600,7 +716,7 @@ impl Renderer
                                 label:                    None,
                                 color_attachments:        &[Some(
                                     wgpu::RenderPassColorAttachment {
-                                        view:           &view,
+                                        view:           &screen_texture_view,
                                         resolve_target: None,
                                         ops:            wgpu::Operations {
                                             load:  wgpu::LoadOp::Load,
@@ -676,22 +792,12 @@ impl Renderer
             window.pre_present_notify();
 
             self.queue.submit([encoder.finish()]);
-            output.present();
+            screen_texture.present();
 
             self.delta_time
                 .store(input_manager.get_delta_time(), Ordering::Release);
 
             Ok(())
-        };
-
-        // TODO: remove!
-        let handle_input = |camera: &mut Camera, control_flow: &EventLoopWindowTarget<()>| {
-            *camera = camera_update_func(&input_manager, self.get_delta_time());
-
-            if input_manager.is_key_pressed(KeyCode::Escape)
-            {
-                control_flow.exit();
-            }
         };
 
         input_manager.attach_cursor();
@@ -719,7 +825,12 @@ impl Renderer
                         {
                             use wgpu::SurfaceError::*;
 
-                            handle_input(&mut camera, control_flow);
+                            camera = camera_update_func(&input_manager, self.get_delta_time());
+
+                            if input_manager.is_key_pressed(KeyCode::Escape)
+                            {
+                                control_flow.exit();
+                            }
 
                             match render_func(camera.clone())
                             {
@@ -729,8 +840,6 @@ impl Renderer
                                 Err(Lost) => resize_func(None),
                                 Err(OutOfMemory) => todo!()
                             }
-
-                            // log::trace!("frametime (ms): {}", self.get_delta_time() * 1000.0);
 
                             window.request_redraw();
                         }
@@ -774,47 +883,6 @@ struct CriticalSection
 
 unsafe impl Sync for CriticalSection {}
 
-fn create_depth_buffer(
-    device: &wgpu::Device,
-    config: &wgpu::SurfaceConfiguration
-) -> (wgpu::Texture, wgpu::TextureView, wgpu::Sampler)
-{
-    let size = wgpu::Extent3d {
-        width:                 config.width,
-        height:                config.height,
-        depth_or_array_layers: 1
-    };
-
-    let desc = wgpu::TextureDescriptor {
-        label: Some("Depth Buffer"),
-        size,
-        mip_level_count: 1,
-        sample_count: 1,
-        dimension: wgpu::TextureDimension::D2,
-        format: Renderer::DEPTH_FORMAT,
-        usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
-        view_formats: &[]
-    };
-    let texture = device.create_texture(&desc);
-
-    let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-    let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-        // 4.
-        address_mode_u: wgpu::AddressMode::ClampToEdge,
-        address_mode_v: wgpu::AddressMode::ClampToEdge,
-        address_mode_w: wgpu::AddressMode::ClampToEdge,
-        mag_filter: wgpu::FilterMode::Linear,
-        min_filter: wgpu::FilterMode::Linear,
-        mipmap_filter: wgpu::FilterMode::Nearest,
-        compare: Some(wgpu::CompareFunction::LessEqual), // 5.
-        lod_min_clamp: 0.0,
-        lod_max_clamp: 100.0,
-        ..Default::default()
-    });
-
-    (texture, view, sampler)
-}
-
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable, Debug, Default)]
 pub(crate) struct ShaderGlobalInfo
@@ -841,4 +909,44 @@ impl Default for ShaderMatrices
             matrices: [Default::default(); SHADER_MATRICES_SIZE]
         }
     }
+}
+
+fn create_sized_image(
+    device: &wgpu::Device,
+    extent: wgpu::Extent3d,
+    format: wgpu::TextureFormat,
+    usage: wgpu::TextureUsages,
+    name: &str
+) -> (wgpu::Texture, wgpu::TextureView, wgpu::Sampler)
+{
+    let desc = wgpu::TextureDescriptor {
+        label: Some(name),
+        size: extent,
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format,
+        usage,
+        view_formats: &[]
+    };
+    let texture = device.create_texture(&desc);
+
+    let view = texture.create_view(&wgpu::TextureViewDescriptor {
+        label: Some(name),
+        ..Default::default()
+    });
+
+    let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+        address_mode_u: wgpu::AddressMode::ClampToEdge,
+        address_mode_v: wgpu::AddressMode::ClampToEdge,
+        address_mode_w: wgpu::AddressMode::ClampToEdge,
+        mag_filter: wgpu::FilterMode::Linear,
+        min_filter: wgpu::FilterMode::Linear,
+        mipmap_filter: wgpu::FilterMode::Nearest,
+        lod_min_clamp: 0.0,
+        lod_max_clamp: 100.0,
+        ..Default::default()
+    });
+
+    (texture, view, sampler)
 }

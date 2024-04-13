@@ -15,7 +15,10 @@ pub type DrawId = u32;
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash, EnumIter)]
 pub enum PassStage
 {
-    GraphicsSimpleColor,
+    VoxelDiscovery,
+    PostVoxelDiscoveryCompute,
+    VoxelColorTransfer,
+    SimpleColor,
     MenuRender
 }
 
