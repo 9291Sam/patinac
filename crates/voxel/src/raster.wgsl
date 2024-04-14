@@ -58,7 +58,7 @@ fn vs_main(input: VertexInput) -> VertexOutput
     //     vec4<f32>(f32(x_pos), f32(y_pos), f32(z_pos), 1.0);
 
     // out.world_pos = world_pos_intercalc.xyz / world_pos_intercalc.w;
-    out.voxel_chunk_pos = x_pos | y_pos | z_pos;
+    out.voxel_chunk_pos = x_pos | y_pos << 9 | z_pos << 18;
     out.face = face_id;
   
     return out;
