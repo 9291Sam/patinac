@@ -83,14 +83,6 @@ fn fs_main(in: VertexOutput) -> FragmentOutput
     let data: vec3<u32> = vec3<u32>(trunc(in.voxel_chunk_pos + normal * -0.001));
 
     return FragmentOutput(vec2<u32>(data.x | data.y << 9 | data.z << 18, in.voxel));
-    // position and power
-    // let light: vec4<f32> = vec4<f32>(-55.0 + 32.0 * cos(pc.time_alive), -64.3, -44.2 + 32.0 * sin(pc.time_alive), 512.0);
-
-    // let l = light.xyz - in.world_pos;
-    // let normal: vec3<f32> = get_voxel_normal_from_faceid(in.face);
-    // let color: vec4<f32> = get_voxel_color(in.voxel);
-
-    // return FragmentOutput((dot(normal, normalize(l)) * color * light.w * (1 / pow(length(l), 2.0))) + 0.01 * color);
 }
 
 const ERROR_COLOR: vec4<f32> = vec4<f32>(1.0, 0.0, 1.0, 1.0);

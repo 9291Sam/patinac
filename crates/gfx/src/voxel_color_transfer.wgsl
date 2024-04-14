@@ -28,14 +28,10 @@ fn fs_main(@builtin(position) in: vec4<f32>) -> @location(0) vec4<f32>
     let y_pos: u32 = (voxel_data[0] >> 9) & nine_bit_mask;
     let z_pos: u32 = (voxel_data[0] >> 18) & nine_bit_mask;
     
-    let r_x = rand(x_pos) % 512;
-    let r_y = rand(y_pos) % 512;
-    let r_z = rand(z_pos) % 512;
-
     return vec4<f32>(
-        map(f32(r_x), 0.0, 512.0, 0.0, 1.0),
-        map(f32(r_y), 0.0, 512.0, 0.0, 1.0),
-        map(f32(r_z), 0.0, 512.0, 0.0, 1.0),
+        map(f32(x_pos), 0.0, 511.0 / 16.0, 0.0, 1.0) % 1.0,
+        map(f32(y_pos), 0.0, 511.0 / 16.0, 0.0, 1.0) % 1.0,
+        map(f32(z_pos), 0.0, 511.0 / 16.0, 0.0, 1.0) % 1.0,
         1.0
     ); // * get_voxel_color(voxel_data.y);
 
