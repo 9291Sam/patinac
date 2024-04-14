@@ -560,8 +560,6 @@ impl Renderer
                                 &global_discovery_bind_group.borrow()
                             );
 
-                            // log::trace!("collected {:?}", record_info.bind_groups[0].);
-
                             match record_info
                             {
                                 RecordInfo {

@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 use dashmap::DashMap;
 use util::{AtomicF32, AtomicF32F32};
 use winit::dpi::{PhysicalPosition, PhysicalSize};
-use winit::event::{ElementState, Event, KeyEvent, WindowEvent};
+use winit::event::{ElementState, Event, KeyEvent, MouseButton, WindowEvent};
 use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::window::Window;
 
@@ -47,7 +47,7 @@ impl InputManager
                 previous_frame_mouse_pos: ZERO_POS,
                 best_guess_mouse_pos:     ZERO_POS,
                 window_size:              size,
-                is_cursor_attached:       true
+                is_cursor_attached:       false
             }),
             delta_frame_time: AtomicF32::new(0.0),
             delta_mouse_pos_px: AtomicF32F32::new((0.0, 0.0))
@@ -134,11 +134,18 @@ impl InputManager
                 //     delta,
                 //     phase
                 // } => todo!(),
-                // WindowEvent::MouseInput {
-                //     device_id,
-                //     state,
-                //     button
-                // } => todo!(),
+                WindowEvent::MouseInput {
+                    device_id,
+                    state,
+                    button
+                } if *button == MouseButton::Left =>
+                {
+                    match state
+                    {
+                        ElementState::Pressed => self.attach_cursor(),
+                        ElementState::Released => ()
+                    }
+                }
                 _ => ()
             }
         }
@@ -171,6 +178,11 @@ impl InputManager
             is_cursor_attached,
             ..
         } = &mut *self.critical_section.lock().unwrap();
+
+        if *is_cursor_attached
+        {
+            return;
+        }
 
         *is_cursor_attached = true;
 

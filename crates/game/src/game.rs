@@ -154,11 +154,6 @@ impl Game
             camera.add_position(v * camera_delta_time);
         };
 
-        if input_manager.is_key_pressed(gfx::KeyCode::KeyP)
-        {
-            input_manager.attach_cursor();
-        };
-
         if input_manager.is_key_pressed(gfx::KeyCode::KeyO)
         {
             input_manager.detach_cursor();
