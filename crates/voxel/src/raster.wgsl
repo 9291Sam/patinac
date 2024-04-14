@@ -58,7 +58,7 @@ fn vs_main(input: VertexInput) -> VertexOutput
     //     vec4<f32>(f32(x_pos), f32(y_pos), f32(z_pos), 1.0);
 
     // out.world_pos = world_pos_intercalc.xyz / world_pos_intercalc.w;
-    out.voxel_chunk_pos = x_pos | y_pos << 9 | z_pos << 18;
+    out.voxel_chunk_pos = vec3<f32>(f32(x_pos), f32(y_pos), f32(z_pos));
     out.face = face_id;
   
     return out;
@@ -67,7 +67,7 @@ fn vs_main(input: VertexInput) -> VertexOutput
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
     @location(0) voxel: u32,
-    @location(1) voxel_chunk_pos: u32,
+    @location(1) voxel_chunk_pos: vec3<f32>,
     @location(2) face: u32,
 }
 
@@ -79,7 +79,10 @@ struct FragmentOutput
 @fragment
 fn fs_main(in: VertexOutput) -> FragmentOutput
 {
-    return FragmentOutput(vec2<u32>(in.voxel_chunk_pos, in.voxel));
+    let normal = get_voxel_normal_from_faceid(in.face);
+    let data: vec3<u32> = vec3<u32>(trunc(in.voxel_chunk_pos + normal * -0.001));
+
+    return FragmentOutput(vec2<u32>(data.x | data.y << 9 | data.z << 18, in.voxel));
     // position and power
     // let light: vec4<f32> = vec4<f32>(-55.0 + 32.0 * cos(pc.time_alive), -64.3, -44.2 + 32.0 * sin(pc.time_alive), 512.0);
 
