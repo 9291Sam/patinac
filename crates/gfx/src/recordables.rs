@@ -35,7 +35,8 @@ pub trait Recordable: Debug + Send + Sync
         &self,
         renderer: &Renderer,
         camera: &Camera,
-        global_bind_group: &Arc<wgpu::BindGroup>
+        global_bind_group: &Arc<wgpu::BindGroup>,
+        global_voxel_discovery_group: &Arc<wgpu::BindGroup>
     ) -> RecordInfo;
 
     fn record<'s>(&'s self, render_pass: &mut GenericPass<'s>, maybe_id: Option<DrawId>);

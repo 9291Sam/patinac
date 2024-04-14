@@ -33,6 +33,7 @@ pub struct Renderer
     pub device:                   Arc<wgpu::Device>,
     pub render_cache:             RenderCache,
     pub global_bind_group_layout: Arc<wgpu::BindGroupLayout>,
+    pub global_discovery_layout:  Arc<wgpu::BindGroupLayout>,
     renderables:                  util::Registrar<util::Uuid, Weak<dyn Recordable>>,
     window_size:                  AtomicU32U32,
     delta_time:                   AtomicF32,
@@ -259,18 +260,23 @@ impl Renderer
                             )
                         },
                         count:      None
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding:    3,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty:         wgpu::BindingType::Texture {
-                            sample_type:    wgpu::TextureSampleType::Uint,
-                            view_dimension: wgpu::TextureViewDimension::D2,
-                            multisampled:   false
-                        },
-                        count:      None
                     }
                 ]
+            });
+
+        let global_discovery_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label:   Some("Global Discovery Layout"),
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding:    0,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty:         wgpu::BindingType::Texture {
+                        sample_type:    wgpu::TextureSampleType::Uint,
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        multisampled:   false
+                    },
+                    count:      None
+                }]
             });
 
         let render_cache = RenderCache::new(device.clone());
@@ -282,6 +288,7 @@ impl Renderer
             device,
             critical_section: Mutex::new(critical_section),
             global_bind_group_layout: Arc::new(global_bind_group_layout),
+            global_discovery_layout: Arc::new(global_discovery_layout),
             window_size: AtomicU32U32::new((size.width, size.height)),
             delta_time: AtomicF32::new(0.0f32),
             render_cache
@@ -415,13 +422,20 @@ impl Renderer
                 wgpu::BindGroupEntry {
                     binding:  2,
                     resource: global_model_buffer.as_entire_binding()
-                },
-                wgpu::BindGroupEntry {
-                    binding:  3,
-                    resource: wgpu::BindingResource::TextureView(&voxel_discovery_image.borrow().1)
                 }
             ]
         }));
+
+        let global_discovery_bind_group = RefCell::new(Arc::new(self.create_bind_group(
+            &wgpu::BindGroupDescriptor {
+                label:   Some("Global Discovery Bind Group"),
+                layout:  &self.global_discovery_layout,
+                entries: &[wgpu::BindGroupEntry {
+                    binding:  0,
+                    resource: wgpu::BindingResource::TextureView(&voxel_discovery_image.borrow().1)
+                }]
+            }
+        )));
 
         // Because of a bug in winit, the first resize command that comes in is borked
         // on Windows https://github.com/rust-windowing/winit/issues/2094
@@ -479,7 +493,19 @@ impl Renderer
                     wgpu::TextureFormat::Rg32Uint,
                     wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
                     "Voxel Discovery Image"
-                )
+                );
+
+                *global_discovery_bind_group.borrow_mut() =
+                    Arc::new(self.create_bind_group(&wgpu::BindGroupDescriptor {
+                        label:   Some("Global Discovery Bind Group"),
+                        layout:  &self.global_discovery_layout,
+                        entries: &[wgpu::BindGroupEntry {
+                            binding:  0,
+                            resource: wgpu::BindingResource::TextureView(
+                                &voxel_discovery_image.borrow().1
+                            )
+                        }]
+                    }));
             }
         };
 
@@ -536,8 +562,12 @@ impl Renderer
                                 "Internal Pass"
                             );
 
-                            let record_info =
-                                r.pre_record_update(self, &camera, &global_bind_group);
+                            let record_info = r.pre_record_update(
+                                self,
+                                &camera,
+                                &global_bind_group,
+                                &global_discovery_bind_group.borrow()
+                            );
 
                             match record_info
                             {
@@ -777,6 +807,8 @@ impl Renderer
                                 (_, _) => panic!("Pass Pipeline Invariant Violated!")
                             }
 
+                            log::error!("bound new pipeline");
+
                             active_pipeline = Some(desired_pipeline);
                         }
                     }
@@ -803,9 +835,20 @@ impl Renderer
                                     }
                                 }
                                 *active_bind_group_id = Some(new_bind_group.global_id());
+                                log::error!("bound group {:?}", active_bind_group_id.unwrap());
                             }
                         }
                     }
+
+                    log::error!(
+                        "Recording {:?} ",
+                        renderable,
+                        // active_pipeline.unwrap_or_default().global_id(),
+                        // active_bind_groups[0],
+                        // active_bind_groups[1],
+                        // active_bind_groups[2],
+                        // active_bind_groups[3],
+                    );
 
                     renderable.record(&mut render_pass, *maybe_id);
                 }

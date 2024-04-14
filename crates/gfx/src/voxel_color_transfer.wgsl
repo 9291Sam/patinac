@@ -1,27 +1,13 @@
-struct GlobalInfo
-{
-    camera_pos: vec4<f32>,
-    view_projection: mat4x4<f32>
-}
-
-const NumberOfModels: u32 = 1024;
-
-alias GlobalMatricies = array<mat4x4<f32>, NumberOfModels>;
-alias GlobalPositions = array<vec3<f32>, NumberOfModels>;
-
-@group(0) @binding(0) var<uniform> global_info: GlobalInfo;
-@group(0) @binding(1) var<uniform> global_model_view_projection: GlobalMatricies;
-@group(0) @binding(2) var<uniform> global_model: GlobalMatricies;
-@group(0) @binding(3) var voxel_discovery_image: texture_2d<u32>;
+@group(0) @binding(0) var voxel_discovery_image: texture_2d<u32>;
 
 @vertex
 fn vs_main(@builtin(vertex_index) index: u32) -> @builtin(position) vec4<f32>
 {
     switch (index)
     {
-        case 0u:      {return vec4<f32>(-1.0, 3.0, 0.9999999, 1.0); }
-        case 1u:      {return vec4<f32>(3.0, -1.0, 0.9999999, 1.0); }
-        case 2u:      {return vec4<f32>(-1.0, -1.0, 0.9999999, 1.0); }
+        case 0u:      {return vec4<f32>(-1.0, 3.0, 0.5, 1.0); }
+        case 1u:      {return vec4<f32>(3.0, -1.0, 0.5, 1.0); }
+        case 2u:      {return vec4<f32>(-1.0, -1.0, 0.5, 1.0); }
         case default: {return vec4<f32>(0.0); }
     }
 }
@@ -34,7 +20,12 @@ fn fs_main(@builtin(position) in: vec4<f32>) -> @location(0) vec4<f32>
     let u: u32 = u32(round(map(in.x, -1.0, 1.0, 0.0, f32(dims.x))));
     let v: u32 = u32(round(map(in.y, 1.0, -1.0, 0.0, f32(dims.y))));
 
-    let voxel_data: vec4<u32> = textureLoad(voxel_discovery_image, vec2<u32>(u, v), 1);
+    let voxel_data: vec2<u32> = textureLoad(voxel_discovery_image, vec2<u32>(u32(in.x), u32(in.y)), 0).xy;
+
+    if (all(voxel_data == vec2<u32>(0)))
+    {
+        discard;
+    }
     
     let nine_bit_mask: u32 = u32(511);
 

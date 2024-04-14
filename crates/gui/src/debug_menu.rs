@@ -135,6 +135,7 @@ impl gfx::Recordable for DebugMenu
         &self,
         renderer: &gfx::Renderer,
         camera: &gfx::Camera,
+        _: &std::sync::Arc<gfx::wgpu::BindGroup>,
         _: &std::sync::Arc<gfx::wgpu::BindGroup>
     ) -> gfx::RecordInfo
     {

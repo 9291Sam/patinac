@@ -19,7 +19,7 @@ impl VoxelColorTransferRecordable
                 .render_cache
                 .cache_pipeline_layout(crate::CacheablePipelineLayoutDescriptor {
                     label:                Cow::Borrowed("Voxel Color Transfer Pipeline Layout"),
-                    bind_group_layouts:   vec![renderer.global_bind_group_layout.clone()],
+                    bind_group_layouts:   vec![renderer.global_discovery_layout.clone()],
                     push_constant_ranges: vec![]
                 });
 
@@ -93,13 +93,19 @@ impl super::Recordable for VoxelColorTransferRecordable
         &self,
         _: &crate::Renderer,
         _: &crate::Camera,
-        global_bind_group: &std::sync::Arc<wgpu::BindGroup>
+        _: &Arc<wgpu::BindGroup>,
+        global_voxel_discovery_group: &Arc<wgpu::BindGroup>
     ) -> crate::RecordInfo
     {
+        log::error!(
+            "discovery group {:?}",
+            global_voxel_discovery_group.global_id()
+        );
+
         crate::RecordInfo {
             should_draw: true,
             transform:   None,
-            bind_groups: [Some(global_bind_group.clone()), None, None, None]
+            bind_groups: [Some(global_voxel_discovery_group.clone()), None, None, None]
         }
     }
 
