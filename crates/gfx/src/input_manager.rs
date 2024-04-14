@@ -1,4 +1,4 @@
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 use dashmap::DashMap;
@@ -20,7 +20,8 @@ pub struct InputManager
     critical_section: Mutex<InputManagerCriticalSection>,
 
     delta_frame_time:   AtomicF32,
-    delta_mouse_pos_px: AtomicF32F32
+    delta_mouse_pos_px: AtomicF32F32,
+    ignore_frames:      AtomicU64
 }
 
 #[derive(Debug)]
@@ -50,7 +51,8 @@ impl InputManager
                 is_cursor_attached:       false
             }),
             delta_frame_time: AtomicF32::new(0.0),
-            delta_mouse_pos_px: AtomicF32F32::new((0.0, 0.0))
+            delta_mouse_pos_px: AtomicF32F32::new((0.0, 0.0)),
+            ignore_frames: AtomicU64::new(0)
         };
 
         this.attach_cursor();
@@ -69,6 +71,17 @@ impl InputManager
             {
                 WindowEvent::RedrawRequested =>
                 {
+                    let ignore: bool = if self.ignore_frames.load(Ordering::Acquire) != 0
+                    {
+                        self.ignore_frames.fetch_sub(1, Ordering::AcqRel);
+
+                        true
+                    }
+                    else
+                    {
+                        false
+                    };
+
                     let InputManagerCriticalSection {
                         previous_frame_time,
                         previous_frame_mouse_pos,
@@ -87,13 +100,20 @@ impl InputManager
 
                     if *is_cursor_attached
                     {
-                        self.delta_mouse_pos_px.store(
-                            (
-                                (best_guess_mouse_pos.x - previous_frame_mouse_pos.x) as f32,
-                                (best_guess_mouse_pos.y - previous_frame_mouse_pos.y) as f32
-                            ),
-                            Ordering::Release
-                        );
+                        if ignore
+                        {
+                            self.delta_mouse_pos_px.store((0.0, 0.0), Ordering::Release);
+                        }
+                        else
+                        {
+                            self.delta_mouse_pos_px.store(
+                                (
+                                    (best_guess_mouse_pos.x - previous_frame_mouse_pos.x) as f32,
+                                    (best_guess_mouse_pos.y - previous_frame_mouse_pos.y) as f32
+                                ),
+                                Ordering::Release
+                            );
+                        }
 
                         let c = get_center_screen_pos(*window_size);
 
@@ -173,9 +193,9 @@ impl InputManager
     pub fn attach_cursor(&self)
     {
         let InputManagerCriticalSection {
-            previous_frame_mouse_pos,
-            best_guess_mouse_pos,
-            is_cursor_attached,
+            ref mut previous_frame_mouse_pos,
+            ref mut best_guess_mouse_pos,
+            ref mut is_cursor_attached,
             ..
         } = &mut *self.critical_section.lock().unwrap();
 
@@ -188,6 +208,8 @@ impl InputManager
 
         *previous_frame_mouse_pos = ZERO_POS;
         *best_guess_mouse_pos = ZERO_POS;
+        self.delta_mouse_pos_px.store((0.0, 0.0), Ordering::Release);
+        self.ignore_frames.fetch_add(2, Ordering::AcqRel);
 
         self.window.set_cursor_position(ZERO_POS).unwrap();
         self.window.set_cursor_visible(false);
