@@ -1,3 +1,4 @@
+use std::fmt::Debug;
 use std::sync::atomic::Ordering::*;
 use std::sync::atomic::{AtomicU32, AtomicU64};
 use std::sync::{Arc, Mutex, Weak};
@@ -13,7 +14,6 @@ pub trait World: Send + Sync
     fn get_height(&self, pos: glm::Vec3) -> f32;
 }
 
-#[derive(Debug)]
 pub struct Game
 {
     this_weak:        Weak<Game>,
@@ -23,6 +23,14 @@ pub struct Game
     float_time_alive: AtomicU64,
     camera:           Mutex<gfx::Camera>,
     world:            Mutex<Option<Weak<dyn World>>>
+}
+
+impl Debug for Game
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
+    {
+        write!(f, "Game")
+    }
 }
 
 impl Drop for Game

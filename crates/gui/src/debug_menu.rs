@@ -2,12 +2,22 @@ use std::borrow::Cow;
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 
-#[derive(Debug)]
 pub struct DebugMenu
 {
     id:             util::Uuid,
     game:           Arc<game::Game>,
     rendering_data: Mutex<DebugMenuCriticalSection>
+}
+
+impl Debug for DebugMenu
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
+    {
+        f.debug_struct("DebugMenu")
+            .field("id", &self.id)
+            .field("game", &self.game)
+            .finish()
+    }
 }
 
 struct DebugMenuCriticalSection

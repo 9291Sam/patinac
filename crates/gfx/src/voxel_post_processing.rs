@@ -97,11 +97,6 @@ impl super::Recordable for VoxelColorTransferRecordable
         global_voxel_discovery_group: &Arc<wgpu::BindGroup>
     ) -> crate::RecordInfo
     {
-        log::error!(
-            "discovery group {:?}",
-            global_voxel_discovery_group.global_id()
-        );
-
         crate::RecordInfo {
             should_draw: true,
             transform:   None,

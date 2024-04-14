@@ -394,6 +394,7 @@ impl Renderer
         });
 
         let voxel_color_transfer_recordable = Arc::new(VoxelColorTransferRecordable::new(self));
+        self.register(voxel_color_transfer_recordable.clone());
 
         let voxel_discovery_image = RefCell::new(create_sized_image(
             &self.device,
@@ -552,22 +553,14 @@ impl Renderer
                     {
                         Some(r) =>
                         {
-                            assert!(
-                                r.get_pass_stage() != PassStage::VoxelColorTransfer,
-                                "Internal Pass"
-                            );
-
-                            assert!(
-                                r.get_pass_stage() != PassStage::PostVoxelDiscoveryCompute,
-                                "Internal Pass"
-                            );
-
                             let record_info = r.pre_record_update(
                                 self,
                                 &camera,
                                 &global_bind_group,
                                 &global_discovery_bind_group.borrow()
                             );
+
+                            // log::trace!("collected {:?}", record_info.bind_groups[0].);
 
                             match record_info
                             {
@@ -619,16 +612,6 @@ impl Renderer
             renderables_map.iter_mut().for_each(|(_, renderable_vec)| {
                 renderable_vec.sort_by(|l, r| recordable_ord(&*l.0, &*r.0, &l.2, &r.2))
             });
-
-            // insert color transfer object
-            renderables_map
-                .get_mut(&PassStage::VoxelColorTransfer)
-                .unwrap()
-                .push((
-                    voxel_color_transfer_recordable.clone(),
-                    None,
-                    [Some(global_bind_group.clone()), None, None, None]
-                ));
 
             let global_info = ShaderGlobalInfo {
                 camera_pos:      camera.get_position(),
@@ -807,8 +790,6 @@ impl Renderer
                                 (_, _) => panic!("Pass Pipeline Invariant Violated!")
                             }
 
-                            log::error!("bound new pipeline");
-
                             active_pipeline = Some(desired_pipeline);
                         }
                     }
@@ -835,20 +816,9 @@ impl Renderer
                                     }
                                 }
                                 *active_bind_group_id = Some(new_bind_group.global_id());
-                                log::error!("bound group {:?}", active_bind_group_id.unwrap());
                             }
                         }
                     }
-
-                    log::error!(
-                        "Recording {:?} ",
-                        renderable,
-                        // active_pipeline.unwrap_or_default().global_id(),
-                        // active_bind_groups[0],
-                        // active_bind_groups[1],
-                        // active_bind_groups[2],
-                        // active_bind_groups[3],
-                    );
 
                     renderable.record(&mut render_pass, *maybe_id);
                 }
