@@ -89,9 +89,9 @@ fn create_chunk(
 ) -> Arc<RasterChunk>
 {
     let noise_sampler = |x: i32, z: i32| -> f64 {
-        let h = 84.0f64;
+        let h = 278.0f64;
 
-        noise.get([(x as f64) / 256.0, (z as f64) / 256.0]) * h + h
+        (noise.get([(x as f64) / 256.0, (z as f64) / 256.0]) * h + h).clamp(0.0, 510.0)
     };
 
     let occupied = |x: i32, y: i32, z: i32| (y <= noise_sampler(x, z) as i32);
@@ -99,7 +99,7 @@ fn create_chunk(
     RasterChunk::new(
         game,
         gfx::Transform {
-            translation: glm::Vec3::new(offset.x as f32, -120.0, offset.z as f32),
+            translation: glm::Vec3::new(offset.x as f32, 0.0, offset.z as f32),
             scale: glm::Vec3::new(scale as f32, scale as f32, scale as f32),
             ..Default::default()
         },
