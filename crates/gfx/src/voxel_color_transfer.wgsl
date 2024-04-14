@@ -15,11 +15,6 @@ fn vs_main(@builtin(vertex_index) index: u32) -> @builtin(position) vec4<f32>
 @fragment
 fn fs_main(@builtin(position) in: vec4<f32>) -> @location(0) vec4<f32>
 {
-    let dims = textureDimensions(voxel_discovery_image);
-
-    let u: u32 = u32(round(map(in.x, -1.0, 1.0, 0.0, f32(dims.x))));
-    let v: u32 = u32(round(map(in.y, 1.0, -1.0, 0.0, f32(dims.y))));
-
     let voxel_data: vec2<u32> = textureLoad(voxel_discovery_image, vec2<u32>(u32(in.x), u32(in.y)), 0).xy;
 
     if (all(voxel_data == vec2<u32>(0)))
@@ -33,16 +28,34 @@ fn fs_main(@builtin(position) in: vec4<f32>) -> @location(0) vec4<f32>
     let y_pos: u32 = (voxel_data[0] >> 9) & nine_bit_mask;
     let z_pos: u32 = (voxel_data[0] >> 18) & nine_bit_mask;
 
-
-    return vec4<f32>(
-        map(f32(x_pos), 0.0, 511.0, 0.0, 1.0),
-        map(f32(y_pos), 0.0, 511.0, 0.0, 1.0),
-        map(f32(z_pos), 0.0, 511.0, 0.0, 1.0),
-        1.0);
+    return get_voxel_color(voxel_data.y);
 
 }
 
 fn map(x: f32, in_min: f32, in_max: f32, out_min: f32, out_max: f32) -> f32
 {
   return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
+
+const ERROR_COLOR: vec4<f32> = vec4<f32>(1.0, 0.0, 1.0, 1.0);
+
+fn get_voxel_color(voxel: u32) -> vec4<f32>
+{
+    switch voxel
+    {
+        case 0u: {return ERROR_COLOR;}                     // Error color for Air
+        case 1u: {return vec4<f32>(0.5, 0.5, 0.5, 1.0);}   // Grey for Rock0
+        case 2u: {return vec4<f32>(0.6, 0.6, 0.6, 1.0);}   // Light Grey for Rock1
+        case 3u: {return vec4<f32>(0.7, 0.7, 0.7, 1.0);}   // Lighter Grey for Rock2
+        case 4u: {return vec4<f32>(0.8, 0.8, 0.8, 1.0);}   // Even Lighter Grey for Rock3
+        case 5u: {return vec4<f32>(0.9, 0.9, 0.9, 1.0);}   // Almost White for Rock4
+        case 6u: {return vec4<f32>(1.0, 1.0, 1.0, 1.0);}   // White for Rock5
+        case 7u: {return vec4<f32>(0.0, 0.5, 0.0, 1.0);}   // Dark Green for Grass0
+        case 8u: {return vec4<f32>(0.0, 0.6, 0.0, 1.0);}   // Slightly Lighter Green for Grass1
+        case 9u: {return vec4<f32>(0.0, 0.7, 0.0, 1.0);}   // Light Green for Grass2
+        case 10u: {return vec4<f32>(0.0, 0.8, 0.0, 1.0);}  // Even Lighter Green for Grass3
+        case 11u: {return vec4<f32>(0.0, 0.9, 0.0, 1.0);}  // Very Light Green for Grass4
+        case 12u: {return vec4<f32>(0.2, 0.5, 0.2, 1.0);}  // Grey for Grass5
+        default: {return ERROR_COLOR;}                      // Error color for unknown voxels
+    }
 }
