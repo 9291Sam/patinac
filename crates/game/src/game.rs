@@ -154,7 +154,7 @@ impl Game
             camera.add_position(v * camera_delta_time);
         };
 
-        if input_manager.is_key_pressed(gfx::KeyCode::KeyO)
+        if input_manager.is_key_pressed(gfx::KeyCode::Backslash)
         {
             input_manager.detach_cursor();
         };
