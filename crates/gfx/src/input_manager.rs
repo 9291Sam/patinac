@@ -155,9 +155,9 @@ impl InputManager
                 //     phase
                 // } => todo!(),
                 WindowEvent::MouseInput {
-                    device_id,
                     state,
-                    button
+                    button,
+                    ..
                 } if *button == MouseButton::Left =>
                 {
                     match state
