@@ -13,6 +13,8 @@ use gfx::{
 };
 use util::AtomicF32;
 
+use crate::{Voxel, VoxelChunkDataManager};
+
 #[derive(Debug)]
 pub struct RasterChunk
 {
@@ -22,7 +24,8 @@ pub struct RasterChunk
     number_of_vertices: u32,
     time_alive:         AtomicF32,
 
-    pipeline: Arc<gfx::GenericPipeline>,
+    pipeline:     Arc<gfx::GenericPipeline>,
+    data_manager: VoxelChunkDataManager,
 
     transform: Mutex<gfx::Transform>
 }
@@ -37,7 +40,7 @@ impl RasterChunk
     {
         let uuid = util::Uuid::new();
 
-        let renderer = &**game.get_renderer();
+        let renderer = game.get_renderer();
 
         let shader = renderer
             .render_cache
@@ -90,7 +93,22 @@ impl RasterChunk
             }
         );
 
-        let (vertex_buffer, number_of_vertices) = Self::create_voxel_buffer(renderer, faces);
+        let data_manager = VoxelChunkDataManager::new(renderer.clone());
+
+        let faces_vec: Vec<VoxelFace> = faces.into_iter().collect();
+
+        faces_vec.iter().for_each(|f| {
+            let voxel_pos: glm::U16Vec3 = glm::U16Vec3::from(f.position);
+
+            if let Voxel::Air = data_manager.read_voxel(voxel_pos)
+            {
+                data_manager.write_voxel(Voxel::Rock0, voxel_pos);
+            }
+        });
+
+        data_manager.flush_to_gpu();
+
+        let (vertex_buffer, number_of_vertices) = Self::create_voxel_buffer(renderer, faces_vec);
 
         // log::trace!(
         //     "Created RasterChunk with {} triangles",
@@ -103,7 +121,8 @@ impl RasterChunk
             number_of_vertices: number_of_vertices as u32,
             pipeline,
             transform: Mutex::new(transform),
-            time_alive: AtomicF32::new(0.0)
+            time_alive: AtomicF32::new(0.0),
+            data_manager: VoxelChunkDataManager::new(game.get_renderer().clone())
         });
 
         renderer.register(this.clone());

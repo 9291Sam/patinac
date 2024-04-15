@@ -44,41 +44,7 @@ impl BrickMapChunk
             .render_cache
             .cache_shader_module(wgpu::include_wgsl!("brick_map_chunk.wgsl"));
 
-        // TODO: FIX THIS
-        static BINDINGS: &[wgpu::BindGroupLayoutEntry] = &[
-            wgpu::BindGroupLayoutEntry {
-                binding:    0,
-                visibility: wgpu::ShaderStages::FRAGMENT,
-                ty:         wgpu::BindingType::Buffer {
-                    ty:                 wgpu::BufferBindingType::Storage {
-                        read_only: true
-                    },
-                    has_dynamic_offset: false,
-                    min_binding_size:   None // MIN_0_BINDING_SIZE
-                },
-                count:      None
-            },
-            wgpu::BindGroupLayoutEntry {
-                binding:    1,
-                visibility: wgpu::ShaderStages::FRAGMENT,
-                ty:         wgpu::BindingType::Buffer {
-                    ty:                 wgpu::BufferBindingType::Storage {
-                        read_only: true
-                    },
-                    has_dynamic_offset: false,
-                    min_binding_size:   None //  MIN_0_BINDING_SIZE
-                },
-                count:      None
-            }
-        ];
-
-        let voxel_bind_group_layout =
-            renderer
-                .render_cache
-                .cache_bind_group_layout(wgpu::BindGroupLayoutDescriptor {
-                    label:   Some("Brick Map Chunk BinGroup Layouts"),
-                    entries: BINDINGS
-                });
+        let voxel_data_manager = VoxelChunkDataManager::new(game.get_renderer().clone());
 
         let pipeline_layout =
             renderer
@@ -87,16 +53,13 @@ impl BrickMapChunk
                     label:                "Voxel BrickMapChunk Pipeline Layout".into(),
                     bind_group_layouts:   vec![
                         renderer.global_bind_group_layout.clone(),
-                        voxel_bind_group_layout.clone(),
+                        voxel_data_manager.get_bind_group_layout().clone(),
                     ],
                     push_constant_ranges: vec![wgpu::PushConstantRange {
                         stages: wgpu::ShaderStages::VERTEX,
                         range:  0..(std::mem::size_of::<u32>() as u32)
                     }]
                 });
-
-        let voxel_data_manager =
-            VoxelChunkDataManager::new(game.get_renderer().clone(), voxel_bind_group_layout);
 
         let this = Arc::new(Self {
             voxel_chunk_data: voxel_data_manager,

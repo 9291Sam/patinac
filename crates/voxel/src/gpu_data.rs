@@ -252,9 +252,43 @@ pub type ChunkPosition = glm::U16Vec3;
 
 impl VoxelChunkDataManager
 {
-    pub fn new(renderer: Arc<gfx::Renderer>, bind_group_layout: Arc<wgpu::BindGroupLayout>)
-    -> Self
+    pub fn new(renderer: Arc<gfx::Renderer>) -> Self
     {
+        static BINDINGS: &[wgpu::BindGroupLayoutEntry] = &[
+            wgpu::BindGroupLayoutEntry {
+                binding:    0,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty:         wgpu::BindingType::Buffer {
+                    ty:                 wgpu::BufferBindingType::Storage {
+                        read_only: true
+                    },
+                    has_dynamic_offset: false,
+                    min_binding_size:   None // MIN_0_BINDING_SIZE
+                },
+                count:      None
+            },
+            wgpu::BindGroupLayoutEntry {
+                binding:    1,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty:         wgpu::BindingType::Buffer {
+                    ty:                 wgpu::BufferBindingType::Storage {
+                        read_only: true
+                    },
+                    has_dynamic_offset: false,
+                    min_binding_size:   None //  MIN_0_BINDING_SIZE
+                },
+                count:      None
+            }
+        ];
+
+        let bind_group_layout =
+            renderer
+                .render_cache
+                .cache_bind_group_layout(wgpu::BindGroupLayoutDescriptor {
+                    label:   Some("Brick Map Chunk BinGroup Layouts"),
+                    entries: BINDINGS
+                });
+
         assert!(VOXEL_BRICK_EDGE_LENGTH == 8);
 
         let number_of_starting_bricks = BRICK_MAP_EDGE_SIZE * BRICK_MAP_EDGE_SIZE * 2;
@@ -571,6 +605,11 @@ impl VoxelChunkDataManager
     pub fn get_bind_group(&self) -> Arc<wgpu::BindGroup>
     {
         self.window_voxel_bind_group.get()
+    }
+
+    pub fn get_bind_group_layout(&self) -> &Arc<wgpu::BindGroupLayout>
+    {
+        &self.bind_group_layout
     }
 
     pub fn flush_entire(&self)
