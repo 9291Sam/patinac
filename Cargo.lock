@@ -2242,6 +2242,7 @@ dependencies = [
  "itertools",
  "log",
  "noise",
+ "oneshot",
  "rand",
  "util",
  "voxel",

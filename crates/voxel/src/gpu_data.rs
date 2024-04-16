@@ -2,6 +2,8 @@ use core::slice;
 use std::assert_matches::assert_matches;
 use std::collections::BTreeSet;
 use std::fmt::Debug;
+use std::num::NonZeroUsize;
+use std::sync::atomic::AtomicU64;
 use std::sync::{Arc, Mutex};
 
 use bytemuck::{bytes_of, Contiguous, Pod, Zeroable};
@@ -252,6 +254,15 @@ pub type ChunkPosition = glm::U16Vec3;
 
 impl VoxelChunkDataManager
 {
+    pub fn peek_allocated_bricks(&self) -> (NonZeroUsize, NonZeroUsize)
+    {
+        self.buffer_critical_section
+            .lock()
+            .unwrap()
+            .brick_allocator
+            .peek()
+    }
+
     pub fn new(renderer: Arc<gfx::Renderer>) -> Self
     {
         static BINDINGS: &[wgpu::BindGroupLayoutEntry] = &[

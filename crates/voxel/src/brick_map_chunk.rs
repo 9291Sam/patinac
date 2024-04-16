@@ -25,13 +25,17 @@ pub struct BrickMapChunk
     index_buffer:      wgpu::Buffer,
     number_of_indices: u32,
 
-    voxel_chunk_data: VoxelChunkDataManager,
+    voxel_chunk_data: Arc<VoxelChunkDataManager>,
     pipeline:         Arc<gfx::GenericPipeline>
 }
 
 impl BrickMapChunk
 {
-    pub fn new(game: &game::Game, center_position: glm::Vec3) -> Arc<Self>
+    pub fn new(
+        game: &game::Game,
+        center_position: glm::Vec3,
+        data_manager: Option<Arc<VoxelChunkDataManager>>
+    ) -> Arc<Self>
     {
         let uuid = util::Uuid::new();
 
@@ -44,7 +48,13 @@ impl BrickMapChunk
             .render_cache
             .cache_shader_module(wgpu::include_wgsl!("brick_map_chunk.wgsl"));
 
-        let voxel_data_manager = VoxelChunkDataManager::new(game.get_renderer().clone());
+        let voxel_data_manager = data_manager
+            .unwrap_or_else(|| Arc::new(VoxelChunkDataManager::new(game.get_renderer().clone())));
+
+        log::trace!(
+            "used bricks empty {:?}",
+            voxel_data_manager.peek_allocated_bricks(),
+        );
 
         let pipeline_layout =
             renderer
@@ -120,7 +130,7 @@ impl BrickMapChunk
         this
     }
 
-    pub fn access_data_manager(&self) -> &VoxelChunkDataManager
+    pub fn access_data_manager(&self) -> &Arc<VoxelChunkDataManager>
     {
         &self.voxel_chunk_data
     }
@@ -235,6 +245,11 @@ impl gfx::Recordable for BrickMapChunk
         {
             unreachable!()
         };
+
+        log::trace!(
+            "recording brickmap {:?} allocated bricks",
+            self.access_data_manager().peek_allocated_bricks(),
+        );
 
         pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
         pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);

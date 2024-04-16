@@ -25,7 +25,7 @@ pub struct RasterChunk
     time_alive:         AtomicF32,
 
     pipeline:     Arc<gfx::GenericPipeline>,
-    data_manager: VoxelChunkDataManager,
+    data_manager: Arc<VoxelChunkDataManager>,
 
     transform: Mutex<gfx::Transform>
 }
@@ -122,12 +122,17 @@ impl RasterChunk
             pipeline,
             transform: Mutex::new(transform),
             time_alive: AtomicF32::new(0.0),
-            data_manager: VoxelChunkDataManager::new(game.get_renderer().clone())
+            data_manager: Arc::new(VoxelChunkDataManager::new(game.get_renderer().clone()))
         });
 
         renderer.register(this.clone());
 
         this
+    }
+
+    pub fn get_data_manager(&self) -> &Arc<VoxelChunkDataManager>
+    {
+        &self.data_manager
     }
 
     /// returns the number of vertices in the buffer

@@ -23,6 +23,19 @@ impl FreelistAllocator
         }
     }
 
+    // (Free blocks , total blocks)
+    pub fn peek(&self) -> (NonZeroUsize, NonZeroUsize)
+    {
+        (
+            NonZeroUsize::new(
+                self.total_blocks.into_integer() - self.next_free_block.into_integer()
+                    + self.free_blocks.len()
+            )
+            .unwrap(),
+            self.total_blocks
+        )
+    }
+
     pub fn allocate(&mut self) -> Result<NonZeroUsize, OutOfBlocks>
     {
         let maybe_free_block = self.free_blocks.iter().next().cloned();
