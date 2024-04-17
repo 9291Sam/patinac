@@ -34,7 +34,7 @@ impl BrickMapChunk
     pub fn new(
         game: &game::Game,
         center_position: glm::Vec3,
-        data_manager: Option<Arc<VoxelChunkDataManager>>
+        data_manager: Arc<VoxelChunkDataManager>
     ) -> Arc<Self>
     {
         let uuid = util::Uuid::new();
@@ -48,8 +48,7 @@ impl BrickMapChunk
             .render_cache
             .cache_shader_module(wgpu::include_wgsl!("brick_map_chunk.wgsl"));
 
-        let voxel_data_manager = data_manager
-            .unwrap_or_else(|| Arc::new(VoxelChunkDataManager::new(game.get_renderer().clone())));
+        let voxel_data_manager = data_manager;
 
         log::trace!(
             "used bricks empty {:?}",
@@ -245,11 +244,6 @@ impl gfx::Recordable for BrickMapChunk
         {
             unreachable!()
         };
-
-        log::trace!(
-            "recording brickmap {:?} allocated bricks",
-            self.access_data_manager().peek_allocated_bricks(),
-        );
 
         pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
         pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);

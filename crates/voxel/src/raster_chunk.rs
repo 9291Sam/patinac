@@ -25,7 +25,7 @@ pub struct RasterChunk
     time_alive:         AtomicF32,
 
     pipeline:     Arc<gfx::GenericPipeline>,
-    data_manager: Arc<VoxelChunkDataManager>,
+    data_manager: VoxelChunkDataManager,
 
     transform: Mutex<gfx::Transform>
 }
@@ -108,12 +108,9 @@ impl RasterChunk
 
         data_manager.flush_to_gpu();
 
-        let (vertex_buffer, number_of_vertices) = Self::create_voxel_buffer(renderer, faces_vec);
+        log::trace!("After write {:?}", data_manager.peek_allocated_bricks());
 
-        // log::trace!(
-        //     "Created RasterChunk with {} triangles",
-        //     number_of_vertices / 3
-        // );
+        let (vertex_buffer, number_of_vertices) = Self::create_voxel_buffer(renderer, faces_vec);
 
         let this = Arc::new(RasterChunk {
             uuid,
@@ -122,17 +119,12 @@ impl RasterChunk
             pipeline,
             transform: Mutex::new(transform),
             time_alive: AtomicF32::new(0.0),
-            data_manager: Arc::new(VoxelChunkDataManager::new(game.get_renderer().clone()))
+            data_manager
         });
 
         renderer.register(this.clone());
 
         this
-    }
-
-    pub fn get_data_manager(&self) -> &Arc<VoxelChunkDataManager>
-    {
-        &self.data_manager
     }
 
     /// returns the number of vertices in the buffer

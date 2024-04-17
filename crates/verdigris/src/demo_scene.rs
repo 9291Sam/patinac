@@ -18,7 +18,6 @@ use voxel::{
 pub struct DemoScene
 {
     raster: Mutex<util::Promise<Arc<RasterChunk>>>,
-    rt:     Mutex<util::Promise<Arc<BrickMapChunk>>>,
     id:     util::Uuid
 }
 
@@ -32,36 +31,17 @@ impl DemoScene
 
         let c_game = game.clone();
         let t_game = game.clone();
-        let (tx, rx) = oneshot::channel();
 
         let this = Arc::new(DemoScene {
             id:     util::Uuid::new(),
             raster: Mutex::new(
                 util::run_async(move || {
-                    let c = create_chunk(
+                    create_chunk(
                         &c_game,
                         &noise_generator,
                         glm::DVec3::new(-256.0, 0.0, -256.0),
                         1.0
-                    );
-
-                    tx.send(c.get_data_manager().clone()).unwrap();
-
-                    c
-                })
-                .into()
-            ),
-            rt:     Mutex::new(
-                util::run_async(move || {
-                    let c = BrickMapChunk::new(
-                        &t_game,
-                        glm::Vec3::new(256.0, 0.0, -256.0),
-                        Some(rx.recv().unwrap())
-                    );
-
-                    log::trace!("sent dm");
-
-                    c
+                    )
                 })
                 .into()
             )
