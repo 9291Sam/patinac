@@ -162,7 +162,9 @@ impl Renderer
                 &wgpu::DeviceDescriptor {
                     label:             Some("Device"),
                     required_features: wgpu::Features::PUSH_CONSTANTS
-                        | wgpu::Features::POLYGON_MODE_LINE,
+                        | wgpu::Features::POLYGON_MODE_LINE
+                        | wgpu::Features::BUFFER_BINDING_ARRAY
+                        | wgpu::Features::STORAGE_RESOURCE_BINDING_ARRAY,
                     required_limits:   adapter.limits()
                 },
                 None

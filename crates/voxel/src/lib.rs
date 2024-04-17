@@ -1,4 +1,5 @@
 #![feature(assert_matches)]
+#![feature(const_option)]
 #![feature(exclusive_range_pattern)]
 #![feature(btree_extract_if)]
 
