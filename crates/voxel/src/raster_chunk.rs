@@ -47,27 +47,6 @@ impl RasterChunk
             .render_cache
             .cache_shader_module(wgpu::include_wgsl!("raster.wgsl"));
 
-        static BINDINGS: &[wgpu::BindGroupLayoutEntry] = &[wgpu::BindGroupLayoutEntry {
-            binding:    0,
-            visibility: wgpu::ShaderStages::COMPUTE,
-            ty:         wgpu::BindingType::Buffer {
-                ty:                 wgpu::BufferBindingType::Storage {
-                    read_only: true
-                },
-                has_dynamic_offset: false,
-                min_binding_size:   None
-            },
-            count:      Some(NonZeroU32::new(8).unwrap())
-        }];
-
-        let demo_layout =
-            renderer
-                .render_cache
-                .cache_bind_group_layout(wgpu::BindGroupLayoutDescriptor {
-                    label:   Some("test"),
-                    entries: BINDINGS
-                });
-
         let pipeline_layout =
             renderer
                 .render_cache

@@ -162,15 +162,14 @@ impl Renderer
                 &wgpu::DeviceDescriptor {
                     label:             Some("Device"),
                     required_features: wgpu::Features::PUSH_CONSTANTS
-                        | wgpu::Features::POLYGON_MODE_LINE
-                        | wgpu::Features::BUFFER_BINDING_ARRAY
-                        | wgpu::Features::STORAGE_RESOURCE_BINDING_ARRAY,
+                        | wgpu::Features::POLYGON_MODE_LINE,
                     required_limits:   adapter.limits()
                 },
                 None
             )
             .block_on()
             .unwrap();
+
         let device = Arc::new(device);
 
         let size = window.inner_size();
