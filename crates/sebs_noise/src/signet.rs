@@ -1,5 +1,8 @@
 use std::fmt::Debug;
-use std::mem::MaybeUninit;
+use std::hint::unreachable_unchecked;
+use std::intrinsics::transmute_unchecked;
+use std::mem::{transmute, MaybeUninit};
+use std::ops::BitXor;
 
 use num::traits::{WrappingAdd, WrappingMul, WrappingNeg, WrappingShl, WrappingShr, WrappingSub};
 use num::{Float, Integer, Unsigned};
@@ -35,14 +38,6 @@ impl<const L: usize> Signet<L>
     #[inline(always)]
     pub fn sample_integer<I>(&self, pos: [i64; L]) -> u64
     where
-        I: Integer
-            + Unsigned
-            + WrappingAdd
-            + WrappingMul
-            + WrappingSub
-            + WrappingNeg
-            + WrappingShl
-            + WrappingShr,
         [i64; L * 2 + 1]: Sized
     {
         let mut arr: MaybeUninit<[u64; L * 2 + 1]> = MaybeUninit::uninit();
@@ -76,16 +71,79 @@ where
         + WrappingNeg
         + WrappingShl
         + WrappingShr
+        + Copy
 {
     let mut combined: I = I::one();
 
-    for i in data
+    // TODO: replace with the one from verdigris C++
+    for (idx, d) in data.into_iter().enumerate()
     {
-        let prev = combined;
+        let p1 = combined.wrapping_shr(6);
+        let p2 = combined.wrapping_shr(6);
 
-        todo!()
-        // combined.
+        combined = combined.wrapping_mul(&p2.add(combined.xor(p1.xor(p2).xor(d)).xor(d)));
     }
 
     combined
+}
+
+trait XorExtension
+{
+    fn xor(self, other: Self) -> Self;
+}
+
+impl<T: Integer> XorExtension for T
+{
+    fn xor(self, other: Self) -> Self
+    {
+        unsafe {
+            match std::mem::size_of::<Self>()
+            {
+                1 =>
+                {
+                    transmute_unchecked(
+                        transmute_unchecked::<Self, u8>(self)
+                            .bitxor(transmute_unchecked::<Self, u8>(other))
+                    )
+                }
+                2 =>
+                {
+                    transmute_unchecked(
+                        transmute_unchecked::<Self, u16>(self).bitxor(transmute_unchecked::<
+                            Self,
+                            u16
+                        >(
+                            other
+                        ))
+                    )
+                }
+                4 =>
+                {
+                    transmute_unchecked(
+                        transmute_unchecked::<Self, u32>(self).bitxor(transmute_unchecked::<
+                            Self,
+                            u32
+                        >(
+                            other
+                        ))
+                    )
+                }
+                8 =>
+                {
+                    transmute_unchecked(
+                        transmute_unchecked::<Self, u64>(self).bitxor(transmute_unchecked::<
+                            Self,
+                            u64
+                        >(
+                            other
+                        ))
+                    )
+                }
+                _ =>
+                {
+                    todo!()
+                }
+            }
+        }
+    }
 }
