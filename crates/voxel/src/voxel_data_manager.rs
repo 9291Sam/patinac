@@ -1,1 +1,1 @@
-struct VoxelDataManager {}
+struct VoxelWorldDataManager {}
