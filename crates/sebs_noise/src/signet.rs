@@ -1,8 +1,5 @@
 use std::fmt::Debug;
-use std::mem::MaybeUninit;
-use std::ops::Add;
 
-use bytemuck::NoUninit;
 use num::{Float, FromPrimitive};
 
 // Kelsie Loquavian??? in my code!!!
@@ -34,7 +31,8 @@ impl<const L: usize> Signet<L>
     #[inline(always)]
     pub fn sample<F: Float + FromPrimitive>(&self, pos: [F; L]) -> F
     where
-        [(); 2usize.pow(L as u32)]:
+        [(); 2usize.pow(L as u32)]:,
+        [(); 1 << L]:
     {
         // floor, ceil, diff
         let data: [(i64, i64, F); L] = std::array::from_fn(|i| {
@@ -99,22 +97,24 @@ pub fn nd_smoothstep<const D: usize, F: Float + FromPrimitive>(
     weights: [F; 2usize.pow(D as u32)],
     sample: [F; D]
 ) -> F
+where
+    [usize; 1 << D]: Sized
 {
     assert_eq!(weights.len(), 2usize.pow(D as u32));
 
-    let indices = calculate_indices::<D, F>(sample);
+    let indices = calculate_indices::<D, F>();
 
     let mut result = F::zero();
     for i in 0..(1 << D)
     {
-        let weight = calculate_weight::<F>(indices[i]);
+        let weight = calculate_weight::<D, F>(indices[i], sample);
         result = result + weights[i] * weight;
     }
 
     result
 }
 
-fn calculate_indices<const D: usize, F: Float + FromPrimitive>(sample: [F; D]) -> [usize; 1 << D]
+fn calculate_indices<const D: usize, F: Float + FromPrimitive>() -> [usize; 1 << D]
 where
     [(); 1 << D]:
 {
@@ -130,16 +130,25 @@ where
     indices
 }
 
-fn calculate_weight<F: Float + FromPrimitive>(mut sample: usize) -> F
+fn calculate_weight<const D: usize, F: Float + FromPrimitive>(
+    mut sample_index: usize,
+    sample: [F; D]
+) -> F
 {
     let mut result = F::one();
-    while sample > 0
+    let two = F::from_u8(2).unwrap();
+
+    for i in 0..D
     {
-        if (sample & 1) == 1
+        if sample_index & 1 == 1
         {
-            result = result * F::from_u8(2).unwrap();
+            result = result * (sample[i] - F::one());
         }
-        sample >>= 1;
+        else
+        {
+            result = result * sample[i];
+        }
+        sample_index >>= 1;
     }
 
     result

@@ -3,7 +3,6 @@ use std::assert_matches::assert_matches;
 use std::collections::BTreeSet;
 use std::fmt::Debug;
 use std::num::NonZeroUsize;
-use std::sync::atomic::AtomicU64;
 use std::sync::{Arc, Mutex};
 
 use bytemuck::{bytes_of, Contiguous, Pod, Zeroable};
