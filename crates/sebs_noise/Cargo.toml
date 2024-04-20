@@ -5,3 +5,5 @@ edition = "2021"
 
 [dependencies]
 num = { workspace = true }
+util = { workspace = true }
+bytemuck = { workspace = true }

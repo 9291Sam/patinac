@@ -1,11 +1,8 @@
 use std::fmt::Debug;
-use std::hint::unreachable_unchecked;
-use std::intrinsics::transmute_unchecked;
-use std::mem::{transmute, MaybeUninit};
-use std::ops::BitXor;
+use std::mem::MaybeUninit;
 
-use num::traits::{WrappingAdd, WrappingMul, WrappingNeg, WrappingShl, WrappingShr, WrappingSub};
-use num::{Float, Integer, Unsigned};
+use bytemuck::NoUninit;
+use num::{Float, FromPrimitive};
 
 // Kelsie Loquavian??? in my code!!!
 /// A single "phase" of the noise, each of these generators produces continuous
@@ -27,123 +24,49 @@ impl<const L: usize> Debug for Signet<L>
 impl<const L: usize> Signet<L>
 {
     #[inline(always)]
-    pub fn new(seed: u64, pos: [i64; L]) -> Self
+    pub fn sample<F: Float>(pos: [F; L])
     {
-        todo!()
-    }
+        let data: [(i64, i64); L] = std::array::from_fn(|i| {
+            let f = unsafe { pos.get_unchecked(i) };
 
-    #[inline(always)]
-    pub fn sample<F: Float>(pos: [F; L]) {}
+            (
+                f.floor().to_i64().expect("NANL"),
+                f.ceil().to_i64().expect("NANR")
+            )
+        });
+
+        // make ndimesnsional cartesian prpdocut
+        // 2 4 8
+        let cartesian_prod_array: [F; 2u32.exp(L)];
+    }
 
     #[inline(always)]
     pub fn sample_integer<I>(&self, pos: [i64; L]) -> u64
-    where
-        [i64; L * 2 + 1]: Sized
     {
-        let mut arr: MaybeUninit<[u64; L * 2 + 1]> = MaybeUninit::uninit();
-        let arr_ptr: *mut [u64; L * 2 + 1] = arr.as_mut_ptr();
-        let arr_data: *mut u64 = arr_ptr as *mut _;
-
-        for i in 0..L
-        {
-            unsafe { arr_data.add(i).write(*pos.get_unchecked(i) as u64) }
-        }
-
-        for i in 0..L
-        {
-            unsafe { arr_data.add(i + L).write(*pos.get_unchecked(i) as u64) }
-        }
-
-        unsafe { arr_data.add(L * 2).write(self.seed) }
-
-        deterministic_rand_combine(unsafe { arr.assume_init() })
-    }
-}
-
-#[inline(always)]
-fn deterministic_rand_combine<const L: usize, I>(data: [I; L]) -> I
-where
-    I: Integer
-        + Unsigned
-        + WrappingAdd
-        + WrappingMul
-        + WrappingSub
-        + WrappingNeg
-        + WrappingShl
-        + WrappingShr
-        + Copy
-{
-    let mut combined: I = I::one();
-
-    // TODO: replace with the one from verdigris C++
-    for (idx, d) in data.into_iter().enumerate()
-    {
-        let p1 = combined.wrapping_shr(6);
-        let p2 = combined.wrapping_shr(6);
-
-        combined = combined.wrapping_mul(&p2.add(combined.xor(p1.xor(p2).xor(d)).xor(d)));
+        util::hash_combine(self.seed, unsafe {
+            std::slice::from_raw_parts(pos.as_ptr() as *const u8, std::mem::size_of_val(&pos))
+        })
     }
 
-    combined
-}
-
-trait XorExtension
-{
-    fn xor(self, other: Self) -> Self;
-}
-
-impl<T: Integer> XorExtension for T
-{
-    fn xor(self, other: Self) -> Self
+    pub fn sample_f32(&self, pos: [i64; L]) -> f32
     {
-        unsafe {
-            match std::mem::size_of::<Self>()
-            {
-                1 =>
-                {
-                    transmute_unchecked(
-                        transmute_unchecked::<Self, u8>(self)
-                            .bitxor(transmute_unchecked::<Self, u8>(other))
-                    )
-                }
-                2 =>
-                {
-                    transmute_unchecked(
-                        transmute_unchecked::<Self, u16>(self).bitxor(transmute_unchecked::<
-                            Self,
-                            u16
-                        >(
-                            other
-                        ))
-                    )
-                }
-                4 =>
-                {
-                    transmute_unchecked(
-                        transmute_unchecked::<Self, u32>(self).bitxor(transmute_unchecked::<
-                            Self,
-                            u32
-                        >(
-                            other
-                        ))
-                    )
-                }
-                8 =>
-                {
-                    transmute_unchecked(
-                        transmute_unchecked::<Self, u64>(self).bitxor(transmute_unchecked::<
-                            Self,
-                            u64
-                        >(
-                            other
-                        ))
-                    )
-                }
-                _ =>
-                {
-                    todo!()
-                }
-            }
-        }
+        util::map_f32(
+            self.sample_integer::<f32>(pos) as f32,
+            0.0,
+            u64::MAX as f32,
+            0.0,
+            1.0
+        )
+    }
+
+    pub fn sample_f64(&self, pos: [i64; L]) -> f64
+    {
+        util::map_f64(
+            self.sample_integer::<f64>(pos) as f64,
+            0.0,
+            u64::MAX as f64,
+            0.0,
+            1.0
+        )
     }
 }

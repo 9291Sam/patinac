@@ -76,14 +76,14 @@ struct FragmentOutput
    @location(0) color: vec2<u32>
 }
 
-@fragment
-fn fs_main(in: VertexOutput) -> FragmentOutput
-{
-    let normal = get_voxel_normal_from_faceid(in.face);
-    let data: vec3<u32> = vec3<u32>(trunc(in.voxel_chunk_pos + normal * -0.001));
+    @fragment
+    fn fs_main(in: VertexOutput) -> FragmentOutput
+    {
+        let normal = get_voxel_normal_from_faceid(in.face);
+        let data: vec3<u32> = vec3<u32>(trunc(in.voxel_chunk_pos + normal * -0.001));
 
-    return FragmentOutput(vec2<u32>(data.x | data.y << 9 | data.z << 18, in.voxel));
-}
+        return FragmentOutput(vec2<u32>(data.x | data.y << 9 | data.z << 18, in.voxel));
+    }
 
 const ERROR_COLOR: vec4<f32> = vec4<f32>(1.0, 0.0, 1.0, 1.0);
 

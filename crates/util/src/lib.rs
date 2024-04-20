@@ -142,3 +142,13 @@ pub fn bytes_as_string(bytes: f64, suffix: SuffixType) -> String
     ]
     .join(" ")
 }
+
+pub fn map_f32(x: f32, in_min: f32, in_max: f32, out_min: f32, out_max: f32) -> f32
+{
+    (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
+}
+
+pub fn map_f64(x: f64, in_min: f64, in_max: f64, out_min: f64, out_max: f64) -> f64
+{
+    (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
+}
