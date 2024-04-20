@@ -38,6 +38,12 @@ impl<const L: usize> Signet<L>
         // make ndimesnsional cartesian prpdocut
         // 2 4 8
         let cartesian_prod_array: [F; 2u32.exp(L)];
+
+        // for each in cartesian prod array
+        // generate coordinates
+        // write res
+
+        // interp...
     }
 
     #[inline(always)]
