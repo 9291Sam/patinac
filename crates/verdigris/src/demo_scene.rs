@@ -5,6 +5,7 @@ use gfx::glm::{self};
 use itertools::iproduct;
 use noise::NoiseFn;
 use rand::Rng;
+use sebs_noise::Signet;
 use voxel::{
     BrickMapChunk,
     RasterChunk,
@@ -25,9 +26,7 @@ impl DemoScene
 {
     pub fn new(game: Arc<game::Game>) -> Arc<Self>
     {
-        let noise_generator = noise::SuperSimplex::new(
-            (234782378948923489238948972347234789342u128 % u32::MAX as u128) as u32
-        );
+        let signet = Signet::<2>::new(8234890234829023);
 
         let c_game = game.clone();
         let t_game = game.clone();
@@ -36,12 +35,7 @@ impl DemoScene
             id:     util::Uuid::new(),
             raster: Mutex::new(
                 util::run_async(move || {
-                    create_chunk(
-                        &c_game,
-                        &noise_generator,
-                        glm::DVec3::new(-256.0, 0.0, -256.0),
-                        1.0
-                    )
+                    create_chunk(&c_game, &signet, glm::DVec3::new(-256.0, 0.0, -256.0), 1.0)
                 })
                 .into()
             )
@@ -91,7 +85,7 @@ impl game::Entity for DemoScene
 
 fn create_chunk(
     game: &game::Game,
-    noise: &impl NoiseFn<f64, 2>,
+    noise: &Signet<2>,
     offset: glm::DVec3,
     scale: f64
 ) -> Arc<RasterChunk>
@@ -99,7 +93,7 @@ fn create_chunk(
     let noise_sampler = |x: i32, z: i32| -> f64 {
         let h = 278.0f64;
 
-        (noise.get([(x as f64) / 256.0, (z as f64) / 256.0]) * h + h).clamp(0.0, 510.0)
+        (noise.sample([(x as f64) / 32.0, (z as f64) / 32.0]) * h + h).clamp(0.0, 510.0)
     };
 
     let occupied = |x: i32, y: i32, z: i32| (y <= noise_sampler(x, z) as i32);

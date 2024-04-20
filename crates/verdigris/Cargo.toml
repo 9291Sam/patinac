@@ -15,3 +15,4 @@ itertools = { workspace = true }
 voxel = { workspace = true }
 dashmap = { workspace = true }
 oneshot = { workspace = true }
+sebs_noise = { workspace = true }

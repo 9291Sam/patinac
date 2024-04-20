@@ -2291,6 +2291,7 @@ dependencies = [
  "noise",
  "oneshot",
  "rand",
+ "sebs_noise",
  "util",
  "voxel",
 ]
