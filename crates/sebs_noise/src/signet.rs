@@ -1,5 +1,6 @@
 use std::fmt::Debug;
 use std::mem::MaybeUninit;
+use std::ops::Add;
 
 use bytemuck::NoUninit;
 use num::{Float, FromPrimitive};
@@ -33,7 +34,7 @@ impl<const L: usize> Signet<L>
     #[inline(always)]
     pub fn sample<F: Float + FromPrimitive>(&self, pos: [F; L]) -> F
     where
-        [(); 2u32.pow(L as u32) as usize]:
+        [(); 2usize.pow(L as u32)]:
     {
         // floor, ceil, diff
         let data: [(i64, i64, F); L] = std::array::from_fn(|i| {
@@ -49,9 +50,10 @@ impl<const L: usize> Signet<L>
             )
         });
 
-        // make ndimesnsional cartesian prpdocut
-        // 2 4 8
-        let cartesian_prod_array: [F; 2u32.pow(L as u32) as usize] = std::array::from_fn(|i| {
+        let sample: [F; L] = std::array::from_fn(|i| unsafe { data.get_unchecked(i).2 });
+
+        // represents
+        let cartesian_prod_array: [F; 2usize.pow(L as u32)] = std::array::from_fn(|i| {
             let coord: [bool; L] = generate_binary_permutation::<L>(i);
 
             let sample_point: [i64; L] = std::array::from_fn(|i| {
@@ -67,17 +69,7 @@ impl<const L: usize> Signet<L>
             self.sample_float(sample_point)
         });
 
-        let mut weighted_sum = F::zero();
-        let mut total_weight = F::zero();
-
-        for i in 0..2u32.pow(L as u32) as usize
-        {
-            let weight = unsafe { data.get_unchecked(0).2 };
-            weighted_sum = weighted_sum + cartesian_prod_array[i] * weight;
-            total_weight = total_weight + weight;
-        }
-
-        weighted_sum / total_weight
+        nd_smoothstep(cartesian_prod_array, sample)
     }
 
     #[inline(always)]
@@ -103,9 +95,54 @@ impl<const L: usize> Signet<L>
     }
 }
 
-const fn generate_generic_float<F: Float + From<f64>>(float: f64) -> F
+pub fn nd_smoothstep<const D: usize, F: Float + FromPrimitive>(
+    weights: [F; 2usize.pow(D as u32)],
+    sample: [F; D]
+) -> F
 {
-    float.into()
+    assert_eq!(weights.len(), 2usize.pow(D as u32));
+
+    let indices = calculate_indices::<D, F>(sample);
+
+    let mut result = F::zero();
+    for i in 0..(1 << D)
+    {
+        let weight = calculate_weight::<F>(indices[i]);
+        result = result + weights[i] * weight;
+    }
+
+    result
+}
+
+fn calculate_indices<const D: usize, F: Float + FromPrimitive>(sample: [F; D]) -> [usize; 1 << D]
+where
+    [(); 1 << D]:
+{
+    let mut indices = [0; 1 << D];
+    for i in 0..D
+    {
+        for j in 0..(1 << i)
+        {
+            indices[(1 << i) + j] = indices[j] | (1 << i);
+        }
+    }
+
+    indices
+}
+
+fn calculate_weight<F: Float + FromPrimitive>(mut sample: usize) -> F
+{
+    let mut result = F::one();
+    while sample > 0
+    {
+        if (sample & 1) == 1
+        {
+            result = result * F::from_u8(2).unwrap();
+        }
+        sample >>= 1;
+    }
+
+    result
 }
 
 // <2>(0) -> [false, false]
@@ -136,6 +173,43 @@ pub fn map_float<F: Float>(x: F, x_min: F, x_max: F, y_min: F, y_max: F) -> F
     let range = x_max - x_min;
     y_min + (x - x_min) * (y_max - y_min) / range
 }
+
+const fn smooth_step<const Order: usize, F: Float>(mut x: F) {}
+
+const fn clamp<F: Float>(f: F, low: F, high: F) -> F
+{
+    if f < low
+    {
+        low
+    }
+    else if f > high
+    {
+        high
+    }
+    else
+    {
+        f
+    }
+}
+// function generalSmoothStep(N, x) {
+//     x = clamp(x, 0, 1); // x must be equal to or between 0 and 1
+//     var result = 0;
+//     for (var n = 0; n <= N; ++n)
+//       result += pascalTriangle(-N - 1, n) *
+//                 pascalTriangle(2 * N + 1, N - n) *
+//                 Math.pow(x, N + n + 1);
+//     return result;
+//   }
+
+//   // Returns binomial coefficient without explicit use of factorials,
+//   // which can't be used with negative integers
+
+// function pascalTriangle(a, b) {
+//     var result = 1;
+//     for (var i = 0; i < b; ++i)
+//       result *= (a - i) / (i + 1);
+//     return result;
+//   }
 
 #[cfg(test)]
 mod tests
