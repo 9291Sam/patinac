@@ -32,7 +32,9 @@ impl<const L: usize> Signet<L>
     pub fn sample<F: Float + FromPrimitive>(&self, pos: [F; L]) -> F
     where
         [(); 2usize.pow(L as u32)]:,
-        [(); 1 << L]:
+        [(); 1 << L]:,
+        [(); (L * 8).div_ceil(8)]:,
+        [(); L * 8]:
     {
         // floor, ceil, diff
         let data: [(i64, i64, F); L] = std::array::from_fn(|i| {
@@ -72,14 +74,20 @@ impl<const L: usize> Signet<L>
 
     #[inline(always)]
     pub fn sample_integer(&self, pos: [i64; L]) -> u64
+    where
+        [(); (L * 8).div_ceil(8)]:,
+        [(); L * 8]:
     {
         util::hash_combine(self.seed, unsafe {
-            std::slice::from_raw_parts(pos.as_ptr() as *const u8, std::mem::size_of_val(&pos))
+            &std::intrinsics::transmute_unchecked::<[i64; L], [u8; L * 8]>(pos)
         })
     }
 
     #[inline(always)]
     pub fn sample_float<F: Float + FromPrimitive>(&self, pos: [i64; L]) -> F
+    where
+        [(); L.div_ceil(8)]:,
+        [(); L * 8]:
     {
         unsafe {
             map_float(
@@ -183,23 +191,21 @@ pub fn map_float<F: Float>(x: F, x_min: F, x_max: F, y_min: F, y_max: F) -> F
     y_min + (x - x_min) * (y_max - y_min) / range
 }
 
-const fn smooth_step<const Order: usize, F: Float>(mut x: F) {}
-
-const fn clamp<F: Float>(f: F, low: F, high: F) -> F
-{
-    if f < low
-    {
-        low
-    }
-    else if f > high
-    {
-        high
-    }
-    else
-    {
-        f
-    }
-}
+// const fn clamp<F: Float>(f: F, low: F, high: F) -> F
+// {
+//     if f < low
+//     {
+//         low
+//     }
+//     else if f > high
+//     {
+//         high
+//     }
+//     else
+//     {
+//         f
+//     }
+// }
 // function generalSmoothStep(N, x) {
 //     x = clamp(x, 0, 1); // x must be equal to or between 0 and 1
 //     var result = 0;
