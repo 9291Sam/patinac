@@ -32,9 +32,7 @@ impl<const L: usize> Signet<L>
     pub fn sample<F: Float + FromPrimitive>(&self, pos: [F; L]) -> F
     where
         [(); 2usize.pow(L as u32)]:,
-        [(); 1 << L]:,
-        [(); (L * 8).div_ceil(8)]:,
-        [(); L * 8]:
+        [(); 1 << L]:
     {
         // floor, ceil, diff
         let data: [(i64, i64, F); L] = std::array::from_fn(|i| {
@@ -74,20 +72,22 @@ impl<const L: usize> Signet<L>
 
     #[inline(always)]
     pub fn sample_integer(&self, pos: [i64; L]) -> u64
-    where
-        [(); (L * 8).div_ceil(8)]:,
-        [(); L * 8]:
     {
-        util::hash_combine(self.seed, unsafe {
-            &std::intrinsics::transmute_unchecked::<[i64; L], [u8; L * 8]>(pos)
-        })
+        let mut seed = self.seed;
+
+        for b in unsafe { std::intrinsics::transmute_unchecked::<[i64; L], [u64; L]>(pos) }
+        {
+            seed = b
+                ^ 0x9E37_79B9_E377_9B9Eu64
+                ^ (unsafe { seed.unchecked_shl(12) })
+                ^ (unsafe { seed.unchecked_shr(48) });
+        }
+
+        seed
     }
 
     #[inline(always)]
     pub fn sample_float<F: Float + FromPrimitive>(&self, pos: [i64; L]) -> F
-    where
-        [(); L.div_ceil(8)]:,
-        [(); L * 8]:
     {
         unsafe {
             map_float(

@@ -29,7 +29,7 @@ pub use window::*;
 
 pub fn hash_combine<const L: usize>(mut seed: u64, data: &[u8; L]) -> u64
 where
-    [u64; L.div_ceil(8)]:
+    [(); L.div_ceil(8)]:
 {
     let mut reinterpreted_data: MaybeUninit<[u64; L.div_ceil(8)]> = MaybeUninit::uninit();
     let ptr: *mut u8 = reinterpreted_data.as_mut_ptr() as *mut u8;
