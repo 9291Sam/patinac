@@ -1,4 +1,6 @@
+use core::hash;
 use std::fmt::Debug;
+use std::hash::Hasher;
 
 use num::{Float, FromPrimitive};
 
@@ -73,17 +75,15 @@ impl<const L: usize> Signet<L>
     #[inline(always)]
     pub fn sample_integer(&self, pos: [i64; L]) -> u64
     {
-        let mut seed = self.seed;
+        let mut hasher = std::hash::DefaultHasher::new();
+        hasher.write_u64(self.seed);
 
-        for b in unsafe { std::intrinsics::transmute_unchecked::<[i64; L], [u64; L]>(pos) }
+        for p in pos
         {
-            seed = b
-                ^ 0x9E37_79B9_E377_9B9Eu64
-                ^ (unsafe { seed.unchecked_shl(12) })
-                ^ (unsafe { seed.unchecked_shr(48) });
+            hasher.write_i64(p);
         }
 
-        seed
+        hasher.finish()
     }
 
     #[inline(always)]
