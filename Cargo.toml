@@ -25,7 +25,6 @@ oneshot = { workspace = true }
 sebs_noise = { workspace = true }
 sys-locale.workspace = true
 
-
 [workspace.dependencies]
 voxel = { path = "crates/voxel" }
 util = { path = "crates/util" }
@@ -60,6 +59,7 @@ dashmap = "5.5.3"
 backtrace = "0.3.69"
 sys-locale = "0.3.1"
 num = "0.4.2"
+
 
 [profile.dev]
 opt-level = 2

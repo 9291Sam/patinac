@@ -31,12 +31,17 @@ impl<const L: usize> Signet<L>
     }
 
     #[inline(always)]
+    // Given a point in some L dimensional space, returns a sample of noise that is
+    // continuous in that space
     pub fn sample<F: Float + FromPrimitive>(&self, pos: [F; L]) -> F
     where
         [(); 2usize.pow(L as u32)]:,
-        [(); 1 << L]:
+        [(); 1 << L]:,
+        [(); L - 1]:
     {
-        // floor, ceil, diff
+        // Start by sampling the integers around the given value,
+        // take the ceil and the floor and then get the difference
+        // floor, ceil, diff: (i64, i64, F);
         let data: [(i64, i64, F); L] = std::array::from_fn(|i| {
             let f = unsafe { pos.get_unchecked(i) };
 
@@ -50,9 +55,12 @@ impl<const L: usize> Signet<L>
             )
         });
 
+        // the weights along each dimension
         let sample: [F; L] = std::array::from_fn(|i| unsafe { data.get_unchecked(i).2 });
 
-        // represents
+        // the values of each coordinate around the sample point in binary step
+        // i.e 000, 001, 010, ... around the sample point, and then calculates the value
+        // at that integer position
         let cartesian_prod_array: [F; 2usize.pow(L as u32)] = std::array::from_fn(|i| {
             let coord: [bool; L] = generate_binary_permutation::<L>(i);
 
@@ -69,7 +77,12 @@ impl<const L: usize> Signet<L>
             self.sample_float(sample_point)
         });
 
-        nd_smoothstep(cartesian_prod_array, sample)
+        // TODO: using those integer positions around the sample points, and then the
+        // weights saying how much each dimension should matter (which also represent
+        // how close / far the sample point is from one of the integer boundaries)
+        // Interpolate the data into a single float
+        //
+        nd_smoothstep(&cartesian_prod_array, &sample)
     }
 
     #[inline(always)]
@@ -101,25 +114,32 @@ impl<const L: usize> Signet<L>
     }
 }
 
-pub fn nd_smoothstep<const D: usize, F: Float + FromPrimitive>(
-    weights: [F; 2usize.pow(D as u32)],
-    sample: [F; D]
-) -> F
-where
-    [usize; 1 << D]: Sized
+pub fn nd_smoothstep<F: Float + FromPrimitive>(weights: &[F], sample: &[F]) -> F
 {
-    assert_eq!(weights.len(), 2usize.pow(D as u32));
+    assert!(2usize.pow(sample.len() as u32) == weights.len());
 
-    let indices = calculate_indices::<D, F>();
+    let d = sample.len();
 
-    let mut result = F::zero();
-    for i in 0..(1 << D)
+    if d == 1
     {
-        let weight = calculate_weight::<D, F>(indices[i], sample);
-        result = result + weights[i] * weight;
+        return unsafe {
+            smoothstep(
+                *weights.get_unchecked(0),
+                *weights.get_unchecked(1),
+                *sample.get_unchecked(0)
+            )
+        };
     }
 
-    result
+    let mid = 2usize.pow(d as u32) / 2;
+
+    unsafe {
+        smoothstep(
+            nd_smoothstep(&weights[..mid], sample.split_last().unwrap().1),
+            nd_smoothstep(&weights[mid..], sample.split_last().unwrap().1),
+            *sample.last().unwrap()
+        )
+    }
 }
 
 fn calculate_indices<const D: usize, F: Float + FromPrimitive>() -> [usize; 1 << D]
@@ -191,21 +211,32 @@ pub fn map_float<F: Float>(x: F, x_min: F, x_max: F, y_min: F, y_max: F) -> F
     y_min + (x - x_min) * (y_max - y_min) / range
 }
 
-// const fn clamp<F: Float>(f: F, low: F, high: F) -> F
-// {
-//     if f < low
-//     {
-//         low
-//     }
-//     else if f > high
-//     {
-//         high
-//     }
-//     else
-//     {
-//         f
-//     }
-// }
+#[inline(always)]
+pub fn smoothstep<F: Float>(e1: F, e2: F, mut x: F) -> F
+{
+    x = clamp((x - e1) / (e2 - e1), F::zero(), F::one());
+
+    let two: F = F::one() + F::one();
+    let three: F = two + F::one();
+
+    return x * x * (three - two * x);
+}
+
+const fn clamp<F: Float>(f: F, low: F, high: F) -> F
+{
+    if f < low
+    {
+        low
+    }
+    else if f > high
+    {
+        high
+    }
+    else
+    {
+        f
+    }
+}
 // function generalSmoothStep(N, x) {
 //     x = clamp(x, 0, 1); // x must be equal to or between 0 and 1
 //     var result = 0;
