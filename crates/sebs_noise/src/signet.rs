@@ -7,13 +7,14 @@ use num::{Float, FromPrimitive};
 // Kelsie Loquavian??? in my code!!!
 /// A single "phase" of the noise, each of these generators produces continuous
 /// noise in some vector space
+/// TODO: make generic over dimensions
 #[derive(Clone)]
-pub struct Signet<const L: usize>
+pub struct Signet2D
 {
     seed: u64
 }
 
-impl<const L: usize> Debug for Signet<L>
+impl Debug for Signet2D
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
     {
@@ -21,9 +22,11 @@ impl<const L: usize> Debug for Signet<L>
     }
 }
 
-impl<const L: usize> Signet<L>
+impl Signet2D
 {
-    pub fn new(seed: u64) -> Signet<L>
+    const DIM: usize = 2;
+
+    pub fn new(seed: u64) -> Signet2D
     {
         Self {
             seed
@@ -33,16 +36,12 @@ impl<const L: usize> Signet<L>
     #[inline(always)]
     // Given a point in some L dimensional space, returns a sample of noise that is
     // continuous in that space
-    pub fn sample<F: Float + FromPrimitive>(&self, pos: [F; L]) -> F
-    where
-        [(); 2usize.pow(L as u32)]:,
-        [(); 1 << L]:,
-        [(); L - 1]:
+    pub fn sample<F: Float + FromPrimitive>(&self, pos: [F; Signet2D::DIM]) -> F
     {
         // Start by sampling the integers around the given value,
         // take the ceil and the floor and then get the difference
         // floor, ceil, diff: (i64, i64, F);
-        let data: [(i64, i64, F); L] = std::array::from_fn(|i| {
+        let data: [(i64, i64, F); Signet2D::DIM] = std::array::from_fn(|i| {
             let f = unsafe { pos.get_unchecked(i) };
 
             let ceil = f.ceil();
@@ -56,15 +55,18 @@ impl<const L: usize> Signet<L>
         });
 
         // the weights along each dimension
-        let sample: [F; L] = std::array::from_fn(|i| unsafe { data.get_unchecked(i).2 });
+        let sample: [F; Signet2D::DIM] =
+            std::array::from_fn(|i| unsafe { data.get_unchecked(i).2 });
+
+        const PROD: usize = 2usize.pow(Signet2D::DIM as u32);
 
         // the values of each coordinate around the sample point in binary step
         // i.e 000, 001, 010, ... around the sample point, and then calculates the value
         // at that integer position
-        let cartesian_prod_array: [F; 2usize.pow(L as u32)] = std::array::from_fn(|i| {
-            let coord: [bool; L] = generate_binary_permutation::<L>(i);
+        let cartesian_prod_array: [F; PROD] = std::array::from_fn(|i| {
+            let coord: [bool; Signet2D::DIM] = generate_binary_permutation::<{ Signet2D::DIM }>(i);
 
-            let sample_point: [i64; L] = std::array::from_fn(|i| {
+            let sample_point: [i64; Signet2D::DIM] = std::array::from_fn(|i| {
                 unsafe {
                     match coord.get_unchecked(i)
                     {
@@ -77,16 +79,33 @@ impl<const L: usize> Signet<L>
             self.sample_float(sample_point)
         });
 
-        // TODO: using those integer positions around the sample points, and then the
-        // weights saying how much each dimension should matter (which also represent
-        // how close / far the sample point is from one of the integer boundaries)
-        // Interpolate the data into a single float
-        //
-        nd_smoothstep(&cartesian_prod_array, &sample)
+        // 00, 01, 10, 11
+        smoothstep(
+            smoothstep(
+                cartesian_prod_array[0b00],
+                cartesian_prod_array[0b01],
+                data[0].2
+            ),
+            smoothstep(
+                cartesian_prod_array[0b10],
+                cartesian_prod_array[0b11],
+                data[0].2
+            ),
+            data[1].2
+        )
+
+        // smoothstep(e1, e2, x)
+
+        // // TODO: using those integer positions around the sample points, and
+        // then the // weights saying how much each dimension should
+        // matter (which also represent // how close / far the sample
+        // point is from one of the integer boundaries) // Interpolate
+        // the data into a single float //
+        // nd_smoothstep(&cartesian_prod_array, &sample)
     }
 
     #[inline(always)]
-    pub fn sample_integer(&self, pos: [i64; L]) -> u64
+    pub fn sample_integer(&self, pos: [i64; Signet2D::DIM]) -> u64
     {
         let mut hasher = std::hash::DefaultHasher::new();
         hasher.write_u64(self.seed);
@@ -100,7 +119,7 @@ impl<const L: usize> Signet<L>
     }
 
     #[inline(always)]
-    pub fn sample_float<F: Float + FromPrimitive>(&self, pos: [i64; L]) -> F
+    pub fn sample_float<F: Float + FromPrimitive>(&self, pos: [i64; Signet2D::DIM]) -> F
     {
         unsafe {
             map_float(
@@ -112,74 +131,6 @@ impl<const L: usize> Signet<L>
             )
         }
     }
-}
-
-pub fn nd_smoothstep<F: Float + FromPrimitive>(weights: &[F], sample: &[F]) -> F
-{
-    assert!(2usize.pow(sample.len() as u32) == weights.len());
-
-    let d = sample.len();
-
-    if d == 1
-    {
-        return unsafe {
-            smoothstep(
-                *weights.get_unchecked(0),
-                *weights.get_unchecked(1),
-                *sample.get_unchecked(0)
-            )
-        };
-    }
-
-    let mid = 2usize.pow(d as u32) / 2;
-
-    unsafe {
-        smoothstep(
-            nd_smoothstep(&weights[..mid], sample.split_last().unwrap().1),
-            nd_smoothstep(&weights[mid..], sample.split_last().unwrap().1),
-            *sample.last().unwrap()
-        )
-    }
-}
-
-fn calculate_indices<const D: usize, F: Float + FromPrimitive>() -> [usize; 1 << D]
-where
-    [(); 1 << D]:
-{
-    let mut indices = [0; 1 << D];
-    for i in 0..D
-    {
-        for j in 0..(1 << i)
-        {
-            indices[(1 << i) + j] = indices[j] | (1 << i);
-        }
-    }
-
-    indices
-}
-
-fn calculate_weight<const D: usize, F: Float + FromPrimitive>(
-    mut sample_index: usize,
-    sample: [F; D]
-) -> F
-{
-    let mut result = F::one();
-    let two = F::from_u8(2).unwrap();
-
-    for i in 0..D
-    {
-        if sample_index & 1 == 1
-        {
-            result = result * (sample[i] - F::one());
-        }
-        else
-        {
-            result = result * sample[i];
-        }
-        sample_index >>= 1;
-    }
-
-    result
 }
 
 // <2>(0) -> [false, false]
@@ -222,7 +173,7 @@ pub fn smoothstep<F: Float>(e1: F, e2: F, mut x: F) -> F
     return x * x * (three - two * x);
 }
 
-const fn clamp<F: Float>(f: F, low: F, high: F) -> F
+fn clamp<F: Float>(f: F, low: F, high: F) -> F
 {
     if f < low
     {

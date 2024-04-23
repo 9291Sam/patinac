@@ -5,7 +5,7 @@ use gfx::glm::{self};
 use itertools::iproduct;
 use noise::NoiseFn;
 use rand::Rng;
-use sebs_noise::Signet;
+use sebs_noise::Signet2D;
 use voxel::{
     BrickMapChunk,
     RasterChunk,
@@ -26,7 +26,7 @@ impl DemoScene
 {
     pub fn new(game: Arc<game::Game>) -> Arc<Self>
     {
-        let signet = Signet::<2>::new(8234890234829023);
+        let signet = Signet2D::new(8234890234829023);
 
         let c_game = game.clone();
         let t_game = game.clone();
@@ -85,7 +85,7 @@ impl game::Entity for DemoScene
 
 fn create_chunk(
     game: &game::Game,
-    noise: &Signet<2>,
+    noise: &Signet2D,
     offset: glm::DVec3,
     scale: f64
 ) -> Arc<RasterChunk>
