@@ -71,12 +71,6 @@ impl Game
         &self.renderer
     }
 
-    #[deprecated]
-    pub fn get_time_alive(&self) -> f64
-    {
-        f64::from_bits(self.float_time_alive.load(Acquire))
-    }
-
     pub fn get_delta_time(&self) -> f32
     {
         f32::from_bits(self.float_delta_time.load(Acquire))
