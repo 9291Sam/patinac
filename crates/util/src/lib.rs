@@ -13,7 +13,6 @@ mod timer;
 mod uuid;
 mod window;
 
-use std::mem::MaybeUninit;
 use std::ops::Deref;
 use std::sync::Arc;
 

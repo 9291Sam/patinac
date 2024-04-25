@@ -1,3 +1,4 @@
+#![allow(clippy::assertions_on_constants)]
 #![feature(assert_matches)]
 #![feature(const_option)]
 #![feature(exclusive_range_pattern)]

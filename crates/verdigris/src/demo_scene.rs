@@ -5,15 +5,7 @@ use gfx::glm::{self};
 use itertools::iproduct;
 use noise::NoiseFn;
 use rand::Rng;
-use rayon::iter::{IntoParallelIterator, ParallelBridge, ParallelIterator};
-use voxel::{
-    BrickMapChunk,
-    RasterChunk,
-    Voxel,
-    VoxelChunkDataManager,
-    VoxelFace,
-    VoxelFaceDirection
-};
+use voxel::{RasterChunk, VoxelFace, VoxelFaceDirection};
 #[derive(Debug)]
 pub struct DemoScene
 {
