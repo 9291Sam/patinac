@@ -1,5 +1,4 @@
 use std::alloc::{Allocator, Layout, System};
-use std::isize;
 use std::ptr::NonNull;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
