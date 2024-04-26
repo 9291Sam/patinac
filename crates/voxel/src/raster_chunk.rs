@@ -1,5 +1,4 @@
 use std::borrow::Cow;
-use std::num::NonZeroU32;
 use std::sync::atomic::Ordering::SeqCst;
 use std::sync::{Arc, Mutex};
 

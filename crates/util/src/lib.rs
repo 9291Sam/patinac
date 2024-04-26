@@ -1,4 +1,3 @@
-#![feature(generic_const_exprs)]
 #![feature(map_try_insert)]
 #![feature(allocator_api)]
 #![feature(unchecked_shifts)]
@@ -10,10 +9,10 @@ mod crash_handler;
 mod global_allocator;
 mod log;
 mod registrar;
+mod timer;
 mod uuid;
 mod window;
 
-use std::mem::MaybeUninit;
 use std::ops::Deref;
 use std::sync::Arc;
 
@@ -24,8 +23,31 @@ pub use crash_handler::*;
 pub use global_allocator::*;
 pub use log::*;
 pub use registrar::*;
+pub use timer::*;
 pub use uuid::*;
 pub use window::*;
+
+// pub fn hash_combine<const L: usize>(mut seed: u64, data: &[u8]) -> u64
+// {
+//     let mut reinterpreted_data: MaybeUninit<[u64; L.div_ceil(8)]> =
+// MaybeUninit::uninit();     let ptr: *mut u8 = reinterpreted_data.as_mut_ptr()
+// as *mut u8;
+
+//     unsafe { std::ptr::copy_nonoverlapping(data.as_ptr(), ptr, L) }
+//     unsafe { std::ptr::write_bytes(ptr.add(L), 0, data.len() - L) }
+
+//     let u64_data = unsafe { reinterpreted_data.assume_init() };
+
+//     for b in u64_data
+//     {
+//         seed = b
+//             ^ 0x9E37_79B9_E377_9B9Eu64
+//             ^ (unsafe { seed.unchecked_shl(12) })
+//             ^ (unsafe { seed.unchecked_shr(48) });
+//     }
+
+//     seed
+// }
 
 #[derive(Clone, Copy)]
 pub struct SendSyncMutPtr<T>(pub *mut T);

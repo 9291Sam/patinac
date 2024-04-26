@@ -841,7 +841,7 @@ mod test
                     let pos = glm::U16Vec3::new(x, y, z);
                     brick.write_voxel(pos, true);
 
-                    assert_eq!(brick.read_voxel(pos), true);
+                    assert!(brick.read_voxel(pos));
 
                     // Verify other bits remain unchanged
                     for xx in 0..8
@@ -857,13 +857,13 @@ mod test
                                     continue;
                                 }
 
-                                assert_eq!(brick.read_voxel(other_pos), false);
+                                assert!(!brick.read_voxel(other_pos));
                             }
                         }
                     }
 
                     brick.write_voxel(pos, false);
-                    assert_eq!(brick.read_voxel(pos), false);
+                    assert!(!brick.read_voxel(pos));
                 }
             }
         }

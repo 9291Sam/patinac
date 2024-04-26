@@ -5,16 +5,7 @@ use gfx::glm::{self};
 use itertools::iproduct;
 use noise::NoiseFn;
 use rand::Rng;
-use sebs_noise::Signet2D;
-use voxel::{
-    BrickMapChunk,
-    RasterChunk,
-    Voxel,
-    VoxelChunkDataManager,
-    VoxelFace,
-    VoxelFaceDirection
-};
-
+use voxel::{RasterChunk, VoxelFace, VoxelFaceDirection};
 #[derive(Debug)]
 pub struct DemoScene
 {
@@ -26,12 +17,9 @@ impl DemoScene
 {
     pub fn new(game: Arc<game::Game>) -> Arc<Self>
     {
-        let noise_generator = noise::SuperSimplex::new(
-            (234782378948923489238948972347234789342u128 % u32::MAX as u128) as u32
-        );
+        let noise_generator = noise::SuperSimplex::new(3478293422);
 
         let c_game = game.clone();
-        let t_game = game.clone();
 
         let this = Arc::new(DemoScene {
             id:     util::Uuid::new(),
@@ -92,7 +80,7 @@ impl game::Entity for DemoScene
 
 fn create_chunk(
     game: &game::Game,
-    noise: &impl NoiseFn<f64, 2>,
+    noise: &(impl NoiseFn<f64, 2> + Sync),
     offset: glm::DVec3,
     scale: f64
 ) -> Arc<RasterChunk>
@@ -100,7 +88,7 @@ fn create_chunk(
     let noise_sampler = |x: i32, z: i32| -> f64 {
         let h = 84.0f64;
 
-        (noise.get([(x as f64) / 256.0, (z as f64) / 256.0]) * h + h) as f64
+        noise.get([(x as f64) / 256.0, (z as f64) / 256.0]) * h + h
     };
 
     let occupied = |x: i32, y: i32, z: i32| (y <= noise_sampler(x, z) as i32);

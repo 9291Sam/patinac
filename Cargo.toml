@@ -11,7 +11,6 @@ members = [
     "crates/verdigris",
     "crates/gui",
     "crates/voxel",
-    "crates/sebs_noise",
 ]
 
 [dependencies]
@@ -22,8 +21,6 @@ verdigris = { workspace = true }
 gui = { workspace = true }
 log = { workspace = true }
 oneshot = { workspace = true }
-sebs_noise = { workspace = true }
-sys-locale.workspace = true
 
 [workspace.dependencies]
 voxel = { path = "crates/voxel" }
@@ -31,7 +28,6 @@ util = { path = "crates/util" }
 gfx = { path = "crates/gfx" }
 game = { path = "crates/game" }
 verdigris = { path = "crates/verdigris" }
-sebs_noise = { path = "crates/sebs_noise" }
 gui = { path = "crates/gui" }
 log = { version = "0.4.20", features = ["std"] }
 bytemuck = { version = "1.14.1", features = ["derive"] }
