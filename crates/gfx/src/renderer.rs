@@ -157,6 +157,12 @@ impl Renderer
             adapter.get_info().backend
         );
 
+        log::trace!(
+            "workgroup local max variable size {} | max dims {}",
+            adapter.limits().max_compute_workgroup_storage_size,
+            adapter.limits().max_compute_workgroup_size_x
+        );
+
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {

@@ -30,12 +30,13 @@ fn fs_main(@builtin(position) in: vec4<f32>) -> @location(0) vec4<f32>
 
     // TODO: read rt data
     
-    return vec4<f32>(
-        map(f32(x_pos), 0.0, 511.0, 0.0, 1.0),
-        map(f32(y_pos), 0.0, 511.0, 0.0, 1.0),
-        map(f32(z_pos), 0.0, 511.0, 0.0, 1.0),
-        1.0
-    ) * get_voxel_color(voxel_data[1]);
+    // return vec4<f32>(
+    //     map(f32(x_pos), 0.0, 511.0, 0.0, 1.0),
+    //     map(f32(y_pos), 0.0, 511.0, 0.0, 1.0),
+    //     map(f32(z_pos), 0.0, 511.0, 0.0, 1.0),
+    //     1.0
+    // ); 
+    return get_voxel_color(voxel_data[1]);
 
 }
 
