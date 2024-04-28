@@ -7,6 +7,7 @@
 mod brick_map_chunk;
 mod gpu_data;
 mod raster_chunk;
+mod voxel_data_manager;
 
 pub use brick_map_chunk::*;
 pub use gpu_data::*;
