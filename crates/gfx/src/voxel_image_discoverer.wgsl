@@ -5,11 +5,11 @@ var<workgroup> workgroup_set: array<atomic<u32>, SET_SIZE>; // tune value. min r
 const SetEmptySentinel: u32 = ~0u;
 
 @group(0) @binding(0) var voxel_discovery_image: texture_2d<u32>;
-
-@group(0) @binding(3) var indirect_buffer: array<atomic<u32>, 3>;
-
-@group(2) @binding(0) var<storage> global_len_counter: atomic<u32>;
-@group(2) @binding(0) var<storage> mostly_unique_voxel_buffer: array<atomic<u32>>; 
+@group(0) @binding(1) var indirect_rt_workgroups_buffer: array<atomic<u32>, 3>;
+@group(0) @binding(2) var<storage> mostly_unique_len: atomic<u32>;
+@group(0) @binding(3) var<storage> mostly_unique_voxel_buffer: array<atomic<u32>>; 
+@group(0) @binding(4) var<storage> unique_len: atomic<u32>;
+@group(0) @binding(5) var<storage> unique_voxel_buffer: array<atomic<u32>>;
 
 
 @compute @workgroup_size(32, 32)
@@ -23,7 +23,10 @@ fn cs_main()
     var maybe_local_data: vec2<u32> = textureLoad(voxel_discovery_image, global_invocation_id.xy).xy;
 
     // Ok, we may have just loaded garbage data
-    
+    if any(global_invocation_id > textureDimensions(voxel_discovery_image))
+    {
+        maybe_local_data = vec2<u32>(0);
+    }
 
     // If a voxel actually exists at the given pixel, store it's data into the set
     if all(maybe_local_data != vec2<u32>(0u))
@@ -66,7 +69,7 @@ fn cs_main()
 
         // Ok, this is a little weird.
         // The shader stage that follows this one needs to be significantly smaller
-        // and dispatched
+        // and dispatched dynamically, we can use an indirect buffer for this
         if (free_idx % 1024 == 0)
         {
             atomicAdd(&indirect_buffer[0], 1)
@@ -76,7 +79,7 @@ fn cs_main()
 }
 
 // insert a key, returns the index the element resides at
-fn Map_insert(key: u32) -> u32
+fn Set_insert(key: u32) -> u32
 {
     var slot = u32hash(key) % SET_SIZE;
 

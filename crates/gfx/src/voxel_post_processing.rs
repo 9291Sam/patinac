@@ -31,21 +31,25 @@ impl VoxelColorTransferRecordable
             uuid:     util::Uuid::new(),
             pipeline: renderer.render_cache.cache_render_pipeline(
                 CacheableRenderPipelineDescriptor {
-                    label:                 Cow::Borrowed("Voxel Color Transfer Pipeline"),
-                    layout:                Some(pipeline_layout),
-                    vertex_module:         shader.clone(),
-                    vertex_entry_point:    "vs_main".into(),
+                    label: Cow::Borrowed("Voxel Color Transfer Pipeline"),
+                    layout: Some(pipeline_layout),
+                    vertex_module: shader.clone(),
+                    vertex_entry_point: "vs_main".into(),
                     vertex_buffer_layouts: vec![],
-                    fragment_state:        Some(CacheableFragmentState {
-                        module:      shader,
-                        entry_point: "fs_main".into(),
-                        targets:     vec![Some(wgpu::ColorTargetState {
+                    vertex_specialization: None,
+                    zero_initalize_vertex_workgroup_memory: false,
+                    fragment_state: Some(CacheableFragmentState {
+                        module:                           shader,
+                        entry_point:                      "fs_main".into(),
+                        targets:                          vec![Some(wgpu::ColorTargetState {
                             format:     Renderer::SURFACE_TEXTURE_FORMAT,
                             blend:      Some(wgpu::BlendState::REPLACE),
                             write_mask: wgpu::ColorWrites::ALL
-                        })]
+                        })],
+                        constants:                        None,
+                        zero_initialize_workgroup_memory: false
                     }),
-                    primitive_state:       wgpu::PrimitiveState {
+                    primitive_state: wgpu::PrimitiveState {
                         topology:           wgpu::PrimitiveTopology::TriangleList,
                         strip_index_format: None,
                         front_face:         wgpu::FrontFace::Cw,
@@ -54,13 +58,13 @@ impl VoxelColorTransferRecordable
                         unclipped_depth:    false,
                         conservative:       false
                     },
-                    depth_stencil_state:   None,
-                    multisample_state:     wgpu::MultisampleState {
+                    depth_stencil_state: None,
+                    multisample_state: wgpu::MultisampleState {
                         count:                     1,
                         mask:                      !0,
                         alpha_to_coverage_enabled: false
                     },
-                    multiview:             None
+                    multiview: None
                 }
             )
         }

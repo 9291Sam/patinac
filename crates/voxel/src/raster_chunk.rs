@@ -60,21 +60,25 @@ impl RasterChunk
 
         let pipeline = game.get_renderer().render_cache.cache_render_pipeline(
             CacheableRenderPipelineDescriptor {
-                label:                 "RasterChunk Pipeline".into(),
-                layout:                Some(pipeline_layout),
-                vertex_module:         shader.clone(),
-                vertex_entry_point:    "vs_main".into(),
+                label: "RasterChunk Pipeline".into(),
+                layout: Some(pipeline_layout),
+                vertex_module: shader.clone(),
+                vertex_entry_point: "vs_main".into(),
                 vertex_buffer_layouts: vec![RasterChunkVoxelPoint::describe()],
-                fragment_state:        Some(CacheableFragmentState {
-                    module:      shader,
-                    entry_point: "fs_main".into(),
-                    targets:     vec![Some(wgpu::ColorTargetState {
+                vertex_specialization: None,
+                zero_initalize_vertex_workgroup_memory: false,
+                fragment_state: Some(CacheableFragmentState {
+                    module:                           shader,
+                    entry_point:                      "fs_main".into(),
+                    targets:                          vec![Some(wgpu::ColorTargetState {
                         format:     wgpu::TextureFormat::Rg32Uint,
                         blend:      None,
                         write_mask: wgpu::ColorWrites::ALL
-                    })]
+                    })],
+                    constants:                        None,
+                    zero_initialize_workgroup_memory: false
                 }),
-                primitive_state:       wgpu::PrimitiveState {
+                primitive_state: wgpu::PrimitiveState {
                     topology:           wgpu::PrimitiveTopology::TriangleList,
                     strip_index_format: None,
                     front_face:         wgpu::FrontFace::Cw,
@@ -83,13 +87,13 @@ impl RasterChunk
                     unclipped_depth:    false,
                     conservative:       false
                 },
-                depth_stencil_state:   Some(gfx::Renderer::get_default_depth_state()),
-                multisample_state:     wgpu::MultisampleState {
+                depth_stencil_state: Some(gfx::Renderer::get_default_depth_state()),
+                multisample_state: wgpu::MultisampleState {
                     count:                     1,
                     mask:                      !0,
                     alpha_to_coverage_enabled: false
                 },
-                multiview:             None
+                multiview: None
             }
         );
 

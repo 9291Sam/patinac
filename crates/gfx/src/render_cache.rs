@@ -2,9 +2,9 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::num::NonZeroU32;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, LazyLock, Mutex};
 
-use wgpu::PipelineLayout;
+use wgpu::{PipelineCompilationOptions, PipelineLayout};
 
 #[derive(Debug)]
 pub struct RenderCache
@@ -267,9 +267,11 @@ impl Hash for CacheableShaderModuleDescriptor
 #[derive(Clone, Debug)]
 pub struct CacheableFragmentState
 {
-    pub module:      Arc<wgpu::ShaderModule>,
-    pub entry_point: Cow<'static, str>,
-    pub targets:     Vec<Option<wgpu::ColorTargetState>>
+    pub module:                           Arc<wgpu::ShaderModule>,
+    pub entry_point:                      Cow<'static, str>,
+    pub targets:                          Vec<Option<wgpu::ColorTargetState>>,
+    pub constants:                        Option<HashMap<String, f64>>,
+    pub zero_initialize_workgroup_memory: bool
 }
 
 impl PartialEq for CacheableFragmentState
@@ -297,16 +299,18 @@ impl Hash for CacheableFragmentState
 #[derive(Clone, Debug)]
 pub struct CacheableRenderPipelineDescriptor
 {
-    pub label:                 Cow<'static, str>,
-    pub layout:                Option<Arc<PipelineLayout>>,
-    pub vertex_module:         Arc<wgpu::ShaderModule>,
-    pub vertex_entry_point:    Cow<'static, str>,
+    pub label: Cow<'static, str>,
+    pub layout: Option<Arc<PipelineLayout>>,
+    pub vertex_module: Arc<wgpu::ShaderModule>,
+    pub vertex_entry_point: Cow<'static, str>,
     pub vertex_buffer_layouts: Vec<wgpu::VertexBufferLayout<'static>>,
-    pub fragment_state:        Option<CacheableFragmentState>,
-    pub primitive_state:       wgpu::PrimitiveState,
-    pub depth_stencil_state:   Option<wgpu::DepthStencilState>,
-    pub multisample_state:     wgpu::MultisampleState,
-    pub multiview:             Option<NonZeroU32>
+    pub vertex_specialization: Option<HashMap<String, f64>>,
+    pub zero_initalize_vertex_workgroup_memory: bool,
+    pub fragment_state: Option<CacheableFragmentState>,
+    pub primitive_state: wgpu::PrimitiveState,
+    pub depth_stencil_state: Option<wgpu::DepthStencilState>,
+    pub multisample_state: wgpu::MultisampleState,
+    pub multiview: Option<NonZeroU32>
 }
 
 impl CacheableRenderPipelineDescriptor
@@ -318,9 +322,16 @@ impl CacheableRenderPipelineDescriptor
         let ref_fragment_state: Option<wgpu::FragmentState> =
             self.fragment_state.as_ref().map(|c| {
                 wgpu::FragmentState {
-                    module:      &c.module,
-                    entry_point: &c.entry_point,
-                    targets:     &c.targets
+                    module:              &c.module,
+                    entry_point:         &c.entry_point,
+                    targets:             &c.targets,
+                    compilation_options: PipelineCompilationOptions {
+                        constants:                        &c
+                            .constants
+                            .as_ref()
+                            .unwrap_or(&EMPTY_SPECIALIZATION_HASH_MAP),
+                        zero_initialize_workgroup_memory: c.zero_initialize_workgroup_memory
+                    }
                 }
             });
 
@@ -328,9 +339,16 @@ impl CacheableRenderPipelineDescriptor
             label:         Some(&self.label),
             layout:        ref_layout,
             vertex:        wgpu::VertexState {
-                module:      &self.vertex_module,
-                entry_point: &self.vertex_entry_point,
-                buffers:     &self.vertex_buffer_layouts
+                module:              &self.vertex_module,
+                entry_point:         &self.vertex_entry_point,
+                buffers:             &self.vertex_buffer_layouts,
+                compilation_options: PipelineCompilationOptions {
+                    constants:                        &self
+                        .vertex_specialization
+                        .as_ref()
+                        .unwrap_or(&EMPTY_SPECIALIZATION_HASH_MAP),
+                    zero_initialize_workgroup_memory: self.zero_initalize_vertex_workgroup_memory
+                }
             },
             primitive:     self.primitive_state,
             depth_stencil: self.depth_stencil_state.clone(),
@@ -382,10 +400,12 @@ impl Hash for CacheableRenderPipelineDescriptor
 #[derive(Debug, Clone)]
 pub struct CacheableComputePipelineDescriptor
 {
-    label:       Cow<'static, str>,
-    layout:      Option<Arc<wgpu::PipelineLayout>>,
-    module:      Arc<wgpu::ShaderModule>,
-    entry_point: Cow<'static, str>
+    label:                           Cow<'static, str>,
+    layout:                          Option<Arc<wgpu::PipelineLayout>>,
+    module:                          Arc<wgpu::ShaderModule>,
+    entry_point:                     Cow<'static, str>,
+    specialization_constants:        Option<HashMap<String, f64>>,
+    zero_initalize_workgroup_memory: bool
 }
 
 impl CacheableComputePipelineDescriptor
@@ -396,10 +416,17 @@ impl CacheableComputePipelineDescriptor
     ) -> R
     {
         let descriptor = wgpu::ComputePipelineDescriptor {
-            label:       Some(&self.label),
-            layout:      self.layout.as_deref(),
-            module:      &self.module,
-            entry_point: &self.entry_point
+            label:               Some(&self.label),
+            layout:              self.layout.as_deref(),
+            module:              &self.module,
+            entry_point:         &self.entry_point,
+            compilation_options: PipelineCompilationOptions {
+                constants:                        self
+                    .specialization_constants
+                    .as_ref()
+                    .unwrap_or(&EMPTY_SPECIALIZATION_HASH_MAP),
+                zero_initialize_workgroup_memory: self.zero_initalize_workgroup_memory
+            }
         };
 
         access_func(&descriptor)
@@ -483,3 +510,6 @@ impl GenericPipeline
         }
     }
 }
+
+static EMPTY_SPECIALIZATION_HASH_MAP: LazyLock<HashMap<String, f64>> =
+    LazyLock::new(|| HashMap::new());
