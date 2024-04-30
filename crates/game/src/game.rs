@@ -265,11 +265,6 @@ impl Game
                     })
                 })
                 .for_each(|future| future.get());
-
-            eprintln!(
-                "BLOCK_MSGDemo Texture | {:?}",
-                self.demo_screen_sized_texture
-            );
         }
     }
 }

@@ -54,7 +54,7 @@ impl ScreenSizedTexture
         this
     }
 
-    pub(crate) fn resize_to_screen_size(&self) -> (u32, u32)
+    pub(crate) fn resize_to_screen_size(&self)
     {
         let ScreenSizedTextureCriticalSection {
             texture,
@@ -64,7 +64,7 @@ impl ScreenSizedTexture
         let (t, v, size) = self.descriptor.create_texture(&self.renderer);
         (*texture, *view) = (t, v);
 
-        size
+        self.current_size.store(size, Ordering::Release);
     }
 }
 
