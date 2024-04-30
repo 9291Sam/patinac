@@ -29,3 +29,7 @@ trait SelfManaged : Entity {
 }
 
 registerSelfManaged(Box<dyn SelfManaged>)
+
+greedy meshing
+draw indriet
+face level culling

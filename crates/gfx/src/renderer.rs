@@ -847,7 +847,7 @@ impl Renderer
 
         struct EventLoopApplication {}
 
-        let _ = event_loop.run_app_on_demand(|event, control_flow| {
+        let _ = event_loop.run_on_demand(|event, control_flow| {
             if !should_continue()
             {
                 control_flow.exit();

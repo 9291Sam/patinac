@@ -101,7 +101,7 @@ impl DebugMenu
         };
 
         buffer.set_size(font_system, physical_width as f32, physical_height as f32);
-        buffer.shape_until_scroll(font_system);
+        buffer.shape_until_scroll(font_system, true);
 
         buffer
     }
