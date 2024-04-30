@@ -35,6 +35,7 @@ pub struct Renderer
     pub global_bind_group_layout: Arc<wgpu::BindGroupLayout>,
     pub global_discovery_layout:  Arc<wgpu::BindGroupLayout>,
     renderables:                  util::Registrar<util::Uuid, Weak<dyn Recordable>>,
+    screen_sized_textures:        util::Registrar<util::Uuid, Weak<super::ScreenSizedTexture>>,
     window_size:                  AtomicU32U32,
     delta_time:                   AtomicF32,
 
@@ -291,6 +292,7 @@ impl Renderer
         Renderer {
             thread_id: std::thread::current().id(),
             renderables: Registrar::new(),
+            screen_sized_textures: Registrar::new(),
             queue,
             device,
             critical_section: Mutex::new(critical_section),
@@ -514,6 +516,17 @@ impl Renderer
                             )
                         }]
                     }));
+
+                self.screen_sized_textures
+                    .access()
+                    .into_iter()
+                    .for_each(|(id, weak_texture)| {
+                        match weak_texture.upgrade()
+                        {
+                            Some(texture) => _ = texture.resize_to_screen_size(),
+                            None => self.screen_sized_textures.delete(id)
+                        }
+                    });
             }
         };
 
@@ -845,8 +858,6 @@ impl Renderer
 
         input_manager.attach_cursor();
 
-        struct EventLoopApplication {}
-
         let _ = event_loop.run_on_demand(|event, control_flow| {
             if !should_continue()
             {
@@ -913,6 +924,12 @@ impl Renderer
             stencil:             wgpu::StencilState::default(),
             bias:                wgpu::DepthBiasState::default()
         }
+    }
+
+    pub(crate) fn register_screen_sized_image(&self, img: Arc<super::ScreenSizedTexture>)
+    {
+        self.screen_sized_textures
+            .insert(util::Uuid::new(), Arc::downgrade(&img))
     }
 }
 

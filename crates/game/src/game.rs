@@ -1,9 +1,10 @@
+use std::borrow::Cow;
 use std::fmt::Debug;
 use std::sync::atomic::Ordering::*;
 use std::sync::atomic::{AtomicU32, AtomicU64};
 use std::sync::{Arc, Mutex, Weak};
 
-use gfx::glm;
+use gfx::{glm, wgpu, ScreenSizedTextureDescriptor};
 
 use crate::Entity;
 
@@ -16,13 +17,14 @@ pub trait World: Send + Sync
 
 pub struct Game
 {
-    this_weak:        Weak<Game>,
-    renderer:         Arc<gfx::Renderer>,
-    entities:         util::Registrar<util::Uuid, Weak<dyn Entity>>,
-    float_delta_time: AtomicU32,
-    float_time_alive: AtomicU64,
-    camera:           Mutex<gfx::Camera>,
-    world:            Mutex<Option<Weak<dyn World>>>
+    this_weak:                 Weak<Game>,
+    renderer:                  Arc<gfx::Renderer>,
+    entities:                  util::Registrar<util::Uuid, Weak<dyn Entity>>,
+    float_delta_time:          AtomicU32,
+    float_time_alive:          AtomicU64,
+    camera:                    Mutex<gfx::Camera>,
+    world:                     Mutex<Option<Weak<dyn World>>>,
+    demo_screen_sized_texture: Arc<gfx::ScreenSizedTexture>
 }
 
 impl Debug for Game
@@ -49,8 +51,21 @@ impl Game
 {
     pub fn new(renderer: Arc<gfx::Renderer>) -> Arc<Self>
     {
+        let demo_screen_sized_texture = gfx::ScreenSizedTexture::new(
+            renderer.clone(),
+            ScreenSizedTextureDescriptor {
+                label:           Cow::Borrowed("demo_texture"),
+                mip_level_count: 1,
+                sample_count:    1,
+                format:          gfx::Renderer::SURFACE_TEXTURE_FORMAT,
+                usage:           wgpu::TextureUsages::RENDER_ATTACHMENT,
+                view_format:     gfx::Renderer::SURFACE_TEXTURE_FORMAT
+            }
+        );
+
         Arc::new_cyclic(|this_weak| {
             Game {
+                demo_screen_sized_texture,
                 renderer,
                 entities: util::Registrar::new(),
                 float_delta_time: AtomicU32::new(0.0f32.to_bits()),
@@ -250,6 +265,11 @@ impl Game
                     })
                 })
                 .for_each(|future| future.get());
+
+            eprintln!(
+                "BLOCK_MSGDemo Texture | {:?}",
+                self.demo_screen_sized_texture
+            );
         }
     }
 }

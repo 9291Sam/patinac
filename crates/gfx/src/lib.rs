@@ -7,6 +7,7 @@ mod linalg;
 mod recordables;
 mod render_cache;
 mod renderer;
+mod screen_sized_texture;
 mod voxel_post_processing;
 
 pub use input_manager::*;
@@ -21,6 +22,7 @@ pub use render_cache::{
     GenericPipeline
 };
 pub use renderer::Renderer;
+pub use screen_sized_texture::*;
 pub use wgpu;
 pub use winit::keyboard::KeyCode;
 

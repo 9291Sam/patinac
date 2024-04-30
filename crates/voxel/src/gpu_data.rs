@@ -301,7 +301,7 @@ impl VoxelChunkDataManager
 
         assert!(VOXEL_BRICK_EDGE_LENGTH == 8);
 
-        let number_of_starting_bricks = BRICK_MAP_EDGE_SIZE * BRICK_MAP_EDGE_SIZE * 2;
+        let number_of_starting_bricks = BRICK_MAP_EDGE_SIZE * 2;
 
         let r = renderer.clone();
 
