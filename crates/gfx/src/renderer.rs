@@ -102,7 +102,7 @@ impl Renderer
     /// on
     pub unsafe fn new(
         window_title: impl Into<String>
-    ) -> (Self, util::WindowUpdater<Option<RenderPassSendFunction>>)
+    ) -> (Self, util::WindowUpdater<RenderPassSendFunction>)
     {
         let event_loop = EventLoop::new().unwrap();
         let window = Arc::new(
@@ -227,7 +227,7 @@ impl Renderer
         surface.configure(&device, &config);
 
         let (renderpass_func_window, tx) =
-            util::Window::<Option<RenderPassSendFunction>>::new(None);
+            util::Window::<RenderPassSendFunction>::new(RenderPassSendFunction::new(Vec::new()));
 
         let critical_section = CriticalSection {
             thread_id: std::thread::current().id(),
@@ -954,13 +954,25 @@ impl Renderer
 //             >
 //         >
 
+type FuncArray = Vec<
+    Arc<dyn for<'pass> Fn(&'pass mut wgpu::CommandEncoder) -> GenericPass<'pass> + Send + Sync>
+>;
+
 #[derive(Clone)]
 #[allow(clippy::type_complexity)]
 pub struct RenderPassSendFunction
 {
-    func: Vec<
-        Arc<dyn for<'pass> Fn(&'pass mut wgpu::CommandEncoder) -> GenericPass<'pass> + Send + Sync>
-    >
+    func_array: FuncArray
+}
+
+impl RenderPassSendFunction
+{
+    pub fn new(func_array: FuncArray) -> Self
+    {
+        RenderPassSendFunction {
+            func_array
+        }
+    }
 }
 
 impl Debug for RenderPassSendFunction
@@ -975,7 +987,7 @@ impl Debug for RenderPassSendFunction
 struct CriticalSection
 {
     thread_id:              ThreadId,
-    renderpass_func_window: util::Window<Option<RenderPassSendFunction>>,
+    renderpass_func_window: util::Window<RenderPassSendFunction>,
     surface:                wgpu::Surface<'static>,
     config:                 wgpu::SurfaceConfiguration,
     window:                 Arc<Window>,
