@@ -28,3 +28,7 @@ draw indriet
 face level culling
 
 jemealloc
+
+create an mvp
+
+make a really good readme

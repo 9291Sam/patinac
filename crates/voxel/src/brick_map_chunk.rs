@@ -199,14 +199,6 @@ impl gfx::Recordable for BrickMapChunk
         _: &Arc<wgpu::BindGroup>
     ) -> gfx::RecordInfo
     {
-        // static ONCE: Once = Once::new();
-
-        // ONCE.call_once(|| log::warn!("TODO: make chunk data manager thread safe!"));
-
-        // match self.voxel_chunk_data.try_lock()
-        // {
-        //     Ok(d) =>
-        //     {
         gfx::RecordInfo {
             should_draw: true,
             transform:   Some(gfx::Transform {
@@ -223,22 +215,6 @@ impl gfx::Recordable for BrickMapChunk
                 None
             ]
         }
-        //     }
-        //     Err(e) =>
-        //     {
-        //         match e
-        //         {
-        //             std::sync::TryLockError::Poisoned(p) => panic!("{p:?}"),
-        //             std::sync::TryLockError::WouldBlock =>
-        //             {
-        //                 gfx::RecordInfo {
-        //                     should_draw: false,
-        //                     ..Default::default()
-        //                 }
-        //             }
-        //         }
-        //     }
-        // }
     }
 
     fn record<'s>(&'s self, render_pass: &mut gfx::GenericPass<'s>, maybe_id: Option<gfx::DrawId>)

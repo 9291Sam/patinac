@@ -3,9 +3,10 @@ use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering::AcqRel;
 use std::sync::OnceLock;
 
-use bytemuck::{bytes_of, bytes_of_mut};
+use bytemuck::{bytes_of, bytes_of_mut, Pod, Zeroable};
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Pod, Zeroable)]
+#[repr(C)]
 pub struct Uuid
 {
     data:       u64,
