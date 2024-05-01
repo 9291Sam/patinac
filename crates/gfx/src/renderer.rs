@@ -1,6 +1,8 @@
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::fmt::Debug;
+use std::marker::PhantomData;
 use std::num::NonZeroU64;
 use std::ops::Deref;
 use std::panic::{RefUnwindSafe, UnwindSafe};
@@ -34,10 +36,11 @@ pub struct Renderer
     pub render_cache:             RenderCache,
     pub global_bind_group_layout: Arc<wgpu::BindGroupLayout>,
     pub global_discovery_layout:  Arc<wgpu::BindGroupLayout>,
-    renderables:                  util::Registrar<util::Uuid, Weak<dyn Recordable>>,
-    screen_sized_textures:        util::Registrar<util::Uuid, Weak<super::ScreenSizedTexture>>,
-    window_size:                  AtomicU32U32,
-    delta_time:                   AtomicF32,
+
+    renderables:           util::Registrar<util::Uuid, Weak<dyn Recordable>>,
+    screen_sized_textures: util::Registrar<util::Uuid, Weak<super::ScreenSizedTexture>>,
+    window_size:           AtomicU32U32,
+    delta_time:            AtomicF32,
 
     // Rendering
     thread_id:        ThreadId,
@@ -97,7 +100,9 @@ impl Renderer
     ///
     /// The Self returned must be dropped on the same thread that it was created
     /// on
-    pub unsafe fn new(window_title: impl Into<String>) -> Self
+    pub unsafe fn new(
+        window_title: impl Into<String>
+    ) -> (Self, util::WindowUpdater<Option<RenderPassSendFunction>>)
     {
         let event_loop = EventLoop::new().unwrap();
         let window = Arc::new(
@@ -221,12 +226,16 @@ impl Renderer
         };
         surface.configure(&device, &config);
 
+        let (renderpass_func_window, tx) =
+            util::Window::<Option<RenderPassSendFunction>>::new(None);
+
         let critical_section = CriticalSection {
             thread_id: std::thread::current().id(),
             surface,
             config,
             window,
-            event_loop
+            event_loop,
+            renderpass_func_window
         };
 
         let global_bind_group_layout =
@@ -289,19 +298,22 @@ impl Renderer
 
         let render_cache = RenderCache::new(device.clone());
 
-        Renderer {
-            thread_id: std::thread::current().id(),
-            renderables: Registrar::new(),
-            screen_sized_textures: Registrar::new(),
-            queue,
-            device,
-            critical_section: Mutex::new(critical_section),
-            global_bind_group_layout: Arc::new(global_bind_group_layout),
-            global_discovery_layout: Arc::new(global_discovery_layout),
-            window_size: AtomicU32U32::new((size.width, size.height)),
-            delta_time: AtomicF32::new(0.0f32),
-            render_cache
-        }
+        (
+            Renderer {
+                thread_id: std::thread::current().id(),
+                renderables: Registrar::new(),
+                screen_sized_textures: Registrar::new(),
+                queue,
+                device,
+                critical_section: Mutex::new(critical_section),
+                global_bind_group_layout: Arc::new(global_bind_group_layout),
+                global_discovery_layout: Arc::new(global_discovery_layout),
+                window_size: AtomicU32U32::new((size.width, size.height)),
+                delta_time: AtomicF32::new(0.0f32),
+                render_cache
+            },
+            tx
+        )
     }
 
     pub fn register(&self, renderable: Arc<dyn Recordable>)
@@ -350,7 +362,8 @@ impl Renderer
             surface,
             config,
             window,
-            event_loop
+            event_loop,
+            renderpass_func_window
         } = &mut *guard;
 
         assert!(
@@ -479,7 +492,7 @@ impl Renderer
                 config.width = new_size.width;
                 config.height = new_size.height;
 
-                surface.configure(&self.device, config);
+                surface.configure(&self.device, &config);
 
                 *depth_buffer.borrow_mut() = create_sized_image(
                     &self.device,
@@ -933,14 +946,40 @@ impl Renderer
     }
 }
 
+// Option<
+//             Box<
+//                 dyn (Fn() ->
+//                     >) + Send
+//                     + Clone
+//             >
+//         >
+
+#[derive(Clone)]
+#[allow(clippy::type_complexity)]
+pub struct RenderPassSendFunction
+{
+    func: Vec<
+        Arc<dyn for<'pass> Fn(&'pass mut wgpu::CommandEncoder) -> GenericPass<'pass> + Send + Sync>
+    >
+}
+
+impl Debug for RenderPassSendFunction
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
+    {
+        write!(f, "Render Pass Send Function")
+    }
+}
+
 #[derive(Debug)]
 struct CriticalSection
 {
-    thread_id:  ThreadId,
-    surface:    wgpu::Surface<'static>,
-    config:     wgpu::SurfaceConfiguration,
-    window:     Arc<Window>,
-    event_loop: EventLoop<()>
+    thread_id:              ThreadId,
+    renderpass_func_window: util::Window<Option<RenderPassSendFunction>>,
+    surface:                wgpu::Surface<'static>,
+    config:                 wgpu::SurfaceConfiguration,
+    window:                 Arc<Window>,
+    event_loop:             EventLoop<()>
 }
 
 unsafe impl Sync for CriticalSection {}

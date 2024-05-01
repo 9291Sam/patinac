@@ -23,13 +23,6 @@ pat | #c | scale| side  | total
 Total Chunks: 81
 Rendered area: 98304^2 x 512 
 
-self managing lifetime objects
-trait SelfManaged : Entity {
-    fn is_alive();
-}
-
-registerSelfManaged(Box<dyn SelfManaged>)
-
 greedy meshing
 draw indriet
 face level culling

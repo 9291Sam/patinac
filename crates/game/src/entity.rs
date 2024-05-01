@@ -20,6 +20,11 @@ pub trait Entity: Debug + Send + Sync + EntityCastDepot
     }
 }
 
+pub trait SelfManagedEntity: Entity
+{
+    fn is_alive(&self) -> bool;
+}
+
 // ! If you add a new trait, don't forget to add it to `EntityCastDepot` and
 // ! extend `EntityCastTarget`
 pub trait EntityCastDepot

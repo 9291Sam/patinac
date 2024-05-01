@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::collections::HashSet;
 use std::fmt::Debug;
 use std::sync::atomic::Ordering::*;
 use std::sync::atomic::{AtomicU32, AtomicU64};
@@ -6,7 +7,7 @@ use std::sync::{Arc, Mutex, Weak};
 
 use gfx::{glm, wgpu, ScreenSizedTextureDescriptor};
 
-use crate::Entity;
+use crate::{Entity, SelfManagedEntity};
 
 pub struct TickTag(());
 
@@ -20,6 +21,7 @@ pub struct Game
     this_weak:                 Weak<Game>,
     renderer:                  Arc<gfx::Renderer>,
     entities:                  util::Registrar<util::Uuid, Weak<dyn Entity>>,
+    self_managed_entities:     util::Registrar<util::Uuid, Arc<dyn SelfManagedEntity>>,
     float_delta_time:          AtomicU32,
     float_time_alive:          AtomicU64,
     camera:                    Mutex<gfx::Camera>,
@@ -68,6 +70,7 @@ impl Game
                 demo_screen_sized_texture,
                 renderer,
                 entities: util::Registrar::new(),
+                self_managed_entities: util::Registrar::new(),
                 float_delta_time: AtomicU32::new(0.0f32.to_bits()),
                 float_time_alive: AtomicU64::new(0.0f64.to_bits()),
                 this_weak: this_weak.clone(),
@@ -95,6 +98,13 @@ impl Game
     {
         self.entities
             .insert(entity.get_uuid(), Arc::downgrade(&entity));
+    }
+
+    pub fn register_self_managed(&self, entity: Arc<dyn SelfManagedEntity>)
+    {
+        self.register(entity.clone());
+
+        self.self_managed_entities.insert(entity.get_uuid(), entity);
     }
 
     pub fn register_chunk(&self, chunk: Weak<dyn World>)
@@ -243,6 +253,16 @@ impl Game
             let thread_entities = &self.entities;
 
             let strong_game = self.this_weak.upgrade().unwrap();
+
+            self.self_managed_entities
+                .access()
+                .into_iter()
+                .for_each(|(uuid, strong_entity)| {
+                    if !strong_entity.is_alive()
+                    {
+                        self.self_managed_entities.delete(uuid);
+                    }
+                });
 
             self.entities
                 .access()
