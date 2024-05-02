@@ -68,6 +68,10 @@ pub enum RecordInfo
         pipeline:    Arc<GenericPipeline>,
         bind_groups: [Option<Arc<wgpu::BindGroup>>; 4],
         transform:   Option<Transform>
+    },
+    RecordIsolated
+    {
+        render_pass: RenderPassId
     }
 }
 

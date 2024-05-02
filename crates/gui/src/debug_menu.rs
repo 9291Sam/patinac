@@ -231,10 +231,11 @@ r#"╔═════════════════════╦══�
                 .unwrap();
         }
 
-        gfx::RecordInfo {
-            should_draw: true,
-            transform:   None,
-            bind_groups: [None, None, None, None]
+        gfx::RecordInfo::RecordIsolated {
+            render_pass: self
+                .game
+                .get_renderpass_manager()
+                .get_renderpass_id(game::PassStage::MenuRender)
         }
     }
 

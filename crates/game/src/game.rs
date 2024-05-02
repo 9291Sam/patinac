@@ -7,6 +7,7 @@ use std::sync::{Arc, Mutex, Weak};
 
 use gfx::{glm, wgpu, ScreenSizedTextureDescriptor};
 
+use crate::renderpasses::RenderPassManager;
 use crate::{Entity, SelfManagedEntity};
 
 pub struct TickTag(());
@@ -87,6 +88,11 @@ impl Game
     pub fn get_renderer(&self) -> &Arc<gfx::Renderer>
     {
         &self.renderer
+    }
+
+    pub fn get_renderpass_manager(&self) -> &RenderPassManager
+    {
+        todo!()
     }
 
     pub fn get_delta_time(&self) -> f32

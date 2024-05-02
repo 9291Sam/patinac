@@ -941,7 +941,7 @@ pub type EncoderToPassFn = Box<
             &'enc mut wgpu::CommandEncoder,
             &'enc wgpu::TextureView,
 
-            &mut dyn FnMut(&'_ mut GenericPass<'_>)
+            &'enc mut dyn FnMut(&'_ mut GenericPass<'_>)
         ) + Send
         + Sync
 >;
