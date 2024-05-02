@@ -604,7 +604,7 @@ impl Renderer
                 (
                     EncoderToPassFn,
                     Vec<(
-                        Arc<GenericPipeline>,
+                        Option<Arc<GenericPipeline>>,
                         [Option<Arc<wgpu::BindGroup>>; 4],
                         Option<DrawId>,
                         Arc<dyn Recordable>
@@ -628,7 +628,10 @@ impl Renderer
             {
                 match info
                 {
-                    RecordInfo::NoRecord => todo!(),
+                    RecordInfo::NoRecord =>
+                    {
+                        // Do Nothing
+                    }
                     RecordInfo::Record {
                         render_pass,
                         pipeline,
@@ -654,15 +657,22 @@ impl Renderer
                         };
 
                         renderpass_data.get_mut(&render_pass).unwrap().1.push((
-                            pipeline,
+                            Some(pipeline),
                             bind_groups,
                             id,
                             recordable
                         ))
                     }
-                    _ =>
+                    RecordInfo::RecordIsolated {
+                        render_pass
+                    } =>
                     {
-                        todo!()
+                        renderpass_data.get_mut(&render_pass).unwrap().1.push((
+                            None,
+                            [None, None, None, None],
+                            None,
+                            recordable
+                        ))
                     }
                 }
             }
@@ -678,7 +688,7 @@ impl Renderer
                 // TODO: add the screen's texture to this function
                 EncoderToPassFn,
                 Vec<(
-                    Arc<GenericPipeline>,
+                    Option<Arc<GenericPipeline>>,
                     [Option<Arc<wgpu::BindGroup>>; 4],
                     Option<DrawId>,
                     Arc<dyn Recordable>
@@ -793,7 +803,7 @@ impl Renderer
                 // idk how to write the lifetimes here, it's fine the variables are dropped in
                 // the right order
                 let recordables: &Vec<(
-                    Arc<GenericPipeline>,
+                    Option<Arc<GenericPipeline>>,
                     [Option<Arc<wgpu::BindGroup>>; 4],
                     Option<DrawId>,
                     Arc<dyn Recordable>
@@ -806,25 +816,31 @@ impl Renderer
                         let active_pipeline = &mut *active_pipeline.lock().unwrap();
                         let active_bind_groups = &mut *active_bind_groups.lock().unwrap();
 
-                        for (desired_pipeline, desired_bind_groups, draw_id, recordable) in
+                        for (maybe_desired_pipeline, desired_bind_groups, draw_id, recordable) in
                             recordables.iter()
                         {
-                            if *active_pipeline != Some(&desired_pipeline)
+                            if let Some(desired_pipeline) = maybe_desired_pipeline
                             {
-                                match (&**desired_pipeline, &mut *render_pass)
+                                if *active_pipeline != Some(desired_pipeline)
                                 {
-                                    (GenericPipeline::Compute(p), GenericPass::Compute(pass)) =>
+                                    match (&**desired_pipeline, &mut *render_pass)
                                     {
-                                        pass.set_pipeline(&p);
+                                        (
+                                            GenericPipeline::Compute(p),
+                                            GenericPass::Compute(pass)
+                                        ) =>
+                                        {
+                                            pass.set_pipeline(&p);
+                                        }
+                                        (GenericPipeline::Render(p), GenericPass::Render(pass)) =>
+                                        {
+                                            pass.set_pipeline(&p)
+                                        }
+                                        (_, _) => panic!("Pass Pipeline Invariant Violated!")
                                     }
-                                    (GenericPipeline::Render(p), GenericPass::Render(pass)) =>
-                                    {
-                                        pass.set_pipeline(&p)
-                                    }
-                                    (_, _) => panic!("Pass Pipeline Invariant Violated!")
-                                }
 
-                                *active_pipeline = Some(&desired_pipeline);
+                                    *active_pipeline = Some(&desired_pipeline);
+                                }
                             }
 
                             for (idx, (active_bind_group_id, maybe_new_bind_group)) in
@@ -957,8 +973,7 @@ pub type EncoderToPassFn = Box<
     dyn for<'enc> Fn(
             &'enc mut wgpu::CommandEncoder,
             &'enc wgpu::TextureView,
-
-            &'enc mut dyn FnMut(&'_ mut GenericPass<'_>)
+            &'enc mut (dyn FnMut(&'_ mut GenericPass<'_>) + 'enc)
         ) + Send
         + Sync
 >;

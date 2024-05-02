@@ -2,6 +2,8 @@ use std::borrow::Cow;
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 
+use glyphon::{TextAtlas, TextRenderer};
+
 pub struct DebugMenu
 {
     id:             util::Uuid,
@@ -246,21 +248,21 @@ r#"╔═════════════════════╦══�
             unreachable!()
         };
 
-        // {
-        //     let DebugMenuCriticalSection {
-        //         ref mut atlas,
-        //         ref mut text_renderer,
-        //         ..
-        //     } = &mut *self.rendering_data.lock().unwrap();
+        let DebugMenuCriticalSection {
+            ref mut atlas,
+            ref mut text_renderer,
+            ..
+        } = &mut *self.rendering_data.lock().unwrap();
 
-        //     unsafe { (*text_renderer).render(&*atlas, pass).unwrap() }
-        // };
-
-        todo!()
-        // Hillariously enough, this isn't actually a problem as the menu is
+        // Hilariously enough, this isn't actually a problem as the menu is
         // dropped before the renderer, and calls to pre_record_update
         // and record may never alias one another, however this should
-        // totally use lifetimes That's right! the square peg goes into
-        // the round hole!
+        // totally use lifetimes
+        //  That's right! the square peg goes into the round hole!
+        unsafe {
+            (*(text_renderer as *mut TextRenderer))
+                .render(&*(atlas as *mut TextAtlas), pass)
+                .unwrap()
+        }
     }
 }
