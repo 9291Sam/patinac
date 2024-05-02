@@ -787,7 +787,7 @@ impl Renderer
                 pass_func(
                     &mut encoder,
                     &screen_texture_view,
-                    Box::new(|render_pass: &mut GenericPass| {
+                    &mut |render_pass: &mut GenericPass| {
                         let active_pipeline = &mut *active_pipeline.lock().unwrap();
                         let active_bind_groups = &mut *active_bind_groups.lock().unwrap();
 
@@ -844,7 +844,7 @@ impl Renderer
 
                         *active_pipeline = None;
                         *active_bind_groups = [None; 4];
-                    })
+                    }
                 );
             }
 
@@ -941,7 +941,7 @@ pub type EncoderToPassFn = Box<
             &'enc mut wgpu::CommandEncoder,
             &'enc wgpu::TextureView,
 
-            Box<dyn FnOnce(&'_ mut GenericPass<'_>)>
+            &mut dyn FnMut(&'_ mut GenericPass<'_>)
         ) + Send
         + Sync
 >;
