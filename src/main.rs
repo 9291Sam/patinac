@@ -44,8 +44,8 @@ fn main()
         *held_game.lock().unwrap() = Some(game.clone());
 
         {
-            let _verdigris = verdigris::DemoScene::new(game.clone());
-            let _debug_menu = gui::DebugMenu::new(&renderer, game.clone());
+            // let _verdigris = verdigris::DemoScene::new(game.clone());
+            // let _debug_menu = gui::DebugMenu::new(&renderer, game.clone());
 
             let game_tick = game.clone();
             let game_continue = should_loops_continue.clone();

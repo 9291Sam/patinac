@@ -419,8 +419,9 @@ impl Renderer
             mapped_at_creation: false
         });
 
-        let voxel_color_transfer_recordable = Arc::new(VoxelColorTransferRecordable::new(self));
-        self.register(voxel_color_transfer_recordable.clone());
+        // let voxel_color_transfer_recordable =
+        // Arc::new(VoxelColorTransferRecordable::new(self));
+        // self.register(voxel_color_transfer_recordable.clone());
 
         let voxel_discovery_image = RefCell::new(create_sized_image(
             &self.device,
@@ -733,6 +734,16 @@ impl Renderer
                                 )
                             )
                     })
+            }
+
+            log::trace!(
+                "Starting Recording of {} passes",
+                final_renderpass_drawcalls.len()
+            );
+
+            for (idx, (_, calls)) in final_renderpass_drawcalls.iter().enumerate()
+            {
+                log::trace!("Pass #{idx} with #{} calls", calls.len());
             }
 
             let global_info = ShaderGlobalInfo {
