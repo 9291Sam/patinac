@@ -131,16 +131,6 @@ impl gfx::Recordable for DebugMenu
         self.id
     }
 
-    fn get_pass_stage(&self) -> gfx::PassStage
-    {
-        gfx::PassStage::MenuRender
-    }
-
-    fn get_pipeline(&self) -> Option<&gfx::GenericPipeline>
-    {
-        None
-    }
-
     fn pre_record_update(
         &self,
         renderer: &gfx::Renderer,

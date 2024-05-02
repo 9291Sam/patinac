@@ -25,6 +25,42 @@ pub struct RenderPassManager
 
 impl RenderPassManager
 {
+    pub fn new(renderer: Arc<gfx::Renderer>) -> RenderPassManager
+    {
+        RenderPassManager {
+            stage_to_id_map: PassStage::iter()
+                .map(|s| (s, gfx::RenderPassId(util::Uuid::new())))
+                .collect::<DashMap<_, _>>(),
+            depth_buffer:    gfx::ScreenSizedTexture::new(
+                renderer.clone(),
+                gfx::ScreenSizedTextureDescriptor {
+                    label:           todo!(),
+                    mip_level_count: todo!(),
+                    sample_count:    todo!(),
+                    format:          todo!(),
+                    usage:           todo!(),
+                    view_format:     todo!()
+                }
+            ),
+            voxel_discovery: gfx::ScreenSizedTexture::new(
+                renderer.clone(),
+                gfx::ScreenSizedTextureDescriptor {
+                    label:           todo!(),
+                    mip_level_count: todo!(),
+                    sample_count:    todo!(),
+                    format:          todo!(),
+                    usage:           todo!(),
+                    view_format:     todo!()
+                }
+            )
+        }
+    }
+
+    pub fn get_renderpass_id(&self, stage: PassStage) -> gfx::RenderPassId
+    {
+        *self.stage_to_id_map.get(&stage).unwrap()
+    }
+
     fn generate_renderpass_vec(self: Arc<Self>) -> gfx::RenderPassSendFunction
     {
         PassStage::iter()
@@ -34,11 +70,7 @@ impl RenderPassManager
                 let a: Arc<dyn Fn() -> (gfx::RenderPassId, gfx::EncoderToPassFn) + Sync + Send> =
                     Arc::new(move || -> (gfx::RenderPassId, gfx::EncoderToPassFn) {
                         (
-                            match this.stage_to_id_map.entry(s)
-                            {
-                                Entry::Occupied(i) => *i.get(),
-                                Entry::Vacant(i) => *i.insert(gfx::RenderPassId(util::Uuid::new()))
-                            },
+                            *this.stage_to_id_map.get(&s).unwrap(),
                             this.into_pass_func(s)
                         )
                     });
@@ -49,13 +81,13 @@ impl RenderPassManager
             .into()
     }
 
-    fn into_pass_func(&self, pass_type: PassStage) -> gfx::EncoderToPassFn2
+    fn into_pass_func(&self, pass_type: PassStage) -> gfx::EncoderToPassFn
     {
         let voxel_discovery_view = self.voxel_discovery.get_view();
         let depth_buffer_view = self.depth_buffer.get_view();
 
         Box::new(
-            move |encoder, screen_view, with_pass_func: &dyn FnOnce(&mut GenericPass)| {
+            move |encoder, screen_view, with_pass_func: Box<dyn FnOnce(&mut GenericPass)>| {
                 let mut pass = match pass_type
                 {
                     PassStage::VoxelDiscovery =>

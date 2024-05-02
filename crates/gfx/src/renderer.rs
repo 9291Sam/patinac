@@ -769,8 +769,9 @@ impl Renderer
                     label: Some(&render_encoder_name)
                 });
 
-            let mut active_pipeline: Option<&GenericPipeline> = None;
-            let mut active_bind_groups: [Option<wgpu::Id<wgpu::BindGroup>>; 4] = [None; 4];
+            let mut active_pipeline: Mutex<Option<&GenericPipeline>> = Mutex::new(None);
+            let mut active_bind_groups: Mutex<[Option<wgpu::Id<wgpu::BindGroup>>; 4]> =
+                Mutex::new([None; 4]);
 
             for (pass_func, raw_recordables) in final_renderpass_drawcalls.iter()
             {
@@ -786,11 +787,14 @@ impl Renderer
                 pass_func(
                     &mut encoder,
                     &screen_texture_view,
-                    &|render_pass: &mut GenericPass| {
+                    Box::new(|render_pass: &mut GenericPass| {
+                        let active_pipeline = &mut *active_pipeline.lock().unwrap();
+                        let active_bind_groups = &mut *active_bind_groups.lock().unwrap();
+
                         for (desired_pipeline, desired_bind_groups, draw_id, recordable) in
                             recordables.iter()
                         {
-                            if active_pipeline != Some(&desired_pipeline)
+                            if *active_pipeline != Some(&desired_pipeline)
                             {
                                 match (&**desired_pipeline, &mut *render_pass)
                                 {
@@ -805,7 +809,7 @@ impl Renderer
                                     (_, _) => panic!("Pass Pipeline Invariant Violated!")
                                 }
 
-                                active_pipeline = Some(&desired_pipeline);
+                                *active_pipeline = Some(&desired_pipeline);
                             }
 
                             for (idx, (active_bind_group_id, maybe_new_bind_group)) in
@@ -838,9 +842,9 @@ impl Renderer
                             recordable.record(render_pass, *draw_id);
                         }
 
-                        active_pipeline = None;
-                        active_bind_groups = [None; 4];
-                    }
+                        *active_pipeline = None;
+                        *active_bind_groups = [None; 4];
+                    })
                 );
             }
 
@@ -933,13 +937,11 @@ impl Renderer
 }
 
 pub type EncoderToPassFn = Box<
-    dyn for<'enc, 'f> Fn(
+    dyn for<'enc> Fn(
             &'enc mut wgpu::CommandEncoder,
             &'enc wgpu::TextureView,
 
-            // anything captured by this closure must not live lonfer than the reference to it,
-            // which must die im this function
-            &'_ (dyn FnOnce(&'_ mut GenericPass<'_>) + 'f)
+            Box<dyn FnOnce(&'_ mut GenericPass<'_>)>
         ) + Send
         + Sync
 >;
