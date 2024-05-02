@@ -59,7 +59,7 @@ pub trait Recordable: Debug + Send + Sync
 //         .then(get_bind_group_ids(this_bind_groups).cmp(&
 // get_bind_group_ids(other_bind_groups))) }
 
-pub enum RecordInfo<'p>
+pub enum RecordInfo
 {
     NoRecord,
     Record

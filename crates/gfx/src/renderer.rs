@@ -872,7 +872,7 @@ impl Renderer
                                 Err(Timeout) => log::warn!("render timeout!"),
                                 Err(Outdated) => (),
                                 Err(Lost) => resize_func(None),
-                                Err(OutOfMemory) => todo!()
+                                Err(OutOfMemory) => panic!("Not enough memory for next frame!")
                             }
 
                             window.request_redraw();
@@ -910,15 +910,6 @@ impl Renderer
             .insert(util::Uuid::new(), Arc::downgrade(&img))
     }
 }
-
-// Option<
-//             Box<
-//                 dyn (Fn() ->
-//                     >) + Send
-//                     + Clone
-//             >
-//         >
-
 type FuncArray = Vec<
     Arc<
         dyn Fn() -> (
