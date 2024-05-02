@@ -1,16 +1,17 @@
 use std::borrow::Cow;
 use std::fmt::Debug;
 use std::sync::atomic::Ordering;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard, RwLock, RwLockReadGuard};
 
 use util::AtomicU32U32;
 
 pub struct ScreenSizedTexture
 {
-    renderer:         Arc<super::Renderer>,
-    descriptor:       ScreenSizedTextureDescriptor,
-    current_size:     AtomicU32U32,
-    critical_section: Mutex<ScreenSizedTextureCriticalSection>
+    renderer:     Arc<super::Renderer>,
+    descriptor:   ScreenSizedTextureDescriptor,
+    current_size: AtomicU32U32,
+    texture:      util::JointWindow<Arc<wgpu::Texture>>,
+    view:         util::JointWindow<Arc<wgpu::TextureView>>
 }
 
 impl Debug for ScreenSizedTexture
@@ -43,10 +44,8 @@ impl ScreenSizedTexture
             renderer,
             descriptor,
             current_size: AtomicU32U32::new(size),
-            critical_section: Mutex::new(ScreenSizedTextureCriticalSection {
-                texture,
-                view
-            })
+            texture: util::JointWindow::new(Arc::new(texture)),
+            view: util::JointWindow::new(Arc::new(view))
         });
 
         c_renderer.register_screen_sized_image(this.clone());
@@ -54,15 +53,16 @@ impl ScreenSizedTexture
         this
     }
 
+    pub fn get_view(&self) -> Arc<wgpu::TextureView>
+    {
+        self.view.get()
+    }
+
     pub(crate) fn resize_to_screen_size(&self)
     {
-        let ScreenSizedTextureCriticalSection {
-            texture,
-            view
-        } = &mut *self.critical_section.lock().unwrap();
-
         let (t, v, size) = self.descriptor.create_texture(&self.renderer);
-        (*texture, *view) = (t, v);
+        self.texture.update(Arc::new(t));
+        self.view.update(Arc::new(v));
 
         self.current_size.store(size, Ordering::Release);
     }
@@ -111,8 +111,8 @@ impl ScreenSizedTextureDescriptor
     }
 }
 
-struct ScreenSizedTextureCriticalSection
+pub struct ScreenSizedTextureCriticalSection
 {
-    texture: wgpu::Texture,
-    view:    wgpu::TextureView
+    pub texture: wgpu::Texture,
+    pub view:    wgpu::TextureView
 }

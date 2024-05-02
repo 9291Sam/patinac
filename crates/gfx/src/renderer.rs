@@ -601,11 +601,7 @@ impl Renderer
             let mut renderpass_data: HashMap<
                 RenderPassId,
                 (
-                    Box<
-                        dyn for<'pass> Fn(&'pass mut wgpu::CommandEncoder) -> GenericPass<'pass>
-                            + Send
-                            + Sync
-                    >,
+                    EncoderToPassFn,
                     Vec<(
                         Arc<GenericPipeline>,
                         [Option<Arc<wgpu::BindGroup>>; 4],
@@ -674,12 +670,8 @@ impl Renderer
             order_of_passes.sort_by(|l, r| l.1.cmp(&r.1));
 
             let mut final_renderpass_drawcalls: Vec<(
-                Box<
-                    // TODO: add the screen's texture to this function
-                    dyn for<'pass> Fn(&'pass mut wgpu::CommandEncoder) -> GenericPass<'pass>
-                        + Send
-                        + Sync
-                >,
+                // TODO: add the screen's texture to this function
+                EncoderToPassFn,
                 Vec<(
                     Arc<GenericPipeline>,
                     [Option<Arc<wgpu::BindGroup>>; 4],
@@ -782,7 +774,7 @@ impl Renderer
 
             for (pass_func, recordables) in final_renderpass_drawcalls.iter()
             {
-                let mut render_pass = pass_func(&mut encoder);
+                let mut render_pass = pass_func(&mut encoder, &screen_texture_view);
 
                 for (desired_pipeline, desired_bind_groups, draw_id, recordable) in
                     recordables.iter()
@@ -925,25 +917,33 @@ impl Renderer
             .insert(util::Uuid::new(), Arc::downgrade(&img))
     }
 }
-type FuncArray = Vec<
-    Arc<
-        dyn Fn() -> (
-                RenderPassId,
-                Box<
-                    dyn for<'pass> Fn(&'pass mut wgpu::CommandEncoder) -> GenericPass<'pass>
-                        + Send
-                        + Sync
-                >
-            ) + Send
-            + Sync
-    >
+
+pub type EncoderToPassFn = Box<
+    dyn for<'pass> Fn(
+            &'pass mut wgpu::CommandEncoder,
+            &'pass wgpu::TextureView
+        ) -> GenericPass<'pass>
+        + Send
+        + Sync
 >;
+
+type FuncArray = Vec<Arc<dyn Fn() -> (RenderPassId, EncoderToPassFn) + Send + Sync>>;
 
 #[derive(Clone)]
 #[allow(clippy::type_complexity)]
 pub struct RenderPassSendFunction
 {
     func_array: FuncArray
+}
+
+impl From<FuncArray> for RenderPassSendFunction
+{
+    fn from(value: FuncArray) -> Self
+    {
+        Self {
+            func_array: value
+        }
+    }
 }
 
 impl RenderPassSendFunction

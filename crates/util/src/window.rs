@@ -41,3 +41,32 @@ impl<T: Send + Clone> WindowUpdater<T>
         *self.shared_value.lock().unwrap() = t;
     }
 }
+
+pub struct JointWindow<T: Send + Clone>
+{
+    sender:   WindowUpdater<T>,
+    receiver: Window<T>
+}
+
+impl<T: Send + Clone> JointWindow<T>
+{
+    pub fn new(init_val: T) -> JointWindow<T>
+    {
+        let (receiver, sender) = Window::new(init_val);
+
+        JointWindow {
+            sender,
+            receiver
+        }
+    }
+
+    pub fn update(&self, t: T)
+    {
+        self.sender.update(t);
+    }
+
+    pub fn get(&self) -> T
+    {
+        self.receiver.get()
+    }
+}

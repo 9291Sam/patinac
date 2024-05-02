@@ -12,7 +12,7 @@ mod voxel_post_processing;
 
 pub use input_manager::*;
 pub use linalg::*;
-pub use recordables::{DrawId, PassStage, RecordInfo, Recordable};
+pub use recordables::{DrawId, PassStage, RecordInfo, Recordable, RenderPassId};
 pub use render_cache::{
     CacheableComputePipelineDescriptor,
     CacheableFragmentState,
@@ -21,7 +21,7 @@ pub use render_cache::{
     GenericPass,
     GenericPipeline
 };
-pub use renderer::Renderer;
+pub use renderer::{EncoderToPassFn, RenderPassSendFunction, Renderer};
 pub use screen_sized_texture::*;
 pub use wgpu;
 pub use winit::keyboard::KeyCode;

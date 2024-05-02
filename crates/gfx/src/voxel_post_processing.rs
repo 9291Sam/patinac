@@ -83,15 +83,15 @@ impl super::Recordable for VoxelColorTransferRecordable
         self.uuid
     }
 
-    fn get_pass_stage(&self) -> crate::PassStage
-    {
-        crate::PassStage::VoxelColorTransfer
-    }
+    // fn get_pass_stage(&self) -> crate::PassStage
+    // {
+    //     crate::PassStage::VoxelColorTransfer
+    // }
 
-    fn get_pipeline(&self) -> Option<&crate::GenericPipeline>
-    {
-        Some(&self.pipeline)
-    }
+    // fn get_pipeline(&self) -> Option<&crate::GenericPipeline>
+    // {
+    //     Some(&self.pipeline)
+    // }
 
     fn pre_record_update(
         &self,
@@ -100,12 +100,13 @@ impl super::Recordable for VoxelColorTransferRecordable
         _: &Arc<wgpu::BindGroup>
     ) -> crate::RecordInfo
     {
-        crate::RecordInfo::Record {
-            render_pass: VoxelColorTransfer,
-            pipeline:    self.pipeline.clone(),
-            bind_groups: [Some(global_voxel_discovery_group.clone()), None, None, None],
-            transform:   None
-        }
+        todo!()
+        // crate::RecordInfo::Record {
+        //     render_pass: VoxelColorTransfer,
+        //     pipeline:    self.pipeline.clone(),
+        //     bind_groups: [Some(global_voxel_discovery_group.clone()), None,
+        // None, None],     transform:   None
+        // }
     }
 
     fn record<'s>(
