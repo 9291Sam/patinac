@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 use std::collections::HashSet;
 use std::fmt::Debug;
+use std::panic::{RefUnwindSafe, UnwindSafe};
 use std::sync::atomic::Ordering::*;
 use std::sync::atomic::{AtomicU32, AtomicU64};
 use std::sync::{Arc, Mutex, Weak};
@@ -19,16 +20,20 @@ pub trait World: Send + Sync
 
 pub struct Game
 {
-    this_weak:                 Weak<Game>,
-    renderer:                  Arc<gfx::Renderer>,
-    entities:                  util::Registrar<util::Uuid, Weak<dyn Entity>>,
-    self_managed_entities:     util::Registrar<util::Uuid, Arc<dyn SelfManagedEntity>>,
-    float_delta_time:          AtomicU32,
-    float_time_alive:          AtomicU64,
-    camera:                    Mutex<gfx::Camera>,
-    world:                     Mutex<Option<Weak<dyn World>>>,
-    demo_screen_sized_texture: Arc<gfx::ScreenSizedTexture>
+    this_weak:             Weak<Game>,
+    renderer:              Arc<gfx::Renderer>,
+    entities:              util::Registrar<util::Uuid, Weak<dyn Entity>>,
+    self_managed_entities: util::Registrar<util::Uuid, Arc<dyn SelfManagedEntity>>,
+    float_delta_time:      AtomicU32,
+    float_time_alive:      AtomicU64,
+    camera:                Mutex<gfx::Camera>,
+    world:                 Mutex<Option<Weak<dyn World>>>,
+    render_pass_manager:   Arc<RenderPassManager>,
+    render_pass_updater:   util::WindowUpdater<gfx::RenderPassSendFunction>
 }
+
+impl UnwindSafe for Game {}
+impl RefUnwindSafe for Game {}
 
 impl Debug for Game
 {
@@ -52,24 +57,14 @@ impl Drop for Game
 
 impl Game
 {
-    pub fn new(renderer: Arc<gfx::Renderer>) -> Arc<Self>
+    pub fn new(
+        renderer: Arc<gfx::Renderer>,
+        render_pass_updater: util::WindowUpdater<gfx::RenderPassSendFunction>
+    ) -> Arc<Self>
     {
-        let demo_screen_sized_texture = gfx::ScreenSizedTexture::new(
-            renderer.clone(),
-            ScreenSizedTextureDescriptor {
-                label:           Cow::Borrowed("demo_texture"),
-                mip_level_count: 1,
-                sample_count:    1,
-                format:          gfx::Renderer::SURFACE_TEXTURE_FORMAT,
-                usage:           wgpu::TextureUsages::RENDER_ATTACHMENT,
-                view_format:     gfx::Renderer::SURFACE_TEXTURE_FORMAT
-            }
-        );
-
         Arc::new_cyclic(|this_weak| {
-            Game {
-                demo_screen_sized_texture,
-                renderer,
+            let this = Game {
+                renderer: renderer.clone(),
                 entities: util::Registrar::new(),
                 self_managed_entities: util::Registrar::new(),
                 float_delta_time: AtomicU32::new(0.0f32.to_bits()),
@@ -80,8 +75,15 @@ impl Game
                     0.218903,
                     0.748343
                 )),
-                world: Mutex::new(None)
-            }
+                world: Mutex::new(None),
+                render_pass_manager: Arc::new(RenderPassManager::new(renderer)),
+                render_pass_updater
+            };
+
+            this.render_pass_updater
+                .update(this.render_pass_manager.clone().generate_renderpass_vec());
+
+            this
         })
     }
 
@@ -92,7 +94,7 @@ impl Game
 
     pub fn get_renderpass_manager(&self) -> &RenderPassManager
     {
-        todo!()
+        &self.render_pass_manager
     }
 
     pub fn get_delta_time(&self) -> f32

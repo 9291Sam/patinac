@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -34,23 +35,22 @@ impl RenderPassManager
             depth_buffer:    gfx::ScreenSizedTexture::new(
                 renderer.clone(),
                 gfx::ScreenSizedTextureDescriptor {
-                    label:           todo!(),
-                    mip_level_count: todo!(),
-                    sample_count:    todo!(),
-                    format:          todo!(),
-                    usage:           todo!(),
-                    view_format:     todo!()
+                    label:           Cow::Borrowed("Depth Buffer"),
+                    mip_level_count: 1,
+                    sample_count:    1,
+                    format:          gfx::Renderer::DEPTH_FORMAT,
+                    usage:           wgpu::TextureUsages::RENDER_ATTACHMENT
                 }
             ),
             voxel_discovery: gfx::ScreenSizedTexture::new(
                 renderer.clone(),
                 gfx::ScreenSizedTextureDescriptor {
-                    label:           todo!(),
-                    mip_level_count: todo!(),
-                    sample_count:    todo!(),
-                    format:          todo!(),
-                    usage:           todo!(),
-                    view_format:     todo!()
+                    label:           Cow::Borrowed("Voxel Discovery Image"),
+                    mip_level_count: 1,
+                    sample_count:    1,
+                    format:          wgpu::TextureFormat::Rg32Uint,
+                    usage:           wgpu::TextureUsages::RENDER_ATTACHMENT
+                        | wgpu::TextureUsages::TEXTURE_BINDING
                 }
             )
         }
@@ -61,7 +61,7 @@ impl RenderPassManager
         *self.stage_to_id_map.get(&stage).unwrap()
     }
 
-    fn generate_renderpass_vec(self: Arc<Self>) -> gfx::RenderPassSendFunction
+    pub(crate) fn generate_renderpass_vec(self: Arc<Self>) -> gfx::RenderPassSendFunction
     {
         PassStage::iter()
             .map(|s| {

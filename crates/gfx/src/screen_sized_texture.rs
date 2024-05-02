@@ -74,8 +74,7 @@ pub struct ScreenSizedTextureDescriptor
     pub mip_level_count: u32,
     pub sample_count:    u32,
     pub format:          wgpu::TextureFormat,
-    pub usage:           wgpu::TextureUsages,
-    pub view_format:     wgpu::TextureFormat
+    pub usage:           wgpu::TextureUsages
 }
 
 impl ScreenSizedTextureDescriptor
@@ -99,7 +98,7 @@ impl ScreenSizedTextureDescriptor
             dimension:       wgpu::TextureDimension::D2,
             format:          self.format,
             usage:           self.usage,
-            view_formats:    &[self.view_format]
+            view_formats:    &[self.format]
         });
 
         let view = texture.create_view(&wgpu::TextureViewDescriptor {

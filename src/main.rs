@@ -40,7 +40,7 @@ fn main()
         let renderer = Arc::new(renderer);
         *held_renderer.lock().unwrap() = Some(renderer.clone());
 
-        let game = game::Game::new(renderer.clone());
+        let game = game::Game::new(renderer.clone(), renderer_renderpass_updater);
         *held_game.lock().unwrap() = Some(game.clone());
 
         {
