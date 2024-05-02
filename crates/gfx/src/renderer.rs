@@ -41,6 +41,7 @@ pub struct Renderer
     screen_sized_textures: util::Registrar<util::Uuid, Weak<super::ScreenSizedTexture>>,
     window_size:           AtomicU32U32,
     delta_time:            AtomicF32,
+    limits:                wgpu::Limits,
 
     // Rendering
     thread_id:        ThreadId,
@@ -310,7 +311,8 @@ impl Renderer
                 global_discovery_layout: Arc::new(global_discovery_layout),
                 window_size: AtomicU32U32::new((size.width, size.height)),
                 delta_time: AtomicF32::new(0.0f32),
-                render_cache
+                render_cache,
+                limits: adapter.limits()
             },
             tx
         )
@@ -545,24 +547,23 @@ impl Renderer
             }
         };
 
+        let max_shader_matrices =
+            self.limits.max_uniform_buffer_binding_size as usize / std::mem::size_of::<glm::Mat4>();
+
+        let shader_mvps = RefCell::new(ShaderMatrices::new(max_shader_matrices));
+        let shader_models = RefCell::new(ShaderMatrices::new(max_shader_matrices));
+
         let render_func = |camera: Camera| -> Result<(), wgpu::SurfaceError> {
             let screen_texture = surface.get_current_texture()?;
             let screen_texture_view = screen_texture
                 .texture
                 .create_view(&wgpu::TextureViewDescriptor::default());
 
-            let mut shader_mvps = ShaderMatrices {
-                ..Default::default()
-            };
-            let mut shader_models = ShaderMatrices {
-                ..Default::default()
-            };
-
             let id_counter = AtomicU32::new(0);
             let get_next_id = || {
                 let maybe_new_id = id_counter.fetch_add(1, Ordering::Relaxed);
 
-                if maybe_new_id >= SHADER_MATRICES_SIZE as u32
+                if maybe_new_id >= max_shader_matrices as u32
                 {
                     panic!("Too many draw calls with matrices!");
                 }
@@ -642,8 +643,12 @@ impl Renderer
                         {
                             let raw_id = get_next_id();
 
-                            shader_models.write_at(raw_id as usize, t.as_model_matrix());
-                            shader_mvps.write_at(raw_id as usize, camera.get_perspective(self, &t));
+                            shader_models
+                                .borrow_mut()
+                                .write_at(raw_id as usize, t.as_model_matrix());
+                            shader_mvps
+                                .borrow_mut()
+                                .write_at(raw_id as usize, camera.get_perspective(self, &t));
                             Some(DrawId(raw_id))
                         }
                         else
@@ -670,6 +675,7 @@ impl Renderer
 
             let mut final_renderpass_drawcalls: Vec<(
                 Box<
+                    // TODO: add the screen's texture to this function
                     dyn for<'pass> Fn(&'pass mut wgpu::CommandEncoder) -> GenericPass<'pass>
                         + Send
                         + Sync
@@ -746,10 +752,19 @@ impl Renderer
 
             self.queue
                 .write_buffer(&global_info_uniform_buffer, 0, bytes_of(&global_info));
-            self.queue
-                .write_buffer(&global_mvp_buffer, 0, bytes_of(&shader_mvps));
-            self.queue
-                .write_buffer(&global_model_buffer, 0, bytes_of(&shader_models));
+
+            self.queue.write_buffer(
+                &global_mvp_buffer,
+                0,
+                &shader_mvps.borrow().as_mat_bytes()
+                    [0..id_counter.load(Ordering::Acquire) as usize]
+            );
+            self.queue.write_buffer(
+                &global_model_buffer,
+                0,
+                &shader_models.borrow().as_mat_bytes()
+                    [0..id_counter.load(Ordering::Acquire) as usize]
+            );
 
             let render_encoder_name = format!(
                 "Patinac Main Command Encoder | Frame: #{}",
@@ -971,13 +986,11 @@ pub(crate) struct ShaderGlobalInfo
     view_projection: glm::Mat4
 }
 
-const SHADER_MATRICES_SIZE: usize = 1024;
-
 #[repr(C)]
-#[derive(Clone, Copy, Pod, Zeroable, Debug)]
+#[derive(Clone)]
 pub(crate) struct ShaderMatrices
 {
-    matrices: [glm::Mat4; SHADER_MATRICES_SIZE]
+    matrices: Box<[glm::Mat4]>
 }
 
 impl Default for ShaderMatrices
@@ -985,13 +998,25 @@ impl Default for ShaderMatrices
     fn default() -> Self
     {
         Self {
-            matrices: [Default::default(); SHADER_MATRICES_SIZE]
+            matrices: vec![].into_boxed_slice()
         }
     }
 }
 
 impl ShaderMatrices
 {
+    pub fn new(size: usize) -> ShaderMatrices
+    {
+        ShaderMatrices {
+            matrices: vec![glm::Mat4::default(); size].into_boxed_slice()
+        }
+    }
+
+    fn as_mat_bytes(&self) -> &[u8]
+    {
+        bytemuck::cast_slice(&self.matrices)
+    }
+
     fn write_at(&mut self, idx: usize, mat: glm::Mat4)
     {
         self.matrices[idx] = mat;

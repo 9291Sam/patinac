@@ -97,14 +97,14 @@ impl super::Recordable for VoxelColorTransferRecordable
         &self,
         _: &crate::Renderer,
         _: &crate::Camera,
-        _: &Arc<wgpu::BindGroup>,
-        global_voxel_discovery_group: &Arc<wgpu::BindGroup>
+        _: &Arc<wgpu::BindGroup>
     ) -> crate::RecordInfo
     {
-        crate::RecordInfo {
-            should_draw: true,
-            transform:   None,
-            bind_groups: [Some(global_voxel_discovery_group.clone()), None, None, None]
+        crate::RecordInfo::Record {
+            render_pass: VoxelColorTransfer,
+            pipeline:    self.pipeline.clone(),
+            bind_groups: [Some(global_voxel_discovery_group.clone()), None, None, None],
+            transform:   None
         }
     }
 
