@@ -558,12 +558,6 @@ impl Renderer
                 ..Default::default()
             };
 
-            let shader_mvp_ptr: SendSyncMutPtr<glm::Mat4> =
-                shader_mvps.matrices.as_mut_ptr().into();
-
-            let shader_model_ptr: SendSyncMutPtr<glm::Mat4> =
-                shader_models.matrices.as_mut_ptr().into();
-
             let id_counter = AtomicU32::new(0);
             let get_next_id = || {
                 let maybe_new_id = id_counter.fetch_add(1, Ordering::Relaxed);
@@ -576,13 +570,22 @@ impl Renderer
                 maybe_new_id
             };
 
-            let renderables: Vec<(util::Uuid, Weak<dyn Recordable>)> = self.renderables.access();
-            let strong_renderables: Vec<Arc<dyn Recordable>> = renderables
+            let strong_renderable_record_info: Vec<(RecordInfo, Arc<dyn Recordable>)> = self
+                .renderables
+                .access()
                 .into_iter()
                 .filter_map(|(id, maybe_recordable)| {
                     match maybe_recordable.upgrade()
                     {
-                        Some(strong) => Some(strong),
+                        Some(strong) =>
+                        {
+                            Some((
+                                strong
+                                    .clone()
+                                    .pre_record_update(self, &camera, &global_bind_group),
+                                strong
+                            ))
+                        }
                         None =>
                         {
                             self.renderables.delete(id);
@@ -591,19 +594,6 @@ impl Renderer
                     }
                 })
                 .collect();
-
-            let strong_renderable_record_info: Vec<(RecordInfo, Arc<dyn Recordable>)> =
-                strong_renderables
-                    .into_iter()
-                    .map(|strong| {
-                        (
-                            strong
-                                .clone()
-                                .pre_record_update(self, &camera, &global_bind_group),
-                            strong
-                        )
-                    })
-                    .collect();
 
             let mut renderpass_order_map: HashMap<RenderPassId, usize> = HashMap::new();
 
@@ -618,7 +608,7 @@ impl Renderer
                     Vec<(
                         Arc<GenericPipeline>,
                         [Option<Arc<wgpu::BindGroup>>; 4],
-                        DrawId,
+                        Option<DrawId>,
                         Arc<dyn Recordable>
                     )>
                 )
@@ -648,10 +638,23 @@ impl Renderer
                         transform
                     } =>
                     {
+                        let id: Option<DrawId> = if let Some(t) = transform
+                        {
+                            let raw_id = get_next_id();
+
+                            shader_models.write_at(raw_id as usize, t.as_model_matrix());
+                            shader_mvps.write_at(raw_id as usize, camera.get_perspective(self, &t));
+                            Some(DrawId(raw_id))
+                        }
+                        else
+                        {
+                            None
+                        };
+
                         renderpass_data.get_mut(&render_pass).unwrap().1.push((
                             pipeline,
                             bind_groups,
-                            todo!(), // TODO: generate drawID,
+                            id,
                             recordable
                         ))
                     }
@@ -674,7 +677,7 @@ impl Renderer
                 Vec<(
                     Arc<GenericPipeline>,
                     [Option<Arc<wgpu::BindGroup>>; 4],
-                    DrawId,
+                    Option<DrawId>,
                     Arc<dyn Recordable>
                 )>
             )> = Vec::new();
@@ -730,10 +733,6 @@ impl Renderer
                     })
             }
 
-            // renderables_map.iter_mut().for_each(|(_, renderable_vec)| {
-            //     renderable_vec.sort_by(|l, r| recordable_ord(&*l.0, &*r.0, &l.2, &r.2))
-            // });
-
             let global_info = ShaderGlobalInfo {
                 camera_pos:      camera.get_position(),
                 _padding:        0.0,
@@ -760,210 +759,79 @@ impl Renderer
             let mut encoder = self
                 .device
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                    label: Some("Render Encoder")
+                    label: Some(&render_encoder_name)
                 });
 
             let mut active_pipeline: Option<&GenericPipeline> = None;
             let mut active_bind_groups: [Option<wgpu::Id<wgpu::BindGroup>>; 4] = [None; 4];
 
-            let (_, ref depth_view, _) = *depth_buffer.borrow();
-            let (_, ref voxel_discovery_view, _) = *voxel_discovery_image.borrow();
+            for (pass_func, recordables) in final_renderpass_drawcalls.iter()
+            {
+                let mut render_pass = pass_func(&mut encoder);
 
-            //     for pass_type in PassStage::iter()
-            //     {
-            //         let mut render_pass: GenericPass = match pass_type
-            //         {
-            //             PassStage::VoxelDiscovery =>
-            //             {
-            //                 GenericPass::Render(encoder.begin_render_pass(
-            //                     &wgpu::RenderPassDescriptor {
-            //                         label:                    Some("Voxel Discovery
-            // Pass"),                         color_attachments:        &[Some(
-            //                             wgpu::RenderPassColorAttachment {
-            //                                 view:           voxel_discovery_view,
-            //                                 resolve_target: None,
-            //                                 ops:            wgpu::Operations {
-            //                                     load:  wgpu::LoadOp::Clear(wgpu::Color {
-            //                                         r: 0.0,
-            //                                         g: 0.0,
-            //                                         b: 0.0,
-            //                                         a: 0.0
-            //                                     }),
-            //                                     store: wgpu::StoreOp::Store
-            //                                 }
-            //                             }
-            //                         )],
-            //                         depth_stencil_attachment: Some(
-            //                             wgpu::RenderPassDepthStencilAttachment {
-            //                                 view:        depth_view,
-            //                                 depth_ops:   Some(wgpu::Operations {
-            //                                     load:  wgpu::LoadOp::Clear(1.0),
-            //                                     store: wgpu::StoreOp::Store
-            //                                 }),
-            //                                 stencil_ops: None
-            //                             }
-            //                         ),
-            //                         occlusion_query_set:      None,
-            //                         timestamp_writes:         None
-            //                     }
-            //                 ))
-            //             }
-            //             PassStage::PostVoxelDiscoveryCompute =>
-            //             {
-            //                 GenericPass::Compute(encoder.begin_compute_pass(
-            //                     &wgpu::ComputePassDescriptor {
-            //                         label:            Some("Post Voxel Discovery
-            // Compute"),                         timestamp_writes: None
-            //                     }
-            //                 ))
-            //             }
-            //             PassStage::VoxelColorTransfer =>
-            //             {
-            //                 GenericPass::Render(encoder.begin_render_pass(
-            //                     &wgpu::RenderPassDescriptor {
-            //                         label:                    Some("Voxel Color Transfer
-            // Pass"),                         color_attachments:        &[Some(
-            //                             wgpu::RenderPassColorAttachment {
-            //                                 view:           &screen_texture_view,
-            //                                 resolve_target: None,
-            //                                 ops:            wgpu::Operations {
-            //                                     load:  wgpu::LoadOp::Clear(wgpu::Color {
-            //                                         r: 0.1,
-            //                                         g: 0.2,
-            //                                         b: 0.3,
-            //                                         a: 1.0
-            //                                     }),
-            //                                     store: wgpu::StoreOp::Store
-            //                                 }
-            //                             }
-            //                         )],
-            //                         depth_stencil_attachment: None,
-            //                         occlusion_query_set:      None,
-            //                         timestamp_writes:         None
-            //                     }
-            //                 ))
-            //             }
-            //             PassStage::SimpleColor =>
-            //             {
-            //                 GenericPass::Render(encoder.begin_render_pass(
-            //                     &wgpu::RenderPassDescriptor {
-            //                         label:                    Some("Simple Color Pass"),
-            //                         color_attachments:        &[Some(
-            //                             wgpu::RenderPassColorAttachment {
-            //                                 view:           &screen_texture_view,
-            //                                 resolve_target: None,
-            //                                 ops:            wgpu::Operations {
-            //                                     load:  wgpu::LoadOp::Load,
-            //                                     store: wgpu::StoreOp::Store
-            //                                 }
-            //                             }
-            //                         )],
-            //                         depth_stencil_attachment: Some(
-            //                             wgpu::RenderPassDepthStencilAttachment {
-            //                                 view:        depth_view,
-            //                                 depth_ops:   Some(wgpu::Operations {
-            //                                     load:  wgpu::LoadOp::Load,
-            //                                     store: wgpu::StoreOp::Store
-            //                                 }),
-            //                                 stencil_ops: None
-            //                             }
-            //                         ),
-            //                         occlusion_query_set:      None,
-            //                         timestamp_writes:         None
-            //                     }
-            //                 ))
-            //             }
-            //             PassStage::MenuRender =>
-            //             {
-            //                 GenericPass::Render(encoder.begin_render_pass(
-            //                     &wgpu::RenderPassDescriptor {
-            //                         label:                    None,
-            //                         color_attachments:        &[Some(
-            //                             wgpu::RenderPassColorAttachment {
-            //                                 view:           &screen_texture_view,
-            //                                 resolve_target: None,
-            //                                 ops:            wgpu::Operations {
-            //                                     load:  wgpu::LoadOp::Load,
-            //                                     store: wgpu::StoreOp::Store
-            //                                 }
-            //                             }
-            //                         )],
-            //                         depth_stencil_attachment: None,
-            //                         timestamp_writes:         None,
-            //                         occlusion_query_set:      None
-            //                     }
-            //                 ))
-            //             }
-            //         };
+                for (desired_pipeline, desired_bind_groups, draw_id, recordable) in
+                    recordables.iter()
+                {
+                    if active_pipeline != Some(&desired_pipeline)
+                    {
+                        match (&**desired_pipeline, &mut render_pass)
+                        {
+                            (GenericPipeline::Compute(p), GenericPass::Compute(pass)) =>
+                            {
+                                pass.set_pipeline(&p);
+                            }
+                            (GenericPipeline::Render(p), GenericPass::Render(pass)) =>
+                            {
+                                pass.set_pipeline(&p)
+                            }
+                            (_, _) => panic!("Pass Pipeline Invariant Violated!")
+                        }
 
-            //         for (renderable, maybe_id, desired_bind_groups) in
-            //             renderables_map.get(&pass_type).unwrap()
-            //         {
-            //             if let Some(desired_pipeline) = renderable.get_pipeline()
-            //             {
-            //                 if active_pipeline != Some(desired_pipeline)
-            //                 {
-            //                     match (desired_pipeline, &mut render_pass)
-            //                     {
-            //                         (GenericPipeline::Compute(p),
-            // GenericPass::Compute(pass)) =>                         {
-            //                             pass.set_pipeline(p);
-            //                         }
-            //                         (GenericPipeline::Render(p),
-            // GenericPass::Render(pass)) =>                         {
-            //                             pass.set_pipeline(p)
-            //                         }
-            //                         (_, _) => panic!("Pass Pipeline Invariant Violated!")
-            //                     }
+                        active_pipeline = Some(&desired_pipeline);
+                    }
 
-            //                     active_pipeline = Some(desired_pipeline);
-            //                 }
-            //             }
+                    for (idx, (active_bind_group_id, maybe_new_bind_group)) in active_bind_groups
+                        .iter_mut()
+                        .zip(desired_bind_groups)
+                        .enumerate()
+                    {
+                        if *active_bind_group_id
+                            != maybe_new_bind_group.as_ref().map(|g| g.global_id())
+                        {
+                            if let Some(new_bind_group) = maybe_new_bind_group
+                            {
+                                match render_pass
+                                {
+                                    GenericPass::Compute(ref mut p) =>
+                                    {
+                                        p.set_bind_group(idx as u32, &new_bind_group, &[])
+                                    }
+                                    GenericPass::Render(ref mut p) =>
+                                    {
+                                        p.set_bind_group(idx as u32, &new_bind_group, &[])
+                                    }
+                                }
+                                *active_bind_group_id = Some(new_bind_group.global_id());
+                            }
+                        }
+                    }
 
-            //             for (idx, (active_bind_group_id, maybe_new_bind_group)) in
-            // active_bind_groups                 .iter_mut()
-            //                 .zip(desired_bind_groups)
-            //                 .enumerate()
-            //             {
-            //                 if *active_bind_group_id
-            //                     != maybe_new_bind_group.as_ref().map(|g| g.global_id())
-            //                 {
-            //                     if let Some(new_bind_group) = maybe_new_bind_group
-            //                     {
-            //                         match render_pass
-            //                         {
-            //                             GenericPass::Compute(ref mut p) =>
-            //                             {
-            //                                 p.set_bind_group(idx as u32, new_bind_group,
-            // &[])                             }
-            //                             GenericPass::Render(ref mut p) =>
-            //                             {
-            //                                 p.set_bind_group(idx as u32, new_bind_group,
-            // &[])                             }
-            //                         }
-            //                         *active_bind_group_id =
-            // Some(new_bind_group.global_id());                     }
-            //                 }
-            //             }
+                    recordable.record(&mut render_pass, *draw_id);
+                }
 
-            //             renderable.record(&mut render_pass, maybe_id.map(DrawId));
-            //         }
+                active_pipeline = None;
+                active_bind_groups = [None; 4];
+            }
 
-            //         active_pipeline = None;
-            //         active_bind_groups = [None; 4];
-            //     }
+            window.pre_present_notify();
 
-            //     window.pre_present_notify();
+            self.queue.submit([encoder.finish()]);
+            screen_texture.present();
 
-            //     self.queue.submit([encoder.finish()]);
-            //     screen_texture.present();
+            self.delta_time
+                .store(input_manager.get_delta_time(), Ordering::Release);
 
-            //     self.delta_time
-            //         .store(input_manager.get_delta_time(), Ordering::Release);
-
-            //     Ok(())
-
-            todo!()
+            Ok(())
         };
 
         input_manager.attach_cursor();
@@ -1128,6 +996,14 @@ impl Default for ShaderMatrices
         Self {
             matrices: [Default::default(); SHADER_MATRICES_SIZE]
         }
+    }
+}
+
+impl ShaderMatrices
+{
+    fn write_at(&mut self, idx: usize, mat: glm::Mat4)
+    {
+        self.matrices[idx] = mat;
     }
 }
 
