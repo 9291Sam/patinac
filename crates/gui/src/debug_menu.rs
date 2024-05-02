@@ -135,7 +135,6 @@ impl gfx::Recordable for DebugMenu
         &self,
         renderer: &gfx::Renderer,
         camera: &gfx::Camera,
-        _: &std::sync::Arc<gfx::wgpu::BindGroup>,
         _: &std::sync::Arc<gfx::wgpu::BindGroup>
     ) -> gfx::RecordInfo
     {
@@ -247,16 +246,17 @@ r#"╔═════════════════════╦══�
             unreachable!()
         };
 
-        let (atlas, text_renderer) = {
-            let DebugMenuCriticalSection {
-                ref mut atlas,
-                ref mut text_renderer,
-                ..
-            } = &mut *self.rendering_data.lock().unwrap();
+        // {
+        //     let DebugMenuCriticalSection {
+        //         ref mut atlas,
+        //         ref mut text_renderer,
+        //         ..
+        //     } = &mut *self.rendering_data.lock().unwrap();
 
-            unsafe { (*text_renderer).render(&*atlas, pass).unwrap() }
-        };
+        //     unsafe { (*text_renderer).render(&*atlas, pass).unwrap() }
+        // };
 
+        todo!()
         // Hillariously enough, this isn't actually a problem as the menu is
         // dropped before the renderer, and calls to pre_record_update
         // and record may never alias one another, however this should

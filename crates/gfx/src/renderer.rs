@@ -659,6 +659,10 @@ impl Renderer
                             recordable
                         ))
                     }
+                    _ =>
+                    {
+                        todo!()
+                    }
                 }
             }
 
@@ -855,6 +859,8 @@ impl Renderer
 
             self.delta_time
                 .store(input_manager.get_delta_time(), Ordering::Release);
+
+            std::mem::drop(final_renderpass_drawcalls);
 
             Ok(())
         };

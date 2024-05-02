@@ -181,40 +181,30 @@ impl gfx::Recordable for BrickMapChunk
         self.uuid
     }
 
-    fn get_pass_stage(&self) -> gfx::PassStage
-    {
-        gfx::PassStage::SimpleColor
-    }
-
-    fn get_pipeline(&self) -> Option<&gfx::GenericPipeline>
-    {
-        Some(&self.pipeline)
-    }
-
     fn pre_record_update(
         &self,
         _: &gfx::Renderer,
         _: &gfx::Camera,
-        global_bind_group: &Arc<wgpu::BindGroup>,
-        _: &Arc<wgpu::BindGroup>
+        global_bind_group: &Arc<wgpu::BindGroup>
     ) -> gfx::RecordInfo
     {
-        gfx::RecordInfo {
-            should_draw: true,
-            transform:   Some(gfx::Transform {
-                translation: *self.position.lock().unwrap(),
-                ..Default::default()
-            }),
-            bind_groups: [
-                Some(global_bind_group.clone()),
-                Some(
-                    // TODO: modify the manager to be thread safe
-                    self.voxel_chunk_data.get_bind_group()
-                ),
-                None,
-                None
-            ]
-        }
+        todo!()
+        // gfx::RecordInfo {
+        //     should_draw: true,
+        //     transform:   Some(gfx::Transform {
+        //         translation: *self.position.lock().unwrap(),
+        //         ..Default::default()
+        //     }),
+        //     bind_groups: [
+        //         Some(global_bind_group.clone()),
+        //         Some(
+        //             // TODO: modify the manager to be thread safe
+        //             self.voxel_chunk_data.get_bind_group()
+        //         ),
+        //         None,
+        //         None
+        //     ]
+        // }
     }
 
     fn record<'s>(&'s self, render_pass: &mut gfx::GenericPass<'s>, maybe_id: Option<gfx::DrawId>)

@@ -164,35 +164,35 @@ impl gfx::Recordable for RasterChunk
         self.uuid
     }
 
-    fn get_pass_stage(&self) -> gfx::PassStage
-    {
-        gfx::PassStage::VoxelDiscovery
-    }
+    // fn get_pass_stage(&self) -> gfx::PassStage
+    // {
+    //     gfx::PassStage::VoxelDiscovery
+    // }
 
-    fn get_pipeline(&self) -> Option<&gfx::GenericPipeline>
-    {
-        Some(&self.pipeline)
-    }
+    // fn get_pipeline(&self) -> Option<&gfx::GenericPipeline>
+    // {
+    //     Some(&self.pipeline)
+    // }
 
     fn pre_record_update(
         &self,
         renderer: &gfx::Renderer,
         _: &gfx::Camera,
-        global_bind_group: &std::sync::Arc<gfx::wgpu::BindGroup>,
-        _: &std::sync::Arc<gfx::wgpu::BindGroup>
+        global_bind_group: &std::sync::Arc<gfx::wgpu::BindGroup>
     ) -> gfx::RecordInfo
     {
-        let t = self.transform.lock().unwrap().clone();
-        self.time_alive.store(
-            self.time_alive.load(SeqCst) + renderer.get_delta_time(),
-            SeqCst
-        );
+        todo!()
+        // let t = self.transform.lock().unwrap().clone();
+        // self.time_alive.store(
+        //     self.time_alive.load(SeqCst) + renderer.get_delta_time(),
+        //     SeqCst
+        // );
 
-        gfx::RecordInfo {
-            should_draw: true,
-            transform:   Some(t),
-            bind_groups: [Some(global_bind_group.clone()), None, None, None]
-        }
+        // gfx::RecordInfo {
+        //     should_draw: true,
+        //     transform:   Some(t),
+        //     bind_groups: [Some(global_bind_group.clone()), None, None, None]
+        // }
     }
 
     fn record<'s>(&'s self, render_pass: &mut gfx::GenericPass<'s>, maybe_id: Option<gfx::DrawId>)
@@ -203,16 +203,17 @@ impl gfx::Recordable for RasterChunk
             unreachable!()
         };
 
-        pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-        pass.set_push_constants(
-            wgpu::ShaderStages::VERTEX_FRAGMENT,
-            0,
-            bytemuck::bytes_of(&PC {
-                id,
-                time_alive: self.time_alive.load(SeqCst)
-            })
-        );
-        pass.draw(0..self.number_of_vertices, 0..1);
+        // pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+        // pass.set_push_constants(
+        //     wgpu::ShaderStages::VERTEX_FRAGMENT,
+        //     0,
+        //     bytemuck::bytes_of(&PC {
+        //         id,
+        //         time_alive: self.time_alive.load(SeqCst)
+        //     })
+        // );
+        // pass.draw(0..self.number_of_vertices, 0..1);
+        todo!()
     }
 }
 
