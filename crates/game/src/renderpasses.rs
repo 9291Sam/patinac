@@ -49,13 +49,14 @@ impl RenderPassManager
             .into()
     }
 
-    fn into_pass_func(&self, pass_type: PassStage) -> gfx::EncoderToPassFn
+    fn into_pass_func(&self, pass_type: PassStage) -> gfx::EncoderToPassFn2
     {
+        let voxel_discovery_view = self.voxel_discovery.get_view();
+        let depth_buffer_view = self.depth_buffer.get_view();
+
         Box::new(
-            move |encoder: &mut wgpu::CommandEncoder,
-                  screen_view: &wgpu::TextureView|
-                  -> gfx::GenericPass {
-                match pass_type
+            move |encoder, screen_view, with_pass_func: &dyn FnOnce(&mut GenericPass)| {
+                let mut pass = match pass_type
                 {
                     PassStage::VoxelDiscovery =>
                     {
@@ -64,7 +65,7 @@ impl RenderPassManager
                                 label:                    Some("Voxel Discovery Pass"),
                                 color_attachments:        &[Some(
                                     wgpu::RenderPassColorAttachment {
-                                        view:           &self.voxel_discovery.get_view(),
+                                        view:           &voxel_discovery_view,
                                         resolve_target: None,
                                         ops:            wgpu::Operations {
                                             load:  wgpu::LoadOp::Clear(wgpu::Color {
@@ -79,7 +80,7 @@ impl RenderPassManager
                                 )],
                                 depth_stencil_attachment: Some(
                                     wgpu::RenderPassDepthStencilAttachment {
-                                        view:        &self.depth_buffer.get_view(),
+                                        view:        &depth_buffer_view,
                                         depth_ops:   Some(wgpu::Operations {
                                             load:  wgpu::LoadOp::Clear(1.0),
                                             store: wgpu::StoreOp::Store
@@ -144,7 +145,7 @@ impl RenderPassManager
                                 )],
                                 depth_stencil_attachment: Some(
                                     wgpu::RenderPassDepthStencilAttachment {
-                                        view:        &self.depth_buffer.get_view(),
+                                        view:        &depth_buffer_view,
                                         depth_ops:   Some(wgpu::Operations {
                                             load:  wgpu::LoadOp::Load,
                                             store: wgpu::StoreOp::Store
@@ -178,7 +179,9 @@ impl RenderPassManager
                             }
                         ))
                     }
-                }
+                };
+
+                with_pass_func(&mut pass);
             }
         )
     }

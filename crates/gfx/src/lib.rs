@@ -21,7 +21,7 @@ pub use render_cache::{
     GenericPass,
     GenericPipeline
 };
-pub use renderer::{EncoderToPassFn, RenderPassSendFunction, Renderer};
+pub use renderer::{EncoderToPassFn, EncoderToPassFn2, RenderPassSendFunction, Renderer};
 pub use screen_sized_texture::*;
 pub use wgpu;
 pub use winit::keyboard::KeyCode;

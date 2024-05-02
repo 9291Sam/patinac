@@ -263,18 +263,13 @@ r#"╔═════════════════════╦══�
                 ..
             } = &mut *self.rendering_data.lock().unwrap();
 
-            
-                atlas as *const glyphon::TextAtlas,
-                text_renderer as *const glyphon::TextRenderer
-            
-
-
-        unsafe { (*text_renderer).render(&*atlas, pass).unwrap() }
+            unsafe { (*text_renderer).render(&*atlas, pass).unwrap() }
         };
 
-        // Hillariously enough, this isn't actually a problem as the menu is dropped
-        // before the renderer, and calls to pre_record_update and record may never
-        // alias one another, however this should totally use lifetimes
-        // That's right! the square peg goes into the round hole!
+        // Hillariously enough, this isn't actually a problem as the menu is
+        // dropped before the renderer, and calls to pre_record_update
+        // and record may never alias one another, however this should
+        // totally use lifetimes That's right! the square peg goes into
+        // the round hole!
     }
 }

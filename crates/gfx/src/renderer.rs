@@ -772,62 +772,76 @@ impl Renderer
             let mut active_pipeline: Option<&GenericPipeline> = None;
             let mut active_bind_groups: [Option<wgpu::Id<wgpu::BindGroup>>; 4] = [None; 4];
 
-            for (pass_func, recordables) in final_renderpass_drawcalls.iter()
+            for (pass_func, raw_recordables) in final_renderpass_drawcalls.iter()
             {
-                let mut render_pass = pass_func(&mut encoder, &screen_texture_view);
+                // idk how to write the lifetimes here, it's fine the variables are dropped in
+                // the right order
+                let recordables: &Vec<(
+                    Arc<GenericPipeline>,
+                    [Option<Arc<wgpu::BindGroup>>; 4],
+                    Option<DrawId>,
+                    Arc<dyn Recordable>
+                )> = unsafe { std::mem::transmute(raw_recordables) };
 
-                for (desired_pipeline, desired_bind_groups, draw_id, recordable) in
-                    recordables.iter()
-                {
-                    if active_pipeline != Some(&desired_pipeline)
-                    {
-                        match (&**desired_pipeline, &mut render_pass)
+                pass_func(
+                    &mut encoder,
+                    &screen_texture_view,
+                    &|render_pass: &mut GenericPass| {
+                        for (desired_pipeline, desired_bind_groups, draw_id, recordable) in
+                            recordables.iter()
                         {
-                            (GenericPipeline::Compute(p), GenericPass::Compute(pass)) =>
+                            if active_pipeline != Some(&desired_pipeline)
                             {
-                                pass.set_pipeline(&p);
-                            }
-                            (GenericPipeline::Render(p), GenericPass::Render(pass)) =>
-                            {
-                                pass.set_pipeline(&p)
-                            }
-                            (_, _) => panic!("Pass Pipeline Invariant Violated!")
-                        }
-
-                        active_pipeline = Some(&desired_pipeline);
-                    }
-
-                    for (idx, (active_bind_group_id, maybe_new_bind_group)) in active_bind_groups
-                        .iter_mut()
-                        .zip(desired_bind_groups)
-                        .enumerate()
-                    {
-                        if *active_bind_group_id
-                            != maybe_new_bind_group.as_ref().map(|g| g.global_id())
-                        {
-                            if let Some(new_bind_group) = maybe_new_bind_group
-                            {
-                                match render_pass
+                                match (&**desired_pipeline, &mut *render_pass)
                                 {
-                                    GenericPass::Compute(ref mut p) =>
+                                    (GenericPipeline::Compute(p), GenericPass::Compute(pass)) =>
                                     {
-                                        p.set_bind_group(idx as u32, &new_bind_group, &[])
+                                        pass.set_pipeline(&p);
                                     }
-                                    GenericPass::Render(ref mut p) =>
+                                    (GenericPipeline::Render(p), GenericPass::Render(pass)) =>
                                     {
-                                        p.set_bind_group(idx as u32, &new_bind_group, &[])
+                                        pass.set_pipeline(&p)
+                                    }
+                                    (_, _) => panic!("Pass Pipeline Invariant Violated!")
+                                }
+
+                                active_pipeline = Some(&desired_pipeline);
+                            }
+
+                            for (idx, (active_bind_group_id, maybe_new_bind_group)) in
+                                active_bind_groups
+                                    .iter_mut()
+                                    .zip(desired_bind_groups)
+                                    .enumerate()
+                            {
+                                if *active_bind_group_id
+                                    != maybe_new_bind_group.as_ref().map(|g| g.global_id())
+                                {
+                                    if let Some(new_bind_group) = maybe_new_bind_group
+                                    {
+                                        match render_pass
+                                        {
+                                            GenericPass::Compute(ref mut p) =>
+                                            {
+                                                p.set_bind_group(idx as u32, &new_bind_group, &[])
+                                            }
+                                            GenericPass::Render(ref mut p) =>
+                                            {
+                                                p.set_bind_group(idx as u32, &new_bind_group, &[])
+                                            }
+                                        }
+                                        *active_bind_group_id = Some(new_bind_group.global_id());
                                     }
                                 }
-                                *active_bind_group_id = Some(new_bind_group.global_id());
                             }
+
+                            recordable.record(render_pass, *draw_id);
                         }
+
+                        active_pipeline = None;
+                        active_bind_groups = [None; 4];
                     }
-
-                    recordable.record(&mut render_pass, *draw_id);
-                }
-
-                active_pipeline = None;
-                active_bind_groups = [None; 4];
+                );
             }
 
             window.pre_present_notify();
@@ -919,11 +933,14 @@ impl Renderer
 }
 
 pub type EncoderToPassFn = Box<
-    dyn for<'pass> Fn(
-            &'pass mut wgpu::CommandEncoder,
-            &'pass wgpu::TextureView
-        ) -> GenericPass<'pass>
-        + Send
+    dyn for<'enc, 'f> Fn(
+            &'enc mut wgpu::CommandEncoder,
+            &'enc wgpu::TextureView,
+
+            // anything captured by this closure must not live lonfer than the reference to it,
+            // which must die im this function
+            &'_ (dyn FnOnce(&'_ mut GenericPass<'_>) + 'f)
+        ) + Send
         + Sync
 >;
 
