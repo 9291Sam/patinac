@@ -26,7 +26,7 @@ impl DemoScene
             raster: Mutex::new(
                 util::run_async(move || {
                     create_chunk(
-                        &c_game,
+                        c_game,
                         &noise_generator,
                         glm::DVec3::new(-256.0, 0.0, -256.0),
                         1.0
@@ -79,7 +79,7 @@ impl game::Entity for DemoScene
 }
 
 fn create_chunk(
-    game: &game::Game,
+    game: Arc<game::Game>,
     noise: &(impl NoiseFn<f64, 2> + Sync),
     offset: glm::DVec3,
     scale: f64

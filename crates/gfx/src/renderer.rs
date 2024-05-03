@@ -249,9 +249,7 @@ impl Renderer
                         ty:         wgpu::BindingType::Buffer {
                             ty:                 wgpu::BufferBindingType::Uniform,
                             has_dynamic_offset: false,
-                            min_binding_size:   NonZeroU64::new(
-                                std::mem::size_of::<ShaderGlobalInfo>() as u64
-                            )
+                            min_binding_size:   None
                         },
                         count:      None
                     },
@@ -261,9 +259,7 @@ impl Renderer
                         ty:         wgpu::BindingType::Buffer {
                             ty:                 wgpu::BufferBindingType::Uniform,
                             has_dynamic_offset: false,
-                            min_binding_size:   NonZeroU64::new(
-                                std::mem::size_of::<ShaderMatrices>() as u64
-                            )
+                            min_binding_size:   None
                         },
                         count:      None
                     },
@@ -273,9 +269,7 @@ impl Renderer
                         ty:         wgpu::BindingType::Buffer {
                             ty:                 wgpu::BufferBindingType::Uniform,
                             has_dynamic_offset: false,
-                            min_binding_size:   NonZeroU64::new(
-                                std::mem::size_of::<ShaderMatrices>() as u64
-                            )
+                            min_binding_size:   None
                         },
                         count:      None
                     }
@@ -398,6 +392,9 @@ impl Renderer
             "Depth Buffer"
         ));
 
+        let max_shader_matrices =
+            self.limits.max_uniform_buffer_binding_size as usize / std::mem::size_of::<glm::Mat4>();
+
         let global_info_uniform_buffer = self.create_buffer(&wgpu::BufferDescriptor {
             label:              Some("Global Uniform Buffer"),
             size:               std::mem::size_of::<ShaderGlobalInfo>() as u64,
@@ -407,21 +404,20 @@ impl Renderer
 
         let global_mvp_buffer = self.create_buffer(&wgpu::BufferDescriptor {
             label:              Some("Global Uniform Buffer"),
-            size:               std::mem::size_of::<ShaderMatrices>() as u64,
+            size:               (max_shader_matrices * std::mem::size_of::<glm::Mat4>()) as u64,
             usage:              wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false
         });
 
         let global_model_buffer = self.create_buffer(&wgpu::BufferDescriptor {
             label:              Some("Global Uniform Buffer"),
-            size:               std::mem::size_of::<ShaderMatrices>() as u64,
+            size:               (max_shader_matrices * std::mem::size_of::<glm::Mat4>()) as u64,
             usage:              wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false
         });
 
-        // let voxel_color_transfer_recordable =
-        // Arc::new(VoxelColorTransferRecordable::new(self));
-        // self.register(voxel_color_transfer_recordable.clone());
+        let voxel_color_transfer_recordable = Arc::new(VoxelColorTransferRecordable::new(self));
+        self.register(voxel_color_transfer_recordable.clone());
 
         let voxel_discovery_image = RefCell::new(create_sized_image(
             &self.device,
@@ -547,9 +543,6 @@ impl Renderer
                     });
             }
         };
-
-        let max_shader_matrices =
-            self.limits.max_uniform_buffer_binding_size as usize / std::mem::size_of::<glm::Mat4>();
 
         let shader_mvps = RefCell::new(ShaderMatrices::new(max_shader_matrices));
         let shader_models = RefCell::new(ShaderMatrices::new(max_shader_matrices));
@@ -770,17 +763,19 @@ impl Renderer
             self.queue
                 .write_buffer(&global_info_uniform_buffer, 0, bytes_of(&global_info));
 
+            let number_of_used_ids = id_counter.load(Ordering::Acquire) as usize;
+
             self.queue.write_buffer(
                 &global_mvp_buffer,
                 0,
                 &shader_mvps.borrow().as_mat_bytes()
-                    [0..id_counter.load(Ordering::Acquire) as usize]
+                    [0..number_of_used_ids * std::mem::size_of::<glm::Mat4>()]
             );
             self.queue.write_buffer(
                 &global_model_buffer,
                 0,
                 &shader_models.borrow().as_mat_bytes()
-                    [0..id_counter.load(Ordering::Acquire) as usize]
+                    [0..number_of_used_ids * std::mem::size_of::<glm::Mat4>()]
             );
 
             let render_encoder_name = format!(

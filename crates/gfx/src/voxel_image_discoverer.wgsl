@@ -109,7 +109,7 @@ fn Set_insert(key: u32) -> u32
         if (res.old_value != key)
         {
             // there's another element there, incremenet the slot and try again
-            slot = (slot + 1) & SET_SIZE;
+            slot = (slot + 1) % SET_SIZE;
         }
     }
 }

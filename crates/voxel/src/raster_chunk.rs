@@ -18,6 +18,7 @@ use crate::{Voxel, VoxelChunkDataManager};
 #[derive(Debug)]
 pub struct RasterChunk
 {
+    game: Arc<game::Game>,
     uuid: util::Uuid,
 
     vertex_buffer:      wgpu::Buffer,
@@ -33,14 +34,14 @@ pub struct RasterChunk
 impl RasterChunk
 {
     pub fn new(
-        game: &game::Game,
+        game: Arc<game::Game>,
         transform: gfx::Transform,
         faces: impl IntoIterator<Item = VoxelFace>
     ) -> Arc<RasterChunk>
     {
         let uuid = util::Uuid::new();
-
-        let renderer = game.get_renderer();
+        let c = game.clone();
+        let renderer = c.get_renderer();
 
         let shader = renderer
             .render_cache
@@ -117,6 +118,7 @@ impl RasterChunk
         let (vertex_buffer, number_of_vertices) = Self::create_voxel_buffer(renderer, faces_vec);
 
         let this = Arc::new(RasterChunk {
+            game,
             uuid,
             vertex_buffer,
             number_of_vertices: number_of_vertices as u32,
@@ -164,16 +166,6 @@ impl gfx::Recordable for RasterChunk
         self.uuid
     }
 
-    // fn get_pass_stage(&self) -> gfx::PassStage
-    // {
-    //     gfx::PassStage::VoxelDiscovery
-    // }
-
-    // fn get_pipeline(&self) -> Option<&gfx::GenericPipeline>
-    // {
-    //     Some(&self.pipeline)
-    // }
-
     fn pre_record_update(
         &self,
         renderer: &gfx::Renderer,
@@ -181,18 +173,21 @@ impl gfx::Recordable for RasterChunk
         global_bind_group: &std::sync::Arc<gfx::wgpu::BindGroup>
     ) -> gfx::RecordInfo
     {
-        todo!()
-        // let t = self.transform.lock().unwrap().clone();
-        // self.time_alive.store(
-        //     self.time_alive.load(SeqCst) + renderer.get_delta_time(),
-        //     SeqCst
-        // );
+        let t = self.transform.lock().unwrap().clone();
+        self.time_alive.store(
+            self.time_alive.load(SeqCst) + renderer.get_delta_time(),
+            SeqCst
+        );
 
-        // gfx::RecordInfo {
-        //     should_draw: true,
-        //     transform:   Some(t),
-        //     bind_groups: [Some(global_bind_group.clone()), None, None, None]
-        // }
+        gfx::RecordInfo::Record {
+            render_pass: self
+                .game
+                .get_renderpass_manager()
+                .get_renderpass_id(game::PassStage::VoxelDiscovery),
+            pipeline:    self.pipeline.clone(),
+            bind_groups: [Some(global_bind_group.clone()), None, None, None],
+            transform:   Some(t)
+        }
     }
 
     fn record<'s>(&'s self, render_pass: &mut gfx::GenericPass<'s>, maybe_id: Option<gfx::DrawId>)
@@ -203,17 +198,16 @@ impl gfx::Recordable for RasterChunk
             unreachable!()
         };
 
-        // pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-        // pass.set_push_constants(
-        //     wgpu::ShaderStages::VERTEX_FRAGMENT,
-        //     0,
-        //     bytemuck::bytes_of(&PC {
-        //         id,
-        //         time_alive: self.time_alive.load(SeqCst)
-        //     })
-        // );
-        // pass.draw(0..self.number_of_vertices, 0..1);
-        todo!()
+        pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+        pass.set_push_constants(
+            wgpu::ShaderStages::VERTEX_FRAGMENT,
+            0,
+            bytemuck::bytes_of(&PC {
+                id:         *id,
+                time_alive: self.time_alive.load(SeqCst)
+            })
+        );
+        pass.draw(0..self.number_of_vertices, 0..1);
     }
 }
 

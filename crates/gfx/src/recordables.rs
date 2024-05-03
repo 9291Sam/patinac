@@ -3,6 +3,7 @@ use std::cmp::Ordering;
 use std::cmp::Ordering::*;
 use std::fmt::Debug;
 use std::num::NonZeroU64;
+use std::ops::Deref;
 use std::sync::Arc;
 
 use bytemuck::{Pod, Zeroable};
@@ -14,6 +15,16 @@ use crate::{Camera, GenericPipeline, Renderer, Transform};
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
 #[repr(transparent)]
 pub struct DrawId(pub(crate) u32);
+
+impl Deref for DrawId
+{
+    type Target = u32;
+
+    fn deref(&self) -> &Self::Target
+    {
+        &self.0
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
 #[repr(transparent)]
