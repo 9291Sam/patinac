@@ -415,8 +415,9 @@ impl Renderer
             mapped_at_creation: false
         });
 
-        let voxel_color_transfer_recordable = Arc::new(VoxelColorTransferRecordable::new(self));
-        self.register(voxel_color_transfer_recordable.clone());
+        // let voxel_color_transfer_recordable =
+        // Arc::new(VoxelColorTransferRecordable::new(self));
+        // self.register(voxel_color_transfer_recordable.clone());
 
         let voxel_discovery_image = RefCell::new(create_sized_image(
             &self.device,
