@@ -9,7 +9,6 @@ mod recordables;
 mod render_cache;
 mod renderer;
 mod screen_sized_texture;
-mod voxel_post_processing;
 
 pub use input_manager::*;
 pub use linalg::*;

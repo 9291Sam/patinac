@@ -25,7 +25,6 @@ use winit::window::{Window, WindowBuilder};
 
 use crate::recordables::{PassStage, RecordInfo, Recordable, RenderPassId};
 use crate::render_cache::{GenericPass, RenderCache};
-use crate::voxel_post_processing::VoxelColorTransferRecordable;
 use crate::{Camera, DrawId, GenericPipeline, InputManager};
 
 #[derive(Debug)]
@@ -737,11 +736,10 @@ impl Renderer
                         std::cmp::Ordering::Equal
                             .then(l.0.cmp(&r.0))
                             .then(cmp_bind_groups(&l.1, &r.1))
+                            .then(l.2.cmp(&r.2))
                             .then(
-                                l.2.cmp(&r.2).then(
-                                    (l.3.as_ref() as *const _ as *const ())
-                                        .cmp(&(r.3.as_ref() as *const _ as *const ()))
-                                )
+                                (l.3.as_ref() as *const _ as *const ())
+                                    .cmp(&(r.3.as_ref() as *const _ as *const ()))
                             )
                     })
             }
