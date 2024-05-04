@@ -47,6 +47,11 @@ impl Drop for Game
 {
     fn drop(&mut self)
     {
+        log::trace!(
+            "renderpass manager cycles {}",
+            Arc::strong_count(&self.render_pass_manager)
+        );
+
         self.entities
             .access()
             .into_iter()
@@ -94,7 +99,8 @@ impl Game
 
     pub fn get_renderpass_manager(&self) -> &RenderPassManager
     {
-        &self.render_pass_manager
+        todo!()
+        // &self.render_pass_manager
     }
 
     pub fn get_delta_time(&self) -> f32
