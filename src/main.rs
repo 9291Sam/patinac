@@ -93,13 +93,16 @@ fn main()
 
     if let Ok(Some(arc_renderer)) = held_renderer.into_inner()
     {
-        if let Some(renderer) = Arc::into_inner(arc_renderer)
+        match Arc::try_unwrap(arc_renderer)
         {
-            std::mem::drop(renderer);
-        }
-        else
-        {
-            log::error!("Renderer was retained!");
+            Ok(renderer) => std::mem::drop(renderer),
+            Err(e) =>
+            {
+                log::warn!(
+                    "Renderer was retained with {} cycles",
+                    Arc::strong_count(&e)
+                )
+            }
         }
     }
     else

@@ -164,12 +164,6 @@ impl Renderer
             adapter.get_info().backend
         );
 
-        log::trace!(
-            "workgroup local max variable size {} | max dims {}",
-            adapter.limits().max_compute_workgroup_storage_size,
-            adapter.limits().max_compute_workgroup_size_x
-        );
-
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
@@ -370,8 +364,10 @@ impl Renderer
 
         let frame_counter: AtomicU64 = AtomicU64::new(0);
 
-        let max_shader_matrices =
-            self.limits.max_uniform_buffer_binding_size as usize / std::mem::size_of::<glm::Mat4>();
+        let max_shader_matrices = usize::min(
+            self.limits.max_uniform_buffer_binding_size as usize / std::mem::size_of::<glm::Mat4>(),
+            4096
+        );
 
         let global_info_uniform_buffer = self.create_buffer(&wgpu::BufferDescriptor {
             label:              Some("Global Uniform Buffer"),

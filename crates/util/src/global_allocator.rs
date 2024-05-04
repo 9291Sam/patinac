@@ -25,6 +25,14 @@ unsafe impl std::alloc::GlobalAlloc for GlobalAllocator
         self.bytes_allocated_current
             .fetch_add(layout.size(), Ordering::Relaxed);
 
+        if layout.size() > 128 * 1024 * 1024
+        {
+            log::warn!(
+                "Large allocation of {}",
+                super::bytes_as_string(layout.size() as f64, super::SuffixType::Full)
+            );
+        }
+
         System.alloc(layout)
     }
 
