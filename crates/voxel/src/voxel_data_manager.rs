@@ -12,10 +12,12 @@ pub struct VoxelWorldDataManager
     uuid:          util::Uuid,
     resize_pinger: util::PingReceiver,
 
-    // color_transfer_bind_group_windows: (
-    //     util::Window<Arc<wgpu::BindGroup>>,
-    //     util::WindowUpdater<Arc<wgpu::BindGroup>>
-    // ),
+    color_transfer_bind_group_windows: (
+        util::Window<Arc<wgpu::BindGroup>>,
+        util::WindowUpdater<Arc<wgpu::BindGroup>>
+    ),
+    color_transfer_bind_group_layout:  Arc<wgpu::BindGroupLayout>,
+
     color_transfer_recordable: Arc<super::VoxelColorTransferRecordable>
 }
 
@@ -31,19 +33,63 @@ impl VoxelWorldDataManager
 {
     pub fn new(game: Arc<game::Game>) -> Arc<Self>
     {
+        let transfer_layout = game.get_renderer().render_cache.cache_bind_group_layout(
+            wgpu::BindGroupLayoutDescriptor {
+                label:   Some("Global Discovery Layout"),
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding:    0,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty:         wgpu::BindingType::Texture {
+                        sample_type:    wgpu::TextureSampleType::Uint,
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        multisampled:   false
+                    },
+                    count:      None
+                }]
+            }
+        );
+
+        let color_transfer_bind_group =
+            Self::generate_discovery_bind_group(&game, &transfer_layout);
+
+        let (window, updater) = util::Window::new(color_transfer_bind_group.clone());
+
         Arc::new(VoxelWorldDataManager {
-            game:                      game.clone(),
-            // color_transfer_bindgroup_windows: todo!(),
-            color_transfer_recordable: VoxelColorTransferRecordable::new(game.clone()),
-            uuid:                      util::Uuid::new(),
-            resize_pinger:             game.get_renderer().get_resize_pinger()
-            // color_transfer_bind_group_windows: util::Window::n
+            game:                              game.clone(),
+            uuid:                              util::Uuid::new(),
+            resize_pinger:                     game.get_renderer().get_resize_pinger(),
+            color_transfer_bind_group_windows: (window.clone(), updater),
+            color_transfer_bind_group_layout:  transfer_layout.clone(),
+            color_transfer_recordable:         VoxelColorTransferRecordable::new(
+                game,
+                transfer_layout,
+                window
+            )
         })
     }
 
-    pub fn create_new_chunk() {}
-
-    fn generate_bind_group(rec: &VoxelColorTransferRecordable) {}
+    fn generate_discovery_bind_group(
+        game: &game::Game,
+        color_transfer_bind_group_layout: &wgpu::BindGroupLayout
+    ) -> Arc<wgpu::BindGroup>
+    {
+        Arc::new(
+            game.get_renderer()
+                .create_bind_group(&wgpu::BindGroupDescriptor {
+                    label:   Some("Global Discovery Bind Group"),
+                    layout:  color_transfer_bind_group_layout,
+                    entries: &[wgpu::BindGroupEntry {
+                        binding:  0,
+                        resource: wgpu::BindingResource::TextureView(
+                            &game
+                                .get_renderpass_manager()
+                                .get_voxel_discovery_texture()
+                                .get_view()
+                        )
+                    }]
+                })
+        )
+    }
 }
 
 impl game::EntityCastDepot for VoxelWorldDataManager
@@ -80,7 +126,12 @@ impl game::Entity for VoxelWorldDataManager
     {
         if self.resize_pinger.recv_all()
         {
-            // self.color_transfer_bind_group_windows.1.update(todo!())
+            self.color_transfer_bind_group_windows
+                .1
+                .update(Self::generate_discovery_bind_group(
+                    game,
+                    &self.color_transfer_bind_group_layout
+                ))
         }
     }
 }

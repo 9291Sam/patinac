@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Window<T: Send + Clone>
 {
     shared_value: Arc<Mutex<T>>

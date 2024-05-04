@@ -276,21 +276,6 @@ impl Renderer
                 ]
             });
 
-        let global_discovery_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label:   Some("Global Discovery Layout"),
-                entries: &[wgpu::BindGroupLayoutEntry {
-                    binding:    0,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty:         wgpu::BindingType::Texture {
-                        sample_type:    wgpu::TextureSampleType::Uint,
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        multisampled:   false
-                    },
-                    count:      None
-                }]
-            });
-
         let render_cache = RenderCache::new(device.clone());
 
         (
@@ -455,19 +440,6 @@ impl Renderer
                 }
             ]
         }));
-
-        // let global_discovery_bind_group =
-        // RefCell::new(Arc::new(self.create_bind_group(
-        //     &wgpu::BindGroupDescriptor {
-        //         label:   Some("Global Discovery Bind Group"),
-        //         layout:  &self.global_discovery_layout,
-        //         entries: &[wgpu::BindGroupEntry {
-        //             binding:  0,
-        //             resource:
-        // wgpu::BindingResource::TextureView(&voxel_discovery_image.borrow().1)
-        //         }]
-        //     }
-        // )));
 
         // Because of a bug in winit, the first resize command that comes in is borked
         // on Windows https://github.com/rust-windowing/winit/issues/2094
