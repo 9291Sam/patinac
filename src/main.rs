@@ -77,13 +77,9 @@ fn main()
 
     if let Ok(Some(arc_game)) = held_game.into_inner()
     {
-        if let Some(game) = Arc::into_inner(arc_game)
+        if let Err(g) = Arc::try_unwrap(arc_game)
         {
-            std::mem::drop(game);
-        }
-        else
-        {
-            log::error!("Game was retained!");
+            log::warn!("Game was retained with {} cycles", Arc::strong_count(&g))
         }
     }
     else
@@ -93,16 +89,12 @@ fn main()
 
     if let Ok(Some(arc_renderer)) = held_renderer.into_inner()
     {
-        match Arc::try_unwrap(arc_renderer)
+        if let Err(r) = Arc::try_unwrap(arc_renderer)
         {
-            Ok(renderer) => std::mem::drop(renderer),
-            Err(e) =>
-            {
-                log::warn!(
-                    "Renderer was retained with {} cycles",
-                    Arc::strong_count(&e)
-                )
-            }
+            log::warn!(
+                "Renderer was retained with {} cycles",
+                Arc::strong_count(&r)
+            )
         }
     }
     else
