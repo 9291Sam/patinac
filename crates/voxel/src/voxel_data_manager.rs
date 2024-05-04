@@ -12,11 +12,10 @@ pub struct VoxelWorldDataManager
     uuid:          util::Uuid,
     resize_pinger: util::PingReceiver,
 
-    color_transfer_bind_group_windows: (
-        util::Window<Arc<wgpu::BindGroup>>,
-        util::WindowUpdater<Arc<wgpu::BindGroup>>
-    ),
-
+    // color_transfer_bind_group_windows: (
+    //     util::Window<Arc<wgpu::BindGroup>>,
+    //     util::WindowUpdater<Arc<wgpu::BindGroup>>
+    // ),
     color_transfer_recordable: Arc<super::VoxelColorTransferRecordable>
 }
 
@@ -33,9 +32,12 @@ impl VoxelWorldDataManager
     pub fn new(game: Arc<game::Game>) -> Arc<Self>
     {
         Arc::new(VoxelWorldDataManager {
-            game:                             game.clone(),
-            color_transfer_bindgroup_windows: todo!(),
-            color_transfer_recordable:        VoxelColorTransferRecordable::new(game.clone())
+            game:                      game.clone(),
+            // color_transfer_bindgroup_windows: todo!(),
+            color_transfer_recordable: VoxelColorTransferRecordable::new(game.clone()),
+            uuid:                      util::Uuid::new(),
+            resize_pinger:             game.get_renderer().get_resize_pinger()
+            // color_transfer_bind_group_windows: util::Window::n
         })
     }
 
@@ -78,7 +80,7 @@ impl game::Entity for VoxelWorldDataManager
     {
         if self.resize_pinger.recv_all()
         {
-            self.color_transfer_bind_group_windows.1.update(todo!())
+            // self.color_transfer_bind_group_windows.1.update(todo!())
         }
     }
 }
