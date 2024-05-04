@@ -57,19 +57,6 @@ pub trait Recordable: Debug + Send + Sync
     fn record<'s>(&'s self, render_pass: &mut GenericPass<'s>, maybe_id: Option<DrawId>);
 }
 
-// pub(crate) fn recordable_ord(
-//     this: &dyn Recordable,
-//     other: &dyn Recordable,
-//     this_bind_groups: &[Option<Arc<wgpu::BindGroup>>; 4],
-//     other_bind_groups: &[Option<Arc<wgpu::BindGroup>>; 4]
-// ) -> Ordering
-// {
-//     Equal
-//         .then(this.get_pass_stage().cmp(&other.get_pass_stage()))
-//         .then(this.get_pipeline().cmp(&other.get_pipeline()))
-//         .then(get_bind_group_ids(this_bind_groups).cmp(&
-// get_bind_group_ids(other_bind_groups))) }
-
 pub enum RecordInfo
 {
     NoRecord,

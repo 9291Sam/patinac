@@ -7,7 +7,7 @@ use std::num::NonZeroU64;
 use std::ops::Deref;
 use std::panic::{RefUnwindSafe, UnwindSafe};
 use std::sync::atomic::Ordering::{self};
-use std::sync::atomic::{AtomicU32, AtomicU64};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64};
 use std::sync::{Arc, Mutex, Weak};
 use std::thread::ThreadId;
 
@@ -34,10 +34,11 @@ pub struct Renderer
     pub device:                   Arc<wgpu::Device>,
     pub render_cache:             RenderCache,
     pub global_bind_group_layout: Arc<wgpu::BindGroupLayout>,
-    pub global_discovery_layout:  Arc<wgpu::BindGroupLayout>,
 
+    // pub global_discovery_layout:  Arc<wgpu::BindGroupLayout>,
     renderables:           util::Registrar<util::Uuid, Weak<dyn Recordable>>,
     screen_sized_textures: util::Registrar<util::Uuid, Weak<super::ScreenSizedTexture>>,
+    resize_pingers:        (util::PingSender, util::PingReceiver),
     window_size:           AtomicU32U32,
     delta_time:            AtomicF32,
     limits:                wgpu::Limits,
@@ -301,7 +302,7 @@ impl Renderer
                 device,
                 critical_section: Mutex::new(critical_section),
                 global_bind_group_layout: Arc::new(global_bind_group_layout),
-                global_discovery_layout: Arc::new(global_discovery_layout),
+                resize_pingers: util::create_pingers(),
                 window_size: AtomicU32U32::new((size.width, size.height)),
                 delta_time: AtomicF32::new(0.0f32),
                 render_cache,
@@ -315,6 +316,11 @@ impl Renderer
     {
         self.renderables
             .insert(renderable.get_uuid(), Arc::downgrade(&renderable));
+    }
+
+    pub fn get_resize_pinger(&self) -> util::PingReceiver
+    {
+        self.resize_pingers.1.clone()
     }
 
     pub fn get_fov(&self) -> glm::Vec2
@@ -450,16 +456,18 @@ impl Renderer
             ]
         }));
 
-        let global_discovery_bind_group = RefCell::new(Arc::new(self.create_bind_group(
-            &wgpu::BindGroupDescriptor {
-                label:   Some("Global Discovery Bind Group"),
-                layout:  &self.global_discovery_layout,
-                entries: &[wgpu::BindGroupEntry {
-                    binding:  0,
-                    resource: wgpu::BindingResource::TextureView(&voxel_discovery_image.borrow().1)
-                }]
-            }
-        )));
+        // let global_discovery_bind_group =
+        // RefCell::new(Arc::new(self.create_bind_group(
+        //     &wgpu::BindGroupDescriptor {
+        //         label:   Some("Global Discovery Bind Group"),
+        //         layout:  &self.global_discovery_layout,
+        //         entries: &[wgpu::BindGroupEntry {
+        //             binding:  0,
+        //             resource:
+        // wgpu::BindingResource::TextureView(&voxel_discovery_image.borrow().1)
+        //         }]
+        //     }
+        // )));
 
         // Because of a bug in winit, the first resize command that comes in is borked
         // on Windows https://github.com/rust-windowing/winit/issues/2094
@@ -519,17 +527,17 @@ impl Renderer
                     "Voxel Discovery Image"
                 );
 
-                *global_discovery_bind_group.borrow_mut() =
-                    Arc::new(self.create_bind_group(&wgpu::BindGroupDescriptor {
-                        label:   Some("Global Discovery Bind Group"),
-                        layout:  &self.global_discovery_layout,
-                        entries: &[wgpu::BindGroupEntry {
-                            binding:  0,
-                            resource: wgpu::BindingResource::TextureView(
-                                &voxel_discovery_image.borrow().1
-                            )
-                        }]
-                    }));
+                // *global_discovery_bind_group.borrow_mut() =
+                //     Arc::new(self.create_bind_group(&wgpu::BindGroupDescriptor {
+                //         label:   Some("Global Discovery Bind Group"),
+                //         layout:  &self.global_discovery_layout,
+                //         entries: &[wgpu::BindGroupEntry {
+                //             binding:  0,
+                //             resource: wgpu::BindingResource::TextureView(
+                //                 &voxel_discovery_image.borrow().1
+                //             )
+                //         }]
+                //     }));
 
                 self.screen_sized_textures
                     .access()
@@ -537,10 +545,23 @@ impl Renderer
                     .for_each(|(id, weak_texture)| {
                         match weak_texture.upgrade()
                         {
-                            Some(texture) => _ = texture.resize_to_screen_size(),
+                            Some(texture) =>
+                            {
+                                texture.resize_to_screen_size();
+                            }
                             None => self.screen_sized_textures.delete(id)
                         }
                     });
+
+                // We must ensure that these resizes occur before the ping gets sent out
+
+                std::sync::atomic::fence(Ordering::SeqCst);
+                std::sync::atomic::fence(Ordering::SeqCst);
+
+                std::sync::atomic::compiler_fence(Ordering::SeqCst);
+                std::sync::atomic::compiler_fence(Ordering::SeqCst);
+
+                self.resize_pingers.0.ping();
             }
         };
 
@@ -801,7 +822,7 @@ impl Renderer
                     [Option<Arc<wgpu::BindGroup>>; 4],
                     Option<DrawId>,
                     Arc<dyn Recordable>
-                )> = unsafe { std::mem::transmute(raw_recordables) };
+                )> = unsafe { util::extend_lifetime(raw_recordables) };
 
                 pass_func(
                     &mut encoder,

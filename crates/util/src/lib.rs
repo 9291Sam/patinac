@@ -5,9 +5,11 @@
 mod allocator;
 mod r#async;
 mod atomics;
+mod broadcast_event;
 mod crash_handler;
 mod global_allocator;
 mod log;
+mod pinger;
 mod registrar;
 mod timer;
 mod uuid;
@@ -19,13 +21,20 @@ use std::sync::Arc;
 pub use allocator::*;
 pub use r#async::*;
 pub use atomics::*;
+pub use broadcast_event::*;
 pub use crash_handler::*;
 pub use global_allocator::*;
 pub use log::*;
+pub use pinger::*;
 pub use registrar::*;
 pub use timer::*;
 pub use uuid::*;
 pub use window::*;
+
+pub const unsafe fn extend_lifetime<'a, 'b, T>(t: &'a T) -> &'b T
+{
+    std::mem::transmute(t)
+}
 
 // pub fn hash_combine<const L: usize>(mut seed: u64, data: &[u8]) -> u64
 // {

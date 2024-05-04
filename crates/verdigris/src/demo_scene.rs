@@ -5,12 +5,13 @@ use gfx::glm::{self};
 use itertools::iproduct;
 use noise::NoiseFn;
 use rand::Rng;
-use voxel::{RasterChunk, VoxelFace, VoxelFaceDirection};
+use voxel::{RasterChunk, VoxelFace, VoxelFaceDirection, VoxelWorldDataManager};
 #[derive(Debug)]
 pub struct DemoScene
 {
-    raster: Mutex<util::Promise<Arc<RasterChunk>>>,
-    id:     util::Uuid
+    data_manager: Arc<VoxelWorldDataManager>,
+    raster:       Mutex<util::Promise<Arc<RasterChunk>>>,
+    id:           util::Uuid
 }
 
 impl DemoScene
@@ -21,11 +22,15 @@ impl DemoScene
 
         let c_game = game.clone();
 
+        let dm = VoxelWorldDataManager::new(game.clone());
+
         let this = Arc::new(DemoScene {
-            id:     util::Uuid::new(),
-            raster: Mutex::new(
+            data_manager: dm.clone(),
+            id:           util::Uuid::new(),
+            raster:       Mutex::new(
                 util::run_async(move || {
                     create_chunk(
+                        dm,
                         c_game,
                         &noise_generator,
                         glm::DVec3::new(-256.0, 0.0, -256.0),
@@ -79,6 +84,7 @@ impl game::Entity for DemoScene
 }
 
 fn create_chunk(
+    dm: Arc<VoxelWorldDataManager>,
     game: Arc<game::Game>,
     noise: &(impl NoiseFn<f64, 2> + Sync),
     offset: glm::DVec3,
@@ -94,6 +100,7 @@ fn create_chunk(
     let occupied = |x: i32, y: i32, z: i32| (y <= noise_sampler(x, z) as i32);
 
     RasterChunk::new(
+        dm,
         game,
         gfx::Transform {
             translation: glm::Vec3::new(offset.x as f32, 0.0, offset.z as f32),

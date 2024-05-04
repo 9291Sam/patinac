@@ -1,23 +1,33 @@
 use std::borrow::Cow;
 use std::sync::Arc;
 
-use crate::{CacheableFragmentState, CacheableRenderPipelineDescriptor, GenericPipeline, Renderer};
+use gfx::{
+    wgpu,
+    CacheableFragmentState,
+    CacheableRenderPipelineDescriptor,
+    GenericPipeline,
+    Renderer
+};
 
 #[derive(Debug)]
 pub(crate) struct VoxelColorTransferRecordable
 {
+    game:     Arc<game::Game>,
     uuid:     util::Uuid,
     pipeline: Arc<GenericPipeline>
 }
 
 impl VoxelColorTransferRecordable
 {
-    pub fn new(renderer: &super::Renderer) -> Self
+    pub fn new(game: Arc<game::Game>) -> Arc<Self>
     {
+        let arc_renderer = game.get_renderer().clone();
+        let renderer: &gfx::Renderer = &arc_renderer;
+
         let pipeline_layout =
             renderer
                 .render_cache
-                .cache_pipeline_layout(crate::CacheablePipelineLayoutDescriptor {
+                .cache_pipeline_layout(gfx::CacheablePipelineLayoutDescriptor {
                     label:                Cow::Borrowed("Voxel Color Transfer Pipeline Layout"),
                     bind_group_layouts:   vec![renderer.global_discovery_layout.clone()],
                     push_constant_ranges: vec![]
@@ -27,7 +37,8 @@ impl VoxelColorTransferRecordable
             .render_cache
             .cache_shader_module(wgpu::include_wgsl!("voxel_color_transfer.wgsl"));
 
-        VoxelColorTransferRecordable {
+        let this = Arc::new(VoxelColorTransferRecordable {
+            game:     game.clone(),
             uuid:     util::Uuid::new(),
             pipeline: renderer.render_cache.cache_render_pipeline(
                 CacheableRenderPipelineDescriptor {
@@ -67,11 +78,15 @@ impl VoxelColorTransferRecordable
                     multiview: None
                 }
             )
-        }
+        });
+
+        renderer.register(this.clone());
+
+        this
     }
 }
 
-impl super::Recordable for VoxelColorTransferRecordable
+impl gfx::Recordable for VoxelColorTransferRecordable
 {
     fn get_name(&self) -> std::borrow::Cow<'_, str>
     {
@@ -95,27 +110,25 @@ impl super::Recordable for VoxelColorTransferRecordable
 
     fn pre_record_update(
         &self,
-        _: &crate::Renderer,
-        _: &crate::Camera,
+        _: &gfx::Renderer,
+        _: &gfx::Camera,
         _: &Arc<wgpu::BindGroup>
-    ) -> crate::RecordInfo
+    ) -> gfx::RecordInfo
     {
-        todo!()
-        // crate::RecordInfo::Record {
-        //     render_pass: VoxelColorTransfer,
-        //     pipeline:    self.pipeline.clone(),
-        //     bind_groups: [Some(global_voxel_discovery_group.clone()), None,
-        // None, None],     transform:   None
-        // }
+        gfx::RecordInfo::Record {
+            render_pass: self
+                .game
+                .get_renderpass_manager()
+                .get_renderpass_id(game::PassStage::VoxelColorTransfer),
+            pipeline:    self.pipeline.clone(),
+            bind_groups: [Some(global_voxel_discovery_group.clone()), None, None, None],
+            transform:   None
+        }
     }
 
-    fn record<'s>(
-        &'s self,
-        render_pass: &mut crate::GenericPass<'s>,
-        maybe_id: Option<crate::DrawId>
-    )
+    fn record<'s>(&'s self, render_pass: &mut gfx::GenericPass<'s>, maybe_id: Option<gfx::DrawId>)
     {
-        let (crate::GenericPass::Render(ref mut pass), None) = (render_pass, maybe_id)
+        let (gfx::GenericPass::Render(ref mut pass), None) = (render_pass, maybe_id)
         else
         {
             unreachable!()

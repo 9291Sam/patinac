@@ -1,8 +1,6 @@
 use std::borrow::Cow;
-use std::collections::HashMap;
 use std::sync::Arc;
 
-use dashmap::mapref::entry::Entry;
 use dashmap::DashMap;
 use gfx::{wgpu, GenericPass};
 use strum::{EnumIter, IntoEnumIterator};
@@ -56,6 +54,11 @@ impl RenderPassManager
         }
     }
 
+    pub fn get_voxel_discovery_texture(&self) -> Arc<gfx::ScreenSizedTexture>
+    {
+        self.voxel_discovery.clone()
+    }
+
     pub fn get_renderpass_id(&self, stage: PassStage) -> gfx::RenderPassId
     {
         *self.stage_to_id_map.get(&stage).unwrap()
@@ -71,7 +74,7 @@ impl RenderPassManager
                     Arc::new(move || -> (gfx::RenderPassId, gfx::EncoderToPassFn) {
                         (
                             *this.stage_to_id_map.get(&s).unwrap(),
-                            this.into_pass_func(s)
+                            this.get_pass_func(s)
                         )
                     });
 
@@ -81,7 +84,7 @@ impl RenderPassManager
             .into()
     }
 
-    fn into_pass_func(&self, pass_type: PassStage) -> gfx::EncoderToPassFn
+    fn get_pass_func(&self, pass_type: PassStage) -> gfx::EncoderToPassFn
     {
         let voxel_discovery_view = self.voxel_discovery.get_view();
         let depth_buffer_view = self.depth_buffer.get_view();

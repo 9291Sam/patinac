@@ -14,3 +14,4 @@ seahash = { workspace = true }
 oneshot = { workspace = true }
 crossbeam = { workspace = true }
 backtrace = { workspace = true }
+dashmap = { workspace = true }

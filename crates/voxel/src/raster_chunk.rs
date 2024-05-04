@@ -34,6 +34,7 @@ pub struct RasterChunk
 impl RasterChunk
 {
     pub fn new(
+        _world_data_manager: Arc<super::VoxelWorldDataManager>,
         game: Arc<game::Game>,
         transform: gfx::Transform,
         faces: impl IntoIterator<Item = VoxelFace>
