@@ -7,7 +7,6 @@ use util::AtomicU32U32;
 
 pub struct ScreenSizedTexture
 {
-    renderer:     Arc<super::Renderer>,
     descriptor:   ScreenSizedTextureDescriptor,
     current_size: AtomicU32U32,
     texture:      util::JointWindow<Arc<wgpu::Texture>>,
@@ -41,7 +40,6 @@ impl ScreenSizedTexture
         let (texture, view, size) = descriptor.create_texture(&renderer);
 
         let this = Arc::new(ScreenSizedTexture {
-            renderer,
             descriptor,
             current_size: AtomicU32U32::new(size),
             texture: util::JointWindow::new(Arc::new(texture)),
@@ -58,9 +56,9 @@ impl ScreenSizedTexture
         self.view.get()
     }
 
-    pub(crate) fn resize_to_screen_size(&self)
+    pub(crate) fn resize_to_screen_size(&self, renderer: &super::Renderer)
     {
-        let (t, v, size) = self.descriptor.create_texture(&self.renderer);
+        let (t, v, size) = self.descriptor.create_texture(&renderer);
 
         self.texture.update(Arc::new(t));
         self.view.update(Arc::new(v));

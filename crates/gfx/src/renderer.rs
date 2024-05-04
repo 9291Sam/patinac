@@ -455,7 +455,7 @@ impl Renderer
                         {
                             Some(texture) =>
                             {
-                                texture.resize_to_screen_size();
+                                texture.resize_to_screen_size(self);
                             }
                             None => self.screen_sized_textures.delete(id)
                         }

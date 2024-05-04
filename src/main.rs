@@ -44,28 +44,27 @@ fn main()
         *held_game.lock().unwrap() = Some(game.clone());
 
         {
-            // let _verdigris = verdigris::DemoScene::new(game.clone());
-            // let _debug_menu = gui::DebugMenu::new(&renderer, game.clone());
+            let _verdigris = verdigris::DemoScene::new(game.clone());
+            let _debug_menu = gui::DebugMenu::new(&renderer, game.clone());
 
-            // let game_tick = game.clone();
-            // let game_continue = should_loops_continue.clone();
-            // new_thread_func(
-            //     "Game Tick Thread".into(),
-            //     Box::new(move || game_tick.enter_tick_loop(&*game_continue))
-            // );
+            let game_tick = game.clone();
+            let game_continue = should_loops_continue.clone();
+            new_thread_func(
+                "Game Tick Thread".into(),
+                Box::new(move || game_tick.enter_tick_loop(&*game_continue))
+            );
 
-            // let input_game = game.clone();
-            // let input_update_func =
-            //     move |input_manager: &gfx::InputManager, camera_delta_time:
-            // f32| {         input_game.
-            // poll_input_updates(input_manager, camera_delta_time)
-            //     };
+            let input_game = game.clone();
+            let input_update_func =
+                move |input_manager: &gfx::InputManager, camera_delta_time: f32| {
+                    input_game.poll_input_updates(input_manager, camera_delta_time)
+                };
 
-            // renderer.enter_gfx_loop(
-            //     &*should_loops_continue,
-            //     &*terminate_loops,
-            //     &input_update_func
-            // );
+            renderer.enter_gfx_loop(
+                &*should_loops_continue,
+                &*terminate_loops,
+                &input_update_func
+            );
         }
 
         util::access_global_thread_pool()

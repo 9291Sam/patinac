@@ -22,14 +22,6 @@ pub struct RenderPassManager
     voxel_discovery: Arc<gfx::ScreenSizedTexture>
 }
 
-impl Drop for RenderPassManager
-{
-    fn drop(&mut self)
-    {
-        log::trace!("drop on renderpass manager");
-    }
-}
-
 impl RenderPassManager
 {
     pub fn new(renderer: Arc<gfx::Renderer>) -> RenderPassManager
