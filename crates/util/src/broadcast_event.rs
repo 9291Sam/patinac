@@ -8,6 +8,7 @@ pub struct BroadcasterReceiver<T: Clone>(Arc<BroadcasterReceiverInternal<T>>);
 
 impl<T: Clone> Broadcaster<T>
 {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Broadcaster<T>
     {
         Broadcaster(Arc::new(BroadcasterInternal {

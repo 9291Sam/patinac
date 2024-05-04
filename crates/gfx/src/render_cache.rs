@@ -326,7 +326,7 @@ impl CacheableRenderPipelineDescriptor
                     entry_point:         &c.entry_point,
                     targets:             &c.targets,
                     compilation_options: PipelineCompilationOptions {
-                        constants:                        &c
+                        constants:                        c
                             .constants
                             .as_ref()
                             .unwrap_or(&EMPTY_SPECIALIZATION_HASH_MAP),
@@ -343,7 +343,7 @@ impl CacheableRenderPipelineDescriptor
                 entry_point:         &self.vertex_entry_point,
                 buffers:             &self.vertex_buffer_layouts,
                 compilation_options: PipelineCompilationOptions {
-                    constants:                        &self
+                    constants:                        self
                         .vertex_specialization
                         .as_ref()
                         .unwrap_or(&EMPTY_SPECIALIZATION_HASH_MAP),
@@ -511,5 +511,4 @@ impl GenericPipeline
     }
 }
 
-static EMPTY_SPECIALIZATION_HASH_MAP: LazyLock<HashMap<String, f64>> =
-    LazyLock::new(|| HashMap::new());
+static EMPTY_SPECIALIZATION_HASH_MAP: LazyLock<HashMap<String, f64>> = LazyLock::new(HashMap::new);

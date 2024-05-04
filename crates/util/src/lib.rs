@@ -31,37 +31,26 @@ pub use timer::*;
 pub use uuid::*;
 pub use window::*;
 
-pub const unsafe fn extend_lifetime<'a, 'b, T>(t: &'a T) -> &'b T
+/// # Safety
+///
+/// This function unsafely changes the lifetime of the given reference
+/// this should only be used when you have extra information that rust cannot
+/// understand
+pub const unsafe fn extend_lifetime<'a, T>(t: &T) -> &'a T
 {
     std::mem::transmute(t)
 }
 
-// pub fn hash_combine<const L: usize>(mut seed: u64, data: &[u8]) -> u64
-// {
-//     let mut reinterpreted_data: MaybeUninit<[u64; L.div_ceil(8)]> =
-// MaybeUninit::uninit();     let ptr: *mut u8 = reinterpreted_data.as_mut_ptr()
-// as *mut u8;
-
-//     unsafe { std::ptr::copy_nonoverlapping(data.as_ptr(), ptr, L) }
-//     unsafe { std::ptr::write_bytes(ptr.add(L), 0, data.len() - L) }
-
-//     let u64_data = unsafe { reinterpreted_data.assume_init() };
-
-//     for b in u64_data
-//     {
-//         seed = b
-//             ^ 0x9E37_79B9_E377_9B9Eu64
-//             ^ (unsafe { seed.unchecked_shl(12) })
-//             ^ (unsafe { seed.unchecked_shr(48) });
-//     }
-
-//     seed
-// }
-
 #[cold]
 #[inline(never)]
+/// # Safety
+///
+/// Don't use this not for testing
 pub unsafe fn asan_test() -> i32
 {
+    #[cfg(not(debug_assertions))]
+    panic!("Don't use this in a release build");
+
     let xs = [0, 1, 2, 3];
     std::hint::black_box(unsafe {
         *std::hint::black_box(xs.as_ptr()).offset(std::hint::black_box(4))

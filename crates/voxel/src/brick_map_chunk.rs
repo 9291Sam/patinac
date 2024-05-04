@@ -17,6 +17,7 @@ use crate::gpu_data::{Voxel, VoxelChunkDataManager, CHUNK_VOXEL_SIZE};
 #[derive(Debug)]
 pub struct BrickMapChunk
 {
+    game:     Arc<game::Game>,
     uuid:     util::Uuid,
     name:     String,
     position: Mutex<glm::Vec3>,
@@ -32,7 +33,7 @@ pub struct BrickMapChunk
 impl BrickMapChunk
 {
     pub fn new(
-        game: &game::Game,
+        game: Arc<game::Game>,
         center_position: glm::Vec3,
         data_manager: Arc<VoxelChunkDataManager>
     ) -> Arc<Self>
@@ -71,6 +72,7 @@ impl BrickMapChunk
                 });
 
         let this = Arc::new(Self {
+            game: game.clone(),
             voxel_chunk_data: voxel_data_manager,
             uuid,
             name: "Voxel BrickMapChunk".into(),
@@ -188,23 +190,26 @@ impl gfx::Recordable for BrickMapChunk
         global_bind_group: &Arc<wgpu::BindGroup>
     ) -> gfx::RecordInfo
     {
-        todo!()
-        // gfx::RecordInfo {
-        //     should_draw: true,
-        //     transform:   Some(gfx::Transform {
-        //         translation: *self.position.lock().unwrap(),
-        //         ..Default::default()
-        //     }),
-        //     bind_groups: [
-        //         Some(global_bind_group.clone()),
-        //         Some(
-        //             // TODO: modify the manager to be thread safe
-        //             self.voxel_chunk_data.get_bind_group()
-        //         ),
-        //         None,
-        //         None
-        //     ]
-        // }
+        gfx::RecordInfo::Record {
+            render_pass: self
+                .game
+                .get_renderpass_manager()
+                .get_renderpass_id(game::PassStage::SimpleColor),
+            pipeline:    self.pipeline.clone(),
+            bind_groups: [
+                Some(global_bind_group.clone()),
+                Some(
+                    // TODO: modify the manager to be thread safe
+                    self.voxel_chunk_data.get_bind_group()
+                ),
+                None,
+                None
+            ],
+            transform:   Some(gfx::Transform {
+                translation: *self.position.lock().unwrap(),
+                ..Default::default()
+            })
+        }
     }
 
     fn record<'s>(&'s self, render_pass: &mut gfx::GenericPass<'s>, maybe_id: Option<gfx::DrawId>)

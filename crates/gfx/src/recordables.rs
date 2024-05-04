@@ -1,8 +1,5 @@
 use std::borrow::Cow;
-use std::cmp::Ordering;
-use std::cmp::Ordering::*;
 use std::fmt::Debug;
-use std::num::NonZeroU64;
 use std::ops::Deref;
 use std::sync::Arc;
 

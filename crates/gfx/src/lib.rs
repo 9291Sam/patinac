@@ -1,7 +1,6 @@
 #![feature(lazy_cell)]
 #![feature(hasher_prefixfree_extras)]
 #![feature(map_try_insert)]
-#![feature(lazy_type_alias)]
 
 mod input_manager;
 mod linalg;

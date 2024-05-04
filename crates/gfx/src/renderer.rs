@@ -2,20 +2,17 @@ use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::Debug;
-use std::marker::PhantomData;
-use std::num::NonZeroU64;
 use std::ops::Deref;
 use std::panic::{RefUnwindSafe, UnwindSafe};
 use std::sync::atomic::Ordering::{self};
-use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64};
+use std::sync::atomic::{AtomicU32, AtomicU64};
 use std::sync::{Arc, Mutex, Weak};
 use std::thread::ThreadId;
 
 use bytemuck::{bytes_of, Pod, Zeroable};
 use nalgebra_glm as glm;
 use pollster::FutureExt;
-use strum::IntoEnumIterator;
-use util::{AtomicF32, AtomicU32U32, Registrar, SendSyncMutPtr};
+use util::{AtomicF32, AtomicU32U32, Registrar};
 use winit::dpi::PhysicalSize;
 use winit::event::*;
 use winit::event_loop::EventLoop;
@@ -23,7 +20,7 @@ use winit::keyboard::KeyCode;
 use winit::platform::run_on_demand::EventLoopExtRunOnDemand;
 use winit::window::{Window, WindowBuilder};
 
-use crate::recordables::{PassStage, RecordInfo, Recordable, RenderPassId};
+use crate::recordables::{RecordInfo, Recordable, RenderPassId};
 use crate::render_cache::{GenericPass, RenderCache};
 use crate::{Camera, DrawId, GenericPipeline, InputManager};
 
@@ -390,10 +387,6 @@ impl Renderer
             mapped_at_creation: false
         });
 
-        // let voxel_color_transfer_recordable =
-        // Arc::new(VoxelColorTransferRecordable::new(self));
-        // self.register(voxel_color_transfer_recordable.clone());
-
         let global_bind_group = Arc::new(self.create_bind_group(&wgpu::BindGroupDescriptor {
             label:   Some("Global Info Bind Group"),
             layout:  &self.global_bind_group_layout,
@@ -445,7 +438,7 @@ impl Renderer
                 config.width = new_size.width;
                 config.height = new_size.height;
 
-                surface.configure(&self.device, &config);
+                surface.configure(&self.device, config);
 
                 self.screen_sized_textures
                     .access()
@@ -540,7 +533,7 @@ impl Renderer
                 .map(|(idx, f)| {
                     let (id, f) = f();
 
-                    renderpass_order_map.insert(id.clone(), idx);
+                    renderpass_order_map.insert(id, idx);
 
                     (id, (f, Vec::new()))
                 })
@@ -717,9 +710,8 @@ impl Renderer
                     label: Some(&render_encoder_name)
                 });
 
-            let mut active_pipeline: Mutex<Option<&GenericPipeline>> = Mutex::new(None);
-            let mut active_bind_groups: Mutex<[Option<wgpu::Id<wgpu::BindGroup>>; 4]> =
-                Mutex::new([None; 4]);
+            let mut active_pipeline: Option<&GenericPipeline> = None;
+            let mut active_bind_groups: [Option<wgpu::Id<wgpu::BindGroup>>; 4] = [None; 4];
 
             for (pass_func, raw_recordables) in final_renderpass_drawcalls.iter()
             {
@@ -736,15 +728,12 @@ impl Renderer
                     &mut encoder,
                     &screen_texture_view,
                     &mut |render_pass: &mut GenericPass| {
-                        let active_pipeline = &mut *active_pipeline.lock().unwrap();
-                        let active_bind_groups = &mut *active_bind_groups.lock().unwrap();
-
                         for (maybe_desired_pipeline, desired_bind_groups, draw_id, recordable) in
                             recordables.iter()
                         {
                             if let Some(desired_pipeline) = maybe_desired_pipeline
                             {
-                                if *active_pipeline != Some(desired_pipeline)
+                                if active_pipeline != Some(desired_pipeline)
                                 {
                                     match (&**desired_pipeline, &mut *render_pass)
                                     {
@@ -753,16 +742,16 @@ impl Renderer
                                             GenericPass::Compute(pass)
                                         ) =>
                                         {
-                                            pass.set_pipeline(&p);
+                                            pass.set_pipeline(p);
                                         }
                                         (GenericPipeline::Render(p), GenericPass::Render(pass)) =>
                                         {
-                                            pass.set_pipeline(&p)
+                                            pass.set_pipeline(p)
                                         }
                                         (_, _) => panic!("Pass Pipeline Invariant Violated!")
                                     }
 
-                                    *active_pipeline = Some(&desired_pipeline);
+                                    active_pipeline = Some(desired_pipeline);
                                 }
                             }
 
@@ -781,11 +770,11 @@ impl Renderer
                                         {
                                             GenericPass::Compute(ref mut p) =>
                                             {
-                                                p.set_bind_group(idx as u32, &new_bind_group, &[])
+                                                p.set_bind_group(idx as u32, new_bind_group, &[])
                                             }
                                             GenericPass::Render(ref mut p) =>
                                             {
-                                                p.set_bind_group(idx as u32, &new_bind_group, &[])
+                                                p.set_bind_group(idx as u32, new_bind_group, &[])
                                             }
                                         }
                                         *active_bind_group_id = Some(new_bind_group.global_id());
@@ -796,8 +785,8 @@ impl Renderer
                             recordable.record(render_pass, *draw_id);
                         }
 
-                        *active_pipeline = None;
-                        *active_bind_groups = [None; 4];
+                        active_pipeline = None;
+                        active_bind_groups = [None; 4];
                     }
                 );
             }
@@ -995,44 +984,4 @@ impl ShaderMatrices
     {
         self.matrices[idx] = mat;
     }
-}
-
-fn create_sized_image(
-    device: &wgpu::Device,
-    extent: wgpu::Extent3d,
-    format: wgpu::TextureFormat,
-    usage: wgpu::TextureUsages,
-    name: &str
-) -> (wgpu::Texture, wgpu::TextureView, wgpu::Sampler)
-{
-    let desc = wgpu::TextureDescriptor {
-        label: Some(name),
-        size: extent,
-        mip_level_count: 1,
-        sample_count: 1,
-        dimension: wgpu::TextureDimension::D2,
-        format,
-        usage,
-        view_formats: &[]
-    };
-    let texture = device.create_texture(&desc);
-
-    let view = texture.create_view(&wgpu::TextureViewDescriptor {
-        label: Some(name),
-        ..Default::default()
-    });
-
-    let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-        address_mode_u: wgpu::AddressMode::ClampToEdge,
-        address_mode_v: wgpu::AddressMode::ClampToEdge,
-        address_mode_w: wgpu::AddressMode::ClampToEdge,
-        mag_filter: wgpu::FilterMode::Linear,
-        min_filter: wgpu::FilterMode::Linear,
-        mipmap_filter: wgpu::FilterMode::Nearest,
-        lod_min_clamp: 0.0,
-        lod_max_clamp: 100.0,
-        ..Default::default()
-    });
-
-    (texture, view, sampler)
 }

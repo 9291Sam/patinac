@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 use std::fmt::Debug;
 use std::sync::atomic::Ordering;
-use std::sync::{Arc, Mutex, MutexGuard, RwLock, RwLockReadGuard};
+use std::sync::Arc;
 
 use util::AtomicU32U32;
 
@@ -58,7 +58,7 @@ impl ScreenSizedTexture
 
     pub(crate) fn resize_to_screen_size(&self, renderer: &super::Renderer)
     {
-        let (t, v, size) = self.descriptor.create_texture(&renderer);
+        let (t, v, size) = self.descriptor.create_texture(renderer);
 
         self.texture.update(Arc::new(t));
         self.view.update(Arc::new(v));
