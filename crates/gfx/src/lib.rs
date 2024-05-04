@@ -1,6 +1,7 @@
 #![feature(lazy_cell)]
 #![feature(hasher_prefixfree_extras)]
 #![feature(map_try_insert)]
+#![allow(clippy::type_complexity)]
 
 mod input_manager;
 mod linalg;

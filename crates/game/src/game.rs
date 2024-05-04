@@ -1,12 +1,10 @@
-use std::borrow::Cow;
-use std::collections::HashSet;
 use std::fmt::Debug;
 use std::panic::{RefUnwindSafe, UnwindSafe};
 use std::sync::atomic::Ordering::*;
 use std::sync::atomic::{AtomicU32, AtomicU64};
 use std::sync::{Arc, Mutex, Weak};
 
-use gfx::{glm, wgpu, ScreenSizedTextureDescriptor};
+use gfx::glm;
 
 use crate::renderpasses::RenderPassManager;
 use crate::{Entity, SelfManagedEntity};

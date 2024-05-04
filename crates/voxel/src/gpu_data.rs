@@ -299,7 +299,7 @@ impl VoxelChunkDataManager
                     entries: BINDINGS
                 });
 
-        assert!(VOXEL_BRICK_EDGE_LENGTH == 8);
+        const { assert!(VOXEL_BRICK_EDGE_LENGTH == 8) };
 
         let number_of_starting_bricks = BRICK_MAP_EDGE_SIZE * 2;
 
