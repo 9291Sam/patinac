@@ -85,9 +85,12 @@ impl ScreenSizedTextureDescriptor
     ) -> (wgpu::Texture, wgpu::TextureView, (u32, u32))
     {
         let size = renderer.get_framebuffer_size();
+        let uuid = util::Uuid::new();
+
+        let texture_name = format!("{} {uuid}", self.label);
 
         let texture = renderer.create_texture(&wgpu::TextureDescriptor {
-            label:           Some(&self.label),
+            label:           Some(&texture_name),
             size:            wgpu::Extent3d {
                 width:                 size.x,
                 height:                size.y,
@@ -101,8 +104,10 @@ impl ScreenSizedTextureDescriptor
             view_formats:    &[self.format]
         });
 
+        let view_name = format!("{} {} View", self.label, uuid);
+
         let view = texture.create_view(&wgpu::TextureViewDescriptor {
-            label: Some(&self.label),
+            label: Some(&view_name),
             ..Default::default()
         });
 

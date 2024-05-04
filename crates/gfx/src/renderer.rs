@@ -410,18 +410,6 @@ impl Renderer
         // Arc::new(VoxelColorTransferRecordable::new(self));
         // self.register(voxel_color_transfer_recordable.clone());
 
-        let voxel_discovery_image = RefCell::new(create_sized_image(
-            &self.device,
-            wgpu::Extent3d {
-                width:                 config.width,
-                height:                config.height,
-                depth_or_array_layers: 1
-            },
-            wgpu::TextureFormat::Rg32Uint,
-            wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
-            "Voxel Discovery Image"
-        ));
-
         let global_bind_group = Arc::new(self.create_bind_group(&wgpu::BindGroupDescriptor {
             label:   Some("Global Info Bind Group"),
             layout:  &self.global_bind_group_layout,
@@ -485,18 +473,6 @@ impl Renderer
                     Renderer::DEPTH_FORMAT,
                     wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
                     "Depth Buffer"
-                );
-
-                *voxel_discovery_image.borrow_mut() = create_sized_image(
-                    &self.device,
-                    wgpu::Extent3d {
-                        width:                 config.width,
-                        height:                config.height,
-                        depth_or_array_layers: 1
-                    },
-                    wgpu::TextureFormat::Rg32Uint,
-                    wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
-                    "Voxel Discovery Image"
                 );
 
                 // *global_discovery_bind_group.borrow_mut() =
@@ -731,15 +707,15 @@ impl Renderer
                     })
             }
 
-            log::trace!(
-                "Starting Recording of {} passes",
-                final_renderpass_drawcalls.len()
-            );
+            // log::trace!(
+            //     "Starting Recording of {} passes",
+            //     final_renderpass_drawcalls.len()
+            // );
 
-            for (idx, (_, calls)) in final_renderpass_drawcalls.iter().enumerate()
-            {
-                log::trace!("Pass #{idx} with #{} calls", calls.len());
-            }
+            // for (idx, (_, calls)) in final_renderpass_drawcalls.iter().enumerate()
+            // {
+            //     log::trace!("Pass #{idx} with #{} calls", calls.len());
+            // }
 
             let global_info = ShaderGlobalInfo {
                 camera_pos:      camera.get_position(),
