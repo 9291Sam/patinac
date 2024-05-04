@@ -58,6 +58,16 @@ pub const unsafe fn extend_lifetime<'a, 'b, T>(t: &'a T) -> &'b T
 //     seed
 // }
 
+#[cold]
+#[inline(never)]
+pub unsafe fn asan_test() -> i32
+{
+    let xs = [0, 1, 2, 3];
+    std::hint::black_box(unsafe {
+        *std::hint::black_box(xs.as_ptr()).offset(std::hint::black_box(4))
+    })
+}
+
 #[derive(Clone, Copy)]
 pub struct SendSyncMutPtr<T>(pub *mut T);
 

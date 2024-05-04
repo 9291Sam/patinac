@@ -1,5 +1,5 @@
 # [build]
-# rustflags = ["-Zsanitizer=address"]
+# rustflags = ["-Zsanitizer=thread"]
 # target = ["aarch64-apple-darwin"]
 
 # [unstable]
