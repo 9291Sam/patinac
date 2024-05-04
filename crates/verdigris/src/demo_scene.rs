@@ -91,10 +91,27 @@ fn create_chunk(
     scale: f64
 ) -> Arc<RasterChunk>
 {
-    let noise_sampler = |x: i32, z: i32| -> f64 {
+    let raw_noise_sampler = |x: i32, z: i32| -> f64 {
         let h = 84.0f64;
 
         noise.get([(x as f64) / 256.0, (z as f64) / 256.0]) * h + h
+    };
+
+    let mut noise_cache: Box<[[f64; 512]; 512]> = unsafe { Box::new_zeroed().assume_init() };
+
+    for x in 0..512
+    {
+        for z in 0..512
+        {
+            let world_x = x as f64 + offset.x;
+            let world_z = z as f64 + offset.z;
+
+            noise_cache[x][z] = raw_noise_sampler(world_x as i32, world_z as i32);
+        }
+    }
+
+    let noise_sampler = |world_x: i32, world_z: i32| -> f64 {
+        noise_cache[(world_x as f64 - offset.x) as usize][(world_z as f64 - offset.z) as usize]
     };
 
     let occupied = |x: i32, y: i32, z: i32| (y <= noise_sampler(x, z) as i32);
@@ -111,9 +128,7 @@ fn create_chunk(
             let world_x = (scale * local_x as f64 + offset.x) as i32;
             let world_z = (scale * local_z as f64 + offset.z) as i32;
 
-            let noise_h_world = (#[cold]
-            #[inline(never)]
-            || noise_sampler(world_x, world_z))();
+            let noise_h_world = noise_sampler(world_x, world_z);
             let local_h = (noise_h_world / scale) as i32;
 
             ((-4 + local_h)..(local_h + 4)).flat_map(move |sample_h_local| {
@@ -124,14 +139,11 @@ fn create_chunk(
                 }
                 else
                 {
-                    (#[cold]
-                    #[inline(never)]
-                    || rand::thread_rng().gen_range(1..=12))()
+                    rand::thread_rng().gen_range(1..=12)
                 };
 
                 VoxelFaceDirection::iterate().filter_map(move |d| {
-                    if !#[cold]
-                    occupied(world_x, sample_h_world as i32, world_z)
+                    if !occupied(world_x, sample_h_world as i32, world_z)
                     {
                         return None;
                     }
