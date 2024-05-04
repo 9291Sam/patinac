@@ -54,18 +54,22 @@ impl VoxelWorldDataManager
 
         let (window, updater) = util::Window::new(color_transfer_bind_group.clone());
 
-        Arc::new(VoxelWorldDataManager {
+        let this = Arc::new(VoxelWorldDataManager {
             game:                              game.clone(),
             uuid:                              util::Uuid::new(),
             resize_pinger:                     game.get_renderer().get_resize_pinger(),
             color_transfer_bind_group_windows: (window.clone(), updater),
             color_transfer_bind_group_layout:  transfer_layout.clone(),
             color_transfer_recordable:         VoxelColorTransferRecordable::new(
-                game,
+                game.clone(),
                 transfer_layout,
                 window
             )
-        })
+        });
+
+        game.register(this.clone());
+
+        this
     }
 
     fn generate_discovery_bind_group(

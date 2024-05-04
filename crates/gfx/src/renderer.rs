@@ -370,18 +370,6 @@ impl Renderer
 
         let frame_counter: AtomicU64 = AtomicU64::new(0);
 
-        let depth_buffer = RefCell::new(create_sized_image(
-            &self.device,
-            wgpu::Extent3d {
-                width:                 config.width,
-                height:                config.height,
-                depth_or_array_layers: 1
-            },
-            Renderer::DEPTH_FORMAT,
-            wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
-            "Depth Buffer"
-        ));
-
         let max_shader_matrices =
             self.limits.max_uniform_buffer_binding_size as usize / std::mem::size_of::<glm::Mat4>();
 
@@ -462,30 +450,6 @@ impl Renderer
                 config.height = new_size.height;
 
                 surface.configure(&self.device, &config);
-
-                *depth_buffer.borrow_mut() = create_sized_image(
-                    &self.device,
-                    wgpu::Extent3d {
-                        width:                 config.width,
-                        height:                config.height,
-                        depth_or_array_layers: 1
-                    },
-                    Renderer::DEPTH_FORMAT,
-                    wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
-                    "Depth Buffer"
-                );
-
-                // *global_discovery_bind_group.borrow_mut() =
-                //     Arc::new(self.create_bind_group(&wgpu::BindGroupDescriptor {
-                //         label:   Some("Global Discovery Bind Group"),
-                //         layout:  &self.global_discovery_layout,
-                //         entries: &[wgpu::BindGroupEntry {
-                //             binding:  0,
-                //             resource: wgpu::BindingResource::TextureView(
-                //                 &voxel_discovery_image.borrow().1
-                //             )
-                //         }]
-                //     }));
 
                 self.screen_sized_textures
                     .access()

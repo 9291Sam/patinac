@@ -61,6 +61,7 @@ impl ScreenSizedTexture
     pub(crate) fn resize_to_screen_size(&self)
     {
         let (t, v, size) = self.descriptor.create_texture(&self.renderer);
+
         self.texture.update(Arc::new(t));
         self.view.update(Arc::new(v));
 
