@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 use std::fmt::Debug;
+use std::num::NonZero;
 use std::sync::Arc;
 
 use gfx::wgpu;
@@ -46,23 +47,88 @@ impl VoxelWorldDataManager
         let transfer_layout = game.get_renderer().render_cache.cache_bind_group_layout(
             wgpu::BindGroupLayoutDescriptor {
                 label:   Some("Global Discovery Layout"),
-                entries: &[wgpu::BindGroupLayoutEntry {
-                    binding:    0,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty:         wgpu::BindingType::Texture {
-                        sample_type:    wgpu::TextureSampleType::Uint,
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        multisampled:   false
-                    },
-                    count:      None
-                }]
+                entries: const {
+                    &[
+                        wgpu::BindGroupLayoutEntry {
+                            binding:    0,
+                            visibility: wgpu::ShaderStages::FRAGMENT
+                                .union(wgpu::ShaderStages::COMPUTE),
+                            ty:         wgpu::BindingType::Texture {
+                                sample_type:    wgpu::TextureSampleType::Uint,
+                                view_dimension: wgpu::TextureViewDimension::D2,
+                                multisampled:   false
+                            },
+                            count:      None
+                        },
+                        wgpu::BindGroupLayoutEntry {
+                            binding:    1,
+                            visibility: wgpu::ShaderStages::COMPUTE,
+                            ty:         wgpu::BindingType::Buffer {
+                                ty:                 wgpu::BufferBindingType::Storage {
+                                    read_only: false
+                                },
+                                has_dynamic_offset: false,
+                                min_binding_size:   NonZero::new(12)
+                            },
+                            count:      None
+                        },
+                        wgpu::BindGroupLayoutEntry {
+                            binding:    2,
+                            visibility: wgpu::ShaderStages::COMPUTE,
+                            ty:         wgpu::BindingType::Buffer {
+                                ty:                 wgpu::BufferBindingType::Storage {
+                                    read_only: true
+                                },
+                                has_dynamic_offset: false,
+                                min_binding_size:   None
+                            },
+                            count:      None
+                        },
+                        wgpu::BindGroupLayoutEntry {
+                            binding:    3,
+                            visibility: wgpu::ShaderStages::COMPUTE,
+                            ty:         wgpu::BindingType::Buffer {
+                                ty:                 wgpu::BufferBindingType::Storage {
+                                    read_only: false
+                                },
+                                has_dynamic_offset: false,
+                                min_binding_size:   None
+                            },
+                            count:      None
+                        },
+                        wgpu::BindGroupLayoutEntry {
+                            binding:    4,
+                            visibility: wgpu::ShaderStages::COMPUTE,
+                            ty:         wgpu::BindingType::Buffer {
+                                ty:                 wgpu::BufferBindingType::Storage {
+                                    read_only: false
+                                },
+                                has_dynamic_offset: false,
+                                min_binding_size:   None
+                            },
+                            count:      None
+                        },
+                        wgpu::BindGroupLayoutEntry {
+                            binding:    5,
+                            visibility: wgpu::ShaderStages::COMPUTE,
+                            ty:         wgpu::BindingType::Buffer {
+                                ty:                 wgpu::BufferBindingType::Storage {
+                                    read_only: false
+                                },
+                                has_dynamic_offset: false,
+                                min_binding_size:   None
+                            },
+                            count:      None
+                        }
+                    ]
+                }
             }
         );
 
-        let color_transfer_bind_group =
-            Self::generate_discovery_bind_group(&game, &transfer_layout);
+        let voxel_lighting_bind_group =
+            Self::generate_voxel_lighting_bind_group(&game, &transfer_layout);
 
-        let (window, updater) = util::Window::new(color_transfer_bind_group.clone());
+        let (window, updater) = util::Window::new(voxel_lighting_bind_group);
 
         let this = Arc::new(VoxelWorldDataManager {
             game:                             game.clone(),
@@ -87,16 +153,16 @@ impl VoxelWorldDataManager
         this
     }
 
-    fn generate_discovery_bind_group(
+    fn generate_voxel_lighting_bind_group(
         game: &game::Game,
-        color_transfer_bind_group_layout: &wgpu::BindGroupLayout
+        voxel_lighting_bind_group_layout: &wgpu::BindGroupLayout
     ) -> Arc<wgpu::BindGroup>
     {
         Arc::new(
             game.get_renderer()
                 .create_bind_group(&wgpu::BindGroupDescriptor {
-                    label:   Some("Global Discovery Bind Group"),
-                    layout:  color_transfer_bind_group_layout,
+                    label:   Some("Voxel Lighting Bind Group"),
+                    layout:  voxel_lighting_bind_group_layout,
                     entries: &[wgpu::BindGroupEntry {
                         binding:  0,
                         resource: wgpu::BindingResource::TextureView(
@@ -147,7 +213,7 @@ impl game::Entity for VoxelWorldDataManager
         {
             self.voxel_lighting_bind_group
                 .1
-                .update(Self::generate_discovery_bind_group(
+                .update(Self::generate_voxel_lighting_bind_group(
                     game,
                     &self.voxel_lighting_bind_group_layout
                 ))

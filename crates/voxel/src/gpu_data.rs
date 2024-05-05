@@ -262,39 +262,37 @@ impl VoxelChunkDataManager
 
     pub fn new(renderer: Arc<gfx::Renderer>) -> Self
     {
-        static BINDINGS: &[wgpu::BindGroupLayoutEntry] = &[
-            wgpu::BindGroupLayoutEntry {
-                binding:    0,
-                visibility: wgpu::ShaderStages::FRAGMENT,
-                ty:         wgpu::BindingType::Buffer {
-                    ty:                 wgpu::BufferBindingType::Storage {
-                        read_only: true
-                    },
-                    has_dynamic_offset: false,
-                    min_binding_size:   None // MIN_0_BINDING_SIZE
-                },
-                count:      None
-            },
-            wgpu::BindGroupLayoutEntry {
-                binding:    1,
-                visibility: wgpu::ShaderStages::FRAGMENT,
-                ty:         wgpu::BindingType::Buffer {
-                    ty:                 wgpu::BufferBindingType::Storage {
-                        read_only: true
-                    },
-                    has_dynamic_offset: false,
-                    min_binding_size:   None //  MIN_0_BINDING_SIZE
-                },
-                count:      None
-            }
-        ];
-
         let bind_group_layout =
             renderer
                 .render_cache
                 .cache_bind_group_layout(wgpu::BindGroupLayoutDescriptor {
                     label:   Some("Brick Map Chunk BinGroup Layouts"),
-                    entries: BINDINGS
+                    entries: &[
+                        wgpu::BindGroupLayoutEntry {
+                            binding:    0,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty:         wgpu::BindingType::Buffer {
+                                ty:                 wgpu::BufferBindingType::Storage {
+                                    read_only: true
+                                },
+                                has_dynamic_offset: false,
+                                min_binding_size:   None
+                            },
+                            count:      None
+                        },
+                        wgpu::BindGroupLayoutEntry {
+                            binding:    1,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty:         wgpu::BindingType::Buffer {
+                                ty:                 wgpu::BufferBindingType::Storage {
+                                    read_only: true
+                                },
+                                has_dynamic_offset: false,
+                                min_binding_size:   None
+                            },
+                            count:      None
+                        }
+                    ]
                 });
 
         const { assert!(VOXEL_BRICK_EDGE_LENGTH == 8) };
