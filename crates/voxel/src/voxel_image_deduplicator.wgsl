@@ -6,6 +6,7 @@ const SetEmptySentinel: u32 = ~0u;
 
 @group(0) @binding(0) var voxel_discovery_image: texture_2d<u32>;
 @group(0) @binding(1) var<storage, read_write> indirect_rt_workgroups_buffer: array<atomic<u32>, 3>; // should be write only
+// TODO: merge these lengths into their corresponding buffers
 @group(0) @binding(2) var<storage, read> storage_set_len: atomic<u32>;
 @group(0) @binding(3) var<storage, read_write> storage_set: array<atomic<u32>>; 
 @group(0) @binding(4) var<storage, read_write> unique_len: atomic<u32>;

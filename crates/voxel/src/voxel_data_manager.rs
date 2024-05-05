@@ -17,6 +17,7 @@ pub struct VoxelWorldDataManager
     uuid:          util::Uuid,
     resize_pinger: util::PingReceiver,
 
+    voxel_lighting_buffers_critical_section: VoxelLightingBuffersCriticalSection,
     // storage bufferss for data
     // WHACK ASS IDEA:
     // in the sets, store the voxel's index in the global brick map set
@@ -25,7 +26,7 @@ pub struct VoxelWorldDataManager
         util::Window<Arc<wgpu::BindGroup>>,
         util::WindowUpdater<Arc<wgpu::BindGroup>>
     ),
-    voxel_lighting_bind_group_layout: Arc<wgpu::BindGroupLayout>,
+    voxel_lighting_bind_group_layout:        Arc<wgpu::BindGroupLayout>,
 
     // set of chunks
     duplicator_recordable:     Arc<super::VoxelImageDeduplicator>,
@@ -155,7 +156,8 @@ impl VoxelWorldDataManager
 
     fn generate_voxel_lighting_bind_group(
         game: &game::Game,
-        voxel_lighting_bind_group_layout: &wgpu::BindGroupLayout
+        voxel_lighting_bind_group_layout: &wgpu::BindGroupLayout,
+        buffers: &mut VoxelLightingBuffersCriticalSection
     ) -> Arc<wgpu::BindGroup>
     {
         Arc::new(
@@ -219,4 +221,13 @@ impl game::Entity for VoxelWorldDataManager
                 ))
         }
     }
+}
+
+struct VoxelLightingBuffersCriticalSection
+{
+    indirect_rt_workgroups_buffer: wgpu::Buffer,
+    storage_set_len_buffer:        wgpu::Buffer,
+    storage_set_buffer:            wgpu::Buffer,
+    unique_voxel_len_buffer:       wgpu::Buffer,
+    unique_voxel_buffer:           wgpu::Buffer
 }
