@@ -102,32 +102,36 @@ fn WorkgroupSet_insert(key: u32) -> u32
 
     loop
     {
-        let res =
-            atomicCompareExchangeWeak(&workgroup_set[slot], SetEmptySentinel, key);
+        let current_value = atomicLoad(&workgroup_set[slot]);
 
-        if (res.exchanged)
+        if (current_value == key)
         {
-            // unique access, we now are the first one to get here
             return slot;
         }
 
-        if (res.old_value == key)
+        if (current_value == SetEmptySentinel)
         {
-            // already there
-            return slot;
+            // do exchange
+
+            let hopefully_empty = atomicExchange(&workgroup_set[slot], key);
+
+            if (hopefully_empty == SetEmptySentinel)
+            {
+                // Excellent. nothing else touched this in the meantime and we 
+                // have now put our elemnt in.
+                return slot;
+            }
+            else
+            {
+                // Rats... Someone else wrote to the slot in the time it took 
+                // for us to see if it was free
+                // go forward another slot and try again
+            }
         }
 
-        if (res.old_value == 0)
-        {
-            // spurious failure
-            continue;
-        }
-    
-        if (res.old_value != key)
-        {
-            // there's another element there, incremenet the slot and try again
-            slot = (slot + 1) % WORKGROUP_SET_SIZE;
-        }
+        // there's another element there, incremenet the slot and try again
+        slot = (slot + 1) % WORKGROUP_SET_SIZE;
+        
     }
 
     // impossible to happen, but we need it anyway
@@ -140,32 +144,36 @@ fn StorageSet_insert(key: u32) -> u32
 
     loop
     {
-        let res =
-            atomicCompareExchangeWeak(&storage_set[slot], SetEmptySentinel, key);
+        let current_value = atomicLoad(&storage_set[slot]);
 
-        if (res.exchanged)
+        if (current_value == key)
         {
-            // unique access, we now are the first one to get here
             return slot;
         }
 
-        if (res.old_value == key)
+        if (current_value == SetEmptySentinel)
         {
-            // already there
-            return slot;
+            // do exchange
+
+            let hopefully_empty = atomicExchange(&storage_set[slot], key);
+
+            if (hopefully_empty == SetEmptySentinel)
+            {
+                // Excellent. nothing else touched this in the meantime and we 
+                // have now put our elemnt in.
+                return slot;
+            }
+            else
+            {
+                // Rats... Someone else wrote to the slot in the time it took 
+                // for us to see if it was free
+                // go forward another slot and try again
+            }
         }
 
-        if (res.old_value == 0)
-        {
-            // spurious failure
-            continue;
-        }
-    
-        if (res.old_value != key)
-        {
-            // there's another element there, incremenet the slot and try again
-            slot = (slot + 1) % storage_set_len;
-        }
+        // there's another element there, incremenet the slot and try again
+        slot = (slot + 1) % storage_set_len;
+        
     }
 
     // impossible to happen, but we need it anyway
