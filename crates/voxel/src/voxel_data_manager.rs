@@ -1,9 +1,11 @@
 use std::borrow::Cow;
 use std::fmt::Debug;
 use std::num::NonZero;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
-use gfx::wgpu;
+use bytemuck::bytes_of;
+use gfx::wgpu::util::{BufferInitDescriptor, DeviceExt};
+use gfx::{glm, wgpu};
 
 use crate::{VoxelColorTransferRecordable, VoxelImageDeduplicator};
 
@@ -17,8 +19,8 @@ pub struct VoxelWorldDataManager
     uuid:          util::Uuid,
     resize_pinger: util::PingReceiver,
 
-    voxel_lighting_buffers_critical_section: VoxelLightingBuffersCriticalSection,
-    // storage bufferss for data
+    voxel_lighting_buffers_critical_section: Mutex<Option<VoxelLightingBuffersCriticalSection>>,
+    // storage buffers for data
     // WHACK ASS IDEA:
     // in the sets, store the voxel's index in the global brick map set
     // this means that you can have 2^32 voxel on screen at once
@@ -126,30 +128,31 @@ impl VoxelWorldDataManager
             }
         );
 
-        let voxel_lighting_bind_group =
-            Self::generate_voxel_lighting_bind_group(&game, &transfer_layout);
+        let (voxel_lighting_bind_group, buffers) =
+            Self::generate_voxel_lighting_bind_group(&game, &transfer_layout, None);
 
         let (window, updater) = util::Window::new(voxel_lighting_bind_group);
 
         let this = Arc::new(VoxelWorldDataManager {
-            game:                             game.clone(),
-            uuid:                             util::Uuid::new(),
-            resize_pinger:                    game.get_renderer().get_resize_pinger(),
-            voxel_lighting_bind_group:        (window.clone(), updater),
+            game: game.clone(),
+            uuid: util::Uuid::new(),
+            resize_pinger: game.get_renderer().get_resize_pinger(),
+            voxel_lighting_buffers_critical_section: Mutex::new(Some(buffers)),
+            voxel_lighting_bind_group: (window.clone(), updater),
             voxel_lighting_bind_group_layout: transfer_layout.clone(),
-            duplicator_recordable:            VoxelImageDeduplicator::new(
+            duplicator_recordable: VoxelImageDeduplicator::new(
                 game.clone(),
                 transfer_layout.clone(),
                 window.clone()
             ),
-            color_transfer_recordable:        VoxelColorTransferRecordable::new(
+            color_transfer_recordable: VoxelColorTransferRecordable::new(
                 game.clone(),
                 transfer_layout,
                 window
             )
         });
 
-        game.register(this.clone());
+        game.get_renderer().register(this.clone());
 
         this
     }
@@ -157,49 +160,144 @@ impl VoxelWorldDataManager
     fn generate_voxel_lighting_bind_group(
         game: &game::Game,
         voxel_lighting_bind_group_layout: &wgpu::BindGroupLayout,
-        buffers: &mut VoxelLightingBuffersCriticalSection
-    ) -> Arc<wgpu::BindGroup>
+        maybe_old_buffers: Option<VoxelLightingBuffersCriticalSection>
+    ) -> (Arc<wgpu::BindGroup>, VoxelLightingBuffersCriticalSection)
     {
-        Arc::new(
-            game.get_renderer()
-                .create_bind_group(&wgpu::BindGroupDescriptor {
-                    label:   Some("Voxel Lighting Bind Group"),
-                    layout:  voxel_lighting_bind_group_layout,
-                    entries: &[wgpu::BindGroupEntry {
-                        binding:  0,
-                        resource: wgpu::BindingResource::TextureView(
-                            &game
-                                .get_renderpass_manager()
-                                .get_voxel_discovery_texture()
-                                .get_view()
-                        )
-                    }]
+        let renderer = game.get_renderer().clone();
+        let size = renderer.get_framebuffer_size();
+
+        let elements: u32 = size.x * size.y;
+
+        let buffers = if let Some(old_buffers) = maybe_old_buffers
+        {
+            let VoxelLightingBuffersCriticalSection {
+                indirect_rt_workgroups_buffer,
+                storage_set_len_buffer,
+                storage_set_buffer: _,
+                unique_voxel_len_buffer,
+                unique_voxel_buffer: _
+            } = old_buffers;
+
+            VoxelLightingBuffersCriticalSection {
+                indirect_rt_workgroups_buffer,
+                storage_set_len_buffer,
+                storage_set_buffer: renderer.create_buffer(&wgpu::BufferDescriptor {
+                    label:              Some("Storage Set Buffer"),
+                    size:               elements as u64 * std::mem::size_of::<u32>() as u64,
+                    usage:              wgpu::BufferUsages::STORAGE,
+                    mapped_at_creation: false
+                }),
+                unique_voxel_len_buffer,
+                unique_voxel_buffer: renderer.create_buffer(&wgpu::BufferDescriptor {
+                    label:              Some("Unique Voxel Buffer"),
+                    size:               elements as u64 * std::mem::size_of::<u32>() as u64,
+                    usage:              wgpu::BufferUsages::STORAGE,
+                    mapped_at_creation: false
                 })
+            }
+        }
+        else
+        {
+            VoxelLightingBuffersCriticalSection {
+                indirect_rt_workgroups_buffer: renderer.create_buffer(&wgpu::BufferDescriptor {
+                    label:              Some("Indirect RT Workgroups Buffer"),
+                    size:               std::mem::size_of::<glm::U32Vec3>() as u64,
+                    usage:              wgpu::BufferUsages::STORAGE
+                        | wgpu::BufferUsages::INDIRECT
+                        | wgpu::BufferUsages::COPY_DST,
+                    mapped_at_creation: false
+                }),
+                storage_set_len_buffer:        renderer.create_buffer(&wgpu::BufferDescriptor {
+                    label:              Some("Set Storage Len Buffer"),
+                    size:               std::mem::size_of::<u32>() as u64,
+                    usage:              wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+                    mapped_at_creation: false
+                }),
+                storage_set_buffer:            renderer.create_buffer(&wgpu::BufferDescriptor {
+                    label:              Some("Storage Set Buffer"),
+                    size:               elements as u64 * std::mem::size_of::<u32>() as u64,
+                    usage:              wgpu::BufferUsages::STORAGE,
+                    mapped_at_creation: false
+                }),
+                unique_voxel_len_buffer:       renderer.create_buffer(&wgpu::BufferDescriptor {
+                    label:              Some("Unique Voxel Len Buffer"),
+                    size:               std::mem::size_of::<u32>() as u64,
+                    usage:              wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+                    mapped_at_creation: false
+                }),
+                unique_voxel_buffer:           renderer.create_buffer(&wgpu::BufferDescriptor {
+                    label:              Some("Unique Voxel Buffer"),
+                    size:               elements as u64 * std::mem::size_of::<u32>() as u64,
+                    usage:              wgpu::BufferUsages::STORAGE,
+                    mapped_at_creation: false
+                })
+            }
+        };
+
+        // write storage_set_len
+        renderer
+            .queue
+            .write_buffer(&buffers.storage_set_len_buffer, 0, bytes_of(&elements));
+
+        (
+            Arc::new(
+                game.get_renderer()
+                    .create_bind_group(&wgpu::BindGroupDescriptor {
+                        label:   Some("Voxel Lighting Bind Group"),
+                        layout:  voxel_lighting_bind_group_layout,
+                        entries: &[
+                            wgpu::BindGroupEntry {
+                                binding:  0,
+                                resource: wgpu::BindingResource::TextureView(
+                                    &game
+                                        .get_renderpass_manager()
+                                        .get_voxel_discovery_texture()
+                                        .get_view()
+                                )
+                            },
+                            wgpu::BindGroupEntry {
+                                binding:  1,
+                                resource: wgpu::BindingResource::Buffer(
+                                    buffers
+                                        .indirect_rt_workgroups_buffer
+                                        .as_entire_buffer_binding()
+                                )
+                            },
+                            wgpu::BindGroupEntry {
+                                binding:  2,
+                                resource: wgpu::BindingResource::Buffer(
+                                    buffers.storage_set_len_buffer.as_entire_buffer_binding()
+                                )
+                            },
+                            wgpu::BindGroupEntry {
+                                binding:  3,
+                                resource: wgpu::BindingResource::Buffer(
+                                    buffers.storage_set_buffer.as_entire_buffer_binding()
+                                )
+                            },
+                            wgpu::BindGroupEntry {
+                                binding:  4,
+                                resource: wgpu::BindingResource::Buffer(
+                                    buffers.unique_voxel_len_buffer.as_entire_buffer_binding()
+                                )
+                            },
+                            wgpu::BindGroupEntry {
+                                binding:  5,
+                                resource: wgpu::BindingResource::Buffer(
+                                    buffers.unique_voxel_buffer.as_entire_buffer_binding()
+                                )
+                            }
+                        ]
+                    })
+            ),
+            buffers
         )
     }
 }
 
-impl game::EntityCastDepot for VoxelWorldDataManager
+impl gfx::Recordable for VoxelWorldDataManager
 {
-    fn as_entity(&self) -> Option<&dyn game::Entity>
-    {
-        Some(self)
-    }
-
-    fn as_positionable(&self) -> Option<&dyn game::Positionable>
-    {
-        None
-    }
-
-    fn as_transformable(&self) -> Option<&dyn game::Transformable>
-    {
-        None
-    }
-}
-
-impl game::Entity for VoxelWorldDataManager
-{
-    fn get_name(&self) -> std::borrow::Cow<'_, str>
+    fn get_name(&self) -> Cow<'_, str>
     {
         Cow::Borrowed("VoxelWorldDataManager")
     }
@@ -209,18 +307,47 @@ impl game::Entity for VoxelWorldDataManager
         self.uuid
     }
 
-    fn tick(&self, game: &game::Game, _: game::TickTag)
+    fn pre_record_update(
+        &self,
+        renderer: &gfx::Renderer,
+        _: &gfx::Camera,
+        _: &Arc<wgpu::BindGroup>
+    ) -> gfx::RecordInfo
     {
+        let mut buffers = self.voxel_lighting_buffers_critical_section.lock().unwrap();
+
         if self.resize_pinger.recv_all()
         {
-            self.voxel_lighting_bind_group
-                .1
-                .update(Self::generate_voxel_lighting_bind_group(
-                    game,
-                    &self.voxel_lighting_bind_group_layout
-                ))
+            let (new_group, new_buffers) = Self::generate_voxel_lighting_bind_group(
+                &self.game,
+                &self.voxel_lighting_bind_group_layout,
+                buffers.take()
+            );
+
+            self.voxel_lighting_bind_group.1.update(new_group);
+
+            *buffers = Some(new_buffers);
         }
+
+        if let Some(buffers) = &mut *buffers
+        {
+            renderer
+                .queue
+                .write_buffer(&buffers.indirect_rt_workgroups_buffer, 0, &[0; 12]);
+
+            renderer
+                .queue
+                .write_buffer(&buffers.unique_voxel_len_buffer, 0, &[0; 4]);
+        }
+        else
+        {
+            unreachable!()
+        }
+
+        gfx::RecordInfo::NoRecord {}
     }
+
+    fn record<'s>(&'s self, _: &mut gfx::GenericPass<'s>, _: Option<gfx::DrawId>) {}
 }
 
 struct VoxelLightingBuffersCriticalSection
