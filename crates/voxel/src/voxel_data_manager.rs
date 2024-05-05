@@ -6,12 +6,20 @@ use gfx::wgpu;
 
 use crate::VoxelColorTransferRecordable;
 
+// Stages:
+// VoxelDiscovery            | rendering all chunks
+// PostVoxelDiscoveryCompute | deduplication + rt
+// VoxelColorTransfer        | recoalesce
 pub struct VoxelWorldDataManager
 {
     game:          Arc<game::Game>,
     uuid:          util::Uuid,
     resize_pinger: util::PingReceiver,
 
+    // storage bufferss for data
+    // WHACK ASS IDEA:
+    // in the sets, store the voxel's index in the global brick map set
+    // this means that you can have 2^32 voxel on screen at once
     color_transfer_bind_group_windows: (
         util::Window<Arc<wgpu::BindGroup>>,
         util::WindowUpdater<Arc<wgpu::BindGroup>>

@@ -1246,12 +1246,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "nonmax"
-version = "0.5.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "610a5acd306ec67f907abe5567859a3c693fb9886eb1f012ab8f2a47bef3db51"
-
-[[package]]
 name = "nu-ansi-term"
 version = "0.46.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1361,16 +1355,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "offset-allocator"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eaeb523b4a8351388ea6962871a99929b52568899658cf8c2d46a5a643070577"
-dependencies = [
- "log",
- "nonmax",
-]
-
-[[package]]
 name = "once_cell"
 version = "1.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1442,11 +1426,11 @@ checksum = "de3145af08024dea9fa9914f381a17b8fc6034dfb00f3a84013f7ff43f29ed4c"
 name = "patinac"
 version = "0.0.0-0"
 dependencies = [
+ "dashmap",
  "game",
  "gfx",
  "gui",
  "log",
- "offset-allocator",
  "oneshot",
  "util",
  "verdigris",

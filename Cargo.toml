@@ -21,7 +21,7 @@ verdigris = { workspace = true }
 gui = { workspace = true }
 log = { workspace = true }
 oneshot = { workspace = true }
-offset-allocator = "0.1.0"
+dashmap = { workspace = true }
 
 [workspace.dependencies]
 voxel = { path = "crates/voxel" }

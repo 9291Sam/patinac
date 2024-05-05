@@ -9,6 +9,7 @@ mod gpu_data;
 mod raster_chunk;
 mod voxel_color_transfer;
 mod voxel_data_manager;
+mod voxel_image_deduplicator;
 
 pub use brick_map_chunk::*;
 pub use gpu_data::*;
