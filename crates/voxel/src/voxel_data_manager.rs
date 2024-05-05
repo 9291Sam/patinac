@@ -4,7 +4,7 @@ use std::num::NonZero;
 use std::sync::{Arc, Mutex};
 
 use bytemuck::bytes_of;
-use gfx::wgpu::util::{BufferInitDescriptor, DeviceExt};
+use gfx::wgpu::util::{BufferInitDescriptor, DeviceExt, DownloadBuffer};
 use gfx::{glm, wgpu};
 
 use crate::{VoxelColorTransferRecordable, VoxelImageDeduplicator};
@@ -188,10 +188,13 @@ impl VoxelWorldDataManager
                     mapped_at_creation: false
                 }),
                 unique_voxel_len_buffer,
+                // TODO: remove copy_src
                 unique_voxel_buffer: renderer.create_buffer(&wgpu::BufferDescriptor {
                     label:              Some("Unique Voxel Buffer"),
                     size:               elements as u64 * std::mem::size_of::<u32>() as u64,
-                    usage:              wgpu::BufferUsages::STORAGE,
+                    usage:              wgpu::BufferUsages::STORAGE
+                        | wgpu::BufferUsages::COPY_SRC
+                        | wgpu::BufferUsages::COPY_DST,
                     mapped_at_creation: false
                 })
             }
@@ -204,7 +207,8 @@ impl VoxelWorldDataManager
                     size:               std::mem::size_of::<glm::U32Vec3>() as u64,
                     usage:              wgpu::BufferUsages::STORAGE
                         | wgpu::BufferUsages::INDIRECT
-                        | wgpu::BufferUsages::COPY_DST,
+                        | wgpu::BufferUsages::COPY_DST
+                        | wgpu::BufferUsages::COPY_SRC,
                     mapped_at_creation: false
                 }),
                 storage_set_len_buffer:        renderer.create_buffer(&wgpu::BufferDescriptor {
@@ -228,7 +232,9 @@ impl VoxelWorldDataManager
                 unique_voxel_buffer:           renderer.create_buffer(&wgpu::BufferDescriptor {
                     label:              Some("Unique Voxel Buffer"),
                     size:               elements as u64 * std::mem::size_of::<u32>() as u64,
-                    usage:              wgpu::BufferUsages::STORAGE,
+                    usage:              wgpu::BufferUsages::STORAGE
+                        | wgpu::BufferUsages::COPY_SRC
+                        | wgpu::BufferUsages::COPY_DST,
                     mapped_at_creation: false
                 })
             }
@@ -331,6 +337,18 @@ impl gfx::Recordable for VoxelWorldDataManager
 
         if let Some(buffers) = &mut *buffers
         {
+            // DownloadBuffer::read_buffer(
+            //     &renderer.device,
+            //     &renderer.queue,
+            //     &buffers.indirect_rt_workgroups_buffer.slice(..),
+            //     |res| {
+            //         let data: &[u8] = &res.unwrap();
+            //         let u32_data: &[u32] = bytemuck::cast_slice(data);
+
+            //         log::trace!("{:?}", &u32_data[0..3]);
+            //     }
+            // );
+
             renderer
                 .queue
                 .write_buffer(&buffers.indirect_rt_workgroups_buffer, 0, &[0; 12]);

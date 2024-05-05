@@ -22,7 +22,7 @@ impl VoxelImageDeduplicator
         voxel_lighting_bind_group_window: util::Window<Arc<wgpu::BindGroup>>
     ) -> Arc<Self>
     {
-        Arc::new(VoxelImageDeduplicator {
+        let this = Arc::new(VoxelImageDeduplicator {
             game:                      game.clone(),
             uuid:                      util::Uuid::new(),
             pipeline:                  game.get_renderer().render_cache.cache_compute_pipeline(
@@ -49,7 +49,11 @@ impl VoxelImageDeduplicator
                 }
             ),
             voxel_lighting_bind_group: voxel_lighting_bind_group_window
-        })
+        });
+
+        game.get_renderer().register(this.clone());
+
+        this
     }
 }
 

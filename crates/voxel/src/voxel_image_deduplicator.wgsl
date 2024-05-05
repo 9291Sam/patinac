@@ -100,7 +100,7 @@ fn WorkgroupSet_insert(key: u32) -> u32
 {
     var slot = u32hash(key) % WORKGROUP_SET_SIZE;
 
-    loop
+    for (var i = 0; i < 36; i += 1)
     {
         let current_value = atomicLoad(&workgroup_set[slot]);
 
@@ -142,7 +142,7 @@ fn StorageSet_insert(key: u32) -> u32
 {
     var slot = u32hash(key) % storage_set_len;
 
-    loop
+    for (var i = 0; i < 36; i += 1)
     {
         let current_value = atomicLoad(&storage_set[slot]);
 
