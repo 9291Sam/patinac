@@ -62,7 +62,7 @@ fn cs_main()
         // into the output buffer
 
         // get a new index
-        let free_idx = atomicAdd(&global_len_counter, 1);
+        let free_idx = atomicAdd(&mostly_unique_len, 1);
 
         // write our data into the buffer
         mostly_unique_voxel_buffer[free_idx] = maybe_data_to_put_in_large;

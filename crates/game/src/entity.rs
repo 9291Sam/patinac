@@ -12,7 +12,7 @@ pub trait Entity: Debug + Send + Sync + EntityCastDepot
 
     fn tick(&self, game: &super::Game, _: TickTag);
 
-    fn eq(&self, other: &dyn Entity) -> bool
+    fn addr_eq(&self, other: &dyn Entity) -> bool
     where
         Self: Sized
     {

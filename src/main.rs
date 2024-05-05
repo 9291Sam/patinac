@@ -102,7 +102,5 @@ fn main()
         log::error!("Renderer was never created!");
     };
 
-    log::info!("Patinac exited");
-
     logger.stop_worker();
 }

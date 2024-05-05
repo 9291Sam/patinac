@@ -100,17 +100,17 @@ impl game::EntityCastDepot for VoxelWorldDataManager
 {
     fn as_entity(&self) -> Option<&dyn game::Entity>
     {
-        todo!()
+        Some(self)
     }
 
     fn as_positionable(&self) -> Option<&dyn game::Positionable>
     {
-        todo!()
+        None
     }
 
     fn as_transformable(&self) -> Option<&dyn game::Transformable>
     {
-        todo!()
+        None
     }
 }
 
