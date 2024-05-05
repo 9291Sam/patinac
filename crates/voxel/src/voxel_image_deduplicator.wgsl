@@ -4,12 +4,12 @@ const WORKGROUP_SET_SIZE: u32 = 32 * 32;
 var<workgroup> workgroup_set: array<atomic<u32>, WORKGROUP_SET_SIZE>; // tune value. min required is 1024 max is 8192
 const SetEmptySentinel: u32 = ~0u;
 
-@group(0) @binding(0) var<handle, read> voxel_discovery_image: texture_2d<u32>;
-@group(0) @binding(1) var<storage, write> indirect_rt_workgroups_buffer: array<atomic<u32>, 3>;
+@group(0) @binding(0) var voxel_discovery_image: texture_2d<u32>;
+@group(0) @binding(1) var<storage, read_write> indirect_rt_workgroups_buffer: array<atomic<u32>, 3>; // should be write only
 @group(0) @binding(2) var<storage, read> storage_set_len: atomic<u32>;
 @group(0) @binding(3) var<storage, read_write> storage_set: array<atomic<u32>>; 
 @group(0) @binding(4) var<storage, read_write> unique_len: atomic<u32>;
-@group(0) @binding(5) var<storage, write> unique_voxel_buffer: array<atomic<u32>>;
+@group(0) @binding(5) var<storage, read_write> unique_voxel_buffer: array<atomic<u32>>; // should be write only
 
 
 /// This shader is dispatched in 32x32 workgroups over a screen sized image
@@ -17,8 +17,15 @@ const SetEmptySentinel: u32 = ~0u;
 /// number of elements as the screen sized image.
 /// storage_set_len is this length.
 @compute @workgroup_size(32, 32)
-fn cs_main()
+fn cs_main(
+    @builtin(local_invocation_index) local_invocation_index: u32,
+    @builtin(global_invocation_id) global_invocation_id: vec3<u32>,
+)
 {
+    let global_invocation_index = 
+        global_invocation_id.x +
+        (global_invocation_id.y * 32);
+        
     // Fill sets with the null sentienl
     workgroup_set[local_invocation_index] = SetEmptySentinel;
     storage_set[global_invocation_index] = SetEmptySentinel;
@@ -26,14 +33,14 @@ fn cs_main()
     // Inserting our workgroup's pixel data into a workgroup local set
     {
         // Load our invocation's voxel data @ pixel
-        var maybe_local_data: vec2<u32> = textureLoad(voxel_discovery_image, global_invocation_id.xy).xy;
+        var maybe_local_data: vec2<u32> = textureLoad(voxel_discovery_image, global_invocation_id.xy, 0).xy;
 
         // Ok, we may have just loaded garbage data if we did, let's pretend
         // it doesn't exist
-        if all(global_invocation_id < textureDimensions(voxel_discovery_image))
+        if all(global_invocation_id.xy < textureDimensions(voxel_discovery_image))
         {
             // load bottom 27 bits (location);
-            let search_store_data = local_data.x & 268435455u; 
+            let search_store_data = maybe_local_data.x & 268435455u; 
 
             WorkgroupSet_insert(search_store_data);
         }
@@ -44,7 +51,7 @@ fn cs_main()
 
     // Transfering our workgroup's unique voxels into the storage set
     {
-        let maybe_workgroup_set_voxel = workgroup_set[local_invocation_index]
+        let maybe_workgroup_set_voxel = workgroup_set[local_invocation_index];
 
         if (maybe_workgroup_set_voxel != SetEmptySentinel)
         {
@@ -68,7 +75,7 @@ fn cs_main()
         {
             // get the index of a guaranteed free value that's adjacent to 
             // all other elements
-            let free_idx = atomicAdd(&unique_len, 1);
+            let free_idx = atomicAdd(&unique_len, 1u);
 
             // write our data;
             unique_voxel_buffer[free_idx] = maybe_storage_set_voxel;
@@ -81,7 +88,7 @@ fn cs_main()
             // efficiently
             if (free_idx % 1024 == 0)
             {
-                atomicAdd(&indirect_buffer[0], 1)
+                atomicAdd(&indirect_rt_workgroups_buffer[0], 1u);
             }
         }
     }
@@ -94,8 +101,8 @@ fn WorkgroupSet_insert(key: u32) -> u32
 
     loop
     {
-        let res: __atomic_compare_exchange_result<u32> =
-            atomicCompareExchangeWeak(&workgroup_map[slot], SetEmptySentinel, key);
+        let res =
+            atomicCompareExchangeWeak(&workgroup_set[slot], SetEmptySentinel, key);
 
         if (res.exchanged)
         {
@@ -121,6 +128,9 @@ fn WorkgroupSet_insert(key: u32) -> u32
             slot = (slot + 1) % WORKGROUP_SET_SIZE;
         }
     }
+
+    // impossible to happen, but we need it anyway
+    return 0u;
 }
 
 fn StorageSet_insert(key: u32) -> u32
@@ -129,7 +139,7 @@ fn StorageSet_insert(key: u32) -> u32
 
     loop
     {
-        let res: __atomic_compare_exchange_result<u32> =
+        let res =
             atomicCompareExchangeWeak(&storage_set[slot], SetEmptySentinel, key);
 
         if (res.exchanged)
@@ -156,6 +166,9 @@ fn StorageSet_insert(key: u32) -> u32
             slot = (slot + 1) % storage_set_len;
         }
     }
+
+    // impossible to happen, but we need it anyway
+    return 0u;
 }
 
 fn u32hash(in_x: u32) -> u32

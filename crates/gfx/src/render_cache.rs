@@ -400,12 +400,12 @@ impl Hash for CacheableRenderPipelineDescriptor
 #[derive(Debug, Clone)]
 pub struct CacheableComputePipelineDescriptor
 {
-    label:                           Cow<'static, str>,
-    layout:                          Option<Arc<wgpu::PipelineLayout>>,
-    module:                          Arc<wgpu::ShaderModule>,
-    entry_point:                     Cow<'static, str>,
-    specialization_constants:        Option<HashMap<String, f64>>,
-    zero_initalize_workgroup_memory: bool
+    pub label:                            Cow<'static, str>,
+    pub layout:                           Option<Arc<wgpu::PipelineLayout>>,
+    pub module:                           Arc<wgpu::ShaderModule>,
+    pub entry_point:                      Cow<'static, str>,
+    pub specialization_constants:         Option<HashMap<String, f64>>,
+    pub zero_initialize_workgroup_memory: bool
 }
 
 impl CacheableComputePipelineDescriptor
@@ -425,7 +425,7 @@ impl CacheableComputePipelineDescriptor
                     .specialization_constants
                     .as_ref()
                     .unwrap_or(&EMPTY_SPECIALIZATION_HASH_MAP),
-                zero_initialize_workgroup_memory: self.zero_initalize_workgroup_memory
+                zero_initialize_workgroup_memory: self.zero_initialize_workgroup_memory
             }
         };
 

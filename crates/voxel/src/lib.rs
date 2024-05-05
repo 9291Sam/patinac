@@ -16,3 +16,4 @@ pub use gpu_data::*;
 pub use raster_chunk::*;
 pub(crate) use voxel_color_transfer::*;
 pub use voxel_data_manager::VoxelWorldDataManager;
+pub(crate) use voxel_image_deduplicator::*;

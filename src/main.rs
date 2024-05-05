@@ -1,8 +1,6 @@
 use std::num::NonZeroUsize;
 use std::sync::{Arc, Mutex};
 
-use dashmap::DashMap;
-
 fn main()
 {
     #[cfg(debug_assertions)]
@@ -31,8 +29,6 @@ fn main()
             .get(),
         "Patinac async threadpool"
     ));
-
-    search_for_zeroes();
 
     let held_renderer: Mutex<Option<Arc<gfx::Renderer>>> = Mutex::new(None);
     let held_game: Mutex<Option<Arc<game::Game>>> = Mutex::new(None);

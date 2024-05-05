@@ -12,18 +12,18 @@ use gfx::{
 #[derive(Debug)]
 pub(crate) struct VoxelColorTransferRecordable
 {
-    game:              Arc<game::Game>,
-    uuid:              util::Uuid,
-    pipeline:          Arc<GenericPipeline>,
-    bind_group_window: util::Window<Arc<wgpu::BindGroup>>
+    game:                      Arc<game::Game>,
+    uuid:                      util::Uuid,
+    pipeline:                  Arc<GenericPipeline>,
+    voxel_lighting_bind_group: util::Window<Arc<wgpu::BindGroup>>
 }
 
 impl VoxelColorTransferRecordable
 {
     pub fn new(
         game: Arc<game::Game>,
-        color_transfer_layout: Arc<wgpu::BindGroupLayout>,
-        bind_group_window: util::Window<Arc<wgpu::BindGroup>>
+        voxel_lighting_bind_group_layout: Arc<wgpu::BindGroupLayout>,
+        voxel_lighting_bind_group: util::Window<Arc<wgpu::BindGroup>>
     ) -> Arc<Self>
     {
         let arc_renderer = game.get_renderer().clone();
@@ -34,7 +34,7 @@ impl VoxelColorTransferRecordable
                 .render_cache
                 .cache_pipeline_layout(gfx::CacheablePipelineLayoutDescriptor {
                     label:                Cow::Borrowed("Voxel Color Transfer Pipeline Layout"),
-                    bind_group_layouts:   vec![color_transfer_layout],
+                    bind_group_layouts:   vec![voxel_lighting_bind_group_layout],
                     push_constant_ranges: vec![]
                 });
 
@@ -86,7 +86,7 @@ impl VoxelColorTransferRecordable
                     multiview: None
                 }
             ),
-            bind_group_window
+            voxel_lighting_bind_group
         });
 
         renderer.register(this.clone());
@@ -130,7 +130,7 @@ impl gfx::Recordable for VoxelColorTransferRecordable
                 .get_renderpass_manager()
                 .get_renderpass_id(game::PassStage::VoxelColorTransfer),
             pipeline:    self.pipeline.clone(),
-            bind_groups: [Some(self.bind_group_window.get()), None, None, None],
+            bind_groups: [Some(self.voxel_lighting_bind_group.get()), None, None, None],
             transform:   None
         }
     }

@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use gfx::wgpu;
 
-use crate::VoxelColorTransferRecordable;
+use crate::{VoxelColorTransferRecordable, VoxelImageDeduplicator};
 
 // Stages:
 // VoxelDiscovery            | rendering all chunks
@@ -20,12 +20,14 @@ pub struct VoxelWorldDataManager
     // WHACK ASS IDEA:
     // in the sets, store the voxel's index in the global brick map set
     // this means that you can have 2^32 voxel on screen at once
-    color_transfer_bind_group_windows: (
+    voxel_lighting_bind_group: (
         util::Window<Arc<wgpu::BindGroup>>,
         util::WindowUpdater<Arc<wgpu::BindGroup>>
     ),
-    color_transfer_bind_group_layout:  Arc<wgpu::BindGroupLayout>,
+    voxel_lighting_bind_group_layout: Arc<wgpu::BindGroupLayout>,
 
+    // set of chunks
+    duplicator_recordable:     Arc<super::VoxelImageDeduplicator>,
     color_transfer_recordable: Arc<super::VoxelColorTransferRecordable>
 }
 
@@ -63,12 +65,17 @@ impl VoxelWorldDataManager
         let (window, updater) = util::Window::new(color_transfer_bind_group.clone());
 
         let this = Arc::new(VoxelWorldDataManager {
-            game:                              game.clone(),
-            uuid:                              util::Uuid::new(),
-            resize_pinger:                     game.get_renderer().get_resize_pinger(),
-            color_transfer_bind_group_windows: (window.clone(), updater),
-            color_transfer_bind_group_layout:  transfer_layout.clone(),
-            color_transfer_recordable:         VoxelColorTransferRecordable::new(
+            game:                             game.clone(),
+            uuid:                             util::Uuid::new(),
+            resize_pinger:                    game.get_renderer().get_resize_pinger(),
+            voxel_lighting_bind_group:        (window.clone(), updater),
+            voxel_lighting_bind_group_layout: transfer_layout.clone(),
+            duplicator_recordable:            VoxelImageDeduplicator::new(
+                game.clone(),
+                transfer_layout.clone(),
+                window.clone()
+            ),
+            color_transfer_recordable:        VoxelColorTransferRecordable::new(
                 game.clone(),
                 transfer_layout,
                 window
@@ -138,11 +145,11 @@ impl game::Entity for VoxelWorldDataManager
     {
         if self.resize_pinger.recv_all()
         {
-            self.color_transfer_bind_group_windows
+            self.voxel_lighting_bind_group
                 .1
                 .update(Self::generate_discovery_bind_group(
                     game,
-                    &self.color_transfer_bind_group_layout
+                    &self.voxel_lighting_bind_group_layout
                 ))
         }
     }
