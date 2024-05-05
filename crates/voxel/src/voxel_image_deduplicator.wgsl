@@ -20,16 +20,28 @@ const SetEmptySentinel: u32 = ~0u;
 @compute @workgroup_size(32, 32)
 fn cs_main(
     @builtin(local_invocation_index) local_invocation_index: u32,
+    @builtin(workgroup_id) workgroup_id: vec3<u32>,
     @builtin(global_invocation_id) global_invocation_id: vec3<u32>,
+    @builtin(num_workgroups) num_workgroups: vec3<u32>
 )
 {
-    let global_invocation_index = 
-        global_invocation_id.x +
-        (global_invocation_id.y * 32);
-        
+    let workgroup_index =  
+        workgroup_id.x +
+        workgroup_id.y * num_workgroups.x +
+        workgroup_id.z * num_workgroups.x * num_workgroups.y;
+ 
+  
+    let global_invocation_index =
+        workgroup_index * 32 * 32 +
+        local_invocation_index;
+
+
     // Fill sets with the null sentienl
     workgroup_set[local_invocation_index] = SetEmptySentinel;
     storage_set[global_invocation_index] = SetEmptySentinel;
+
+    storageBarrier();
+    workgroupBarrier();
 
     // Inserting our workgroup's pixel data into a workgroup local set
     {
@@ -50,6 +62,7 @@ fn cs_main(
     // Ensure all workgroup local writes are visible
     workgroupBarrier(); 
 
+
     // Transfering our workgroup's unique voxels into the storage set
     {
         let maybe_workgroup_set_voxel = workgroup_set[local_invocation_index];
@@ -65,6 +78,8 @@ fn cs_main(
 
     // Ensure all storage writes are visible
     storageBarrier();
+
+
 
     // Now we have a global unique voxel set and we need to smash it down into
     // an array
@@ -96,11 +111,12 @@ fn cs_main(
 }
 
 // insert a key, returns the index the element resides at
-fn WorkgroupSet_insert(key: u32) -> u32
+fn WorkgroupSet_insert(in_key: u32) -> u32
 {
+    var key = in_key;
     var slot = u32hash(key) % WORKGROUP_SET_SIZE;
 
-    for (var i = 0; i < 36; i += 1)
+    for (var i = 0; i < 32; i += 1)
     {
         let current_value = atomicLoad(&workgroup_set[slot]);
 
@@ -126,11 +142,16 @@ fn WorkgroupSet_insert(key: u32) -> u32
                 // Rats... Someone else wrote to the slot in the time it took 
                 // for us to see if it was free
                 // go forward another slot and try again
+                // and worse, we stole their value which we now need to re-insert!
+                key = hopefully_empty;
+
+                continue;
             }
         }
 
-        // there's another element there, incremenet the slot and try again
-        slot = (slot + 1) % WORKGROUP_SET_SIZE;
+        slot = u32hash(slot) % WORKGROUP_SET_SIZE;
+
+        workgroupBarrier();
         
     }
 
@@ -138,11 +159,12 @@ fn WorkgroupSet_insert(key: u32) -> u32
     return 0u;
 }
 
-fn StorageSet_insert(key: u32) -> u32
+fn StorageSet_insert(in_key: u32) -> u32
 {
+    var key = in_key;
     var slot = u32hash(key) % storage_set_len;
 
-    for (var i = 0; i < 36; i += 1)
+    for (var i = 0; i < 32; i += 1)
     {
         let current_value = atomicLoad(&storage_set[slot]);
 
@@ -168,11 +190,16 @@ fn StorageSet_insert(key: u32) -> u32
                 // Rats... Someone else wrote to the slot in the time it took 
                 // for us to see if it was free
                 // go forward another slot and try again
+                // and worse, we stole their value which we now need to re-insert!
+                key = hopefully_empty;
+
+                continue;
             }
         }
 
-        // there's another element there, incremenet the slot and try again
-        slot = (slot + 1) % storage_set_len;
+        slot = u32hash(slot) % WORKGROUP_SET_SIZE;
+
+        storageBarrier();
         
     }
 

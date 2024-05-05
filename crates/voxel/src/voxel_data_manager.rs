@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 use std::fmt::Debug;
 use std::num::NonZero;
+use std::sync::atomic::AtomicU32;
 use std::sync::{Arc, Mutex};
 
 use bytemuck::bytes_of;
@@ -184,7 +185,9 @@ impl VoxelWorldDataManager
                 storage_set_buffer: renderer.create_buffer(&wgpu::BufferDescriptor {
                     label:              Some("Storage Set Buffer"),
                     size:               elements as u64 * std::mem::size_of::<u32>() as u64,
-                    usage:              wgpu::BufferUsages::STORAGE,
+                    usage:              wgpu::BufferUsages::STORAGE
+                        | wgpu::BufferUsages::COPY_SRC
+                        | wgpu::BufferUsages::COPY_DST,
                     mapped_at_creation: false
                 }),
                 unique_voxel_len_buffer,
@@ -214,19 +217,25 @@ impl VoxelWorldDataManager
                 storage_set_len_buffer:        renderer.create_buffer(&wgpu::BufferDescriptor {
                     label:              Some("Set Storage Len Buffer"),
                     size:               std::mem::size_of::<u32>() as u64,
-                    usage:              wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+                    usage:              wgpu::BufferUsages::STORAGE
+                        | wgpu::BufferUsages::COPY_DST
+                        | wgpu::BufferUsages::COPY_SRC,
                     mapped_at_creation: false
                 }),
                 storage_set_buffer:            renderer.create_buffer(&wgpu::BufferDescriptor {
                     label:              Some("Storage Set Buffer"),
                     size:               elements as u64 * std::mem::size_of::<u32>() as u64,
-                    usage:              wgpu::BufferUsages::STORAGE,
+                    usage:              wgpu::BufferUsages::STORAGE
+                        | wgpu::BufferUsages::COPY_SRC
+                        | wgpu::BufferUsages::COPY_DST,
                     mapped_at_creation: false
                 }),
                 unique_voxel_len_buffer:       renderer.create_buffer(&wgpu::BufferDescriptor {
                     label:              Some("Unique Voxel Len Buffer"),
                     size:               std::mem::size_of::<u32>() as u64,
-                    usage:              wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+                    usage:              wgpu::BufferUsages::STORAGE
+                        | wgpu::BufferUsages::COPY_DST
+                        | wgpu::BufferUsages::COPY_SRC,
                     mapped_at_creation: false
                 }),
                 unique_voxel_buffer:           renderer.create_buffer(&wgpu::BufferDescriptor {
@@ -337,17 +346,24 @@ impl gfx::Recordable for VoxelWorldDataManager
 
         if let Some(buffers) = &mut *buffers
         {
-            // DownloadBuffer::read_buffer(
-            //     &renderer.device,
-            //     &renderer.queue,
-            //     &buffers.indirect_rt_workgroups_buffer.slice(..),
-            //     |res| {
-            //         let data: &[u8] = &res.unwrap();
-            //         let u32_data: &[u32] = bytemuck::cast_slice(data);
+            static ITERS: AtomicU32 = AtomicU32::new(0);
 
-            //         log::trace!("{:?}", &u32_data[0..3]);
-            //     }
-            // );
+            DownloadBuffer::read_buffer(
+                &renderer.device,
+                &renderer.queue,
+                &buffers.unique_voxel_len_buffer.slice(..),
+                |res| {
+                    let data: &[u8] = &res.unwrap();
+                    let u32_data: &[u32] = bytemuck::cast_slice(data);
+
+                    if ITERS.fetch_add(1, std::sync::atomic::Ordering::SeqCst) > 500
+                    {
+                        log::trace!("{:?}", &u32_data[0..]);
+
+                        // panic!("op");
+                    }
+                }
+            );
 
             renderer
                 .queue
