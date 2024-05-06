@@ -359,11 +359,15 @@ impl gfx::Recordable for VoxelWorldDataManager
                     if ITERS.fetch_add(1, std::sync::atomic::Ordering::SeqCst) > 2000
                     {
                         let mut string = format!("{:?}", &u32_data[0..]);
-                        string.remove_matches("4294967295, ");
 
-                        let elems = log::trace!("{:?}", u32_data);
+                        u32_data
+                            .iter()
+                            .map_windows(|[prev, curr]| {
+                                assert!(**prev + 1 == **curr, "{} | {}", prev, curr)
+                            })
+                            .for_each(|_| {});
 
-                        // panic!("op");
+                        panic!("assert passed!");
                     }
                 }
             );

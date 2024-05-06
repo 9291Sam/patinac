@@ -37,9 +37,7 @@ fn cs_main(
 
 
     // Fill set with the null sentienl
-    storage_set[global_invocation_index] = SetEmptySentinel;
-
-    storageBarrier();
+    storage_set[global_invocation_index] = global_invocation_index;
 
 
 }
