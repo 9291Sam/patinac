@@ -351,7 +351,7 @@ impl gfx::Recordable for VoxelWorldDataManager
             DownloadBuffer::read_buffer(
                 &renderer.device,
                 &renderer.queue,
-                &buffers.unique_voxel_len_buffer.slice(..),
+                &buffers.storage_set_len_buffer.slice(..),
                 |res| {
                     let data: &[u8] = &res.unwrap();
                     let u32_data: &[u32] = bytemuck::cast_slice(data);
@@ -360,7 +360,7 @@ impl gfx::Recordable for VoxelWorldDataManager
                     {
                         log::trace!("{:?}", &u32_data[0..]);
 
-                        // panic!("op");
+                        panic!("op");
                     }
                 }
             );

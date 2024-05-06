@@ -36,12 +36,10 @@ fn cs_main(
         local_invocation_index;
 
 
-    // Fill sets with the null sentienl
-    workgroup_set[local_invocation_index] = SetEmptySentinel;
+    // Fill set with the null sentienl
     storage_set[global_invocation_index] = SetEmptySentinel;
 
     storageBarrier();
-    workgroupBarrier();
 
     // Inserting our workgroup's pixel data into a workgroup local set
     {
@@ -55,64 +53,59 @@ fn cs_main(
             // load bottom 27 bits (location);
             let search_store_data = maybe_local_data.x & 268435455u; 
 
-            WorkgroupSet_insert(search_store_data);
+            StorageSet_insert(search_store_data);
         }
     }   
 
     // Ensure all workgroup local writes are visible
-    workgroupBarrier(); 
+    storageBarrier(); 
 
+    let maybe_storage_set_voxel = storage_set[global_invocation_index];
 
-    // Transfering our workgroup's unique voxels into the storage set
+    if (storage_set[global_invocation_index] != SetEmptySentinel)
     {
-        let maybe_workgroup_set_voxel = workgroup_set[local_invocation_index];
-
-        if (maybe_workgroup_set_voxel != SetEmptySentinel)
-        {
-            // Ok, now we have one of the rare values that needs to be inserted into
-            // the global set
-
-            StorageSet_insert(maybe_workgroup_set_voxel);
-        }
+        atomicAdd(&unique_len, 1u);
     }
 
-    // Ensure all storage writes are visible
-    storageBarrier();
 
 
+    // // Now we have a global unique voxel set and we need to smash it down into
+    // // an array
+    // {
+    //     // every invocation of this shader loads
+    //     let maybe_storage_set_voxel = storage_set[global_invocation_index];
 
-    // Now we have a global unique voxel set and we need to smash it down into
-    // an array
-    {
-        // every invocation of this shader loads
-        let maybe_storage_set_voxel = storage_set[global_invocation_index];
+    //     if (maybe_storage_set_voxel != SetEmptySentinel)
+    //     {
+    //         // get the index of a guaranteed free value that's adjacent to 
+    //         // all other elements
+    //         let free_idx = atomicAdd(&unique_len, 1u);
 
-        if (maybe_storage_set_voxel != SetEmptySentinel)
-        {
-            // get the index of a guaranteed free value that's adjacent to 
-            // all other elements
-            let free_idx = atomicAdd(&unique_len, 1u);
+    //         // write our data;
+    //         unique_voxel_buffer[free_idx] = maybe_storage_set_voxel;
 
-            // write our data;
-            unique_voxel_buffer[free_idx] = maybe_storage_set_voxel;
-
-            // Ok, this is a little weird.
-            // The shader stage that follows this one needs to be significantly smaller
-            // and dispatched dynamically, we can use an indirect buffer for this
-            // we need to dispatch workgroups of size 1024 x 1
-            // unique_len.div_ceil(1024) times, this is a way of calculating this
-            // efficiently
-            if (free_idx % 1024 == 0)
-            {
-                atomicAdd(&indirect_rt_workgroups_buffer[0], 1u);
-            }
-        }
-    }
+    //         // Ok, this is a little weird.
+    //         // The shader stage that follows this one needs to be significantly smaller
+    //         // and dispatched dynamically, we can use an indirect buffer for this
+    //         // we need to dispatch workgroups of size 1024 x 1
+    //         // unique_len.div_ceil(1024) times, this is a way of calculating this
+    //         // efficiently
+    //         if (free_idx % 1024 == 0)
+    //         {
+    //             atomicAdd(&indirect_rt_workgroups_buffer[0], 1u);
+    //         }
+    //     }
+    // }
 }
 
 // insert a key, returns the index the element resides at
 fn WorkgroupSet_insert(in_key: u32) -> u32
 {
+    if (in_key == 0u)
+    {
+        return 0u;
+    }
+
     var key = in_key;
     var slot = u32hash(key) % WORKGROUP_SET_SIZE;
 
@@ -130,6 +123,8 @@ fn WorkgroupSet_insert(in_key: u32) -> u32
             // do exchange
 
             let hopefully_empty = atomicExchange(&workgroup_set[slot], key);
+
+            workgroupBarrier();
 
             if (hopefully_empty == SetEmptySentinel)
             {
@@ -161,12 +156,21 @@ fn WorkgroupSet_insert(in_key: u32) -> u32
 
 fn StorageSet_insert(in_key: u32) -> u32
 {
+    if (in_key == 0u)
+    {
+        return 0u;
+    }
+    
     var key = in_key;
     var slot = u32hash(key) % storage_set_len;
 
-    for (var i = 0; i < 32; i += 1)
+
+    for (var i = 0; i < 32; i += 1)   
     {
+        
+        storageBarrier();
         let current_value = atomicLoad(&storage_set[slot]);
+        storageBarrier();
 
         if (current_value == key)
         {
@@ -177,7 +181,10 @@ fn StorageSet_insert(in_key: u32) -> u32
         {
             // do exchange
 
+            storageBarrier();
             let hopefully_empty = atomicExchange(&storage_set[slot], key);
+
+            storageBarrier();
 
             if (hopefully_empty == SetEmptySentinel)
             {

@@ -1,8 +1,7 @@
 use std::borrow::Cow;
 use std::sync::Arc;
 
-use gfx::wgpu::{self, ShaderModuleDescriptor};
-use gfx::{CacheableComputePipelineDescriptor, CacheablePipelineLayoutDescriptor};
+use gfx::{wgpu, CacheableComputePipelineDescriptor, CacheablePipelineLayoutDescriptor};
 
 #[derive(Debug)]
 pub struct VoxelImageDeduplicator
