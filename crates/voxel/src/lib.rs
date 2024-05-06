@@ -3,6 +3,7 @@
 #![feature(const_option)]
 #![feature(exclusive_range_pattern)]
 #![feature(btree_extract_if)]
+#![feature(string_remove_matches)]
 
 mod brick_map_chunk;
 mod gpu_data;

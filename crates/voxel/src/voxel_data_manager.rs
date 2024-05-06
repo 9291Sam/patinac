@@ -351,16 +351,19 @@ impl gfx::Recordable for VoxelWorldDataManager
             DownloadBuffer::read_buffer(
                 &renderer.device,
                 &renderer.queue,
-                &buffers.storage_set_len_buffer.slice(..),
+                &buffers.storage_set_buffer.slice(..),
                 |res| {
                     let data: &[u8] = &res.unwrap();
                     let u32_data: &[u32] = bytemuck::cast_slice(data);
 
-                    if ITERS.fetch_add(1, std::sync::atomic::Ordering::SeqCst) > 500
+                    if ITERS.fetch_add(1, std::sync::atomic::Ordering::SeqCst) > 2000
                     {
-                        log::trace!("{:?}", &u32_data[0..]);
+                        let mut string = format!("{:?}", &u32_data[0..]);
+                        string.remove_matches("4294967295, ");
 
-                        panic!("op");
+                        let elems = log::trace!("{:?}", u32_data);
+
+                        // panic!("op");
                     }
                 }
             );
