@@ -12,33 +12,55 @@ const SetEmptySentinel: u32 = ~0u;
 @group(0) @binding(4) var<storage, read_write> unique_len: atomic<u32>;
 @group(0) @binding(5) var<storage, read_write> unique_voxel_buffer: array<atomic<u32>>; // should be write only
 
-
-const WORKGROUP_X_SIZE: u32 = 32u;
-const WORKGROUP_Y_SIZE: u32 = 32u;
-@compute @workgroup_size(WORKGROUP_X_SIZE, WORKGROUP_Y_SIZE)
-fn cs_main(
-    @builtin(local_invocation_index) local_invocation_index: u32,
-    @builtin(workgroup_id) workgroup_id: vec3<u32>,
-    @builtin(global_invocation_id) global_invocation_id: vec3<u32>,
-    @builtin(num_workgroups) num_workgroups: vec3<u32>
-)
+@compute @workgroup_size(32, 32)
+fn cs_main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>)
 {
     let out_dims = textureDimensions(voxel_discovery_image).xy;
 
-    if (all(global_invocation_id.xy < out_dims))
+    // Discard edges outside of the image's bound
+    if (all(global_invocation_id.xy >= out_dims))
     {
-        let recacl_global_invocation = global_invocation_id.x + out_dims.x * global_invocation_id.y;
+        return;
+    }
+    
 
-        storage_set[recacl_global_invocation] = recacl_global_invocation;
+    let global_index = global_invocation_id.x + out_dims.x * global_invocation_id.y;
+
+    storage_set[global_index] = SetEmptySentinel;
+
+    storageBarrier();
+
+    let image_px: vec2<u32> = textureLoad(voxel_discovery_image, global_invocation_id.xy, 0).xy;
+    let image_location = image_px.x & 268435455u;
+
+    var data = image_location;
+    var slot = u32pcgHash(image_location) % storage_set_len;
+
+    loop
+    {   
+        if (data == 0)
+        {
+            break;
+        }
+
+        let other_value = atomicExchange(&storage_set[slot], data);
+
+        storageBarrier();
+
+        if (other_value == SetEmptySentinel || other_value == data)
+        {
+            break;
+        }
+        else
+        {
+            // shit, we stole another thread's data
+            data = other_value;
+            slot = (slot + 1) % storage_set_len;
+        }
+    }
+
         
-    }
-    else
-    {
-        // storage_set[global_invocation_index] = global_invocation_id.x * 100000 + global_invocation_id.y;
-    }
-
-
-
+    
 }
 
 fn u32pcgHash(in: u32) -> u32

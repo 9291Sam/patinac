@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::fmt::Debug;
 use std::num::NonZero;
 use std::sync::atomic::AtomicU32;
@@ -357,7 +357,7 @@ impl gfx::Recordable for VoxelWorldDataManager
                     let data: &[u8] = &res.unwrap();
                     let u32_data: &[u32] = bytemuck::cast_slice(data);
 
-                    if ITERS.fetch_add(1, std::sync::atomic::Ordering::SeqCst) > 2000
+                    if ITERS.fetch_add(1, std::sync::atomic::Ordering::SeqCst) > 300
                     {
                         // let mut working_set: BTreeMap<u32, usize> = BTreeMap::new();
 
@@ -373,9 +373,21 @@ impl gfx::Recordable for VoxelWorldDataManager
                         //     }
                         // }
 
-                        log::trace!("{:?}", u32_data);
+                        log::trace!(
+                            "{:?} | {:?}",
+                            u32_data
+                                .iter()
+                                .filter(|i| **i != 4294967295)
+                                .collect::<Vec<_>>()
+                                .len(),
+                            u32_data
+                                .iter()
+                                .filter(|i| **i != 4294967295)
+                                .collect::<HashSet<_>>()
+                                .len()
+                        );
 
-                        panic!("done");
+                        // panic!("done");
                     }
                 }
             );
