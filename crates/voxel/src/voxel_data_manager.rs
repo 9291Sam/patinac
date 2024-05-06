@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Debug;
 use std::num::NonZero;
 use std::sync::atomic::AtomicU32;
@@ -358,16 +359,21 @@ impl gfx::Recordable for VoxelWorldDataManager
 
                     if ITERS.fetch_add(1, std::sync::atomic::Ordering::SeqCst) > 2000
                     {
-                        let mut string = format!("{:?}", &u32_data[0..]);
+                        let mut working_set: BTreeMap<u32, usize> = BTreeMap::new();
 
-                        u32_data
-                            .iter()
-                            .map_windows(|[prev, curr]| {
-                                assert!(**prev + 1 == **curr, "{} | {}", prev, curr)
-                            })
-                            .for_each(|_| {});
+                        for u in u32_data
+                        {
+                            if let Some(k) = working_set.get_mut(u)
+                            {
+                                panic!("duplicate key {u}");
+                            }
+                            else
+                            {
+                                working_set.insert(*u, 1);
+                            }
+                        }
 
-                        panic!("assert passed!");
+                        panic!("done {}", working_set.len());
                     }
                 }
             );
