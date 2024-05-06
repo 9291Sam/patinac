@@ -359,21 +359,23 @@ impl gfx::Recordable for VoxelWorldDataManager
 
                     if ITERS.fetch_add(1, std::sync::atomic::Ordering::SeqCst) > 2000
                     {
-                        let mut working_set: BTreeMap<u32, usize> = BTreeMap::new();
+                        // let mut working_set: BTreeMap<u32, usize> = BTreeMap::new();
 
-                        for u in u32_data
-                        {
-                            if let Some(k) = working_set.get_mut(u)
-                            {
-                                panic!("duplicate key {u}");
-                            }
-                            else
-                            {
-                                working_set.insert(*u, 1);
-                            }
-                        }
+                        // for u in u32_data
+                        // {
+                        //     if let Some(k) = working_set.get_mut(u)
+                        //     {
+                        //         panic!("duplicate key {u}");
+                        //     }
+                        //     else
+                        //     {
+                        //         working_set.insert(*u, 1);
+                        //     }
+                        // }
 
-                        panic!("done {}", working_set.len());
+                        log::trace!("{:?}", u32_data);
+
+                        panic!("done");
                     }
                 }
             );

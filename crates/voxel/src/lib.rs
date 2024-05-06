@@ -5,6 +5,7 @@
 #![feature(btree_extract_if)]
 #![feature(string_remove_matches)]
 #![feature(iter_map_windows)]
+#![feature(array_windows)]
 
 mod brick_map_chunk;
 mod gpu_data;

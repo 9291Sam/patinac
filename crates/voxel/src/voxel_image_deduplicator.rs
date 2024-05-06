@@ -95,7 +95,14 @@ impl gfx::Recordable for VoxelImageDeduplicator
         };
 
         let size = self.game.get_renderer().get_framebuffer_size();
+        let dispatch_size_x = size.x.div_ceil(32);
+        let dispatch_size_y = size.y.div_ceil(32);
 
-        pass.dispatch_workgroups(size.x.div_ceil(32), size.y.div_ceil(32), 1);
+        log::trace!(
+            "dispatching with size {} {}",
+            dispatch_size_x,
+            dispatch_size_y
+        );
+        pass.dispatch_workgroups(dispatch_size_x, dispatch_size_y, 1);
     }
 }

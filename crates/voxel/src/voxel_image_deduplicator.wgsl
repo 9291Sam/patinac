@@ -13,11 +13,9 @@ const SetEmptySentinel: u32 = ~0u;
 @group(0) @binding(5) var<storage, read_write> unique_voxel_buffer: array<atomic<u32>>; // should be write only
 
 
-/// This shader is dispatched in 32x32 workgroups over a screen sized image
-/// storage_set and unique_voxel_buffer are both preallocated to be of the same 
-/// number of elements as the screen sized image.
-/// storage_set_len is this length.
-@compute @workgroup_size(32, 32)
+const WORKGROUP_X_SIZE: u32 = 32u;
+const WORKGROUP_Y_SIZE: u32 = 32u;
+@compute @workgroup_size(WORKGROUP_X_SIZE, WORKGROUP_Y_SIZE)
 fn cs_main(
     @builtin(local_invocation_index) local_invocation_index: u32,
     @builtin(workgroup_id) workgroup_id: vec3<u32>,
@@ -25,19 +23,20 @@ fn cs_main(
     @builtin(num_workgroups) num_workgroups: vec3<u32>
 )
 {
-    let workgroup_index =  
-        workgroup_id.x +
-        workgroup_id.y * num_workgroups.x +
-        workgroup_id.z * num_workgroups.x * num_workgroups.y;
- 
-  
-    let global_invocation_index =
-        workgroup_index * 32 * 32 +
-        local_invocation_index;
+    let out_dims = textureDimensions(voxel_discovery_image).xy;
 
+    if (all(global_invocation_id.xy < out_dims))
+    {
+        let recacl_global_invocation = global_invocation_id.x + out_dims.x * global_invocation_id.y;
 
-    // Fill set with the null sentienl
-    storage_set[global_invocation_index] = u32pcgHash(global_invocation_index);
+        storage_set[recacl_global_invocation] = recacl_global_invocation;
+        
+    }
+    else
+    {
+        // storage_set[global_invocation_index] = global_invocation_id.x * 100000 + global_invocation_id.y;
+    }
+
 
 
 }
