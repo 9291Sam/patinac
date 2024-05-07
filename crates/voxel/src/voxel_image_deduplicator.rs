@@ -98,11 +98,6 @@ impl gfx::Recordable for VoxelImageDeduplicator
         let dispatch_size_x = size.x.div_ceil(32);
         let dispatch_size_y = size.y.div_ceil(32);
 
-        log::trace!(
-            "dispatching with size {} {}",
-            dispatch_size_x,
-            dispatch_size_y
-        );
         pass.dispatch_workgroups(dispatch_size_x, dispatch_size_y, 1);
     }
 }

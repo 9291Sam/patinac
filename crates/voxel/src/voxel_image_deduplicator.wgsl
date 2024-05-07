@@ -31,42 +31,33 @@ fn cs_main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>)
     storageBarrier();
 
     let image_px: vec2<u32> = textureLoad(voxel_discovery_image, global_invocation_id.xy, 0).xy;
-    let image_location = image_px.x & 268435455u;
+    let image_location = image_px.x;
 
     let data_to_insert = image_location;
     var slot = u32pcgHash(image_location) % storage_set_len;
 
+    if (data_to_insert == 0)
+    {
+        return;
+    }
+
     loop
-    {   
-        if (data_to_insert == 0) // TODO: deal with
+    {
+        let prev_data = atomicCompareExchangeWeak(&storage_set[slot], SetEmptySentinel, data_to_insert).old_value;
+
+        if prev_data == data_to_insert
         {
             break;
         }
-
-        let res = atomicCompareExchangeWeak(&storage_set[slot], SetEmptySentinel, data_to_insert);
-
-        if (res.exchanged)
+        else if prev_data == SetEmptySentinel
         {
-            // we put in our value, the old was SetEmptySentinel
-            break;
-        }
-
-        if (res.old_value == data_to_insert)
+            // slot is now stored
+        } 
+        else
         {
-            // great! the value is already there
-            break;
+            // Collision - jump to next cell
+            slot = (slot + 1) % storage_set_len;
         }
-
-        if (res.old_value == SetEmptySentinel)
-        {
-            // spurious failure, try again
-            continue;
-        }
-
-        // there's some other data in the slot and we can't touch it, move 
-        // onto the next slot
-        
-        slot = (slot + 1) % storage_set_len;
     }
 
         
