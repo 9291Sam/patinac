@@ -33,46 +33,38 @@ fn cs_main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>)
     let image_px: vec2<u32> = textureLoad(voxel_discovery_image, global_invocation_id.xy, 0).xy;
     let image_location = image_px.x & 268435455u;
 
-    var data_to_insert = image_location;
+    let data_to_insert = image_location;
     var slot = u32pcgHash(image_location) % storage_set_len;
 
     loop
     {   
-        if (data_to_insert == 0)
+        if (data_to_insert == 0) // TODO: deal with
         {
             break;
         }
 
-        // optimistic check
-        var slot_data = atomicLoad(&storage_set[slot]);
+        let res = atomicCompareExchangeWeak(&storage_set[slot], SetEmptySentinel, data_to_insert);
 
-        if (slot_data == data_to_insert)
+        if (res.exchanged)
         {
-            // Neat, it's already there!
+            // we put in our value, the old was SetEmptySentinel
             break;
         }
 
-        if (slot_data == SetEmptySentinel)
+        if (res.old_value == data_to_insert)
         {
-            // awesome we probablly have unique access to this slot
-            slot_data = atomicExchange(&storage_set[slot], data_to_insert);
-        
-            if (slot_data == SetEmptySentinel || slot_data == data_to_insert)
-            {
-                // Awesome we have the data we want in the slot
-                break;
-            }
-            else
-            {
-                // shit, we stone another thread's data, we need to try again
-                data_to_insert = slot_data;
-            }
+            // great! the value is already there
+            break;
         }
-        else
+
+        if (res.old_value == SetEmptySentinel)
         {
-            // welp, we know the slot is filled with some other thread's data
-            // try again
+            // spurious failure, try again
+            continue;
         }
+
+        // there's some other data in the slot and we can't touch it, move 
+        // onto the next slot
         
         slot = (slot + 1) % storage_set_len;
     }

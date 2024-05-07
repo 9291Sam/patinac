@@ -95,7 +95,9 @@ impl log::Log for AsyncLogger
     fn log(&self, record: &log::Record)
     {
         // Silencing useless messages in 3rd party libs
-        if let Some(true) = record.file().map(|f| f.contains(".cargo"))
+        if let Some(true) = record.file().map(|f| {
+            f.contains(".cargo") || f.contains("wgpu-msl-out-atomic-compare-exchange-weak")
+        })
         {
             if record.level() >= log::Level::Info
             {
