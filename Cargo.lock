@@ -486,7 +486,7 @@ version = "0.20.0"
 source = "git+https://github.com/9291Sam/wgpu-msl-out-atomic-compare-exchange-weak.git?branch=trunk#5b5cbe51c88c6fa33a0d6dd8c663b688f2217283"
 dependencies = [
  "bitflags 2.5.0",
- "libloading 0.7.4",
+ "libloading 0.8.3",
  "winapi",
 ]
 
@@ -1146,6 +1146,12 @@ dependencies = [
  "rand",
  "rand_xorshift",
 ]
+
+[[package]]
+name = "nonmax"
+version = "0.5.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "610a5acd306ec67f907abe5567859a3c693fb9886eb1f012ab8f2a47bef3db51"
 
 [[package]]
 name = "nu-ansi-term"
@@ -2050,6 +2056,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "voxel2"
+version = "0.1.0"
+dependencies = [
+ "nonmax",
+]
+
+[[package]]
 name = "walkdir"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2333,7 +2346,7 @@ dependencies = [
  "js-sys",
  "khronos-egl",
  "libc",
- "libloading 0.7.4",
+ "libloading 0.8.3",
  "log",
  "metal",
  "naga",

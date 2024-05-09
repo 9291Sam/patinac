@@ -349,48 +349,44 @@ impl gfx::Recordable for VoxelWorldDataManager
         {
             static ITERS: AtomicU32 = AtomicU32::new(0);
 
-            DownloadBuffer::read_buffer(
-                &renderer.device,
-                &renderer.queue,
-                &buffers.storage_set_buffer.slice(..),
-                |res| {
-                    let data: &[u8] = &res.unwrap();
-                    let u32_data: &[u32] = bytemuck::cast_slice(data);
+            // DownloadBuffer::read_buffer(
+            //     &renderer.device,
+            //     &renderer.queue,
+            //     &buffers.storage_set_buffer.slice(..),
+            //     |res| {
+            //         let data: &[u8] = &res.unwrap();
+            //         let u32_data: &[u32] = bytemuck::cast_slice(data);
 
-                    if ITERS.fetch_add(1, std::sync::atomic::Ordering::SeqCst) > 300
-                    {
-                        // let mut working_set: BTreeMap<u32, usize> = BTreeMap::new();
+            //         if ITERS.fetch_add(1, std::sync::atomic::Ordering::SeqCst) > 300
+            //         {
+            //             // let mut working_set: BTreeMap<u32, usize> = BTreeMap::new();
 
-                        // for u in u32_data
-                        // {
-                        //     if let Some(k) = working_set.get_mut(u)
-                        //     {
-                        //         panic!("duplicate key {u}");
-                        //     }
-                        //     else
-                        //     {
-                        //         working_set.insert(*u, 1);
-                        //     }
-                        // }
+            //             // for u in u32_data
+            //             // {
+            //             //     if let Some(k) = working_set.get_mut(u)
+            //             //     {
+            //             //         panic!("duplicate key {u}");
+            //             //     }
+            //             //     else
+            //             //     {
+            //             //         working_set.insert(*u, 1);
+            //             //     }
+            //             // }
 
-                        log::trace!(
-                            "{:?} | {:?}",
-                            u32_data
-                                .iter()
-                                .filter(|i| **i != 4294967295)
-                                .collect::<Vec<_>>()
-                                .len(),
-                            u32_data
-                                .iter()
-                                .filter(|i| **i != 4294967295)
-                                .collect::<HashSet<_>>()
-                                .len()
-                        );
+            //             let v = u32_data.to_owned();
 
-                        // panic!("done");
-                    }
-                }
-            );
+            //             log::trace!(
+            //                 "{:?}",
+            //                 v.iter()
+            //                     .filter(|i| **i != 4294967295)
+            //                     .collect::<HashSet<_>>()
+            //                     .len()
+            //             );
+
+            //             // panic!("done");
+            //         }
+            //     }
+            // );
 
             renderer
                 .queue

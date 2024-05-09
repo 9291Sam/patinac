@@ -11,6 +11,7 @@ use gfx::{
     CacheablePipelineLayoutDescriptor,
     CacheableRenderPipelineDescriptor
 };
+use rand::Rng;
 use util::AtomicF32;
 
 use crate::{Voxel, VoxelChunkDataManager};
@@ -101,7 +102,30 @@ impl RasterChunk
 
         let data_manager = VoxelChunkDataManager::new(renderer.clone());
 
-        let faces_vec: Vec<VoxelFace> = faces.into_iter().collect();
+        let mut faces_vec: Vec<VoxelFace> = faces.into_iter().collect();
+        let origional_length = faces_vec.len();
+
+        // for _ in 0..(origional_length * 4)
+        // {
+        //     faces_vec.push(VoxelFace {
+        //         direction:
+        // VoxelFaceDirection::try_from(rand::thread_rng().gen_range(0..=5))
+        //             .unwrap(),
+        //         voxel:     rand::thread_rng().gen_range(0..=12),
+        //         position:  glm::U16Vec3::new(
+        //             rand::thread_rng().gen_range(0..=510),
+        //             rand::thread_rng().gen_range(0..=510),
+        //             rand::thread_rng().gen_range(0..=510)
+        //         ),
+        //         lw_size:   glm::U16Vec2::new(1, 1)
+        //     });
+        // }
+
+        let faces_number = faces_vec.len();
+
+        let load_ratio = faces_number as f64 / (512.0 * 512.0);
+
+        log::trace!("creating chunk with load ratio {load_ratio}");
 
         faces_vec.iter().for_each(|f| {
             let voxel_pos: glm::U16Vec3 = glm::U16Vec3::from(f.position);
@@ -235,6 +259,17 @@ pub struct RasterChunkVoxelPoint
     data: glm::U32Vec2
 }
 
+pub struct RasterChunkVoxelPointNew
+{
+    ///   x [0]    y [1]
+    /// [0,   8] [      ] | 9 + 0 bits   | x_pos
+    /// [9,  17] [      ] | 9 + 0 bits   | y_pos
+    /// [18, 26] [      ] | 9 + 0 bits   | z_pos
+    /// [27, 31] [0,  18] | 5 + 18 bits  | in_chunk_id
+    ///          [18, 32] | 0 + 14 bits  | chunk_id
+    data: glm::U32Vec2
+}
+
 impl RasterChunkVoxelPoint
 {
     const ATTRS: [wgpu::VertexAttribute; 1] = wgpu::vertex_attr_array![0 => Uint32x2];
@@ -257,12 +292,12 @@ impl RasterChunkVoxelPoint
         let face = face_id as u32;
         let voxel = voxel as u32;
 
-        assert!(x_pos <= nine_bit_mask, "{x_pos}");
-        assert!(y_pos <= nine_bit_mask, "{y_pos}");
-        assert!(z_pos <= nine_bit_mask, "{z_pos}");
-        assert!(l_width <= nine_bit_mask, "{l_width}");
-        assert!(w_width <= nine_bit_mask, "{w_width}");
-        assert!(face <= three_bit_mask, "{face}");
+        debug_assert!(x_pos <= nine_bit_mask, "{x_pos}");
+        debug_assert!(y_pos <= nine_bit_mask, "{y_pos}");
+        debug_assert!(z_pos <= nine_bit_mask, "{z_pos}");
+        debug_assert!(l_width <= nine_bit_mask, "{l_width}");
+        debug_assert!(w_width <= nine_bit_mask, "{w_width}");
+        debug_assert!(face <= three_bit_mask, "{face}");
         // don't need to assert voxel as its already a u16
 
         let x_data = nine_bit_mask & x_pos;

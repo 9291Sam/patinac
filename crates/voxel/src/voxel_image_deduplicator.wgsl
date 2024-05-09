@@ -41,24 +41,26 @@ fn cs_main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>)
         return;
     }
 
-    loop
-    {
-        let prev_data = atomicCompareExchangeWeak(&storage_set[slot], SetEmptySentinel, data_to_insert).old_value;
+    storage_set[global_index] = data_to_insert;
 
-        if prev_data == data_to_insert
-        {
-            break;
-        }
-        else if prev_data == SetEmptySentinel
-        {
-            // slot is now stored
-        } 
-        else
-        {
-            // Collision - jump to next cell
-            slot = (slot + 1) % storage_set_len;
-        }
-    }
+    // loop
+    // {
+    //     let prev_data = atomicCompareExchangeWeak(&storage_set[slot], SetEmptySentinel, data_to_insert).old_value;
+
+    //     if prev_data == data_to_insert
+    //     {
+    //         break;
+    //     }
+    //     else if prev_data == SetEmptySentinel
+    //     {
+    //         // slot is now stored
+    //     } 
+    //     else
+    //     {
+    //         // Collision - jump to next cell
+    //         slot = (slot + 1) % storage_set_len;
+    //     }
+    // }
 
         
     

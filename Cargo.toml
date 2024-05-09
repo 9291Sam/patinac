@@ -11,6 +11,7 @@ members = [
     "crates/verdigris",
     "crates/gui",
     "crates/voxel",
+    "crates/voxel2",
 ]
 
 [dependencies]
@@ -22,7 +23,6 @@ gui = { workspace = true }
 log = { workspace = true }
 oneshot = { workspace = true }
 dashmap = { workspace = true }
-
 [workspace.dependencies]
 voxel = { path = "crates/voxel" }
 util = { path = "crates/util" }
@@ -56,6 +56,7 @@ dashmap = "5.5.3"
 backtrace = "0.3.69"
 sys-locale = "0.3.1"
 num = "0.4.2"
+nonmax = "0.5.5"
 
 
 [profile.dev]
