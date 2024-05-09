@@ -7,3 +7,4 @@ edition = "2021"
 nonmax = { workspace = true }
 util = { workspace = true }
 gfx = { workspace = true }
+itertools = { workspace = true }

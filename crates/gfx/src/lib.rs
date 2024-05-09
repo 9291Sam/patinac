@@ -31,3 +31,5 @@ pub mod glm
     pub use nalgebra::UnitQuaternion;
     pub use nalgebra_glm::*;
 }
+
+pub use nalgebra as nal;
