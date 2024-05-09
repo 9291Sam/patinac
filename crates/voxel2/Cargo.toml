@@ -5,3 +5,5 @@ edition = "2021"
 
 [dependencies]
 nonmax = { workspace = true }
+util = { workspace = true }
+gfx = { workspace = true }

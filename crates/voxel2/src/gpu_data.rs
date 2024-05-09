@@ -1,3 +1,4 @@
+use gfx::{glm, wgpu};
 use nonmax::NonMaxU32;
 
 #[repr(C, align(16))]
@@ -73,47 +74,6 @@ impl BitBrick
 
 const _: () = const { assert!((std::mem::size_of::<BitBrick>() * 8) == 512) };
 
-#[repr(C)]
-struct BitBrickIndex
-{
-    ptr: u32
-}
-
-impl BitBrickIndex
-{
-    const NULL: u32 = !0;
-
-    pub fn new_null() -> Self
-    {
-        Self {
-            ptr: Self::NULL
-        }
-    }
-
-    pub fn classify(&self) -> Option<NonMaxU32>
-    {
-        NonMaxU32::new(self.ptr)
-    }
-
-    fn new(ptr: u32) -> Self
-    {
-        debug_assert_ne!(
-            ptr,
-            Self::NULL,
-            "Tried to create a BitBrickIndex with a null value"
-        );
-
-        Self {
-            ptr
-        }
-    }
-}
-
-struct Chunk
-{
-    data: [[[BitBrickIndex; 16]; 16]; 16]
-}
-
 // As of now, each voxel face is 48 bytes
 // by doing some bs with the vertex and index buffers, using the same trick dot
 // taught you about, you can get this down to 30 bytes
@@ -121,15 +81,26 @@ struct Chunk
 // 0, 0, 0, 0, 0, 0 = 4 * 6 = 24 bytes = 30 bytes
 // also instancing
 
-// istancing:
-// have one face and then instance it?
-// would work well with the directional chunks.
+struct ChunkFaceId {}
+
+struct ChunkWorldId {}
 
 struct VoxelFacePoint
 {
-    // location in chunk
-    // in chunk id
-    data: u64
+    ///   x [0]    y [1]
+    /// [0,   7] [      ] | 8 + 0 bits  | chunk_x_pos
+    /// [8,  15] [      ] | 8 + 0 bits  | chunk_y_pos
+    /// [16, 23] [      ] | 8 + 0 bits  | chunk_z_pos
+    /// [24, 31] [0,  15] | 8 + 16 bits | chunk_face_id
+    /// [      ] [16, 31] | 0 + 16 bits | chunk_world_id
+    data: glm::U32Vec3
+}
+
+impl VoxelFacePoint
+{
+    pub fn new(pos: [u8; 3]) -> Self {}
+
+    pub fn destructure(self) -> (glm::U8Vec3, ChunkFaceId, ChunkWorldId) {}
 }
 
 struct VoxelFace {}
@@ -145,6 +116,8 @@ struct FaceDataBuffer
 mod test
 {
     use super::*;
+
+    // TODO: bit brick, bit brick index, chunk
 
     #[test]
     pub fn test_bit_brick_create()
