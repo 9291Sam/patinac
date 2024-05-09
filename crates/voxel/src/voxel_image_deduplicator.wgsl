@@ -34,12 +34,14 @@ fn cs_main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>)
     let image_location = image_px.x;
 
     let data_to_insert = image_location;
-    var slot = u32pcgHash(image_location) % storage_set_len;
-
+    
     if (data_to_insert == 0)
     {
         return;
     }
+    
+    var slot = u32pcgHash(image_location) % storage_set_len;
+
 
     loop
     {
@@ -47,6 +49,7 @@ fn cs_main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>)
 
         if prev_data == data_to_insert
         {
+            // it's arlready there
             break;
         }
         else if prev_data == SetEmptySentinel
@@ -62,7 +65,7 @@ fn cs_main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>)
 
         
     
-}
+    }
 
 fn u32pcgHash(in: u32) -> u32
 {

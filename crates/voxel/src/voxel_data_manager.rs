@@ -374,7 +374,8 @@ impl gfx::Recordable for VoxelWorldDataManager
                         // }
 
                         log::trace!(
-                            "{:?} | {:?}",
+                            "Number of elements in GPU set {:?} | (verify) Number of elements in \
+                             CPU set {:?}",
                             u32_data
                                 .iter()
                                 .filter(|i| **i != 4294967295)
