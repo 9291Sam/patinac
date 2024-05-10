@@ -1,3 +1,4 @@
+use bytemuck::{Pod, Zeroable};
 use gfx::{glm, nal};
 
 #[repr(C, align(16))]
@@ -84,45 +85,39 @@ const _: () = const { assert!((std::mem::size_of::<BitBrick>() * 8) == 512) };
 // 0, 0, 0, 0, 0, 0 = 4 * 6 = 24 bytes = 30 bytes
 // also instancing
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-struct ChunkFaceId(u32);
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Pod, Zeroable)]
+#[repr(C)]
+pub struct FaceId(pub(crate) u32);
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-struct ChunkWorldId(u16);
-
-struct VoxelFacePoint
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Hash, Pod, Zeroable)]
+#[repr(C)]
+pub struct VoxelFacePoint
 {
     ///   x [0]    y [1]
     /// [0,   7] [      ] | 8 + 0 bits  | chunk_x_pos
     /// [8,  15] [      ] | 8 + 0 bits  | chunk_y_pos
     /// [16, 23] [      ] | 8 + 0 bits  | chunk_z_pos
-    /// [24, 31] [0,  15] | 8 + 16 bits | chunk_face_id
-    /// [      ] [16, 31] | 0 + 16 bits | chunk_world_id
+    /// [24, 31] [      ] | 8 + 0 bits  | unused
+    /// [      ] [0,  31] | 0 + 32 bits | face_id
     data: glm::U32Vec2
 }
 
 impl VoxelFacePoint
 {
-    pub fn new(pos: glm::U8Vec3, chunk_face_id: ChunkFaceId, chunk_world_id: ChunkWorldId) -> Self
+    pub fn new(pos: glm::U8Vec3, face_id: FaceId) -> Self
     {
-        let ChunkFaceId(chunk_face_id) = chunk_face_id;
-        let ChunkWorldId(chunk_world_id) = chunk_world_id;
+        let FaceId(face_id) = face_id;
 
-        debug_assert!(chunk_face_id < 2u32.pow(24));
+        let low: u32 = (pos.x as u32) | ((pos.y as u32) << 8) | ((pos.z as u32) << 16);
 
-        let low: u32 = (pos.x as u32)
-            | ((pos.y as u32) << 8)
-            | ((pos.z as u32) << 16)
-            | ((chunk_face_id & 0xFF) << 24);
-
-        let high: u32 = (chunk_face_id >> 8) | ((chunk_world_id as u32) << 16);
+        let high: u32 = face_id;
 
         Self {
             data: glm::U32Vec2::new(low, high)
         }
     }
 
-    pub fn destructure(self) -> (glm::U8Vec3, u32, u16)
+    pub fn destructure(self) -> (glm::U8Vec3, FaceId)
     {
         let low = self.data.x;
         let high = self.data.y;
@@ -133,26 +128,25 @@ impl VoxelFacePoint
             ((low >> 16) & 0xFF) as u8
         );
 
-        let chunk_face_id = (low >> 24) | ((high & 0xFFFF) << 8);
-        let chunk_world_id = (high >> 16) as u16;
-
-        (pos, chunk_face_id, chunk_world_id)
+        (pos, FaceId(high))
     }
 }
 
 struct VoxelFace {}
 
-#[repr(C)]
+#[repr(C, align(8))]
 struct FaceDataBuffer
 {
-    is_visible: u8,
-    mat:        u16
+    chunk_id:   u16,
+    mat:        u16,
+    is_visible: u8
 }
 
 #[cfg(test)]
 mod test
 {
     use itertools::iproduct;
+    use rand::Rng;
 
     use super::*;
 
@@ -240,18 +234,21 @@ mod test
     #[test]
     pub fn test_voxel_face_point()
     {
-        for (x, y, z, f, w) in iproduct!(0..=255, 0..=255, 0..=255, 0..=16777215, 0..=65535)
+        for _ in 0..32832487
         {
-            let p = VoxelFacePoint::new(glm::U8Vec3::new(x, y, z), ChunkFaceId(f), ChunkWorldId(w))
-                .destructure();
+            let (x, y, z, f) = (
+                rand::thread_rng().gen_range(0..=u8::MAX),
+                rand::thread_rng().gen_range(0..=u8::MAX),
+                rand::thread_rng().gen_range(0..=u8::MAX),
+                rand::thread_rng().gen_range(0..=u32::MAX)
+            );
 
-            let (vec, ff, ww) = p;
+            let (vec, ff) = VoxelFacePoint::new(glm::U8Vec3::new(x, y, z), FaceId(f)).destructure();
 
-            assert!(vec.x == x, "{p:?}| {x} {y} {z} {f} {w} {vec} {ff:?} {ww:?}");
-            assert!(vec.y == y, "{p:?}| {x} {y} {z} {f} {w} {vec} {ff:?} {ww:?}");
-            assert!(vec.z == z, "{p:?}| {x} {y} {z} {f} {w} {vec} {ff:?} {ww:?}");
-            assert!(ff == f, "{p:?}| {x} {y} {z} {f} {w} {vec} {ff:?} {ww:?}");
-            assert!(ww == w, "{p:?}| {x} {y} {z} {f} {w} {vec} {ff:?} {ww:?}");
+            assert!(vec.x == x);
+            assert!(vec.y == y);
+            assert!(vec.z == z);
+            assert!(ff.0 == f);
         }
     }
 }

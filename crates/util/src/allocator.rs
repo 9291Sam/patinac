@@ -76,21 +76,21 @@ impl FreelistAllocator
         }
 
         // TODO: optimize
-        // for b in (1..=self.next_free_block.into_integer() - 1).rev()
-        // {
-        //     let block = NonZeroUsize::new(b).unwrap();
+        for b in (1..=self.next_free_block.into_integer() - 1).rev()
+        {
+            let block = NonZeroUsize::new(b).unwrap();
 
-        //     if self.free_blocks.contains(&block)
-        //     {
-        //         self.free_blocks.remove(&block);
+            if self.free_blocks.contains(&block)
+            {
+                self.free_blocks.remove(&block);
 
-        //         self.next_free_block = block;
-        //     }
-        //     else
-        //     {
-        //         break;
-        //     }
-        // }
+                self.next_free_block = block;
+            }
+            else
+            {
+                break;
+            }
+        }
     }
 
     pub fn get_total_blocks(&self) -> usize

@@ -9,3 +9,4 @@ util = { workspace = true }
 gfx = { workspace = true }
 itertools = { workspace = true }
 rand = { workspace = true }
+bytemuck = { workspace = true }
