@@ -133,7 +133,7 @@ impl VoxelFacePoint
             ((low >> 16) & 0xFF) as u8
         );
 
-        let chunk_face_id = (low >> 24) | ((high & 0xFF) << 8); // Adjusted this line
+        let chunk_face_id = (low >> 24) | ((high & 0xFFFF) << 8);
         let chunk_world_id = (high >> 16) as u16;
 
         (pos, chunk_face_id, chunk_world_id)

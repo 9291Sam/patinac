@@ -8,3 +8,4 @@ nonmax = { workspace = true }
 util = { workspace = true }
 gfx = { workspace = true }
 itertools = { workspace = true }
+rand = { workspace = true }

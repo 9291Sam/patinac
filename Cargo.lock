@@ -2062,6 +2062,7 @@ dependencies = [
  "gfx",
  "itertools",
  "nonmax",
+ "rand",
  "util",
 ]
 
