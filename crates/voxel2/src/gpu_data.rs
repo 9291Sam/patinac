@@ -84,9 +84,11 @@ const _: () = const { assert!((std::mem::size_of::<BitBrick>() * 8) == 512) };
 // 0, 0, 0, 0, 0, 0 = 4 * 6 = 24 bytes = 30 bytes
 // also instancing
 
-struct ChunkFaceId {}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+struct ChunkFaceId(u32);
 
-struct ChunkWorldId {}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+struct ChunkWorldId(u16);
 
 struct VoxelFacePoint
 {
@@ -96,25 +98,51 @@ struct VoxelFacePoint
     /// [16, 23] [      ] | 8 + 0 bits  | chunk_z_pos
     /// [24, 31] [0,  15] | 8 + 16 bits | chunk_face_id
     /// [      ] [16, 31] | 0 + 16 bits | chunk_world_id
-    data: glm::U32Vec3
+    data: glm::U32Vec2
 }
 
 impl VoxelFacePoint
 {
-    pub fn new(pos: [u8; 3]) -> Self
+    pub fn new(pos: glm::U8Vec3, chunk_face_id: ChunkFaceId, chunk_world_id: ChunkWorldId) -> Self
     {
-        todo!()
+        let ChunkFaceId(chunk_face_id) = chunk_face_id;
+        let ChunkWorldId(chunk_world_id) = chunk_world_id;
+
+        debug_assert!(chunk_face_id < 2u32.pow(24));
+
+        let low: u32 = (pos.x as u32)
+            | ((pos.y as u32) << 8)
+            | ((pos.z as u32) << 16)
+            | ((chunk_face_id & 0xFF) << 24);
+
+        let high: u32 = (chunk_face_id >> 8) | ((chunk_world_id as u32) << 16);
+
+        Self {
+            data: glm::U32Vec2::new(low, high)
+        }
     }
 
-    pub fn destructure(self) -> (glm::U8Vec3, ChunkFaceId, ChunkWorldId)
+    pub fn destructure(self) -> (glm::U8Vec3, u32, u16)
     {
-        todo!()
+        let low = self.data.x;
+        let high = self.data.y;
+
+        let pos = glm::U8Vec3::new(
+            (low & 0xFF) as u8,
+            ((low >> 8) & 0xFF) as u8,
+            ((low >> 16) & 0xFF) as u8
+        );
+
+        let chunk_face_id = (low >> 24) | ((high & 0xFF) << 8); // Adjusted this line
+        let chunk_world_id = (high >> 16) as u16;
+
+        (pos, chunk_face_id, chunk_world_id)
     }
 }
 
 struct VoxelFace {}
 
-#[repr(C, packed)]
+#[repr(C)]
 struct FaceDataBuffer
 {
     is_visible: u8,
@@ -127,8 +155,6 @@ mod test
     use itertools::iproduct;
 
     use super::*;
-
-    // TODO: bit brick, bit brick index, chunk
 
     #[test]
     pub fn test_bit_brick_create()
@@ -208,6 +234,24 @@ mod test
             }
 
             working_brick.write(vec1, false);
+        }
+    }
+
+    #[test]
+    pub fn test_voxel_face_point()
+    {
+        for (x, y, z, f, w) in iproduct!(0..=255, 0..=255, 0..=255, 0..=16777215, 0..=65535)
+        {
+            let p = VoxelFacePoint::new(glm::U8Vec3::new(x, y, z), ChunkFaceId(f), ChunkWorldId(w))
+                .destructure();
+
+            let (vec, ff, ww) = p;
+
+            assert!(vec.x == x, "{p:?}| {x} {y} {z} {f} {w} {vec} {ff:?} {ww:?}");
+            assert!(vec.y == y, "{p:?}| {x} {y} {z} {f} {w} {vec} {ff:?} {ww:?}");
+            assert!(vec.z == z, "{p:?}| {x} {y} {z} {f} {w} {vec} {ff:?} {ww:?}");
+            assert!(ff == f, "{p:?}| {x} {y} {z} {f} {w} {vec} {ff:?} {ww:?}");
+            assert!(ww == w, "{p:?}| {x} {y} {z} {f} {w} {vec} {ff:?} {ww:?}");
         }
     }
 }
