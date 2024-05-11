@@ -40,9 +40,9 @@ fn fs_main(@builtin(position) in: vec4<f32>) -> @location(0) vec4<f32>
 
     let face_id = voxel_data.y;
 
-    if (face_id_buffer[face_id].low == 1u)
+    if (face_id_buffer[face_id].high == 1u)
     {
-        return vec4<f32>(vec3<f32>(vec3<u32>(x_pos, y_pos, z_pos)) / 512.0, 1.0);
+        return get_voxel_color(face_id_buffer[face_id].low >> 16);
     } 
 
     return vec4<f32>(0.0);

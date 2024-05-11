@@ -6,7 +6,7 @@
 @group(0) @binding(1) var<storage, read_write> indirect_color_calc_buffer: array<atomic<u32>, 3>;
 // [FaceIdInfo, ...]
 @group(0) @binding(2) var<storage, read_write> face_id_buffer: array<FaceInfo>;
-// number_of_voxels_in_buffer
+// number_of_voxels_inx_buffer
 @group(0) @binding(3) var<storage, read_write> number_of_unique_voxels: atomic<u32>;
 // [FaceId, ...]
 @group(0) @binding(4) var<storage, read_write> unique_voxel_buffer: array<atomic<u32>>;
@@ -23,7 +23,7 @@ fn cs_main(
         let this_px: vec2<u32> = textureLoad(voxel_discovery_image, global_invocation_id.xy, 0).xy;
         let face_id = this_px.y;
 
-        atomicStore(&face_id_buffer[face_id].low, 1u);
+        atomicStore(&face_id_buffer[face_id].high, 1u);
     }
 }
 

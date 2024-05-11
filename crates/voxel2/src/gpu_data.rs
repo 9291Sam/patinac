@@ -134,7 +134,7 @@ impl VoxelFacePoint
 
 struct VoxelFace {}
 
-#[repr(C, align(8))]
+#[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Hash, Pod, Zeroable)]
 pub(crate) struct FaceInfo
 {
@@ -143,7 +143,8 @@ pub(crate) struct FaceInfo
     /// [16, 31] [      ] | material
     /// [      ] [0,   0] | is_visible
     /// [      ] [1,  31] | unused
-    pub data: glm::U32Vec2
+    pub low:  u32,
+    pub high: u32
 }
 
 #[cfg(test)]

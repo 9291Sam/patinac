@@ -275,12 +275,10 @@ impl VoxelChunkManager
         };
 
         let face_data = (0..TEMPORARY_FACE_ID_LIMIT)
-            .map(|id| {
+            .map(|_| {
                 FaceInfo {
-                    data: glm::U32Vec2::new(
-                        1 & rand::thread_rng().gen_range(0..=12u32) << 16,
-                        id as u32
-                    )
+                    low:  rand::thread_rng().gen_range(0..=12u32) << 16,
+                    high: 0
                 }
             })
             .collect_vec();
