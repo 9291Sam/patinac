@@ -97,7 +97,7 @@ pub struct VoxelFacePoint
     /// [0,   7] [      ] | 8 + 0 bits  | chunk_x_pos
     /// [8,  15] [      ] | 8 + 0 bits  | chunk_y_pos
     /// [16, 23] [      ] | 8 + 0 bits  | chunk_z_pos
-    /// [24, 31] [      ] | 8 + 0 bits  | unused
+    /// [24, 31] [      ] | 8 + 0 bits  | normal
     /// [      ] [0,  31] | 0 + 32 bits | face_id
     data: glm::U32Vec2
 }
@@ -135,11 +135,14 @@ impl VoxelFacePoint
 struct VoxelFace {}
 
 #[repr(C, align(8))]
-struct FaceDataBuffer
+struct FaceInfo
 {
-    chunk_id:   u16,
-    mat:        u16,
-    is_visible: u8
+    ///   x [0]    y [1]
+    /// [0,  15] [      ] | chunk_id
+    /// [16, 31] [      ] | material
+    /// [      ] [0,   0] | is_visible
+    /// [      ] [1,  31] | unused
+    data: glm::U32Vec2
 }
 
 #[cfg(test)]

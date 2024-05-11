@@ -10,3 +10,4 @@ gfx = { workspace = true }
 itertools = { workspace = true }
 rand = { workspace = true }
 bytemuck = { workspace = true }
+game = { workspace = true }

@@ -2060,6 +2060,7 @@ name = "voxel2"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
+ "game",
  "gfx",
  "itertools",
  "nonmax",
