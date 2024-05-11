@@ -94,8 +94,18 @@ impl gfx::Recordable for VisibilityMarker
         }
     }
 
-    fn record<'s>(&'s self, _: &mut gfx::GenericPass<'s>, _: Option<gfx::DrawId>)
+    fn record<'s>(&'s self, render_pass: &mut gfx::GenericPass<'s>, maybe_id: Option<gfx::DrawId>)
     {
-        unreachable!()
+        let (gfx::GenericPass::Compute(ref mut pass), None) = (render_pass, maybe_id)
+        else
+        {
+            unreachable!()
+        };
+
+        let size = self.game.get_renderer().get_framebuffer_size();
+        let dispatch_size_x = size.x.div_ceil(32);
+        let dispatch_size_y = size.y.div_ceil(32);
+
+        pass.dispatch_workgroups(dispatch_size_x, dispatch_size_y, 1);
     }
 }

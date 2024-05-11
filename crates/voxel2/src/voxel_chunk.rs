@@ -14,7 +14,7 @@ use gfx::{
 use rand::Rng;
 use util::AtomicF32;
 
-use crate::{Voxel, VoxelChunkDataManager};
+use crate::Voxel;
 
 #[derive(Debug)]
 pub struct RasterChunk
@@ -27,7 +27,7 @@ pub struct RasterChunk
     time_alive:         AtomicF32,
 
     pipeline:     Arc<gfx::GenericPipeline>,
-    data_manager: VoxelChunkDataManager,
+    data_manager: super::VoxelChunkDataManager,
 
     transform: Mutex<gfx::Transform>
 }
@@ -35,7 +35,7 @@ pub struct RasterChunk
 impl RasterChunk
 {
     pub fn new(
-        _world_data_manager: Arc<super::VoxelWorldDataManager>,
+        _world_data_manager: Arc<super::VoxelChunkManager>,
         game: Arc<game::Game>,
         transform: gfx::Transform,
         faces: impl IntoIterator<Item = VoxelFace>
@@ -47,7 +47,7 @@ impl RasterChunk
 
         let shader = renderer
             .render_cache
-            .cache_shader_module(wgpu::include_wgsl!("raster.wgsl"));
+            .cache_shader_module(wgpu::include_wgsl!("voxel_chunk.wgsl"));
 
         let pipeline_layout =
             renderer
@@ -100,7 +100,7 @@ impl RasterChunk
             }
         );
 
-        let data_manager = VoxelChunkDataManager::new(renderer.clone());
+        let data_manager = super::VoxelChunkDataManager::new(renderer.clone());
 
         let mut faces_vec: Vec<VoxelFace> = faces.into_iter().collect();
         let origional_length = faces_vec.len();
@@ -223,6 +223,8 @@ impl gfx::Recordable for RasterChunk
             unreachable!()
         };
 
+        log::trace!("Recording vboxel chunk");
+
         pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
         pass.set_push_constants(
             wgpu::ShaderStages::VERTEX_FRAGMENT,
@@ -256,17 +258,6 @@ pub struct RasterChunkVoxelPoint
     /// [      ] [4,  12] | 0 + 9 bits  | w_width
     /// [      ] [13, 15] | 0 + 3 bits  | face id
     /// [      ] [16, 31] | 0 + 16 bits | voxel id
-    data: glm::U32Vec2
-}
-
-pub struct RasterChunkVoxelPointNew
-{
-    ///   x [0]    y [1]
-    /// [0,   8] [      ] | 9 + 0 bits   | x_pos
-    /// [9,  17] [      ] | 9 + 0 bits   | y_pos
-    /// [18, 26] [      ] | 9 + 0 bits   | z_pos
-    /// [27, 31] [0,  18] | 5 + 18 bits  | in_chunk_id
-    ///          [18, 32] | 0 + 14 bits  | chunk_id
     data: glm::U32Vec2
 }
 

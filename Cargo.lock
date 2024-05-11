@@ -1342,6 +1342,7 @@ dependencies = [
  "oneshot",
  "util",
  "verdigris",
+ "voxel2",
 ]
 
 [[package]]
@@ -2034,7 +2035,7 @@ dependencies = [
  "oneshot",
  "rand",
  "util",
- "voxel",
+ "voxel2",
 ]
 
 [[package]]
@@ -2044,18 +2045,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 
 [[package]]
-name = "voxel"
-version = "0.1.0"
-dependencies = [
- "bytemuck",
- "game",
- "gfx",
- "log",
- "rand",
- "util",
-]
-
-[[package]]
 name = "voxel2"
 version = "0.1.0"
 dependencies = [
@@ -2063,6 +2052,7 @@ dependencies = [
  "game",
  "gfx",
  "itertools",
+ "log",
  "nonmax",
  "rand",
  "util",

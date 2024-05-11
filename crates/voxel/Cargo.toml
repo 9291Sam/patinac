@@ -1,12 +1,12 @@
-[package]
-name = "voxel"
-version = "0.1.0"
-edition = "2021"
+# [package]
+# name = "voxel"
+# version = "0.1.0"
+# edition = "2021"
 
-[dependencies]
-gfx = { workspace = true }
-game = { workspace = true }
-bytemuck = { workspace = true }
-util = { workspace = true }
-log = { workspace = true }
-rand = {workspace = true}
+# [dependencies]
+# gfx = { workspace = true }
+# game = { workspace = true }
+# bytemuck = { workspace = true }
+# util = { workspace = true }
+# log = { workspace = true }
+# rand = {workspace = true}

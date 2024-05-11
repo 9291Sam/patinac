@@ -11,3 +11,4 @@ itertools = { workspace = true }
 rand = { workspace = true }
 bytemuck = { workspace = true }
 game = { workspace = true }
+log = { workspace = true }

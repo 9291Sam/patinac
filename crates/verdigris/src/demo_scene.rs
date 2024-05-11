@@ -5,11 +5,11 @@ use gfx::glm::{self};
 use itertools::iproduct;
 use noise::NoiseFn;
 use rand::Rng;
-use voxel::{RasterChunk, VoxelFace, VoxelFaceDirection, VoxelWorldDataManager};
+use voxel2::{RasterChunk, VoxelChunkManager, VoxelFace, VoxelFaceDirection};
 #[derive(Debug)]
 pub struct DemoScene
 {
-    data_manager: Arc<VoxelWorldDataManager>,
+    data_manager: Arc<VoxelChunkManager>,
     raster:       Mutex<util::Promise<Arc<RasterChunk>>>,
     id:           util::Uuid
 }
@@ -22,7 +22,7 @@ impl DemoScene
 
         let c_game = game.clone();
 
-        let dm = VoxelWorldDataManager::new(game.clone());
+        let dm = VoxelChunkManager::new(game.clone());
 
         let this = Arc::new(DemoScene {
             data_manager: dm.clone(),
@@ -84,7 +84,7 @@ impl game::Entity for DemoScene
 }
 
 fn create_chunk(
-    dm: Arc<VoxelWorldDataManager>,
+    dm: Arc<VoxelChunkManager>,
     game: Arc<game::Game>,
     noise: &(impl NoiseFn<f64, 2> + Sync),
     offset: glm::DVec3,

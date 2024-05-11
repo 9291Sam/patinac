@@ -135,7 +135,7 @@ impl VoxelFacePoint
 struct VoxelFace {}
 
 #[repr(C, align(8))]
-struct FaceInfo
+pub(crate) struct FaceInfo
 {
     ///   x [0]    y [1]
     /// [0,  15] [      ] | chunk_id
