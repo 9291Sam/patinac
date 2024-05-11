@@ -393,7 +393,7 @@ impl gfx::Recordable for VoxelChunkManager
 
                         log::trace!("{:?}", v);
 
-                        panic!("done");
+                        // panic!("done");
                     }
                 }
             );
