@@ -33,42 +33,41 @@ fn vs_main(input: VertexInput) -> VertexOutput
     let voxel_data: vec2<u32> = input.voxel_data;
 
     let nine_bit_mask: u32 = u32(511);
-    let three_bit_mask: u32 = u32(7);
-    let two_bit_mask: u32 = u32(3);
-    let five_bit_mask: u32 = u32(31);
-    let four_bit_mask: u32 = u32(15);
+    // let three_bit_mask: u32 = u32(7);
+    // let two_bit_mask: u32 = u32(3);
+    // let five_bit_mask: u32 = u32(31);
+    // let four_bit_mask: u32 = u32(15);
 
     let x_pos: u32 = voxel_data[0] & nine_bit_mask;
     let y_pos: u32 = (voxel_data[0] >> 9) & nine_bit_mask;
     let z_pos: u32 = (voxel_data[0] >> 18) & nine_bit_mask;
 
-    let l_width_lo: u32 = (voxel_data[0] >> 27) & five_bit_mask;
-    let l_width_hi: u32 = (voxel_data[1] & four_bit_mask) << 5;
+    // let l_width_lo: u32 = (voxel_data[0] >> 27) & five_bit_mask;
+    // let l_width_hi: u32 = (voxel_data[1] & four_bit_mask) << 5;
 
-    let l_width: u32 = l_width_lo | l_width_hi;
-    let w_width: u32 = (voxel_data[1] >> 4) & nine_bit_mask;
-    let face_id: u32 = (voxel_data[1] >> 13) & three_bit_mask;
-    let voxel_id: u32 = (voxel_data[1] >> 16);
+    // let l_width: u32 = l_width_lo | l_width_hi;
+    // let w_width: u32 = (voxel_data[1] >> 4) & nine_bit_mask;
+    // let face_id: u32 = (voxel_data[1] >> 13) & three_bit_mask;
+    // let voxel_id: u32 = (voxel_data[1] >> 16);
 
     out.clip_position = global_model_view_projection[pc.id] * 
         vec4<f32>(f32(x_pos), f32(y_pos), f32(z_pos), 1.0);
-    out.voxel = u32(voxel_id);
+    out.data = voxel_data;
     
     // let world_pos_intercalc: vec4<f32> = global_model[pc.id] * 
     //     vec4<f32>(f32(x_pos), f32(y_pos), f32(z_pos), 1.0);
 
     // out.world_pos = world_pos_intercalc.xyz / world_pos_intercalc.w;
     out.voxel_chunk_pos = vec3<f32>(f32(x_pos), f32(y_pos), f32(z_pos));
-    out.face = face_id;
+    // out.face = face_id;
   
     return out;
 }
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
-    @location(0) voxel: u32,
-    @location(1) voxel_chunk_pos: vec3<f32>,
-    @location(2) face: u32,
+    @location(0) data: vec2<u32>,
+    @location(1) voxel_chunk_pos: vec3<f32>
 }
 
 struct FragmentOutput
@@ -79,10 +78,10 @@ struct FragmentOutput
     @fragment
     fn fs_main(in: VertexOutput) -> FragmentOutput
     {
-        let normal = get_voxel_normal_from_faceid(in.face);
-        let data: vec3<u32> = vec3<u32>(trunc(in.voxel_chunk_pos + normal * -0.001));
+        // let normal = get_voxel_normal_from_faceid(in.face);
+        let data: vec3<u32> = vec3<u32>(trunc(in.voxel_chunk_pos));
 
-        return FragmentOutput(vec2<u32>(data.x | data.y << 9 | data.z << 18, in.voxel));
+        return FragmentOutput(vec2<u32>(data.x | data.y << 9 | data.z << 18, in.data.y));
     }
 
 const ERROR_COLOR: vec4<f32> = vec4<f32>(1.0, 0.0, 1.0, 1.0);

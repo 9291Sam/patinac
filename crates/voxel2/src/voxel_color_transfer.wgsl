@@ -1,4 +1,14 @@
+
+// Texture<FromFragmentShader>
 @group(0) @binding(0) var voxel_discovery_image: texture_2d<u32>;
+// [number_of_image_workgroups, 1, 1];
+@group(0) @binding(1) var<storage, read_write> indirect_color_calc_buffer: array<atomic<u32>, 3>;
+// [FaceIdInfo, ...]
+@group(0) @binding(2) var<storage, read_write> face_id_buffer: array<FaceInfo>;
+// number_of_voxels_in_buffer
+@group(0) @binding(3) var<storage, read_write> number_of_unique_voxels: atomic<u32>;
+// [FaceId, ...]
+@group(0) @binding(4) var<storage, read_write> unique_voxel_buffer: array<atomic<u32>>;
 
 @vertex
 fn vs_main(@builtin(vertex_index) index: u32) -> @builtin(position) vec4<f32>
@@ -36,7 +46,7 @@ fn fs_main(@builtin(position) in: vec4<f32>) -> @location(0) vec4<f32>
     //     map(f32(z_pos), 0.0, 511.0, 0.0, 1.0),
     //     1.0
     // ); 
-    return get_voxel_color(voxel_data[1]);
+    return get_voxel_color(face_id_buffer[voxel_data[1]].low << 16u);
 
 }
 
@@ -73,4 +83,16 @@ fn rand(i: u32) -> u32
     let index = (i << 13) ^ i;
 
     return (index * (index * index * 15731 + 789221) + 1376312589);
+}
+
+
+struct FaceInfo
+{
+    ///   x [0]    y [1]
+    /// [0,  15] [      ] | chunk_id
+    /// [16, 31] [      ] | material
+    /// [      ] [0,   0] | is_visible
+    /// [      ] [1,  31] | unused
+    low: atomic<u32>,
+    high: atomic<u32>,
 }

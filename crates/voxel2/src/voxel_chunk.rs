@@ -14,7 +14,7 @@ use gfx::{
 use rand::Rng;
 use util::AtomicF32;
 
-use crate::Voxel;
+use crate::{Voxel, VoxelChunkManager};
 
 #[derive(Debug)]
 pub struct RasterChunk
@@ -35,7 +35,7 @@ pub struct RasterChunk
 impl RasterChunk
 {
     pub fn new(
-        _world_data_manager: Arc<super::VoxelChunkManager>,
+        world_data_manager: Arc<super::VoxelChunkManager>,
         game: Arc<game::Game>,
         transform: gfx::Transform,
         faces: impl IntoIterator<Item = VoxelFace>
@@ -140,7 +140,8 @@ impl RasterChunk
 
         log::trace!("After write {:?}", data_manager.peek_allocated_bricks());
 
-        let (vertex_buffer, number_of_vertices) = Self::create_voxel_buffer(renderer, faces_vec);
+        let (vertex_buffer, number_of_vertices) =
+            Self::create_voxel_buffer(renderer, &world_data_manager, faces_vec);
 
         let this = Arc::new(RasterChunk {
             game,
@@ -161,12 +162,21 @@ impl RasterChunk
     /// returns the number of vertices in the buffer
     fn create_voxel_buffer(
         renderer: &gfx::Renderer,
+        chunk_manager: &VoxelChunkManager,
         faces: impl IntoIterator<Item = VoxelFace>
     ) -> (wgpu::Buffer, usize)
     {
         let instances: Vec<RasterChunkVoxelPoint> = faces
             .into_iter()
-            .flat_map(|face| face.direction.to_face_points(face.position, face.voxel))
+            .flat_map(|face| {
+                let mut points = face.direction.to_face_points(face.position, face.voxel);
+
+                let id = unsafe { chunk_manager.alloc_face_id() };
+
+                points.iter_mut().for_each(|p| p.data.y = id.0);
+
+                points
+            })
             .collect();
 
         let buffer = renderer.create_buffer_init(&BufferInitDescriptor {
@@ -222,8 +232,6 @@ impl gfx::Recordable for RasterChunk
         {
             unreachable!()
         };
-
-        log::trace!("Recording vboxel chunk");
 
         pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
         pass.set_push_constants(
