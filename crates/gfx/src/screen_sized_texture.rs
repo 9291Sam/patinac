@@ -29,7 +29,6 @@ impl Debug for ScreenSizedTexture
 
 impl ScreenSizedTexture
 {
-    // TODO: should this be on the renderer?
     pub fn new(
         renderer: Arc<super::Renderer>,
         descriptor: ScreenSizedTextureDescriptor

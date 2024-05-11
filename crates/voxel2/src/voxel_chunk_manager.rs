@@ -244,6 +244,8 @@ impl VoxelChunkManager
         else
         {
             let renderer = game.get_renderer();
+            let screen_size = renderer.get_framebuffer_size();
+            let screen_px = screen_size.x * screen_size.y;
 
             BufferCriticalSection {
                 indirect_color_calc_buffer:     renderer.create_buffer(&wgpu::BufferDescriptor {
@@ -272,11 +274,9 @@ impl VoxelChunkManager
                         | wgpu::BufferUsages::COPY_SRC,
                     mapped_at_creation: false
                 }),
-                // TODO: is screen sized
                 unique_voxel_buffer:            renderer.create_buffer(&wgpu::BufferDescriptor {
                     label:              Some("VoxelDataBindGroup UniqueVoxelBuffer"),
-                    size:               std::mem::size_of::<FaceInfo>() as u64
-                        * TEMPORARY_FACE_ID_LIMIT,
+                    size:               std::mem::size_of::<FaceInfo>() as u64 * screen_px as u64,
                     usage:              wgpu::BufferUsages::STORAGE
                         | wgpu::BufferUsages::COPY_DST
                         | wgpu::BufferUsages::COPY_SRC,
@@ -400,25 +400,12 @@ impl gfx::Recordable for VoxelChunkManager
                     {
                         let v = u32_data.to_owned();
 
-                        println!("{:?}", v);
+                        log::trace!("{:?}", v);
 
                         // panic!("done");
                     }
                 }
             );
-
-            // let face_data = (0..TEMPORARY_FACE_ID_LIMIT)
-            //     .map(|_| {
-            //         FaceInfo {
-            //             low:  rand::thread_rng().gen_range(0..=12u32) << 16,
-            //             high: 0
-            //         }
-            //     })
-            //     .collect_vec();
-
-            // renderer
-            //     .queue
-            //     .write_buffer(&buffers.face_id_buffer, 0, cast_slice(&face_data[..]));
 
             renderer
                 .queue
