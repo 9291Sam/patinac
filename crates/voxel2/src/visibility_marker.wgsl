@@ -23,7 +23,12 @@ fn cs_main(
         let this_px: vec2<u32> = textureLoad(voxel_discovery_image, global_invocation_id.xy, 0).xy;
         let face_id = this_px.y;
 
-        atomicStore(&face_id_buffer[face_id].high, 1u);
+        let prev = atomicOr(&face_id_buffer[face_id].high, 1u);
+
+        if (prev == 0u)
+        {
+            atomicAdd(&number_of_unique_voxels, 1u);
+        }
     }
 }
 

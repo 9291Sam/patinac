@@ -2,6 +2,7 @@ use std::borrow::Cow;
 use std::sync::{Arc, Mutex};
 
 use gfx::glm::{self};
+use gfx::wgpu;
 use itertools::iproduct;
 use noise::NoiseFn;
 use rand::Rng;

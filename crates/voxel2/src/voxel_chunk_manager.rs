@@ -164,6 +164,11 @@ impl VoxelChunkManager
         this
     }
 
+    pub fn get_bind_group_window(&self) -> util::Window<Arc<wgpu::BindGroup>>
+    {
+        self.bind_group_windows.0.clone()
+    }
+
     pub(crate) unsafe fn alloc_face_id(&self) -> FaceId
     {
         FaceId(
@@ -377,24 +382,37 @@ impl gfx::Recordable for VoxelChunkManager
         {
             static ITERS: AtomicU32 = AtomicU32::new(0);
 
-            // DownloadBuffer::read_buffer(
-            //     &renderer.device,
-            //     &renderer.queue,
-            //     &buffers.number_of_unique_voxels_buffer.slice(..),
-            //     |res| {
-            //         let data: &[u8] = &res.unwrap();
-            //         let u32_data: &[u32] = bytemuck::cast_slice(data);
+            DownloadBuffer::read_buffer(
+                &renderer.device,
+                &renderer.queue,
+                &buffers.number_of_unique_voxels_buffer.slice(..),
+                |res| {
+                    let data: &[u8] = &res.unwrap();
+                    let u32_data: &[u32] = bytemuck::cast_slice(data);
 
-            //         if ITERS.fetch_add(1, std::sync::atomic::Ordering::SeqCst) > 700
-            //         {
-            //             let v = u32_data.to_owned();
+                    if ITERS.fetch_add(1, std::sync::atomic::Ordering::SeqCst) > 0
+                    {
+                        let v = u32_data.to_owned();
 
-            //             // log::trace!("{:?}", v);
+                        println!("{:?}", v);
 
-            //             // panic!("done");
+                        // panic!("done");
+                    }
+                }
+            );
+
+            // let face_data = (0..TEMPORARY_FACE_ID_LIMIT)
+            //     .map(|_| {
+            //         FaceInfo {
+            //             low:  rand::thread_rng().gen_range(0..=12u32) << 16,
+            //             high: 0
             //         }
-            //     }
-            // );
+            //     })
+            //     .collect_vec();
+
+            // renderer
+            //     .queue
+            //     .write_buffer(&buffers.face_id_buffer, 0, cast_slice(&face_data[..]));
 
             renderer
                 .queue

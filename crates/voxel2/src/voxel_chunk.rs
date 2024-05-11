@@ -25,8 +25,8 @@ pub struct RasterChunk
     number_of_vertices: u32,
     time_alive:         AtomicF32,
 
-    pipeline:     Arc<gfx::GenericPipeline>,
-    data_manager: super::VoxelChunkDataManager,
+    pipeline:           Arc<gfx::GenericPipeline>,
+    chunk_data_manager: super::VoxelChunkDataManager,
 
     transform: Mutex<gfx::Transform>
 }
@@ -150,7 +150,7 @@ impl RasterChunk
             pipeline,
             transform: Mutex::new(transform),
             time_alive: AtomicF32::new(0.0),
-            data_manager
+            chunk_data_manager: data_manager
         });
 
         renderer.register(this.clone());
