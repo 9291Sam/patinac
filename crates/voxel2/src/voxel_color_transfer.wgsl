@@ -46,7 +46,7 @@ fn fs_main(@builtin(position) in: vec4<f32>) -> @location(0) vec4<f32>
     //     map(f32(z_pos), 0.0, 511.0, 0.0, 1.0),
     //     1.0
     // ); 
-    return get_voxel_color(face_id_buffer[voxel_data[1]].low << 16u);
+    return get_voxel_color(0xFFFFFFFF & (face_id_buffer[voxel_data[1]].low << 16u));
 
 }
 

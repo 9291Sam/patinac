@@ -28,13 +28,13 @@ fn cs_main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>)
     // store the fact that the face is used in the final image
     let prev_val = atomicOr(&face_id_buffer[face_id].high, 1u);
 
-    if (prev_val & 1u) == 0u
-    {
-        // this was the first write to this location
-        let free_idx = atomicAdd(&number_of_unique_voxels, 1u);
+    // if prev_val == 0u
+    // {
+    //     // this was the first write to this location
+    //     let free_idx = atomicAdd(&number_of_unique_voxels, 1u);
 
-        unique_voxel_buffer[free_idx] = face_id;
-    }
+    //     unique_voxel_buffer[free_idx] = face_id;
+    // }
 }
 
 struct FaceInfo

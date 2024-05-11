@@ -4,10 +4,11 @@ use std::num::NonZero;
 use std::sync::atomic::AtomicU32;
 use std::sync::{Arc, Mutex, Weak};
 
-use bytemuck::Contiguous;
+use bytemuck::{cast_slice, Contiguous};
 use gfx::wgpu::util::DownloadBuffer;
 use gfx::{glm, wgpu};
 use itertools::Itertools;
+use rand::Rng;
 
 use crate::{FaceId, FaceInfo, VisibilityMarker, VoxelColorTransferRecordable};
 
@@ -273,8 +274,22 @@ impl VoxelChunkManager
             }
         };
 
-    (        0..TEMPORARY_FACE_ID_LIMIT).map(|id| FaceInfo {data: glm::U32Vec2::new(1 & rand::thread_rng().gen, y)})
-    game.get_renderer().queue.write_buffer(buffers.face_id_buffer, 0,    
+        let face_data = (0..TEMPORARY_FACE_ID_LIMIT)
+            .map(|id| {
+                FaceInfo {
+                    data: glm::U32Vec2::new(
+                        1 & rand::thread_rng().gen_range(0..=12u32) << 16,
+                        id as u32
+                    )
+                }
+            })
+            .collect_vec();
+
+        game.get_renderer().queue.write_buffer(
+            &buffers.face_id_buffer,
+            0,
+            cast_slice(&face_data[..])
+        );
 
         let bind_group = game
             .get_renderer()
@@ -372,13 +387,13 @@ impl gfx::Recordable for VoxelChunkManager
                     let data: &[u8] = &res.unwrap();
                     let u32_data: &[u32] = bytemuck::cast_slice(data);
 
-                    if ITERS.fetch_add(1, std::sync::atomic::Ordering::SeqCst) > 300
+                    if ITERS.fetch_add(1, std::sync::atomic::Ordering::SeqCst) > 700
                     {
                         let v = u32_data.to_owned();
 
                         log::trace!("{:?}", v);
 
-                        // panic!("done");
+                        panic!("done");
                     }
                 }
             );
