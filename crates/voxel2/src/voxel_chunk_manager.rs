@@ -273,6 +273,9 @@ impl VoxelChunkManager
             }
         };
 
+    (        0..TEMPORARY_FACE_ID_LIMIT).map(|id| FaceInfo {data: glm::U32Vec2::new(1 & rand::thread_rng().gen, y)})
+    game.get_renderer().queue.write_buffer(buffers.face_id_buffer, 0,    
+
         let bind_group = game
             .get_renderer()
             .create_bind_group(&wgpu::BindGroupDescriptor {
