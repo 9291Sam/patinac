@@ -12,7 +12,8 @@ pub enum PassStage
     PostVoxelDiscoveryCompute,
     VoxelColorTransfer,
     SimpleColor,
-    MenuRender
+    MenuRender,
+    CleanupCompute
 }
 
 pub struct RenderPassManager
@@ -189,6 +190,13 @@ impl RenderPassManager
                         depth_stencil_attachment: None,
                         timestamp_writes:         None,
                         occlusion_query_set:      None
+                    }))
+                }
+                PassStage::CleanupCompute =>
+                {
+                    GenericPass::Compute(encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                        label:            Some("CleanUp Compute"),
+                        timestamp_writes: None
                     }))
                 }
             };

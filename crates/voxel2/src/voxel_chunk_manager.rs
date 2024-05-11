@@ -10,7 +10,7 @@ use gfx::{glm, wgpu};
 use itertools::Itertools;
 use rand::Rng;
 
-use crate::{FaceId, FaceInfo, VisibilityMarker, VoxelColorTransferRecordable};
+use crate::{FaceId, FaceInfo, VisibilityMarker, VisibilityUnMarker, VoxelColorTransferRecordable};
 
 const TEMPORARY_FACE_ID_LIMIT: u64 = 2u64.pow(24);
 
@@ -35,8 +35,9 @@ pub struct VoxelChunkManager
     ),
     resize_pinger:                util::PingReceiver,
 
-    visibility_marker: Arc<VisibilityMarker>,
-    color_transfer:    Arc<VoxelColorTransferRecordable>
+    visibility_marker:   Arc<VisibilityMarker>,
+    color_transfer:      Arc<VoxelColorTransferRecordable>,
+    visibility_unmarker: Arc<VisibilityUnMarker>
 }
 
 impl Debug for VoxelChunkManager
@@ -153,7 +154,12 @@ impl VoxelChunkManager
                 ),
                 color_transfer:               VoxelColorTransferRecordable::new(
                     game.clone(),
-                    bind_group_layout,
+                    bind_group_layout.clone(),
+                    bind_group_window.clone()
+                ),
+                visibility_unmarker:          VisibilityUnMarker::new(
+                    game.clone(),
+                    bind_group_layout.clone(),
                     bind_group_window.clone()
                 )
             }
