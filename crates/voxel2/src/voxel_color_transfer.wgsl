@@ -40,17 +40,12 @@ fn fs_main(@builtin(position) in: vec4<f32>) -> @location(0) vec4<f32>
 
     let face_id = voxel_data.y;
 
-    face_id_buffer[face_id].low = 0u;
+    if (face_id_buffer[face_id].low == 1u)
+    {
+        return vec4<f32>(vec3<f32>(vec3<u32>(x_pos, y_pos, z_pos)) / 512.0, 1.0);
+    } 
 
-
-    
-    return vec4<f32>(
-        map(f32(x_pos), 0.0, 511.0, 0.0, 1.0),
-        map(f32(y_pos), 0.0, 511.0, 0.0, 1.0),
-        map(f32(z_pos), 0.0, 511.0, 0.0, 1.0),
-        1.0
-    ); 
-
+    return vec4<f32>(0.0);
 }
 
 fn map(x: f32, in_min: f32, in_max: f32, out_min: f32, out_max: f32) -> f32

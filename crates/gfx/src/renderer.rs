@@ -748,7 +748,13 @@ impl Renderer
                                         {
                                             pass.set_pipeline(p)
                                         }
-                                        (_, _) => panic!("Pass Pipeline Invariant Violated!")
+                                        (_, _) =>
+                                        {
+                                            panic!(
+                                                "Pass Pipeline Invariant Violated! {:?}",
+                                                &**recordable
+                                            )
+                                        }
                                     }
 
                                     active_pipeline = Some(desired_pipeline);

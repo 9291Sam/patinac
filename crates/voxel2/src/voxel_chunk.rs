@@ -11,7 +11,6 @@ use gfx::{
     CacheablePipelineLayoutDescriptor,
     CacheableRenderPipelineDescriptor
 };
-use rand::Rng;
 use util::AtomicF32;
 
 use crate::{Voxel, VoxelChunkManager};

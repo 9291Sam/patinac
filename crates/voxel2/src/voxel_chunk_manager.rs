@@ -379,24 +379,24 @@ impl gfx::Recordable for VoxelChunkManager
         {
             static ITERS: AtomicU32 = AtomicU32::new(0);
 
-            DownloadBuffer::read_buffer(
-                &renderer.device,
-                &renderer.queue,
-                &buffers.number_of_unique_voxels_buffer.slice(..),
-                |res| {
-                    let data: &[u8] = &res.unwrap();
-                    let u32_data: &[u32] = bytemuck::cast_slice(data);
+            // DownloadBuffer::read_buffer(
+            //     &renderer.device,
+            //     &renderer.queue,
+            //     &buffers.number_of_unique_voxels_buffer.slice(..),
+            //     |res| {
+            //         let data: &[u8] = &res.unwrap();
+            //         let u32_data: &[u32] = bytemuck::cast_slice(data);
 
-                    if ITERS.fetch_add(1, std::sync::atomic::Ordering::SeqCst) > 700
-                    {
-                        let v = u32_data.to_owned();
+            //         if ITERS.fetch_add(1, std::sync::atomic::Ordering::SeqCst) > 700
+            //         {
+            //             let v = u32_data.to_owned();
 
-                        log::trace!("{:?}", v);
+            //             // log::trace!("{:?}", v);
 
-                        // panic!("done");
-                    }
-                }
-            );
+            //             // panic!("done");
+            //         }
+            //     }
+            // );
 
             renderer
                 .queue
