@@ -16,11 +16,11 @@ fn cs_main(
     @builtin(global_invocation_id) global_invocation_id: vec3<u32>,
 ){
     let output_image_dimensions = textureDimensions(voxel_discovery_image).xy;
+    let this_px: vec2<u32> = textureLoad(voxel_discovery_image, global_invocation_id.xy, 0).xy;
 
-    if any(global_invocation_id.xy < output_image_dimensions)
+    if any(global_invocation_id.xy < output_image_dimensions) && all(this_px != vec2<u32>(0))
     {
         // get the data from the fragment shader
-        let this_px: vec2<u32> = textureLoad(voxel_discovery_image, global_invocation_id.xy, 0).xy;
         let face_id = this_px.y;
 
         let prev = atomicOr(&face_id_buffer[face_id].high, 1u);

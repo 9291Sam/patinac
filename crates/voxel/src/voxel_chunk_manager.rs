@@ -391,7 +391,7 @@ impl gfx::Recordable for VoxelChunkManager
             DownloadBuffer::read_buffer(
                 &renderer.device,
                 &renderer.queue,
-                &buffers.indirect_color_calc_buffer.slice(..),
+                &buffers.number_of_unique_voxels_buffer.slice(..),
                 |res| {
                     let data: &[u8] = &res.unwrap();
                     let u32_data: &[u32] = bytemuck::cast_slice(data);
