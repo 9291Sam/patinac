@@ -6,7 +6,7 @@ use gfx::wgpu;
 use itertools::iproduct;
 use noise::NoiseFn;
 use rand::Rng;
-use voxel2::{RasterChunk, VoxelChunkManager, VoxelFace, VoxelFaceDirection};
+use voxel::{RasterChunk, VoxelChunkManager, VoxelFace, VoxelFaceDirection};
 #[derive(Debug)]
 pub struct DemoScene
 {

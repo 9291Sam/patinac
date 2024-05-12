@@ -12,6 +12,6 @@ util = { workspace = true }
 gfx = { workspace = true }
 log = { workspace = true }
 itertools = { workspace = true }
-voxel2 = { workspace = true }
+voxel = { workspace = true }
 dashmap = { workspace = true }
 oneshot = { workspace = true }
