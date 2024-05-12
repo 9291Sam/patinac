@@ -27,7 +27,14 @@ fn cs_main(
 
         if (prev == 0u)
         {
-            atomicAdd(&number_of_unique_voxels, 1u);
+            let free_idx = atomicAdd(&number_of_unique_voxels, 1u);
+
+            unique_voxel_buffer[free_idx] = face_id;
+
+            if (free_idx % 1024 == 0)
+            {
+                atomicAdd(&indirect_color_calc_buffer[0], 1u);
+            }
         }
     }
 }
