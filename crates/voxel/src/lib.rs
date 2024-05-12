@@ -3,6 +3,7 @@
 #![feature(btree_extract_if)]
 
 mod gpu_data;
+mod material;
 mod visibility_marker;
 mod visibility_unmarker;
 mod voxel_chunk;

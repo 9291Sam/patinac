@@ -46,7 +46,7 @@ fn main()
         {
             let _verdigris = verdigris::DemoScene::new(game.clone());
             // let _debug_menu = gui::DebugMenu::new(&renderer, game.clone());
-            let voxel2 = voxel2::VoxelChunkManager::new(game.clone());
+            let voxel = voxel::VoxelChunkManager::new(game.clone());
 
             let game_tick = game.clone();
             let game_continue = should_loops_continue.clone();

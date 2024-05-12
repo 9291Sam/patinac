@@ -400,7 +400,7 @@ impl gfx::Recordable for VoxelChunkManager
                     {
                         let v = u32_data.to_owned();
 
-                        log::trace!("{:?}", v);
+                        log::trace!("BLOCK_ON{:?}", v);
 
                         // panic!("done");
                     }

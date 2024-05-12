@@ -135,12 +135,26 @@ impl log::Log for AsyncLogger
             file_path = "".into();
         }
 
-        if let Err(unsent_string) = self.thread_sender.send(format!(
+        let user_message = format!("{}", record.args());
+
+        const BLOCK_ON_STR: &str = "BLOCK_ON";
+
+        if let Some(stripped) = user_message.strip_prefix(BLOCK_ON_STR)
+        {
+            println!(
+                "[{}] {}[{}] {}",
+                working_time_string,
+                file_path,
+                record.level(),
+                stripped
+            );
+        }
+        else if let Err(unsent_string) = self.thread_sender.send(format!(
             "[{}] {}[{}] {}",
             working_time_string,
             file_path,
             record.level(),
-            format_args!("{}", record.args())
+            user_message
         ))
         {
             eprintln!("Send After async shutdown! {}", unsent_string.0);
