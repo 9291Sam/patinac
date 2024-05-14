@@ -14,18 +14,7 @@
 @compute @workgroup_size(32, 32)
 fn cs_main(
     @builtin(global_invocation_id) global_invocation_id: vec3<u32>,
-){
-    let output_image_dimensions = textureDimensions(voxel_discovery_image).xy;
-
-    if any(global_invocation_id.xy < output_image_dimensions)
-    {
-        // get the data from the fragment shader
-        let this_px: vec2<u32> = textureLoad(voxel_discovery_image, global_invocation_id.xy, 0).xy;
-        let face_id = this_px.y;
-
-        atomicStore(&face_id_buffer[face_id].high, 0u);
-    }
-}
+){}
 
 struct FaceInfo
 {
@@ -36,7 +25,6 @@ struct FaceInfo
     /// [      ] [1,  31] | unused
     low: atomic<u32>,
     high: atomic<u32>,
-    // TODO: 
 }
 
 fn div_ceil(lhs: u32, rhs: u32) -> u32 {

@@ -10,7 +10,14 @@ use gfx::{glm, wgpu};
 use itertools::Itertools;
 use rand::Rng;
 
-use crate::{FaceId, FaceInfo, VisibilityMarker, VisibilityUnMarker, VoxelColorTransferRecordable};
+use crate::{
+    ColorCalculator,
+    FaceId,
+    FaceInfo,
+    VisibilityMarker,
+    VisibilityUnMarker,
+    VoxelColorTransferRecordable
+};
 
 const TEMPORARY_FACE_ID_LIMIT: u64 = 2u64.pow(24);
 
@@ -36,6 +43,7 @@ pub struct VoxelChunkManager
     resize_pinger:                util::PingReceiver,
 
     visibility_marker:   Arc<VisibilityMarker>,
+    color_calculator:    Arc<ColorCalculator>,
     color_transfer:      Arc<VoxelColorTransferRecordable>,
     visibility_unmarker: Arc<VisibilityUnMarker>
 }
@@ -128,6 +136,8 @@ impl VoxelChunkManager
         let (bind_group_window, bind_group_window_updater) =
             util::Window::new(voxel_data_bind_group);
 
+        let indirect_color_calc_buffer = buffers.indirect_color_calc_buffer.clone();
+
         let this = Arc::new_cyclic(|weak_this| {
             VoxelChunkManager {
                 uuid:                         util::Uuid::new(),
@@ -151,6 +161,12 @@ impl VoxelChunkManager
                     game.clone(),
                     bind_group_layout.clone(),
                     bind_group_window.clone()
+                ),
+                color_calculator:             ColorCalculator::new(
+                    game.clone(),
+                    bind_group_layout.clone(),
+                    bind_group_window.clone(),
+                    indirect_color_calc_buffer
                 ),
                 color_transfer:               VoxelColorTransferRecordable::new(
                     game.clone(),
@@ -248,15 +264,17 @@ impl VoxelChunkManager
             let screen_px = screen_size.x * screen_size.y;
 
             BufferCriticalSection {
-                indirect_color_calc_buffer:     renderer.create_buffer(&wgpu::BufferDescriptor {
-                    label:              Some("VoxelDataBindGroup IndirectColorCalcBuffer"),
-                    size:               std::mem::size_of::<glm::U32Vec3>() as u64,
-                    usage:              wgpu::BufferUsages::INDIRECT
-                        | wgpu::BufferUsages::STORAGE
-                        | wgpu::BufferUsages::COPY_DST
-                        | wgpu::BufferUsages::COPY_SRC,
-                    mapped_at_creation: false
-                }),
+                indirect_color_calc_buffer:     Arc::new(renderer.create_buffer(
+                    &wgpu::BufferDescriptor {
+                        label:              Some("VoxelDataBindGroup IndirectColorCalcBuffer"),
+                        size:               std::mem::size_of::<glm::U32Vec3>() as u64,
+                        usage:              wgpu::BufferUsages::INDIRECT
+                            | wgpu::BufferUsages::STORAGE
+                            | wgpu::BufferUsages::COPY_DST
+                            | wgpu::BufferUsages::COPY_SRC,
+                        mapped_at_creation: false
+                    }
+                )),
                 face_id_buffer:                 renderer.create_buffer(&wgpu::BufferDescriptor {
                     label:              Some("VoxelDataBindGroup FaceIdBuffer"),
                     size:               std::mem::size_of::<FaceInfo>() as u64
@@ -388,24 +406,24 @@ impl gfx::Recordable for VoxelChunkManager
         {
             static ITERS: AtomicU32 = AtomicU32::new(0);
 
-            DownloadBuffer::read_buffer(
-                &renderer.device,
-                &renderer.queue,
-                &buffers.number_of_unique_voxels_buffer.slice(..),
-                |res| {
-                    let data: &[u8] = &res.unwrap();
-                    let u32_data: &[u32] = bytemuck::cast_slice(data);
+            // DownloadBuffer::read_buffer(
+            //     &renderer.device,
+            //     &renderer.queue,
+            //     &buffers.number_of_unique_voxels_buffer.slice(..),
+            //     |res| {
+            //         let data: &[u8] = &res.unwrap();
+            //         let u32_data: &[u32] = bytemuck::cast_slice(data);
 
-                    if ITERS.fetch_add(1, std::sync::atomic::Ordering::SeqCst) > 0
-                    {
-                        let v = u32_data.to_owned();
+            //         if ITERS.fetch_add(1, std::sync::atomic::Ordering::SeqCst) > 0
+            //         {
+            //             let v = u32_data.to_owned();
 
-                        log::trace!("BLOCK_ON{:?}", v);
+            //             log::trace!("BLOCK_ON{:?}", v);
 
-                        // panic!("done");
-                    }
-                }
-            );
+            //             // panic!("done");
+            //         }
+            //     }
+            // );
 
             renderer
                 .queue
@@ -431,7 +449,7 @@ impl gfx::Recordable for VoxelChunkManager
 
 struct BufferCriticalSection
 {
-    indirect_color_calc_buffer:     wgpu::Buffer,
+    indirect_color_calc_buffer:     Arc<wgpu::Buffer>,
     face_id_buffer:                 wgpu::Buffer,
     number_of_unique_voxels_buffer: wgpu::Buffer,
     unique_voxel_buffer:            wgpu::Buffer

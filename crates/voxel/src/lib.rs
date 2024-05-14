@@ -2,6 +2,7 @@
 #![feature(exclusive_range_pattern)]
 #![feature(btree_extract_if)]
 
+mod color_caluclator;
 mod gpu_data;
 mod material;
 mod visibility_marker;
@@ -11,6 +12,7 @@ mod voxel_chunk_data_manager;
 mod voxel_chunk_manager;
 mod voxel_color_transfer;
 
+pub(crate) use color_caluclator::ColorCalculator;
 pub use gpu_data::FaceId;
 pub(crate) use gpu_data::FaceInfo;
 pub(crate) use visibility_marker::*;
