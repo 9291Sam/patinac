@@ -10,6 +10,7 @@ pub enum PassStage
 {
     VoxelDiscovery,
     PostVoxelDiscoveryCompute,
+    VoxelColorCalculation,
     VoxelColorTransfer,
     SimpleColor,
     MenuRender,
@@ -123,6 +124,13 @@ impl RenderPassManager
                     }))
                 }
                 PassStage::PostVoxelDiscoveryCompute =>
+                {
+                    GenericPass::Compute(encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                        label:            Some("Post Voxel Discovery Compute"),
+                        timestamp_writes: None
+                    }))
+                }
+                PassStage::VoxelColorCalculation =>
                 {
                     GenericPass::Compute(encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
                         label:            Some("Post Voxel Discovery Compute"),

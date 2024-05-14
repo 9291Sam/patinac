@@ -34,3 +34,5 @@ create an mvp
 make a really good readme
 
 redo all of the channel things because youre making them all piecemeal lmfao
+
+code review fix imports and exports in lib.rs
