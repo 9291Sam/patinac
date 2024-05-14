@@ -9,9 +9,7 @@ use strum::{EnumIter, IntoEnumIterator};
 pub enum PassStage
 {
     VoxelDiscovery,
-    // VoxelVisibilityDetection,
-    // VoxelColorCalculation
-    PostVoxelDiscoveryCompute,
+    VoxelVisibilityDetection,
     VoxelColorCalculation,
     VoxelColorTransfer,
     SimpleColor,
@@ -125,7 +123,7 @@ impl RenderPassManager
                         timestamp_writes:         None
                     }))
                 }
-                PassStage::PostVoxelDiscoveryCompute =>
+                PassStage::VoxelVisibilityDetection =>
                 {
                     GenericPass::Compute(encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
                         label:            Some("Post Voxel Discovery Compute"),

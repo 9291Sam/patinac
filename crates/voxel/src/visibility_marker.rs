@@ -87,7 +87,7 @@ impl gfx::Recordable for VisibilityMarker
             render_pass: self
                 .game
                 .get_renderpass_manager()
-                .get_renderpass_id(game::PassStage::PostVoxelDiscoveryCompute),
+                .get_renderpass_id(game::PassStage::VoxelVisibilityDetection),
             pipeline:    self.pipeline.clone(),
             bind_groups: [Some(self.bind_group_window.get()), None, None, None],
             transform:   None
