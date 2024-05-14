@@ -9,6 +9,8 @@ use strum::{EnumIter, IntoEnumIterator};
 pub enum PassStage
 {
     VoxelDiscovery,
+    // VoxelVisibilityDetection,
+    // VoxelColorCalculation
     PostVoxelDiscoveryCompute,
     VoxelColorTransfer,
     SimpleColor,
