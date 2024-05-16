@@ -3,6 +3,7 @@
 #![feature(map_try_insert)]
 #![allow(clippy::type_complexity)]
 
+mod cpu_tracked_buffer;
 mod input_manager;
 mod linalg;
 mod recordables;
@@ -10,6 +11,7 @@ mod render_cache;
 mod renderer;
 mod screen_sized_texture;
 
+pub use cpu_tracked_buffer::CpuTrackedBuffer;
 pub use input_manager::*;
 pub use linalg::*;
 pub use recordables::{DrawId, PassStage, RecordInfo, Recordable, RenderPassId};
