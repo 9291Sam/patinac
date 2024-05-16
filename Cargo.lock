@@ -2059,6 +2059,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "voxel3"
+version = "0.1.0"
+dependencies = [
+ "bytemuck",
+ "game",
+ "gfx",
+ "itertools",
+ "log",
+ "nonmax",
+ "rand",
+ "util",
+]
+
+[[package]]
 name = "walkdir"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

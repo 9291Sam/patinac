@@ -251,7 +251,7 @@ pub type ChunkPosition = glm::U16Vec3;
 
 impl VoxelChunkDataManager
 {
-    pub fn peek_allocated_bricks(&self) -> (NonZeroUsize, NonZeroUsize)
+    pub fn peek_allocated_bricks(&self) -> (usize, usize)
     {
         self.buffer_critical_section
             .lock()
@@ -396,7 +396,7 @@ impl VoxelChunkDataManager
 
         if let VoxelBrickPointerType::ValidBrickPointer(old_ptr) = current_brick_ptr.classify()
         {
-            brick_allocator.free((old_ptr.into_integer() as usize).try_into().unwrap())
+            unsafe { brick_allocator.free((old_ptr.into_integer() as usize).try_into().unwrap()) }
         }
 
         if v == Voxel::Air
@@ -464,6 +464,17 @@ impl VoxelChunkDataManager
         let mut allocate_brick = || -> VoxelBrickPointer {
             match brick_allocator.allocate()
             {
+                Ok(0) =>
+                {
+                    VoxelBrickPointer::new_ptr(
+                        brick_allocator
+                            .allocate()
+                            .unwrap()
+                            .into_integer()
+                            .try_into()
+                            .unwrap()
+                    )
+                }
                 Ok(new_ptr) =>
                 {
                     VoxelBrickPointer::new_ptr(new_ptr.into_integer().try_into().unwrap())

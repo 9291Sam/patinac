@@ -1,49 +1,41 @@
 use std::collections::HashSet;
-use std::num::NonZeroUsize;
 
 use bytemuck::Contiguous;
 
 #[derive(Debug)]
 pub struct FreelistAllocator
 {
-    free_blocks:     HashSet<NonZeroUsize>,
-    total_blocks:    NonZeroUsize,
-    next_free_block: NonZeroUsize
+    free_blocks:     Vec<usize>,
+    total_blocks:    usize,
+    next_free_block: usize
 }
 
 /// Valid Blocks [1, total_blocks]
 impl FreelistAllocator
 {
-    pub fn new(size: NonZeroUsize) -> Self
+    pub fn new(size: usize) -> Self
     {
         FreelistAllocator {
-            free_blocks:     HashSet::new(),
+            free_blocks:     Vec::new(),
             total_blocks:    size,
-            next_free_block: NonZeroUsize::new(1).unwrap()
+            next_free_block: 0
         }
     }
 
     // (Free blocks , total blocks)
-    pub fn peek(&self) -> (NonZeroUsize, NonZeroUsize)
+    pub fn peek(&self) -> (usize, usize)
     {
-        let used_blocks = self.total_blocks.into_integer()
-            - (self.total_blocks.into_integer() - self.next_free_block.into_integer()
-                + self.free_blocks.len());
+        let used_blocks =
+            self.total_blocks - (self.total_blocks - self.next_free_block + self.free_blocks.len());
 
-        (NonZeroUsize::new(used_blocks).unwrap(), self.total_blocks)
+        (used_blocks, self.total_blocks)
     }
 
-    pub fn allocate(&mut self) -> Result<NonZeroUsize, OutOfBlocks>
+    pub fn allocate(&mut self) -> Result<usize, OutOfBlocks>
     {
-        let maybe_free_block = self.free_blocks.iter().next().cloned();
-
-        match maybe_free_block
+        match self.free_blocks.pop()
         {
-            Some(block) =>
-            {
-                debug_assert!(self.free_blocks.remove(&block));
-                Ok(block)
-            }
+            Some(free_block) => Ok(free_block),
             None =>
             {
                 if self.next_free_block > self.total_blocks
@@ -62,35 +54,16 @@ impl FreelistAllocator
         }
     }
 
-    pub fn free(&mut self, block: NonZeroUsize)
+    /// # Safety
+    /// You must only free an integer allocated by this allocator
+    pub unsafe fn free(&mut self, block: usize)
     {
         if block > self.total_blocks
         {
             panic!("FreeListAllocator Free of Untracked Value")
         };
 
-        match self.free_blocks.insert(block)
-        {
-            true => (),
-            false => panic!("FreeListAllocator Double Free!")
-        }
-
-        // TODO: optimize
-        for b in (1..=self.next_free_block.into_integer() - 1).rev()
-        {
-            let block = NonZeroUsize::new(b).unwrap();
-
-            if self.free_blocks.contains(&block)
-            {
-                self.free_blocks.remove(&block);
-
-                self.next_free_block = block;
-            }
-            else
-            {
-                break;
-            }
-        }
+        self.free_blocks.push(block)
     }
 
     pub fn get_total_blocks(&self) -> usize
@@ -118,31 +91,31 @@ mod tests
     #[test]
     pub fn alloc()
     {
-        let mut allocator = FreelistAllocator::new(NonZeroUsize::new(5).unwrap());
+        let mut allocator = FreelistAllocator::new(5);
 
-        assert_eq!(NonZeroUsize::new(1).unwrap(), allocator.allocate().unwrap());
-        assert_eq!(NonZeroUsize::new(2).unwrap(), allocator.allocate().unwrap());
-        assert_eq!(NonZeroUsize::new(3).unwrap(), allocator.allocate().unwrap());
-        assert_eq!(NonZeroUsize::new(4).unwrap(), allocator.allocate().unwrap());
-        assert_eq!(NonZeroUsize::new(5).unwrap(), allocator.allocate().unwrap());
+        assert_eq!(1, allocator.allocate().unwrap());
+        assert_eq!(2, allocator.allocate().unwrap());
+        assert_eq!(3, allocator.allocate().unwrap());
+        assert_eq!(4, allocator.allocate().unwrap());
+        assert_eq!(5, allocator.allocate().unwrap());
         assert_eq!(OutOfBlocks, allocator.allocate().unwrap_err());
     }
 
     #[test]
     pub fn free()
     {
-        let mut allocator = FreelistAllocator::new(NonZeroUsize::new(5).unwrap());
+        let mut allocator = FreelistAllocator::new(5);
 
-        assert_eq!(NonZeroUsize::new(1).unwrap(), allocator.allocate().unwrap());
-        assert_eq!(NonZeroUsize::new(2).unwrap(), allocator.allocate().unwrap());
-        assert_eq!(NonZeroUsize::new(3).unwrap(), allocator.allocate().unwrap());
-        assert_eq!(NonZeroUsize::new(4).unwrap(), allocator.allocate().unwrap());
-        assert_eq!(NonZeroUsize::new(5).unwrap(), allocator.allocate().unwrap());
+        assert_eq!(1, allocator.allocate().unwrap());
+        assert_eq!(2, allocator.allocate().unwrap());
+        assert_eq!(3, allocator.allocate().unwrap());
+        assert_eq!(4, allocator.allocate().unwrap());
+        assert_eq!(5, allocator.allocate().unwrap());
         assert_eq!(OutOfBlocks, allocator.allocate().unwrap_err());
 
-        allocator.free(NonZeroUsize::new(5).unwrap());
-        allocator.free(NonZeroUsize::new(2).unwrap());
-        allocator.free(NonZeroUsize::new(1).unwrap());
+        unsafe { allocator.free(5) };
+        unsafe { allocator.free(2) };
+        unsafe { allocator.free(1) };
 
         for _ in 0..3
         {
@@ -155,13 +128,13 @@ mod tests
     #[test]
     pub fn drain()
     {
-        let mut allocator = FreelistAllocator::new(NonZeroUsize::new(2).unwrap());
+        let mut allocator = FreelistAllocator::new(2);
 
-        assert_eq!(NonZeroUsize::new(1).unwrap(), allocator.allocate().unwrap());
-        assert_eq!(NonZeroUsize::new(2).unwrap(), allocator.allocate().unwrap());
+        assert_eq!(1, allocator.allocate().unwrap());
+        assert_eq!(2, allocator.allocate().unwrap());
 
-        allocator.free(NonZeroUsize::new(1).unwrap());
-        allocator.free(NonZeroUsize::new(2).unwrap());
+        unsafe { allocator.free(1) };
+        unsafe { allocator.free(2) };
 
         let _ = allocator.allocate().unwrap();
         let _ = allocator.allocate().unwrap();
@@ -170,9 +143,9 @@ mod tests
     #[test]
     pub fn out_of_blocks()
     {
-        let mut allocator = FreelistAllocator::new(NonZeroUsize::new(1).unwrap());
+        let mut allocator = FreelistAllocator::new(1);
 
-        assert_eq!(NonZeroUsize::new(1).unwrap(), allocator.allocate().unwrap());
+        assert_eq!(1, allocator.allocate().unwrap());
 
         assert_eq!(OutOfBlocks, allocator.allocate().unwrap_err());
         assert_eq!(OutOfBlocks, allocator.allocate().unwrap_err());
@@ -182,32 +155,32 @@ mod tests
     #[should_panic]
     pub fn free_untracked()
     {
-        let mut allocator = FreelistAllocator::new(NonZeroUsize::new(1).unwrap());
+        let mut allocator = FreelistAllocator::new(1);
 
-        assert_eq!(NonZeroUsize::new(1).unwrap(), allocator.allocate().unwrap());
-        allocator.free(NonZeroUsize::new(2).unwrap());
+        assert_eq!(1, allocator.allocate().unwrap());
+        unsafe { allocator.free(2) };
     }
 
     #[test]
     #[should_panic]
     pub fn double_free()
     {
-        let mut allocator = FreelistAllocator::new(NonZeroUsize::new(1).unwrap());
+        let mut allocator = FreelistAllocator::new(1);
 
-        assert_eq!(NonZeroUsize::new(1).unwrap(), allocator.allocate().unwrap());
-        allocator.free(NonZeroUsize::new(1).unwrap());
+        assert_eq!(1, allocator.allocate().unwrap());
+        unsafe { allocator.free(1) };
 
-        allocator.free(NonZeroUsize::new(1).unwrap());
+        unsafe { allocator.free(1) };
     }
 
     #[test]
     pub fn extend()
     {
-        let mut allocator = FreelistAllocator::new(NonZeroUsize::new(1).unwrap());
+        let mut allocator = FreelistAllocator::new(1);
 
-        assert_eq!(NonZeroUsize::new(1).unwrap(), allocator.allocate().unwrap());
+        assert_eq!(1, allocator.allocate().unwrap());
         allocator.extend_size(2);
-        assert_eq!(NonZeroUsize::new(2).unwrap(), allocator.allocate().unwrap());
+        assert_eq!(2, allocator.allocate().unwrap());
         assert_eq!(Err(OutOfBlocks), allocator.allocate());
     }
 }

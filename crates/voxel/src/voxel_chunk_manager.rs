@@ -221,18 +221,14 @@ impl VoxelChunkManager
 
     pub(crate) unsafe fn dealloc_face_id(&self, id: FaceId)
     {
-        self.face_id_allocator
-            .lock()
-            .unwrap()
-            .free(NonZero::new(id.0 as usize).unwrap())
+        self.face_id_allocator.lock().unwrap().free(id.0 as usize)
     }
 
     pub(crate) unsafe fn dealloc_many_face_id(&self, id: impl IntoIterator<Item = FaceId>)
     {
         let mut allocator = self.face_id_allocator.lock().unwrap();
 
-        id.into_iter()
-            .for_each(|i| allocator.free(NonZero::new(i.0 as usize).unwrap()))
+        id.into_iter().for_each(|i| allocator.free(i.0 as usize))
     }
 
     fn generate_voxel_bind_group(

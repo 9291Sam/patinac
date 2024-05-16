@@ -10,7 +10,7 @@ members = [
     "crates/game",
     "crates/verdigris",
     "crates/gui",
-    "crates/voxel",
+    "crates/voxel", "crates/voxel3",
 ]
 
 [dependencies]

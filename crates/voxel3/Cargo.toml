@@ -1,0 +1,14 @@
+[package]
+name = "voxel3"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+nonmax = { workspace = true }
+util = { workspace = true }
+gfx = { workspace = true }
+itertools = { workspace = true }
+rand = { workspace = true }
+bytemuck = { workspace = true }
+game = { workspace = true }
+log = { workspace = true }

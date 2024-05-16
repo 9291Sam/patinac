@@ -105,6 +105,6 @@ impl gfx::Recordable for ColorCalculator
             unreachable!()
         };
 
-        pass.dispatch_workgroups_indirect(&self.indirect_buffer, 0);
+        // pass.dispatch_workgroups_indirect(&self.indirect_buffer, 0);
     }
 }
