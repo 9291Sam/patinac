@@ -4,7 +4,7 @@ use gfx::glm;
 struct VoxelManager
 {
     face_allocator: util::FreelistAllocator,
-    face_buffer:    gfx::CpuTrackedBuffer<FaceData> // chunk_data_buffer: gfx::CpuTrackedBuffer<>
+    face_buffer:    gfx::CpuTrackedBuffer<FaceData>
 }
 
 impl VoxelManager {}
