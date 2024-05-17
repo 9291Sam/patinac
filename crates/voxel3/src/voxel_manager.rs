@@ -1,13 +1,58 @@
+use std::fmt::Debug;
+
 use bytemuck::{AnyBitPattern, NoUninit};
 use gfx::glm;
 
 struct VoxelManager
 {
-    face_allocator: util::FreelistAllocator,
-    face_buffer:    gfx::CpuTrackedBuffer<FaceData>
+    face_id_allocator: util::FreelistAllocator,
+    face_id_buffer:    super::CpuTrackedDenseSet<u32>,
+    face_buffer:       gfx::CpuTrackedBuffer<FaceData>
+}
+
+impl Debug for VoxelManager
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
+    {
+        write!(f, "Voxel Manager")
+    }
 }
 
 impl VoxelManager {}
+
+impl gfx::Recordable for VoxelManager
+{
+    fn get_name(&self) -> std::borrow::Cow<'_, str>
+    {
+        todo!()
+    }
+
+    fn get_uuid(&self) -> util::Uuid
+    {
+        todo!()
+    }
+
+    fn pre_record_update(
+        &self,
+        renderer: &gfx::Renderer,
+        camera: &gfx::Camera,
+        global_bind_group: &std::sync::Arc<gfx::wgpu::BindGroup>
+    ) -> gfx::RecordInfo
+    {
+        todo!()
+    }
+
+    fn record<'s>(&'s self, render_pass: &mut gfx::GenericPass<'s>, maybe_id: Option<gfx::DrawId>)
+    {
+        let (gfx::GenericPass::Render(ref mut pass), None) = (render_pass, maybe_id)
+        else
+        {
+            unreachable!()
+        };
+
+        pass.draw(0..self.face_id_buffer.get_number_of_elements() as u32, 0..1)
+    }
+}
 
 // make an algorithm that finds all of the ranges of things that need to be
 // drawn upload that list of ranges into a

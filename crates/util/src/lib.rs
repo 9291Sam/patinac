@@ -26,6 +26,7 @@ pub use r#async::*;
 pub use atomics::*;
 pub use broadcast_event::*;
 pub use crash_handler::*;
+pub use dense_set::*;
 pub use global_allocator::*;
 pub use log::*;
 pub use pinger::*;

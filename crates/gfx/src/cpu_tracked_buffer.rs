@@ -18,9 +18,10 @@ pub struct CpuTrackedBuffer<T: AnyBitPattern + NoUninit>
 
 struct CpuTrackedBufferCriticalSection<T>
 {
-    gpu_data:   wgpu::Buffer,
-    cpu_data:   Vec<T>,
-    flush_list: Vec<usize>
+    buffer_len_elements: usize,
+    gpu_data:            wgpu::Buffer,
+    cpu_data:            Vec<T>,
+    flush_list:          Vec<usize>
 }
 
 impl<T: AnyBitPattern + NoUninit> CpuTrackedBuffer<T>
@@ -42,6 +43,7 @@ impl<T: AnyBitPattern + NoUninit> CpuTrackedBuffer<T>
         CpuTrackedBuffer {
             renderer,
             critical_section: Mutex::new(CpuTrackedBufferCriticalSection {
+                buffer_len_elements: elements,
                 gpu_data,
                 cpu_data: vec![T::zeroed(); elements],
                 flush_list: Vec::new()
@@ -85,21 +87,11 @@ impl<T: AnyBitPattern + NoUninit> CpuTrackedBuffer<T>
     pub fn realloc(&self, elements: usize)
     {
         let CpuTrackedBufferCriticalSection {
-            cpu_data,
-            flush_list,
-            gpu_data
+            cpu_data, ..
         } = &mut *self.critical_section.lock().unwrap();
 
         cpu_data.resize_with(elements, T::zeroed);
 
-        *gpu_data = self.renderer.create_buffer(&wgpu::BufferDescriptor {
-            label:              Some(&self.name),
-            size:               cpu_data.len() as u64 * std::mem::size_of::<T>() as u64,
-            usage:              self.usage,
-            mapped_at_creation: false
-        });
-
-        flush_list.clear();
         self.needs_resize_flush.store(true, Ordering::SeqCst);
     }
 
@@ -108,8 +100,23 @@ impl<T: AnyBitPattern + NoUninit> CpuTrackedBuffer<T>
         let CpuTrackedBufferCriticalSection {
             cpu_data,
             flush_list,
-            gpu_data
+            gpu_data,
+            buffer_len_elements
         } = &mut *self.critical_section.lock().unwrap();
+
+        if *buffer_len_elements != cpu_data.len()
+        {
+            *gpu_data = self.renderer.create_buffer(&wgpu::BufferDescriptor {
+                label:              Some(&self.name),
+                size:               cpu_data.len() as u64 * std::mem::size_of::<T>() as u64,
+                usage:              self.usage,
+                mapped_at_creation: false
+            });
+
+            *buffer_len_elements = cpu_data.len();
+
+            self.needs_resize_flush.store(true, Ordering::SeqCst);
+        }
 
         if flush_list.len() > MAX_FLUSHES_BEFORE_ENTIRE
             || self.needs_resize_flush.load(Ordering::SeqCst)
@@ -126,6 +133,8 @@ impl<T: AnyBitPattern + NoUninit> CpuTrackedBuffer<T>
                 )
                 .unwrap()
                 .copy_from_slice(cast_slice(&cpu_data[..]));
+
+            self.needs_resize_flush.store(false, Ordering::SeqCst);
         }
         else
         {
