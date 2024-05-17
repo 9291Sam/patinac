@@ -2,6 +2,7 @@ use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::Debug;
+use std::num::NonZero;
 use std::ops::Deref;
 use std::panic::{RefUnwindSafe, UnwindSafe};
 use std::sync::atomic::Ordering::{self};
@@ -681,23 +682,46 @@ impl Renderer
                 )
             };
 
+            let data: &[u8] = bytes_of(&global_info);
+
             self.queue
-                .write_buffer(&global_info_uniform_buffer, 0, bytes_of(&global_info));
+                .write_buffer_with(
+                    &global_info_uniform_buffer,
+                    0,
+                    NonZero::new(data.len() as u64).unwrap()
+                )
+                .unwrap()
+                .copy_from_slice(data);
 
             let number_of_used_ids = id_counter.load(Ordering::Acquire) as usize;
 
-            self.queue.write_buffer(
-                &global_mvp_buffer,
-                0,
-                &shader_mvps.borrow().as_mat_bytes()
-                    [0..number_of_used_ids * std::mem::size_of::<glm::Mat4>()]
-            );
-            self.queue.write_buffer(
-                &global_model_buffer,
-                0,
-                &shader_models.borrow().as_mat_bytes()
-                    [0..number_of_used_ids * std::mem::size_of::<glm::Mat4>()]
-            );
+            {
+                let m = shader_mvps.borrow();
+                let slice =
+                    &m.as_mat_bytes()[0..number_of_used_ids * std::mem::size_of::<glm::Mat4>()];
+
+                if let Some(slice_len) = NonZero::new(slice.len() as u64)
+                {
+                    self.queue
+                        .write_buffer_with(&global_mvp_buffer, 0, slice_len)
+                        .unwrap()
+                        .copy_from_slice(slice);
+                }
+            }
+
+            {
+                let m = shader_models.borrow();
+                let slice =
+                    &m.as_mat_bytes()[0..number_of_used_ids * std::mem::size_of::<glm::Mat4>()];
+
+                if let Some(slice_len) = NonZero::new(slice.len() as u64)
+                {
+                    self.queue
+                        .write_buffer_with(&global_model_buffer, 0, slice_len)
+                        .unwrap()
+                        .copy_from_slice(slice);
+                }
+            }
 
             let render_encoder_name = format!(
                 "Patinac Main Command Encoder | Frame: #{}",
