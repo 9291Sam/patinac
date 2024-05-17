@@ -10,7 +10,8 @@ members = [
     "crates/game",
     "crates/verdigris",
     "crates/gui",
-    "crates/voxel", "crates/voxel3",
+    "crates/voxel",
+    "crates/voxel3",
 ]
 
 [dependencies]
@@ -23,6 +24,7 @@ log = { workspace = true }
 oneshot = { workspace = true }
 dashmap = { workspace = true }
 voxel = { workspace = true }
+rand = { workspace = true }
 
 [workspace.dependencies]
 util = { path = "crates/util" }

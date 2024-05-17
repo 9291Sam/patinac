@@ -1340,6 +1340,7 @@ dependencies = [
  "gui",
  "log",
  "oneshot",
+ "rand",
  "util",
  "verdigris",
  "voxel",

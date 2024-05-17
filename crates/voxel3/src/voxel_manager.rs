@@ -1,4 +1,4 @@
-use bytemuck::{AnyBitPattern, NoUninit, Zeroable};
+use bytemuck::{AnyBitPattern, NoUninit};
 use gfx::glm;
 
 struct VoxelManager

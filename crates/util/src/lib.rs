@@ -1,12 +1,15 @@
 #![feature(map_try_insert)]
 #![feature(allocator_api)]
 #![feature(unchecked_shifts)]
+#![feature(map_entry_replace)]
+#![feature(get_many_mut)]
 
 mod allocator;
 mod r#async;
 mod atomics;
 mod broadcast_event;
 mod crash_handler;
+mod dense_set;
 mod global_allocator;
 mod log;
 mod pinger;
