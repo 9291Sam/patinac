@@ -81,4 +81,5 @@ impl<T: Hash + Clone + Eq> DenseSet<T>
     }
 }
 
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct NoElementContained;

@@ -39,3 +39,8 @@ struct ChunkData
     offset_into_brick_map: u32,
     adjacent_chunk_ids:    [u16; 6]
 }
+
+// one massive draw
+// % 6
+// [face_id_buffer] // use the data here to lookup everything else in the
+// FaceData buffer
