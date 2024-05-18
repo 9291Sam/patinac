@@ -1,5 +1,4 @@
 use std::num::NonZeroU64;
-use std::ops::Deref;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
@@ -95,7 +94,14 @@ impl<T: AnyBitPattern + NoUninit> CpuTrackedBuffer<T>
         self.needs_resize_flush.store(true, Ordering::SeqCst);
     }
 
-    pub fn replicate_to_gpu(&self)
+    pub fn get_buffer<R>(&self, buf_access_func: impl FnOnce(&wgpu::Buffer) -> R) -> R
+    {
+        buf_access_func(&self.critical_section.lock().unwrap().gpu_data)
+    }
+
+    #[must_use]
+    /// true if the buffer was recreated
+    pub fn replicate_to_gpu(&self) -> bool
     {
         let CpuTrackedBufferCriticalSection {
             cpu_data,
@@ -103,6 +109,8 @@ impl<T: AnyBitPattern + NoUninit> CpuTrackedBuffer<T>
             gpu_data,
             buffer_len_elements
         } = &mut *self.critical_section.lock().unwrap();
+
+        let mut did_resize_occur = false;
 
         if *buffer_len_elements != cpu_data.len()
         {
@@ -116,6 +124,8 @@ impl<T: AnyBitPattern + NoUninit> CpuTrackedBuffer<T>
             *buffer_len_elements = cpu_data.len();
 
             self.needs_resize_flush.store(true, Ordering::SeqCst);
+
+            did_resize_occur = true;
         }
 
         if flush_list.len() > MAX_FLUSHES_BEFORE_ENTIRE
@@ -150,5 +160,7 @@ impl<T: AnyBitPattern + NoUninit> CpuTrackedBuffer<T>
                     .copy_from_slice(cast_slice(bytes_of(&cpu_data[i])));
             });
         }
+
+        did_resize_occur
     }
 }

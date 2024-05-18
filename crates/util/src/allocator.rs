@@ -75,7 +75,7 @@ impl FreelistAllocator
     {
         assert!(new_cap > self.total_blocks.into_integer());
 
-        self.total_blocks = new_cap.try_into().unwrap();
+        self.total_blocks = new_cap;
     }
 }
 
