@@ -31,7 +31,6 @@ impl FreelistAllocator
         (used_blocks, self.total_blocks)
     }
 
-    #[track_caller]
     pub fn allocate(&mut self) -> Result<usize, OutOfBlocks>
     {
         match self.free_blocks.pop()
@@ -46,8 +45,6 @@ impl FreelistAllocator
                 else
                 {
                     let block = self.next_free_block;
-
-                    log::trace!("Self: {:?} from {:?}", self, std::panic::Location::caller());
 
                     self.next_free_block = self.next_free_block.checked_add(1).unwrap();
 

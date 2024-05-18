@@ -186,8 +186,6 @@ impl VoxelManager
             face_id_allocator.allocate().unwrap()
         };
 
-        log::trace!("allocated id {}", new_face_id);
-
         self.face_id_buffer
             .lock()
             .unwrap()
@@ -205,7 +203,6 @@ impl VoxelManager
         face_data_buffer: &gfx::CpuTrackedBuffer<GpuFaceData>
     ) -> Arc<wgpu::BindGroup>
     {
-        log::trace!("regen bind group");
         face_id_buffer.get_buffer(|raw_id_buf| {
             face_data_buffer.get_buffer(|raw_data_buf| {
                 Arc::new(renderer.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -252,6 +249,12 @@ impl gfx::Recordable for VoxelManager
     {
         let mut needs_resize = false;
         needs_resize |= self.face_id_buffer.lock().unwrap().flush_to_gpu();
+
+        if needs_resize
+        {
+            log::trace!("faceidbuf trigger resize");
+        }
+
         needs_resize |= self.face_data_buffer.replicate_to_gpu();
 
         let mut bind_group = self.bind_group.lock().unwrap();

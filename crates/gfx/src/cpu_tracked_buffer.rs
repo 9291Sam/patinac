@@ -95,8 +95,6 @@ impl<T: AnyBitPattern + NoUninit + Debug> CpuTrackedBuffer<T>
             cpu_data, ..
         } = &mut *self.critical_section.lock().unwrap();
 
-        log::trace!("cputracked buffer realloc size {}", elements);
-
         cpu_data.resize_with(elements, T::zeroed);
 
         self.needs_resize_flush.store(true, Ordering::SeqCst);

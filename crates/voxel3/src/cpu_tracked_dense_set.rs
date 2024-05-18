@@ -70,21 +70,29 @@ impl<T: AnyBitPattern + NoUninit + Hash + Eq> CpuTrackedDenseSet<T>
 
         let mut gpu_buffer = self.gpu_buffer.write().unwrap();
 
-        if self.get_number_of_elements() < self.gpu_buffer_len_elements.load(Ordering::SeqCst) / 2
-            || self.get_number_of_elements() > self.gpu_buffer_len_elements.load(Ordering::SeqCst)
+        let current_set_elements = self.get_number_of_elements();
+        let current_buf_len = self.gpu_buffer_len_elements.load(Ordering::SeqCst);
+
+        if current_set_elements > current_buf_len
         {
+            let new_size_elements: u64 = self.get_number_of_elements() as u64 * 3 / 2;
+
             *gpu_buffer = self.renderer.create_buffer(&wgpu::BufferDescriptor {
                 label:              Some(&self.name),
-                size:               self.get_number_of_elements() as u64 * 3 / 2
-                    * std::mem::size_of::<T>() as u64,
+                size:               new_size_elements * std::mem::size_of::<T>() as u64,
                 usage:              self.usage | wgpu::BufferUsages::COPY_DST,
                 mapped_at_creation: false
             });
 
-            self.gpu_buffer_len_elements.store(
-                self.get_number_of_elements() * 3 / 2 * std::mem::size_of::<T>(),
-                Ordering::SeqCst
+            self.gpu_buffer_len_elements
+                .store(new_size_elements as usize, Ordering::SeqCst);
+
+            log::trace!(
+                "CpuTrackedDenseSet gpu buf Resize {} -> {}",
+                current_buf_len,
+                new_size_elements
             );
+
             resize_occurred = true;
         }
 

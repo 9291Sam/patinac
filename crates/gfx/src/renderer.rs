@@ -661,16 +661,6 @@ impl Renderer
                     })
             }
 
-            // log::trace!(
-            //     "Starting Recording of {} passes",
-            //     final_renderpass_drawcalls.len()
-            // );
-
-            // for (idx, (_, calls)) in final_renderpass_drawcalls.iter().enumerate()
-            // {
-            //     log::trace!("Pass #{idx} with #{} calls", calls.len());
-            // }
-
             let global_info = ShaderGlobalInfo {
                 camera_pos:      camera.get_position(),
                 _padding:        0.0,

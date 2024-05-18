@@ -53,7 +53,9 @@ fn main()
             let _debug_menu = gui::DebugMenu::new(&renderer, game.clone());
             let voxel3 = voxel3::VoxelManager::new(game.clone());
 
-            for _ in 0..10506
+            let l = 1050906;
+
+            for _ in 0..l
             {
                 voxel3.insert_face(voxel3::VoxelFace {
                     direction: rand::thread_rng().gen_range(0..5u8).try_into().unwrap(),
@@ -65,6 +67,8 @@ fn main()
                     )
                 })
             }
+
+            log::trace!("sending {} tris to gpu", l * 2);
 
             let game_tick = game.clone();
             let game_continue = should_loops_continue.clone();
