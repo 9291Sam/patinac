@@ -34,7 +34,7 @@ impl<T: AnyBitPattern + NoUninit + Hash + Eq> CpuTrackedDenseSet<T>
                 label:              Some(&name),
                 size:               std::mem::size_of::<T>() as u64
                     * initial_gpu_buffer_len_elements as u64,
-                usage:              buffer_usage,
+                usage:              buffer_usage | wgpu::BufferUsages::COPY_DST,
                 mapped_at_creation: false
             })),
             dense_set:               Mutex::new(util::DenseSet::new())
@@ -58,7 +58,7 @@ impl<T: AnyBitPattern + NoUninit + Hash + Eq> CpuTrackedDenseSet<T>
 
     pub fn get_buffer<R>(&self, buf_access_func: impl FnOnce(&wgpu::Buffer) -> R) -> R
     {
-        buf_access_func(&*self.gpu_buffer.read().unwrap())
+        buf_access_func(&self.gpu_buffer.read().unwrap())
     }
 
     #[must_use]
@@ -76,12 +76,15 @@ impl<T: AnyBitPattern + NoUninit + Hash + Eq> CpuTrackedDenseSet<T>
                 label:              Some(&self.name),
                 size:               self.get_number_of_elements() as u64 * 3 / 2
                     * std::mem::size_of::<T>() as u64,
-                usage:              self.usage,
+                usage:              self.usage | wgpu::BufferUsages::COPY_DST,
                 mapped_at_creation: false
             });
 
             resize_occurred = true;
         }
+
+        let data_mtx = &self.dense_set.lock().unwrap();
+        let data_to_write: &[u8] = cast_slice(data_mtx.to_dense_elements());
 
         self.renderer
             .queue
@@ -91,10 +94,8 @@ impl<T: AnyBitPattern + NoUninit + Hash + Eq> CpuTrackedDenseSet<T>
                 NonZero::new(self.gpu_buffer_len_elements as u64 * std::mem::size_of::<T>() as u64)
                     .unwrap()
             )
-            .unwrap()
-            .copy_from_slice(cast_slice(
-                self.dense_set.lock().unwrap().to_dense_elements()
-            ));
+            .unwrap()[..data_to_write.len()]
+            .copy_from_slice(cast_slice(data_to_write));
 
         resize_occurred
     }

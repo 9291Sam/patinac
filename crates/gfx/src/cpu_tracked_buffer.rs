@@ -1,3 +1,4 @@
+use std::fmt::Debug;
 use std::num::NonZeroU64;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -6,7 +7,7 @@ use bytemuck::{bytes_of, cast_slice, AnyBitPattern, NoUninit};
 
 const MAX_FLUSHES_BEFORE_ENTIRE: usize = 128;
 
-pub struct CpuTrackedBuffer<T: AnyBitPattern + NoUninit>
+pub struct CpuTrackedBuffer<T: AnyBitPattern + NoUninit + Debug>
 {
     renderer:           Arc<super::Renderer>,
     name:               String,
@@ -23,7 +24,7 @@ struct CpuTrackedBufferCriticalSection<T>
     flush_list:          Vec<usize>
 }
 
-impl<T: AnyBitPattern + NoUninit> CpuTrackedBuffer<T>
+impl<T: AnyBitPattern + NoUninit + Debug> CpuTrackedBuffer<T>
 {
     pub fn new(
         renderer: Arc<super::Renderer>,
@@ -33,9 +34,9 @@ impl<T: AnyBitPattern + NoUninit> CpuTrackedBuffer<T>
     ) -> CpuTrackedBuffer<T>
     {
         let gpu_data = renderer.create_buffer(&wgpu::BufferDescriptor {
-            label: Some(&name),
-            size: elements as u64 * std::mem::size_of::<T>() as u64,
-            usage,
+            label:              Some(&name),
+            size:               elements as u64 * std::mem::size_of::<T>() as u64,
+            usage:              usage | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false
         });
 
@@ -73,7 +74,7 @@ impl<T: AnyBitPattern + NoUninit> CpuTrackedBuffer<T>
             ..
         } = &mut *self.critical_section.lock().unwrap();
 
-        if flush_list.len() > MAX_FLUSHES_BEFORE_ENTIRE
+        if flush_list.len() < MAX_FLUSHES_BEFORE_ENTIRE
         {
             flush_list.push(index);
         }
@@ -117,7 +118,7 @@ impl<T: AnyBitPattern + NoUninit> CpuTrackedBuffer<T>
             *gpu_data = self.renderer.create_buffer(&wgpu::BufferDescriptor {
                 label:              Some(&self.name),
                 size:               cpu_data.len() as u64 * std::mem::size_of::<T>() as u64,
-                usage:              self.usage,
+                usage:              self.usage | wgpu::BufferUsages::COPY_DST,
                 mapped_at_creation: false
             });
 
@@ -127,6 +128,8 @@ impl<T: AnyBitPattern + NoUninit> CpuTrackedBuffer<T>
 
             did_resize_occur = true;
         }
+
+        log::trace!("{:?}", flush_list);
 
         if flush_list.len() > MAX_FLUSHES_BEFORE_ENTIRE
             || self.needs_resize_flush.load(Ordering::SeqCst)

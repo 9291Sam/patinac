@@ -16,10 +16,12 @@ use crate::CpuTrackedDenseSet;
 
 pub struct VoxelManager
 {
-    game:       Arc<game::Game>,
-    pipeline:   Arc<gfx::GenericPipeline>,
-    bind_group: Arc<wgpu::BindGroup>,
-    uuid:       util::Uuid,
+    game:              Arc<game::Game>,
+    pipeline:          Arc<gfx::GenericPipeline>,
+    bind_group:        Mutex<Arc<wgpu::BindGroup>>,
+    bind_group_layout: Arc<wgpu::BindGroupLayout>,
+
+    uuid: util::Uuid,
 
     face_id_allocator: Mutex<util::FreelistAllocator>,
     face_id_buffer:    Mutex<Arc<super::CpuTrackedDenseSet<u32>>>,
@@ -152,7 +154,8 @@ impl VoxelManager
                     multiview: None
                 }
             ),
-            bind_group:        combined_bind_group,
+            bind_group:        Mutex::new(combined_bind_group),
+            bind_group_layout: bind_group_layout.clone(),
             uuid:              util::Uuid::new(),
             face_id_allocator: Mutex::new(util::FreelistAllocator::new(INITIAL_SIZE)),
             face_id_buffer:    Mutex::new(id_buffer),
@@ -186,6 +189,7 @@ impl VoxelManager
         face_data_buffer: &gfx::CpuTrackedBuffer<GpuFaceData>
     ) -> Arc<wgpu::BindGroup>
     {
+        log::trace!("regen bind group");
         face_id_buffer.get_buffer(|raw_id_buf| {
             face_data_buffer.get_buffer(|raw_data_buf| {
                 Arc::new(renderer.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -225,11 +229,27 @@ impl gfx::Recordable for VoxelManager
 
     fn pre_record_update(
         &self,
-        _: &gfx::Renderer,
+        renderer: &gfx::Renderer,
         _: &gfx::Camera,
         global_bind_group: &std::sync::Arc<gfx::wgpu::BindGroup>
     ) -> gfx::RecordInfo
     {
+        let mut needs_resize = false;
+        needs_resize |= self.face_id_buffer.lock().unwrap().flush_to_gpu();
+        needs_resize |= self.face_data_buffer.replicate_to_gpu();
+
+        let mut bind_group = self.bind_group.lock().unwrap();
+
+        if needs_resize
+        {
+            *bind_group = Self::generate_bind_group(
+                renderer,
+                &self.bind_group_layout,
+                &self.face_id_buffer.lock().unwrap(),
+                &self.face_data_buffer
+            );
+        }
+
         gfx::RecordInfo::Record {
             render_pass: self
                 .game
@@ -238,7 +258,7 @@ impl gfx::Recordable for VoxelManager
             pipeline:    self.pipeline.clone(),
             bind_groups: [
                 Some(global_bind_group.clone()),
-                Some(self.bind_group.clone()),
+                Some(bind_group.clone()),
                 None,
                 None
             ],
@@ -254,11 +274,10 @@ impl gfx::Recordable for VoxelManager
             unreachable!()
         };
 
+        let elements = self.face_id_buffer.lock().unwrap().get_number_of_elements() * 6;
+
         pass.set_push_constants(wgpu::ShaderStages::VERTEX, 0, bytes_of(&id));
-        pass.draw(
-            0..self.face_id_buffer.lock().unwrap().get_number_of_elements() as u32,
-            0..1
-        )
+        pass.draw(0..elements as u32, 0..1);
     }
 }
 
@@ -309,7 +328,7 @@ impl VoxelFaceDirection
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, AnyBitPattern, NoUninit)]
+#[derive(Clone, Copy, AnyBitPattern, NoUninit, Debug)]
 struct GpuFaceData
 // is allocated at a specific index
 {
@@ -328,10 +347,14 @@ impl GpuFaceData
 {
     pub fn new(material: u16, chunk_id: u16, pos: glm::U16Vec3, dir: VoxelFaceDirection) -> Self
     {
+        assert!(pos.x < 2u16.pow(9) - 1);
+        assert!(pos.y < 2u16.pow(9) - 1);
+        assert!(pos.z < 2u16.pow(9) - 1);
+
         GpuFaceData {
             material,
             chunk_id,
-            location_within_chunk: ((pos.x as u32) << 0)
+            location_within_chunk: (pos.x as u32)
                 | ((pos.y as u32) << 9)
                 | ((pos.z as u32) << 18)
                 | ((dir.to_bits() as u32) << 27)

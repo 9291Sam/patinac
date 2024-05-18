@@ -54,7 +54,7 @@ fn main()
             let voxel = voxel::VoxelChunkManager::new(game.clone());
             let voxel3 = voxel3::VoxelManager::new(game.clone());
 
-            for _ in 0..1020
+            for _ in 0..1000
             {
                 voxel3.insert_face(voxel3::VoxelFace {
                     direction: rand::thread_rng().gen_range(0..5u8).try_into().unwrap(),
