@@ -79,9 +79,14 @@ impl<T: AnyBitPattern + NoUninit + Debug> CpuTrackedBuffer<T>
             flush_list.push(index);
         }
 
-        *cpu_data
-            .get_mut(index)
-            .expect("Out of bounds CpuTrackedBuffer") = t;
+        let len = cpu_data.len();
+
+        *cpu_data.get_mut(index).unwrap_or_else(|| {
+            panic!(
+                "Cpu Tracked Buffer Index Out Of Bounds @ {} / {}",
+                index, len
+            )
+        }) = t;
     }
 
     pub fn realloc(&self, elements: usize)
@@ -89,6 +94,8 @@ impl<T: AnyBitPattern + NoUninit + Debug> CpuTrackedBuffer<T>
         let CpuTrackedBufferCriticalSection {
             cpu_data, ..
         } = &mut *self.critical_section.lock().unwrap();
+
+        log::trace!("cputracked buffer realloc size {}", elements);
 
         cpu_data.resize_with(elements, T::zeroed);
 
@@ -128,8 +135,6 @@ impl<T: AnyBitPattern + NoUninit + Debug> CpuTrackedBuffer<T>
 
             did_resize_occur = true;
         }
-
-        log::trace!("{:?}", flush_list);
 
         if flush_list.len() > MAX_FLUSHES_BEFORE_ENTIRE
             || self.needs_resize_flush.load(Ordering::SeqCst)

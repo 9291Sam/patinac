@@ -171,7 +171,23 @@ impl VoxelManager
 
     pub fn insert_face(&self, face: VoxelFace)
     {
-        let new_face_id = self.face_id_allocator.lock().unwrap().allocate().unwrap();
+        let mut face_id_allocator = self.face_id_allocator.lock().unwrap();
+
+        let new_face_id = if let Ok(id) = face_id_allocator.allocate()
+        {
+            id
+        }
+        else
+        {
+            let realloc_size = face_id_allocator.get_total_blocks() * 3 / 2;
+            face_id_allocator.extend_size(realloc_size);
+            self.face_data_buffer.realloc(realloc_size);
+
+            face_id_allocator.allocate().unwrap()
+        };
+
+        log::trace!("allocated id {}", new_face_id);
+
         self.face_id_buffer
             .lock()
             .unwrap()

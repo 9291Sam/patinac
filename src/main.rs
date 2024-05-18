@@ -51,10 +51,9 @@ fn main()
         {
             let _verdigris = verdigris::DemoScene::new(game.clone());
             let _debug_menu = gui::DebugMenu::new(&renderer, game.clone());
-            let voxel = voxel::VoxelChunkManager::new(game.clone());
             let voxel3 = voxel3::VoxelManager::new(game.clone());
 
-            for _ in 0..1000
+            for _ in 0..10506
             {
                 voxel3.insert_face(voxel3::VoxelFace {
                     direction: rand::thread_rng().gen_range(0..5u8).try_into().unwrap(),

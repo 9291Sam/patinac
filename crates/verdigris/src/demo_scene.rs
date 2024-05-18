@@ -10,9 +10,9 @@ use voxel::{RasterChunk, VoxelChunkManager, VoxelFace, VoxelFaceDirection};
 #[derive(Debug)]
 pub struct DemoScene
 {
-    data_manager: Arc<VoxelChunkManager>,
-    raster:       Mutex<util::Promise<Arc<RasterChunk>>>,
-    id:           util::Uuid
+    // data_manager: Arc<VoxelChunkManager>,
+    // raster: Mutex<util::Promise<Arc<RasterChunk>>>,
+    id: util::Uuid
 }
 
 impl DemoScene
@@ -26,20 +26,19 @@ impl DemoScene
         let dm = VoxelChunkManager::new(game.clone());
 
         let this = Arc::new(DemoScene {
-            data_manager: dm.clone(),
-            id:           util::Uuid::new(),
-            raster:       Mutex::new(
-                util::run_async(move || {
-                    create_chunk(
-                        dm,
-                        c_game,
-                        &noise_generator,
-                        glm::DVec3::new(-256.0, 0.0, -256.0),
-                        1.0
-                    )
-                })
-                .into()
-            )
+            // data_manager: dm.clone(),
+            id: util::Uuid::new() /* raster:       Mutex::new(
+                                   *     util::run_async(move || {
+                                   *         create_chunk(
+                                   *             dm,
+                                   *             c_game,
+                                   *             &noise_generator,
+                                   *             glm::DVec3::new(-256.0, 0.0, -256.0),
+                                   *             1.0
+                                   *         )
+                                   *     })
+                                   *     .into()
+                                   * ) */
         });
 
         game.register(this.clone());
@@ -80,7 +79,7 @@ impl game::Entity for DemoScene
 
     fn tick(&self, _: &game::Game, _: game::TickTag)
     {
-        self.raster.lock().unwrap().poll_ref();
+        // self.raster.lock().unwrap().poll_ref();
     }
 }
 

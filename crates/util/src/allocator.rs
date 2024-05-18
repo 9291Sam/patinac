@@ -10,7 +10,7 @@ pub struct FreelistAllocator
     next_free_block: usize
 }
 
-/// Valid Blocks [1, total_blocks]
+/// Valid Blocks [0, total_blocks]
 impl FreelistAllocator
 {
     pub fn new(size: usize) -> Self
@@ -31,6 +31,7 @@ impl FreelistAllocator
         (used_blocks, self.total_blocks)
     }
 
+    #[track_caller]
     pub fn allocate(&mut self) -> Result<usize, OutOfBlocks>
     {
         match self.free_blocks.pop()
@@ -38,13 +39,15 @@ impl FreelistAllocator
             Some(free_block) => Ok(free_block),
             None =>
             {
-                if self.next_free_block > self.total_blocks
+                if self.next_free_block >= self.total_blocks
                 {
                     Err(OutOfBlocks)
                 }
                 else
                 {
                     let block = self.next_free_block;
+
+                    log::trace!("Self: {:?} from {:?}", self, std::panic::Location::caller());
 
                     self.next_free_block = self.next_free_block.checked_add(1).unwrap();
 

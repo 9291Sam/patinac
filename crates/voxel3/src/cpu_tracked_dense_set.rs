@@ -1,5 +1,6 @@
 use std::hash::Hash;
 use std::num::NonZero;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, RwLock, RwLockReadGuard};
 
 use bytemuck::{cast_slice, AnyBitPattern, NoUninit};
@@ -11,7 +12,7 @@ pub(crate) struct CpuTrackedDenseSet<T: AnyBitPattern + NoUninit + Hash + Eq>
     renderer:                Arc<gfx::Renderer>,
     name:                    String,
     usage:                   wgpu::BufferUsages,
-    gpu_buffer_len_elements: usize,
+    gpu_buffer_len_elements: AtomicUsize,
     gpu_buffer:              RwLock<wgpu::Buffer>,
     dense_set:               Mutex<util::DenseSet<T>>
 }
@@ -29,7 +30,7 @@ impl<T: AnyBitPattern + NoUninit + Hash + Eq> CpuTrackedDenseSet<T>
             renderer:                renderer.clone(),
             name:                    name.clone(),
             usage:                   buffer_usage,
-            gpu_buffer_len_elements: initial_gpu_buffer_len_elements,
+            gpu_buffer_len_elements: AtomicUsize::new(initial_gpu_buffer_len_elements),
             gpu_buffer:              RwLock::new(renderer.create_buffer(&wgpu::BufferDescriptor {
                 label:              Some(&name),
                 size:               std::mem::size_of::<T>() as u64
@@ -69,8 +70,8 @@ impl<T: AnyBitPattern + NoUninit + Hash + Eq> CpuTrackedDenseSet<T>
 
         let mut gpu_buffer = self.gpu_buffer.write().unwrap();
 
-        if self.get_number_of_elements() < self.gpu_buffer_len_elements / 2
-            || self.get_number_of_elements() > self.gpu_buffer_len_elements
+        if self.get_number_of_elements() < self.gpu_buffer_len_elements.load(Ordering::SeqCst) / 2
+            || self.get_number_of_elements() > self.gpu_buffer_len_elements.load(Ordering::SeqCst)
         {
             *gpu_buffer = self.renderer.create_buffer(&wgpu::BufferDescriptor {
                 label:              Some(&self.name),
@@ -80,6 +81,10 @@ impl<T: AnyBitPattern + NoUninit + Hash + Eq> CpuTrackedDenseSet<T>
                 mapped_at_creation: false
             });
 
+            self.gpu_buffer_len_elements.store(
+                self.get_number_of_elements() * 3 / 2 * std::mem::size_of::<T>(),
+                Ordering::SeqCst
+            );
             resize_occurred = true;
         }
 
@@ -91,10 +96,9 @@ impl<T: AnyBitPattern + NoUninit + Hash + Eq> CpuTrackedDenseSet<T>
             .write_buffer_with(
                 &gpu_buffer,
                 0,
-                NonZero::new(self.gpu_buffer_len_elements as u64 * std::mem::size_of::<T>() as u64)
-                    .unwrap()
+                NonZero::new(data_to_write.len() as u64).unwrap()
             )
-            .unwrap()[..data_to_write.len()]
+            .unwrap()
             .copy_from_slice(cast_slice(data_to_write));
 
         resize_occurred
