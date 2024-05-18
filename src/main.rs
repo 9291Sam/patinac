@@ -47,22 +47,9 @@ fn main()
         let game = game::Game::new(renderer.clone(), renderer_renderpass_updater);
         *held_game.lock().unwrap() = Some(game.clone());
 
-        let test_map: BTreeSet<u32> = (0..1_000_000)
-            .map(|_| rand::thread_rng().gen::<u32>())
-            .collect();
-
-        let v: Vec<u32> = std::hint::black_box(test_map.iter().cloned().collect());
-
-        for _ in 0..25
-        {
-            let _timer = util::Timer::new(Cow::Borrowed("1m elem"));
-
-            let v2 = std::hint::black_box(v.clone());
-        }
-
         {
             let _verdigris = verdigris::DemoScene::new(game.clone());
-            // let _debug_menu = gui::DebugMenu::new(&renderer, game.clone());
+            let _debug_menu = gui::DebugMenu::new(&renderer, game.clone());
             let voxel = voxel::VoxelChunkManager::new(game.clone());
 
             let game_tick = game.clone();

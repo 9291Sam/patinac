@@ -1,4 +1,5 @@
 use std::fmt::Debug;
+use std::sync::Arc;
 
 use bytemuck::{AnyBitPattern, NoUninit};
 use gfx::glm;
@@ -18,7 +19,21 @@ impl Debug for VoxelManager
     }
 }
 
-impl VoxelManager {}
+impl VoxelManager
+{
+    pub fn new() -> Arc<Self>
+    {
+        Arc::new(VoxelManager {
+            face_id_allocator: todo!(),
+            face_id_buffer:    todo!(),
+            face_buffer:       todo!()
+        })
+    }
+
+    // no chunks for now, just one global chunk
+
+    pub fn insert_face() {}
+}
 
 impl gfx::Recordable for VoxelManager
 {
