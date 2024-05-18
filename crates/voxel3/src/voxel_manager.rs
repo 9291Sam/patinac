@@ -192,7 +192,7 @@ impl VoxelManager
             .insert(new_face_id as u32);
         self.face_data_buffer.write(
             new_face_id,
-            GpuFaceData::new(4, 0, face.position, face.direction)
+            GpuFaceData::new(face.material, 0, face.position, face.direction)
         );
     }
 
@@ -351,8 +351,7 @@ impl VoxelFaceDirection
 struct GpuFaceData
 // is allocated at a specific index
 {
-    material:              u16,
-    chunk_id:              u16,
+    material_and_chunk_id: u32,
     // 9 bits x
     // 9 bits y
     // 9 bits z
@@ -371,8 +370,7 @@ impl GpuFaceData
         assert!(pos.z < 2u16.pow(9) - 1);
 
         GpuFaceData {
-            material,
-            chunk_id,
+            material_and_chunk_id: (material as u32) | ((chunk_id as u32) << 16),
             location_within_chunk: (pos.x as u32)
                 | ((pos.y as u32) << 9)
                 | ((pos.z as u32) << 18)
@@ -386,7 +384,8 @@ pub struct VoxelFace
 {
     pub direction: VoxelFaceDirection,
     pub voxel:     u16,
-    pub position:  glm::U16Vec3
+    pub position:  glm::U16Vec3,
+    pub material:  u16
 }
 
 // one massive draw

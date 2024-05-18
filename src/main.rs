@@ -53,7 +53,7 @@ fn main()
             let _debug_menu = gui::DebugMenu::new(&renderer, game.clone());
             let voxel3 = voxel3::VoxelManager::new(game.clone());
 
-            let l = 1050906;
+            let l = 5500906;
 
             for _ in 0..l
             {
@@ -64,7 +64,8 @@ fn main()
                         rand::thread_rng().gen_range(0..255),
                         rand::thread_rng().gen_range(0..255),
                         rand::thread_rng().gen_range(0..255)
-                    )
+                    ),
+                    material:  rand::thread_rng().gen_range(0..12)
                 })
             }
 
