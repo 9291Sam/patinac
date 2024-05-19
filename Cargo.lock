@@ -510,7 +510,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b28bfe653d79bd16c77f659305b195b82bb5ce0c0eb2a4846b82ddbd77586813"
 dependencies = [
  "bitflags 2.5.0",
- "libloading 0.7.4",
+ "libloading 0.8.3",
  "winapi",
 ]
 
@@ -1898,6 +1898,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "spiral"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0f42795bcb3d996b05dcb5c2ff00563f21d78d49585764bef7b26b28468210c0"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
 name = "spirv"
 version = "0.3.0+sdk-1.3.268.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2251,6 +2260,7 @@ dependencies = [
  "noise",
  "oneshot",
  "rand",
+ "spiral",
  "util",
  "voxel3",
 ]
@@ -2577,7 +2587,7 @@ dependencies = [
  "js-sys",
  "khronos-egl",
  "libc",
- "libloading 0.7.4",
+ "libloading 0.8.3",
  "log",
  "metal",
  "naga",

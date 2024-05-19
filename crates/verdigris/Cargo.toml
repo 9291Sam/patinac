@@ -15,3 +15,4 @@ itertools = { workspace = true }
 dashmap = { workspace = true }
 oneshot = { workspace = true }
 voxel3 = { workspace = true }
+spiral = { workspace = true }
