@@ -55,11 +55,16 @@ fn vs_main(@builtin(vertex_index) vertex_index: u32) -> VertexOutput
     let face_voxel_pos = vec3<u32>(x_pos, y_pos, z_pos);
     let face_normal_id = (face_data.data >> 27) & three_bit_mask;
 
-    let material = face_data.mat_and_chunk_id & sixteen_bit_mask;
+    var material = face_data.mat_and_chunk_id & sixteen_bit_mask;
     let chunk_id = (face_data.mat_and_chunk_id >> 16) & sixteen_bit_mask;
     let chunk_data = chunk_data_buffer[chunk_id];
     let chunk_pos = chunk_data.position;
     let chunk_scale = chunk_data.scale;
+
+    if (face_id == 0 )
+    {
+        material = 0u;
+    }
 
     let face_point_local: vec3<f32> = vec3<f32>(FACE_LOOKUP_TABLE[face_normal_id][IDX_TO_VTX_TABLE[point_within_face]]) * chunk_scale.xyz;
     let face_point_world = vec4<f32>(face_point_local + vec3<f32>(face_voxel_pos) + chunk_pos.xyz, 1.0);

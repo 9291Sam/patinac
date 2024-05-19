@@ -235,13 +235,16 @@ impl ThreadPool
         let caller = std::panic::Location::caller();
 
         self.enqueue_function(move || {
-            if let Err(result) = sender.send(std::hint::black_box(std::hint::black_box(func)()))
+            if let Err(result) = sender.send(func())
             {
-                log::trace!(
-                    "Sent notification to dropped Future<{}> {}",
-                    std::any::type_name::<T>(),
-                    caller
-                );
+                if result.into_inner().type_id() != TypeId::of::<()>()
+                {
+                    log::warn!(
+                        "Sent notification to dropped Future<{}> from [{}]",
+                        std::any::type_name::<T>(),
+                        caller
+                    );
+                }
             }
         });
 

@@ -10,9 +10,8 @@ use voxel3::{VoxelFace, VoxelFaceDirection, VoxelManager};
 #[derive(Debug)]
 pub struct DemoScene
 {
-    dm:     Arc<voxel3::VoxelManager>,
-    id:     util::Uuid,
-    future: Mutex<util::Promise<()>>
+    dm: Arc<voxel3::VoxelManager>,
+    id: util::Uuid // future: Mutex<util::Promise<()>>
 }
 
 impl DemoScene
@@ -26,20 +25,20 @@ impl DemoScene
         let c_game = game.clone();
         let c_dm = dm.clone();
 
-        let future = util::run_async(move || {
+        util::run_async(move || {
             create_chunk(
                 c_dm,
                 c_game,
                 &noise_generator,
                 glm::DVec3::new(-256.0, 0.0, -256.0),
                 1.0
-            )
-        });
+            );
+        })
+        .detach();
 
         let this = Arc::new(DemoScene {
-            dm:     dm.clone(),
-            id:     util::Uuid::new(),
-            future: Mutex::new(future.into())
+            dm: dm.clone(),
+            id: util::Uuid::new() // future: Mutex::new(future.into())
         });
 
         game.register(this.clone());
@@ -80,7 +79,7 @@ impl game::Entity for DemoScene
 
     fn tick(&self, _: &game::Game, _: game::TickTag)
     {
-        self.future.lock().unwrap().poll_ref();
+        // self.future.lock().unwrap().poll_ref();
     }
 }
 

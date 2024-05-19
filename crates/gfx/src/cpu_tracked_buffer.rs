@@ -134,8 +134,16 @@ impl<T: AnyBitPattern + NoUninit + Debug> CpuTrackedBuffer<T>
             did_resize_occur = true;
         }
 
-        if flush_list.len() > MAX_FLUSHES_BEFORE_ENTIRE
-            || self.needs_resize_flush.load(Ordering::SeqCst)
+        if flush_list.len() > MAX_FLUSHES_BEFORE_ENTIRE || {
+            let (Ok(x) | Err(x)) = self.needs_resize_flush.compare_exchange(
+                false,
+                true,
+                Ordering::SeqCst,
+                Ordering::SeqCst
+            );
+
+            x
+        }
         {
             flush_list.clear();
 
@@ -149,8 +157,6 @@ impl<T: AnyBitPattern + NoUninit + Debug> CpuTrackedBuffer<T>
                 )
                 .unwrap()
                 .copy_from_slice(cast_slice(&cpu_data[..]));
-
-            self.needs_resize_flush.store(false, Ordering::SeqCst);
         }
         else
         {
