@@ -439,7 +439,6 @@ impl GpuFaceData
 pub struct VoxelFace
 {
     pub direction: VoxelFaceDirection,
-    pub voxel:     u16,
     pub position:  glm::I32Vec3,
     pub material:  u16
 }

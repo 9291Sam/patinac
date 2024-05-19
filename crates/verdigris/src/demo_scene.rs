@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use gfx::glm::{self};
@@ -26,13 +27,7 @@ impl DemoScene
         let c_dm = dm.clone();
 
         util::run_async(move || {
-            create_chunk(
-                c_dm,
-                c_game,
-                &noise_generator,
-                glm::DVec3::new(-256.0, 0.0, -256.0),
-                1.0
-            );
+            load_model_from_file_into(glm::I32Vec3::new(0, 0, 0), &c_dm, "teapot.vox")
         })
         .detach();
 
@@ -83,6 +78,39 @@ impl game::Entity for DemoScene
     }
 }
 
+fn load_model_from_file_into(world_offset: glm::I32Vec3, dm: &VoxelManager, file: &str)
+{
+    let file_data = dot_vox::load("teapot.vox").unwrap();
+
+    let voxels: HashMap<glm::U8Vec3, u8> = file_data.models[0]
+        .voxels
+        .iter()
+        .map(|mv| (glm::U8Vec3::new(mv.x, mv.y, mv.z), mv.i))
+        .collect::<HashMap<_, _>>();
+
+    let occupied = |pos: &glm::U8Vec3| (voxels.contains_key(pos));
+
+    for (pos, mat) in voxels.iter()
+    {
+        let pos = pos.xzy();
+
+        for dir in VoxelFaceDirection::iterate()
+        {
+            if let Some(sample_pos) = (dir.get_axis() + pos.cast()).try_cast::<u8>()
+            {
+                if !occupied(&sample_pos)
+                {
+                    dm.insert_face(VoxelFace {
+                        direction: dir,
+                        position:  world_offset + pos.cast(),
+                        material:  rand::thread_rng().gen_range(0..12)
+                    })
+                }
+            }
+        }
+    }
+}
+
 fn create_chunk(
     dm: Arc<VoxelManager>,
     game: Arc<game::Game>,
@@ -126,14 +154,6 @@ fn create_chunk(
 
             ((-4 + local_h)..(local_h + 4)).flat_map(move |sample_h_local| {
                 let sample_h_world = (sample_h_local as f64) * scale;
-                let voxel = if world_x.abs() == 0 || world_z.abs() == 0
-                {
-                    0
-                }
-                else
-                {
-                    rand::thread_rng().gen_range(1..=12)
-                };
 
                 VoxelFaceDirection::iterate().filter_map(move |d| {
                     if !occupied(world_x, sample_h_world as i32, world_z)
@@ -155,13 +175,12 @@ fn create_chunk(
                     {
                         Some(VoxelFace {
                             direction: d,
-                            voxel,
-                            position: glm::I32Vec3::new(
+                            position:  glm::I32Vec3::new(
                                 local_x as i32,
                                 (sample_h_world.max(0.0) / scale) as i32,
                                 local_z as i32
                             ),
-                            material: rand::thread_rng().gen_range(0..=12)
+                            material:  rand::thread_rng().gen_range(0..=12)
                         })
                     }
                 })
