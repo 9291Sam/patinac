@@ -4,6 +4,7 @@ use std::num::NonZeroUsize;
 use std::sync::{Arc, Mutex};
 
 use gfx::glm;
+use itertools::iproduct;
 use rand::Rng;
 
 fn main()
@@ -53,23 +54,15 @@ fn main()
             let _debug_menu = gui::DebugMenu::new(&renderer, game.clone());
             let voxel3 = voxel3::VoxelManager::new(game.clone());
 
-            let l = 5500906;
-
-            for _ in 0..l
+            for (x, z) in iproduct!(-1000..1000, -1000..1000)
             {
                 voxel3.insert_face(voxel3::VoxelFace {
                     direction: rand::thread_rng().gen_range(0..5u8).try_into().unwrap(),
                     voxel:     rand::thread_rng().gen_range(0..12),
-                    position:  glm::U16Vec3::new(
-                        rand::thread_rng().gen_range(0..255),
-                        rand::thread_rng().gen_range(0..255),
-                        rand::thread_rng().gen_range(0..255)
-                    ),
+                    position:  glm::I32Vec3::new(x, x + z, z),
                     material:  rand::thread_rng().gen_range(0..12)
                 })
             }
-
-            log::trace!("sending {} tris to gpu", l * 2);
 
             let game_tick = game.clone();
             let game_continue = should_loops_continue.clone();

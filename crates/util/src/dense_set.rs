@@ -75,6 +75,21 @@ impl<T: Hash + Clone + Eq> DenseSet<T>
         }
     }
 
+    pub fn retain(&mut self, should_be_retianed_func: impl Fn(&T) -> bool)
+    {
+        let elements_to_remove = self
+            .dense_elements
+            .iter()
+            .filter(|t| !should_be_retianed_func(&**t))
+            .cloned()
+            .collect::<Vec<_>>();
+
+        for t in elements_to_remove
+        {
+            self.remove(t).unwrap();
+        }
+    }
+
     pub fn to_dense_elements(&self) -> &[T]
     {
         &self.dense_elements

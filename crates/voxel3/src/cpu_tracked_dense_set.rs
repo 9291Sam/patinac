@@ -47,6 +47,11 @@ impl<T: AnyBitPattern + NoUninit + Hash + Eq> CpuTrackedDenseSet<T>
         self.dense_set.lock().unwrap().insert(t)
     }
 
+    pub fn retain(&self, retain_func: impl Fn(&T) -> bool)
+    {
+        self.dense_set.lock().unwrap().retain(retain_func);
+    }
+
     pub fn remove(&self, t: T) -> Result<(), NoElementContained>
     {
         self.dense_set.lock().unwrap().remove(t)
@@ -99,15 +104,14 @@ impl<T: AnyBitPattern + NoUninit + Hash + Eq> CpuTrackedDenseSet<T>
         let data_mtx = &self.dense_set.lock().unwrap();
         let data_to_write: &[u8] = cast_slice(data_mtx.to_dense_elements());
 
-        self.renderer
-            .queue
-            .write_buffer_with(
-                &gpu_buffer,
-                0,
-                NonZero::new(data_to_write.len() as u64).unwrap()
-            )
-            .unwrap()
-            .copy_from_slice(cast_slice(data_to_write));
+        if let Some(data_len) = NonZero::new(data_to_write.len() as u64)
+        {
+            self.renderer
+                .queue
+                .write_buffer_with(&gpu_buffer, 0, data_len)
+                .unwrap()
+                .copy_from_slice(cast_slice(data_to_write));
+        }
 
         resize_occurred
     }

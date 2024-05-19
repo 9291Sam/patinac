@@ -1,3 +1,4 @@
+mod chunk_manager;
 mod cpu_tracked_dense_set;
 mod voxel_manager;
 

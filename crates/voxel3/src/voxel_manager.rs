@@ -3,15 +3,10 @@ use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 
 use bytemuck::{bytes_of, AnyBitPattern, NoUninit};
-use gfx::wgpu::core::id;
 use gfx::wgpu::{self, include_wgsl};
-use gfx::{
-    glm,
-    CacheableFragmentState,
-    CacheablePipelineLayoutDescriptor,
-    CacheableRenderPipelineDescriptor
-};
+use gfx::{glm, CacheablePipelineLayoutDescriptor, CacheableRenderPipelineDescriptor};
 
+use crate::chunk_manager::{get_chunk_position_from_world, ChunkManager};
 use crate::CpuTrackedDenseSet;
 
 pub struct VoxelManager
@@ -25,7 +20,8 @@ pub struct VoxelManager
 
     face_id_allocator: Mutex<util::FreelistAllocator>,
     face_id_buffer:    Mutex<Arc<super::CpuTrackedDenseSet<u32>>>,
-    face_data_buffer:  gfx::CpuTrackedBuffer<GpuFaceData>
+    face_data_buffer:  gfx::CpuTrackedBuffer<GpuFaceData>,
+    chunk_manager:     Mutex<ChunkManager>
 }
 
 impl Debug for VoxelManager
@@ -72,6 +68,18 @@ impl VoxelManager
                                 min_binding_size:   None
                             },
                             count:      None
+                        },
+                        wgpu::BindGroupLayoutEntry {
+                            binding:    2,
+                            visibility: wgpu::ShaderStages::VERTEX,
+                            ty:         wgpu::BindingType::Buffer {
+                                ty:                 wgpu::BufferBindingType::Storage {
+                                    read_only: true
+                                },
+                                has_dynamic_offset: false,
+                                min_binding_size:   None
+                            },
+                            count:      None
                         }
                     ]
                 });
@@ -109,8 +117,15 @@ impl VoxelManager
             wgpu::BufferUsages::STORAGE
         );
 
-        let combined_bind_group =
-            Self::generate_bind_group(&renderer, &bind_group_layout, &id_buffer, &data_buffer);
+        let chunk_manager = ChunkManager::new(renderer.clone());
+
+        let combined_bind_group = Self::generate_bind_group(
+            &renderer,
+            &bind_group_layout,
+            &id_buffer,
+            &data_buffer,
+            &chunk_manager
+        );
 
         let this = Arc::new(VoxelManager {
             game:              game.clone(),
@@ -159,7 +174,8 @@ impl VoxelManager
             uuid:              util::Uuid::new(),
             face_id_allocator: Mutex::new(util::FreelistAllocator::new(INITIAL_SIZE)),
             face_id_buffer:    Mutex::new(id_buffer),
-            face_data_buffer:  data_buffer
+            face_data_buffer:  data_buffer,
+            chunk_manager:     Mutex::new(chunk_manager)
         });
 
         renderer.register(this.clone());
@@ -190,9 +206,20 @@ impl VoxelManager
             .lock()
             .unwrap()
             .insert(new_face_id as u32);
+
+        let (chunk_world_pos, face_in_chunk_pos) = get_chunk_position_from_world(face.position);
+
         self.face_data_buffer.write(
             new_face_id,
-            GpuFaceData::new(face.material, 0, face.position, face.direction)
+            GpuFaceData::new(
+                face.material,
+                self.chunk_manager
+                    .lock()
+                    .unwrap()
+                    .get_or_insert_chunk(chunk_world_pos),
+                face_in_chunk_pos,
+                face.direction
+            )
         );
     }
 
@@ -200,29 +227,38 @@ impl VoxelManager
         renderer: &gfx::Renderer,
         bind_group_layout: &wgpu::BindGroupLayout,
         face_id_buffer: &super::CpuTrackedDenseSet<u32>,
-        face_data_buffer: &gfx::CpuTrackedBuffer<GpuFaceData>
+        face_data_buffer: &gfx::CpuTrackedBuffer<GpuFaceData>,
+        chunk_manager: &ChunkManager
     ) -> Arc<wgpu::BindGroup>
     {
         face_id_buffer.get_buffer(|raw_id_buf| {
             face_data_buffer.get_buffer(|raw_data_buf| {
-                Arc::new(renderer.create_bind_group(&wgpu::BindGroupDescriptor {
-                    label:   Some("Voxel Manager Bind Group"),
-                    layout:  bind_group_layout,
-                    entries: &[
-                        wgpu::BindGroupEntry {
-                            binding:  0,
-                            resource: wgpu::BindingResource::Buffer(
-                                raw_id_buf.as_entire_buffer_binding()
-                            )
-                        },
-                        wgpu::BindGroupEntry {
-                            binding:  1,
-                            resource: wgpu::BindingResource::Buffer(
-                                raw_data_buf.as_entire_buffer_binding()
-                            )
-                        }
-                    ]
-                }))
+                chunk_manager.get_buffer(|raw_chunk_buf| {
+                    Arc::new(renderer.create_bind_group(&wgpu::BindGroupDescriptor {
+                        label:   Some("Voxel Manager Bind Group"),
+                        layout:  bind_group_layout,
+                        entries: &[
+                            wgpu::BindGroupEntry {
+                                binding:  0,
+                                resource: wgpu::BindingResource::Buffer(
+                                    raw_id_buf.as_entire_buffer_binding()
+                                )
+                            },
+                            wgpu::BindGroupEntry {
+                                binding:  1,
+                                resource: wgpu::BindingResource::Buffer(
+                                    raw_data_buf.as_entire_buffer_binding()
+                                )
+                            },
+                            wgpu::BindGroupEntry {
+                                binding:  2,
+                                resource: wgpu::BindingResource::Buffer(
+                                    raw_chunk_buf.as_entire_buffer_binding()
+                                )
+                            }
+                        ]
+                    }))
+                })
             })
         })
     }
@@ -248,14 +284,13 @@ impl gfx::Recordable for VoxelManager
     ) -> gfx::RecordInfo
     {
         let mut needs_resize = false;
-        needs_resize |= self.face_id_buffer.lock().unwrap().flush_to_gpu();
 
-        if needs_resize
-        {
-            log::trace!("faceidbuf trigger resize");
-        }
+        let face_id_buffer = self.face_id_buffer.lock().unwrap();
+        let chunk_manager = self.chunk_manager.lock().unwrap();
 
+        needs_resize |= face_id_buffer.flush_to_gpu();
         needs_resize |= self.face_data_buffer.replicate_to_gpu();
+        needs_resize |= chunk_manager.replicate_to_gpu();
 
         let mut bind_group = self.bind_group.lock().unwrap();
 
@@ -264,8 +299,9 @@ impl gfx::Recordable for VoxelManager
             *bind_group = Self::generate_bind_group(
                 renderer,
                 &self.bind_group_layout,
-                &self.face_id_buffer.lock().unwrap(),
-                &self.face_data_buffer
+                &face_id_buffer,
+                &self.face_data_buffer,
+                &chunk_manager
             );
         }
 
@@ -299,12 +335,6 @@ impl gfx::Recordable for VoxelManager
         pass.draw(0..elements as u32, 0..1);
     }
 }
-
-// make an algorithm that finds all of the ranges of things that need to be
-// drawn upload that list of ranges into a
-// TODO: use draw_indrect
-
-// no vertex buffer each 6 looks at a different range
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum VoxelFaceDirection
@@ -365,9 +395,9 @@ impl GpuFaceData
 {
     pub fn new(material: u16, chunk_id: u16, pos: glm::U16Vec3, dir: VoxelFaceDirection) -> Self
     {
-        assert!(pos.x < 2u16.pow(9) - 1);
-        assert!(pos.y < 2u16.pow(9) - 1);
-        assert!(pos.z < 2u16.pow(9) - 1);
+        assert!(pos.x < 2u16.pow(9), "{:?}", pos.x);
+        assert!(pos.y < 2u16.pow(9), "{:?}", pos.y);
+        assert!(pos.z < 2u16.pow(9), "{:?}", pos.z);
 
         GpuFaceData {
             material_and_chunk_id: (material as u32) | ((chunk_id as u32) << 16),
@@ -384,11 +414,6 @@ pub struct VoxelFace
 {
     pub direction: VoxelFaceDirection,
     pub voxel:     u16,
-    pub position:  glm::U16Vec3,
+    pub position:  glm::I32Vec3,
     pub material:  u16
 }
-
-// one massive draw
-// % 6
-// [face_id_buffer] // use the data here to lookup everything else in the
-// FaceData buffer
