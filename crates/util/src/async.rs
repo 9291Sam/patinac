@@ -1,3 +1,4 @@
+use std::any::{Any, TypeId};
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering::*;
 use std::sync::RwLock;
@@ -234,11 +235,13 @@ impl ThreadPool
         let caller = std::panic::Location::caller();
 
         self.enqueue_function(move || {
-            if let Err(f) = sender.send(func())
+            if let Err(result) = sender.send(std::hint::black_box(std::hint::black_box(func)()))
             {
-                log::error!("Tried to send message to killed threadpool! {}", caller);
-
-                f.as_inner();
+                log::trace!(
+                    "Sent notification to dropped Future<{}> {}",
+                    std::any::type_name::<T>(),
+                    caller
+                );
             }
         });
 

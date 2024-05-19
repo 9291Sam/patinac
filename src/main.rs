@@ -52,17 +52,6 @@ fn main()
         {
             let _verdigris = verdigris::DemoScene::new(game.clone());
             let _debug_menu = gui::DebugMenu::new(&renderer, game.clone());
-            let voxel3 = voxel3::VoxelManager::new(game.clone());
-
-            for (x, z) in iproduct!(-1000..1000, -1000..1000)
-            {
-                voxel3.insert_face(voxel3::VoxelFace {
-                    direction: rand::thread_rng().gen_range(0..5u8).try_into().unwrap(),
-                    voxel:     rand::thread_rng().gen_range(0..12),
-                    position:  glm::I32Vec3::new(x, x + z, z),
-                    material:  rand::thread_rng().gen_range(0..12)
-                })
-            }
 
             let game_tick = game.clone();
             let game_continue = should_loops_continue.clone();
@@ -121,3 +110,11 @@ fn main()
 
     logger.stop_worker();
 }
+
+// my ecs: two stage indirection
+// Entity: NonZeroU64 (top 8 bits are the number of components this thing has,
+// bottom 24 is its id), generational 24 | id 24
+// EntityStorageBuffer[number_of_components][id] // two stage buffer to get a
+// dense list of components each thing registers a callback on what it wants to
+// do, &callbacks are executed simultaneously &mut are done in a chaining
+// semaphore like fashion

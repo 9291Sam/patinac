@@ -80,7 +80,7 @@ impl<T: AnyBitPattern + NoUninit + Hash + Eq> CpuTrackedDenseSet<T>
 
         if current_set_elements > current_buf_len
         {
-            let new_size_elements: u64 = self.get_number_of_elements() as u64 * 3 / 2;
+            let new_size_elements: u64 = self.get_number_of_elements() as u64 * 2;
 
             *gpu_buffer = self.renderer.create_buffer(&wgpu::BufferDescriptor {
                 label:              Some(&self.name),

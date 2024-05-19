@@ -374,6 +374,32 @@ impl VoxelFaceDirection
     {
         self as u8
     }
+
+    pub fn iterate() -> impl Iterator<Item = VoxelFaceDirection>
+    {
+        [
+            VoxelFaceDirection::Top,
+            VoxelFaceDirection::Bottom,
+            VoxelFaceDirection::Left,
+            VoxelFaceDirection::Right,
+            VoxelFaceDirection::Front,
+            VoxelFaceDirection::Back
+        ]
+        .into_iter()
+    }
+
+    pub fn get_axis(self) -> glm::I16Vec3
+    {
+        match self
+        {
+            VoxelFaceDirection::Top => glm::I16Vec3::new(0, 1, 0),
+            VoxelFaceDirection::Bottom => glm::I16Vec3::new(0, -1, 0),
+            VoxelFaceDirection::Left => glm::I16Vec3::new(-1, 0, 0),
+            VoxelFaceDirection::Right => glm::I16Vec3::new(1, 0, 0),
+            VoxelFaceDirection::Front => glm::I16Vec3::new(0, 0, -1),
+            VoxelFaceDirection::Back => glm::I16Vec3::new(0, 0, 1)
+        }
+    }
 }
 
 #[repr(C)]

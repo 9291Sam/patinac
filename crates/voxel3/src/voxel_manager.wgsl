@@ -59,9 +59,10 @@ fn vs_main(@builtin(vertex_index) vertex_index: u32) -> VertexOutput
     let chunk_id = (face_data.mat_and_chunk_id >> 16) & sixteen_bit_mask;
     let chunk_data = chunk_data_buffer[chunk_id];
     let chunk_pos = chunk_data.position;
+    let chunk_scale = chunk_data.scale;
 
-    let face_point_local: vec3<u32> = FACE_LOOKUP_TABLE[face_normal_id][IDX_TO_VTX_TABLE[point_within_face]];
-    let face_point_world = vec4<f32>(vec3<f32>(face_point_local + face_voxel_pos) + chunk_pos.xyz, 1.0);
+    let face_point_local: vec3<f32> = vec3<f32>(FACE_LOOKUP_TABLE[face_normal_id][IDX_TO_VTX_TABLE[point_within_face]]) * chunk_scale.xyz;
+    let face_point_world = vec4<f32>(face_point_local + vec3<f32>(face_voxel_pos) + chunk_pos.xyz, 1.0);
 
     return VertexOutput(
         global_model_view_projection[pc_id] * face_point_world,
@@ -121,7 +122,8 @@ struct FaceData
 
 struct ChunkData
 {
-    position: vec4<f32>
+    position: vec4<f32>,
+    scale: vec4<f32>,
 }
 
 

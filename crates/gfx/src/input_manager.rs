@@ -119,7 +119,13 @@ impl InputManager
 
                         *previous_frame_mouse_pos = c;
 
-                        self.window.set_cursor_position(c).unwrap();
+                        if self.window.set_cursor_position(c).is_err()
+                        {
+                            log::warn!(
+                                "Failed to set cursor position to center of screen, did the \
+                                 sticky keys prompt appear?"
+                            )
+                        }
 
                         *best_guess_mouse_pos = c;
                     }

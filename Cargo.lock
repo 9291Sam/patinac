@@ -2252,7 +2252,7 @@ dependencies = [
  "oneshot",
  "rand",
  "util",
- "voxel",
+ "voxel3",
 ]
 
 [[package]]

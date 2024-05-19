@@ -50,9 +50,10 @@ impl ChunkManager
             .expect("Tried to allocate too many chunks");
 
         self.chunk_data.write(
-            new_id as usize,
+            new_id,
             GpuChunkData {
-                position: glm::vec3_to_vec4(&get_world_position_from_chunk(chunk_pos))
+                position: glm::vec3_to_vec4(&get_world_position_from_chunk(chunk_pos)),
+                scale:    glm::vec3_to_vec4(&glm::Vec3::new(1.0, 1.0, 1.0))
             }
         );
 
@@ -88,12 +89,13 @@ pub fn get_chunk_position_from_world(world_pos: glm::I32Vec3) -> (glm::I32Vec3, 
 
 pub fn get_world_position_from_chunk(chunk_pos: glm::I32Vec3) -> glm::Vec3
 {
-    chunk_pos.apply_into(|p| *p = *p * 512).cast()
+    chunk_pos.apply_into(|p| *p *= 512).cast()
 }
 
 #[repr(C)]
 #[derive(Clone, Copy, AnyBitPattern, NoUninit, Debug)]
 struct GpuChunkData
 {
-    position: glm::Vec4
+    position: glm::Vec4,
+    scale:    glm::Vec4
 }
