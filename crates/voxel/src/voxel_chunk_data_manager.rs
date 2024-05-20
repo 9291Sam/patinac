@@ -9,62 +9,6 @@ use bytemuck::{bytes_of, Contiguous, Pod, Zeroable};
 use gfx::glm;
 use gfx::wgpu::{self};
 
-#[repr(u16)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum Voxel
-{
-    Air    = 0,
-    Rock0  = 1,
-    Rock1  = 2,
-    Rock2  = 3,
-    Rock3  = 4,
-    Rock4  = 5,
-    Rock5  = 6,
-    Grass0 = 7,
-    Grass1 = 8,
-    Grass2 = 9,
-    Grass3 = 10,
-    Grass4 = 11,
-    Grass5 = 12
-}
-
-unsafe impl Zeroable for Voxel {}
-unsafe impl Pod for Voxel {}
-
-impl TryFrom<u16> for Voxel
-{
-    type Error = ();
-
-    fn try_from(value: u16) -> Result<Self, Self::Error>
-    {
-        match value
-        {
-            0 => Ok(Voxel::Air),
-            1 => Ok(Voxel::Rock0),
-            2 => Ok(Voxel::Rock1),
-            3 => Ok(Voxel::Rock2),
-            4 => Ok(Voxel::Rock3),
-            5 => Ok(Voxel::Rock4),
-            6 => Ok(Voxel::Rock5),
-            7 => Ok(Voxel::Grass0),
-            8 => Ok(Voxel::Grass1),
-            9 => Ok(Voxel::Grass2),
-            10 => Ok(Voxel::Grass3),
-            11 => Ok(Voxel::Grass4),
-            12 => Ok(Voxel::Grass5),
-            _ => Err(())
-        }
-    }
-}
-
-impl Voxel
-{
-    pub fn as_bytes(self) -> [u8; 2]
-    {
-        (self as u16).to_ne_bytes()
-    }
-}
-
 // #[derive(Debug, Clone, Copy, Pod, Zeroable)]
 // #[repr(C)]
 // pub struct VoxelBrick

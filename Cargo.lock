@@ -2324,6 +2324,7 @@ dependencies = [
  "itertools",
  "log",
  "nonmax",
+ "num_enum",
  "rand",
  "util",
 ]

@@ -7,6 +7,7 @@ use gfx::wgpu::{self, include_wgsl};
 use gfx::{glm, CacheablePipelineLayoutDescriptor, CacheableRenderPipelineDescriptor};
 
 use crate::chunk_manager::{get_chunk_position_from_world, ChunkManager};
+use crate::material::MaterialManager;
 use crate::CpuTrackedDenseSet;
 
 pub struct VoxelManager
@@ -21,7 +22,8 @@ pub struct VoxelManager
     face_id_allocator: Mutex<util::FreelistAllocator>,
     face_id_buffer:    Mutex<Arc<super::CpuTrackedDenseSet<u32>>>,
     face_data_buffer:  gfx::CpuTrackedBuffer<GpuFaceData>,
-    chunk_manager:     Mutex<ChunkManager>
+    chunk_manager:     Mutex<ChunkManager>,
+    material_manager:  MaterialManager
 }
 
 impl Debug for VoxelManager
@@ -80,6 +82,18 @@ impl VoxelManager
                                 min_binding_size:   None
                             },
                             count:      None
+                        },
+                        wgpu::BindGroupLayoutEntry {
+                            binding:    3,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty:         wgpu::BindingType::Buffer {
+                                ty:                 wgpu::BufferBindingType::Storage {
+                                    read_only: true
+                                },
+                                has_dynamic_offset: false,
+                                min_binding_size:   None
+                            },
+                            count:      None
                         }
                     ]
                 });
@@ -119,12 +133,15 @@ impl VoxelManager
 
         let chunk_manager = ChunkManager::new(renderer.clone());
 
+        let mat_manager = MaterialManager::new(renderer);
+
         let combined_bind_group = Self::generate_bind_group(
             &renderer,
             &bind_group_layout,
             &id_buffer,
             &data_buffer,
-            &chunk_manager
+            &chunk_manager,
+            &mat_manager
         );
 
         let this = Arc::new(VoxelManager {
@@ -175,7 +192,8 @@ impl VoxelManager
             face_id_allocator: Mutex::new(util::FreelistAllocator::new(INITIAL_SIZE)),
             face_id_buffer:    Mutex::new(id_buffer),
             face_data_buffer:  data_buffer,
-            chunk_manager:     Mutex::new(chunk_manager)
+            chunk_manager:     Mutex::new(chunk_manager),
+            material_manager:  mat_manager
         });
 
         renderer.register(this.clone());
@@ -228,12 +246,15 @@ impl VoxelManager
         bind_group_layout: &wgpu::BindGroupLayout,
         face_id_buffer: &super::CpuTrackedDenseSet<u32>,
         face_data_buffer: &gfx::CpuTrackedBuffer<GpuFaceData>,
-        chunk_manager: &ChunkManager
+        chunk_manager: &ChunkManager,
+        material_manager: &MaterialManager
     ) -> Arc<wgpu::BindGroup>
     {
         face_id_buffer.get_buffer(|raw_id_buf| {
             face_data_buffer.get_buffer(|raw_data_buf| {
                 chunk_manager.get_buffer(|raw_chunk_buf| {
+                    let material_buffer = material_manager.get_material_buffer();
+
                     Arc::new(renderer.create_bind_group(&wgpu::BindGroupDescriptor {
                         label:   Some("Voxel Manager Bind Group"),
                         layout:  bind_group_layout,
@@ -254,6 +275,12 @@ impl VoxelManager
                                 binding:  2,
                                 resource: wgpu::BindingResource::Buffer(
                                     raw_chunk_buf.as_entire_buffer_binding()
+                                )
+                            },
+                            wgpu::BindGroupEntry {
+                                binding:  3,
+                                resource: wgpu::BindingResource::Buffer(
+                                    material_buffer.as_entire_buffer_binding()
                                 )
                             }
                         ]
@@ -301,7 +328,8 @@ impl gfx::Recordable for VoxelManager
                 &self.bind_group_layout,
                 &face_id_buffer,
                 &self.face_data_buffer,
-                &chunk_manager
+                &chunk_manager,
+                &self.material_manager
             );
         }
 

@@ -27,6 +27,7 @@ voxel = { workspace = true }
 rand = { workspace = true }
 voxel3 = { workspace = true }
 itertools = { workspace = true }
+
 [workspace.dependencies]
 util = { path = "crates/util" }
 gfx = { path = "crates/gfx" }
@@ -64,7 +65,7 @@ sys-locale = "0.3.1"
 num = "0.4.2"
 dot_vox = "5.1.1"
 nonmax = "0.5.5"
-
+num_enum = "0.7.2"
 
 [profile.dev]
 opt-level = 2

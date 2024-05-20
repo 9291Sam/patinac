@@ -17,11 +17,9 @@ alias GlobalPositions = array<vec3<f32>, NumberOfModels>;
 @group(1) @binding(0) var<storage, read> face_id_buffer: array<u32>;
 @group(1) @binding(1) var<storage, read> face_data_buffer: array<FaceData>;
 @group(1) @binding(2) var<storage, read> chunk_data_buffer: array<ChunkData>;
+@group(1) @binding(3) var<storage, read> material_buffer: array<MaterialData>;
 
 var<push_constant> pc_id: u32;
-
-
-
 
 @vertex
 fn vs_main(@builtin(vertex_index) vertex_index: u32) -> VertexOutput
@@ -71,7 +69,8 @@ fn vs_main(@builtin(vertex_index) vertex_index: u32) -> VertexOutput
 
     return VertexOutput(
         global_model_view_projection[pc_id] * face_point_world,
-        material
+        material, 
+
     );
 }
 
@@ -79,35 +78,32 @@ struct VertexOutput
 {
     @builtin(position) position: vec4<f32>,
     @location(0) material: u32,
+    // @location(1) uv: vec2<f32>,
 }
 
 @fragment
 fn fs_main(@location(0) voxel_material_id: u32) -> @location(0) vec4<f32>
 {
-    return get_voxel_color(voxel_material_id);
+    return material_buffer[voxel_material_id].diffuse_color;
 }
 
 const ERROR_COLOR: vec4<f32> = vec4<f32>(1.0, 0.0, 1.0, 1.0);
 
-fn get_voxel_color(voxel: u32) -> vec4<f32>
+struct MaterialData
 {
-    switch voxel
-    {
-        case 0u: {return ERROR_COLOR;}                     // Error color for Air
-        case 1u: {return vec4<f32>(0.5, 0.5, 0.5, 1.0);}   // Grey for Rock0
-        case 2u: {return vec4<f32>(0.6, 0.6, 0.6, 1.0);}   // Light Grey for Rock1
-        case 3u: {return vec4<f32>(0.7, 0.7, 0.7, 1.0);}   // Lighter Grey for Rock2
-        case 4u: {return vec4<f32>(0.8, 0.8, 0.8, 1.0);}   // Even Lighter Grey for Rock3
-        case 5u: {return vec4<f32>(0.9, 0.9, 0.9, 1.0);}   // Almost White for Rock4
-        case 6u: {return vec4<f32>(1.0, 1.0, 1.0, 1.0);}   // White for Rock5
-        case 7u: {return vec4<f32>(0.0, 0.5, 0.0, 1.0);}   // Dark Green for Grass0
-        case 8u: {return vec4<f32>(0.0, 0.6, 0.0, 1.0);}   // Slightly Lighter Green for Grass1
-        case 9u: {return vec4<f32>(0.0, 0.7, 0.0, 1.0);}   // Light Green for Grass2
-        case 10u: {return vec4<f32>(0.0, 0.8, 0.0, 1.0);}  // Even Lighter Green for Grass3
-        case 11u: {return vec4<f32>(0.0, 0.9, 0.0, 1.0);}  // Very Light Green for Grass4
-        case 12u: {return vec4<f32>(0.2, 0.5, 0.2, 1.0);}  // Grey for Grass5
-        default: {return ERROR_COLOR;}                      // Error color for unknown voxels
-    }
+    diffuse_color:             vec4<f32>,
+    subsurface_color:          vec4<f32>,
+    diffuse_subsurface_weight: f32,
+
+    specular_color: vec4<f32>,
+    specular:       f32,
+    roughness:      f32,
+    metallic:       f32,
+
+    emissive_color_and_power: vec4<f32>,
+    coat_color_and_power:     vec4<f32>,
+
+    special: u32
 }
 
 struct FaceData
