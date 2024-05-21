@@ -10,6 +10,13 @@ use crate::chunk_manager::{get_chunk_position_from_world, ChunkManager};
 use crate::material::MaterialManager;
 use crate::CpuTrackedDenseSet;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Hash)]
+pub struct WorldPosition(pub glm::I32Vec3);
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Hash)]
+pub struct ChunkCoordinate(pub glm::I32Vec3);
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Hash)]
+pub struct ChunkLocalPosition(pub glm::U16Vec3);
+
 pub struct VoxelManager
 {
     game:              Arc<game::Game>,
@@ -235,7 +242,7 @@ impl VoxelManager
                     .lock()
                     .unwrap()
                     .get_or_insert_chunk(chunk_world_pos),
-                face_in_chunk_pos,
+                face_in_chunk_pos.0,
                 face.direction
             )
         );
@@ -467,6 +474,6 @@ impl GpuFaceData
 pub struct VoxelFace
 {
     pub direction: VoxelFaceDirection,
-    pub position:  glm::I32Vec3,
+    pub position:  WorldPosition,
     pub material:  u16
 }

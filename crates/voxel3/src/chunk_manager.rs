@@ -4,10 +4,12 @@ use std::sync::Arc;
 use bytemuck::{AnyBitPattern, NoUninit};
 use gfx::{glm, wgpu};
 
+use crate::{ChunkCoordinate, ChunkLocalPosition, WorldPosition};
+
 pub(crate) struct ChunkManager
 {
     chunk_data:         gfx::CpuTrackedBuffer<GpuChunkData>,
-    chunk_pos_id_map:   HashMap<glm::I32Vec3, u16>,
+    chunk_pos_id_map:   HashMap<ChunkCoordinate, u16>,
     chunk_id_allocator: util::FreelistAllocator
 }
 
@@ -29,20 +31,20 @@ impl ChunkManager
         }
     }
 
-    pub fn get_or_insert_chunk(&mut self, chunk_pos: glm::I32Vec3) -> u16
+    pub fn get_or_insert_chunk(&mut self, chunk_coord: ChunkCoordinate) -> u16
     {
-        self.get_chunk_id(chunk_pos)
-            .unwrap_or_else(|| self.insert_chunk_at(chunk_pos))
+        self.get_chunk_id(chunk_coord)
+            .unwrap_or_else(|| self.insert_chunk_at(chunk_coord))
     }
 
-    pub fn get_chunk_id(&self, chunk_pos: glm::I32Vec3) -> Option<u16>
+    pub fn get_chunk_id(&self, chunk_coord: ChunkCoordinate) -> Option<u16>
     {
-        self.chunk_pos_id_map.get(&chunk_pos).cloned()
+        self.chunk_pos_id_map.get(&chunk_coord).cloned()
     }
 
-    pub fn insert_chunk_at(&mut self, chunk_pos: glm::I32Vec3) -> u16
+    pub fn insert_chunk_at(&mut self, chunk_coord: ChunkCoordinate) -> u16
     {
-        assert!(self.get_chunk_id(chunk_pos).is_none());
+        assert!(self.get_chunk_id(chunk_coord).is_none());
 
         let new_id = self
             .chunk_id_allocator
@@ -52,13 +54,13 @@ impl ChunkManager
         self.chunk_data.write(
             new_id,
             GpuChunkData {
-                position: glm::vec3_to_vec4(&get_world_position_from_chunk(chunk_pos)),
+                position: glm::vec3_to_vec4(&get_world_position_from_chunk(chunk_coord).0.cast()),
                 scale:    glm::vec3_to_vec4(&glm::Vec3::new(1.0, 1.0, 1.0))
             }
         );
 
         self.chunk_pos_id_map
-            .insert(chunk_pos, new_id as u16)
+            .insert(chunk_coord, new_id as u16)
             .ok_or::<()>(())
             .unwrap_err();
 
@@ -76,20 +78,19 @@ impl ChunkManager
     }
 }
 
-pub fn get_chunk_position_from_world(world_pos: glm::I32Vec3) -> (glm::I32Vec3, glm::U16Vec3)
+pub fn get_chunk_position_from_world(
+    WorldPosition(world_pos): WorldPosition
+) -> (ChunkCoordinate, ChunkLocalPosition)
 {
     (
-        world_pos.apply_into(|w| *w = w.div_euclid(512)),
-        world_pos
-            .apply_into(|w| *w = w.rem_euclid(512))
-            .try_cast()
-            .unwrap()
+        ChunkCoordinate(world_pos.map(|w| w.div_euclid(512))),
+        ChunkLocalPosition(world_pos.map(|w| w.rem_euclid(512)).try_cast().unwrap())
     )
 }
 
-pub fn get_world_position_from_chunk(chunk_pos: glm::I32Vec3) -> glm::Vec3
+pub fn get_world_position_from_chunk(chunk_coord: ChunkCoordinate) -> WorldPosition
 {
-    chunk_pos.apply_into(|p| *p *= 512).cast()
+    WorldPosition(chunk_coord.0.map(|p| p * 512).cast())
 }
 
 #[repr(C)]

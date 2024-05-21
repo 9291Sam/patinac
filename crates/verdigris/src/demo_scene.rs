@@ -27,14 +27,14 @@ impl DemoScene
         let c_dm = dm.clone();
 
         util::run_async(move || {
-            // load_model_from_file_into(glm::I32Vec3::new(0, 0, 0), &c_dm, "teapot.vox")
-            create_chunk(
-                c_dm,
-                c_game,
-                &noise_generator,
-                glm::DVec3::new(0.0, 0.0, 0.0),
-                1.0
-            );
+            load_model_from_file_into(glm::I32Vec3::new(0, 0, 0), &c_dm, "teapot.vox")
+            // create_chunk(
+            //     c_dm,
+            //     c_game,
+            //     &noise_generator,
+            //     glm::DVec3::new(0.0, 0.0, 0.0),
+            //     1.0
+            // );
         })
         .detach();
 
@@ -109,7 +109,7 @@ fn load_model_from_file_into(world_offset: glm::I32Vec3, dm: &VoxelManager, file
                 {
                     dm.insert_face(VoxelFace {
                         direction: dir,
-                        position:  world_offset + pos.cast(),
+                        position:  voxel3::WorldPosition(world_offset + pos.cast()),
                         material:  rand::thread_rng().gen_range(0..=18)
                     })
                 }
@@ -182,11 +182,11 @@ fn create_chunk(
                     {
                         Some(VoxelFace {
                             direction: d,
-                            position:  glm::I32Vec3::new(
+                            position:  voxel3::WorldPosition(glm::I32Vec3::new(
                                 local_x as i32,
                                 (sample_h_world.max(0.0) / scale) as i32,
                                 local_z as i32
-                            ),
+                            )),
                             material:  rand::thread_rng().gen_range(0..=18)
                         })
                     }
