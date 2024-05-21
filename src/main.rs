@@ -33,7 +33,7 @@ fn main()
         std::thread::available_parallelism()
             .unwrap_or(NonZeroUsize::new(1).unwrap())
             .get(),
-        "Patinac async threadpool"
+        "Patinac async thread pool"
     ));
 
     let held_renderer: Mutex<Option<Arc<gfx::Renderer>>> = Mutex::new(None);
