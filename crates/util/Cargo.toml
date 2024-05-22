@@ -15,3 +15,4 @@ oneshot = { workspace = true }
 crossbeam = { workspace = true }
 backtrace = { workspace = true }
 dashmap = { workspace = true }
+lockfree = { workspace = true }

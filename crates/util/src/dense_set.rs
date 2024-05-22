@@ -10,6 +10,7 @@ pub struct DenseSet<T: Hash + Clone + Eq>
 
 impl<T: Hash + Clone + Eq> DenseSet<T>
 {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> DenseSet<T>
     {
         DenseSet {

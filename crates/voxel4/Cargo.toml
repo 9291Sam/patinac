@@ -1,5 +1,5 @@
 [package]
-name = "voxel"
+name = "voxel4"
 version = "0.1.0"
 edition = "2021"
 
@@ -11,3 +11,5 @@ rand = { workspace = true }
 bytemuck = { workspace = true }
 game = { workspace = true }
 log = { workspace = true }
+num_enum = { workspace = true }
+smallvec = { workspace = true }

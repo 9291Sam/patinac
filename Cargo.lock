@@ -1066,6 +1066,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "lockfree"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "74ee94b5ad113c7cb98c5a040f783d0952ee4fe100993881d1673c2cb002dd23"
+dependencies = [
+ "owned-alloc",
+]
+
+[[package]]
 name = "log"
 version = "0.4.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1277,12 +1286,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "nonmax"
-version = "0.5.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "610a5acd306ec67f907abe5567859a3c693fb9886eb1f012ab8f2a47bef3db51"
-
-[[package]]
 name = "nu-ansi-term"
 version = "0.46.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1420,6 +1423,12 @@ name = "overload"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b15813163c1d831bf4a13c3610c05c0d03b39feb07f7e09fa234dac9b15aaf39"
+
+[[package]]
+name = "owned-alloc"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "30fceb411f9a12ff9222c5f824026be368ff15dc2f13468d850c7d3f502205d6"
 
 [[package]]
 name = "owned_ttf_parser"
@@ -1887,9 +1896,9 @@ dependencies = [
 
 [[package]]
 name = "smallvec"
-version = "1.13.1"
+version = "1.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e6ecd384b10a64542d77071bd64bd7b231f4ed5940fba55e98c3de13824cf3d7"
+checksum = "3c5e1a9a646d36c3599cd173a41282daf47c44583ad367b8e6837255952e5c67"
 
 [[package]]
 name = "smithay-client-toolkit"
@@ -2264,6 +2273,7 @@ dependencies = [
  "crossbeam",
  "dashmap",
  "getrandom",
+ "lockfree",
  "log",
  "oneshot",
  "seahash",
@@ -2309,7 +2319,6 @@ dependencies = [
  "gfx",
  "itertools",
  "log",
- "nonmax",
  "rand",
  "util",
 ]
@@ -2323,9 +2332,23 @@ dependencies = [
  "gfx",
  "itertools",
  "log",
- "nonmax",
  "num_enum",
  "rand",
+ "util",
+]
+
+[[package]]
+name = "voxel4"
+version = "0.1.0"
+dependencies = [
+ "bytemuck",
+ "game",
+ "gfx",
+ "itertools",
+ "log",
+ "num_enum",
+ "rand",
+ "smallvec",
  "util",
 ]
 

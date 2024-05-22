@@ -110,11 +110,3 @@ fn main()
 
     logger.stop_worker();
 }
-
-// my ecs: two stage indirection
-// Entity: NonZeroU64 (top 8 bits are the number of components this thing has,
-// bottom 24 is its id), generational 24 | id 24
-// EntityStorageBuffer[number_of_components][id] // two stage buffer to get a
-// dense list of components each thing registers a callback on what it wants to
-// do, &callbacks are executed simultaneously &mut are done in a chaining
-// semaphore like fashion

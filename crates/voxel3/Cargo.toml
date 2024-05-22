@@ -4,7 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-nonmax = { workspace = true }
 util = { workspace = true }
 gfx = { workspace = true }
 itertools = { workspace = true }

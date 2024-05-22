@@ -477,3 +477,6 @@ pub struct VoxelFace
     pub position:  WorldPosition,
     pub material:  u16
 }
+
+// face manager: write_face(pos dir vox)
+// voxel manager: write_voxel(world pos, vox)

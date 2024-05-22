@@ -55,7 +55,7 @@ impl<T: AnyBitPattern + NoUninit + Debug> CpuTrackedBuffer<T>
     }
 
     #[allow(clippy::clone_on_copy)]
-    pub fn read(&self, index: usize) -> T
+    pub fn read_clone(&self, index: usize) -> T
     {
         self.critical_section
             .lock()
@@ -64,6 +64,40 @@ impl<T: AnyBitPattern + NoUninit + Debug> CpuTrackedBuffer<T>
             .get(index)
             .expect("Out of Bounds access of CpuTrackedBuffer")
             .clone()
+    }
+
+    pub fn access_ref<K>(&self, index: usize, access_func: impl FnOnce(&T) -> K) -> K
+    {
+        access_func(
+            self.critical_section
+                .lock()
+                .unwrap()
+                .cpu_data
+                .get_mut(index)
+                .expect("Out of Bounds access of CpuTrackedBuffer")
+        )
+    }
+
+    pub fn access_mut<K>(&self, index: usize, access_func: impl FnOnce(&mut T) -> K) -> K
+    {
+        let CpuTrackedBufferCriticalSection {
+            cpu_data,
+            flush_list,
+            ..
+        } = &mut *self.critical_section.lock().unwrap();
+
+        let k = access_func(
+            cpu_data
+                .get_mut(index)
+                .expect("Out of Bounds access of CpuTrackedBuffer")
+        );
+
+        if flush_list.len() < MAX_FLUSHES_BEFORE_ENTIRE
+        {
+            flush_list.push(index);
+        }
+
+        k
     }
 
     pub fn write(&self, index: usize, t: T)

@@ -19,7 +19,7 @@ All gameplay will take place in a voxelized world that extends out to the horizo
 
 MVP tasks:
 1. Rendering of a single 512^3 chunk at >60 fps with direct and indirect lighting
-2. Optimizing that single chunk so that it can be used in larger and larger LODs (for now just use Perlin or simplex noise)
+2. Optimizing that single chunk so that it can be used in larger and larger LODs (for now just use Perlin or simplex noise) Target a visible area of 12k ^ 3 to start
 3. Modify the player so that they can place / remove any voxel at any point in the world in a few different manners. Single, Sphere, Cube
 4. ---- Graphics Checkpoint  ---- 
 	- At this point you should have a fully dynamic world in which and voxels can be placed in and removed from in any order
