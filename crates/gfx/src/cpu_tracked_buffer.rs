@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::fmt::Debug;
 use std::num::NonZeroU64;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -52,6 +53,11 @@ impl<T: AnyBitPattern + NoUninit + Debug> CpuTrackedBuffer<T>
             name,
             usage
         }
+    }
+
+    pub fn get_cpu_len(&self) -> usize
+    {
+        self.critical_section.lock().unwrap().cpu_data.len()
     }
 
     #[allow(clippy::clone_on_copy)]
@@ -194,17 +200,21 @@ impl<T: AnyBitPattern + NoUninit + Debug> CpuTrackedBuffer<T>
         }
         else
         {
-            flush_list.drain(..).for_each(|i| {
-                self.renderer
-                    .queue
-                    .write_buffer_with(
-                        gpu_data,
-                        i as u64 * std::mem::size_of::<T>() as u64,
-                        NonZeroU64::new(std::mem::size_of::<T>() as u64).unwrap()
-                    )
-                    .unwrap()
-                    .copy_from_slice(cast_slice(bytes_of(&cpu_data[i])));
-            });
+            flush_list
+                .drain(..)
+                .collect::<HashSet<_>>()
+                .into_iter()
+                .for_each(|i| {
+                    self.renderer
+                        .queue
+                        .write_buffer_with(
+                            gpu_data,
+                            i as u64 * std::mem::size_of::<T>() as u64,
+                            NonZeroU64::new(std::mem::size_of::<T>() as u64).unwrap()
+                        )
+                        .unwrap()
+                        .copy_from_slice(cast_slice(bytes_of(&cpu_data[i])));
+                });
         }
 
         did_resize_occur

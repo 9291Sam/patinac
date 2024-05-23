@@ -27,3 +27,6 @@ redo all of the channel things because youre making them all piecemeal lmfao
 
 create user stories and tasks lol
 code review fix imports and exports in lib.rs
+
+
+if you want someone to help comment the codebase

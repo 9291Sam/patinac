@@ -5,10 +5,10 @@ use crate::{BRICK_EDGE_LEN_VOXELS, CHUNK_EDGE_LEN_BRICKS, VISIBILITY_BRICK_U32S_
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
-struct MaybeBrickPtr(pub u32);
+pub(crate) struct MaybeBrickPtr(pub(crate) u32);
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
-struct BrickPtr(pub u32);
+pub(crate) struct BrickPtr(pub(crate) u32);
 
 impl MaybeBrickPtr
 {
