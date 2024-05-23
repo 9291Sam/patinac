@@ -1,9 +1,10 @@
 mod chunk_manager;
 mod face_manager;
 mod material;
+mod voxel_world;
 
-pub use face_manager::*;
 use gfx::glm;
+pub use voxel_world::VoxelWorld;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Hash)]
 pub struct WorldPosition(pub glm::I32Vec3);
