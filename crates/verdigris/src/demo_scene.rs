@@ -27,7 +27,13 @@ impl DemoScene
         let c_dm = dm.clone();
 
         util::run_async(move || {
-            load_model_from_file_into(glm::I32Vec3::new(0, 0, 0), &c_dm, "teapot.vox")
+            
+            load_model_from_file_into(glm::I32Vec3::new(0, 0, 0), &c_dm, "teapot.vox");
+            load_model_from_file_into(glm::I32Vec3::new(0, 64, 0), &c_dm, "teapot.vox");
+            load_model_from_file_into(glm::I32Vec3::new(-78, 0, 0), &c_dm, "teapot.vox");
+            load_model_from_file_into(glm::I32Vec3::new(0, 0, -89), &c_dm, "teapot.vox");
+            load_model_from_file_into(glm::I32Vec3::new(0, 43, 96), &c_dm, "teapot.vox");
+            load_model_from_file_into(glm::I32Vec3::new(0, -75, 0), &c_dm, "teapot.vox");
             // create_chunk(
             //     c_dm,
             //     c_game,
@@ -102,8 +108,8 @@ fn load_model_from_file_into(world_offset: glm::I32Vec3, dm: &VoxelWorld, file: 
         let pos = pos.xzy();
 
         dm.insert_voxel(
-            WorldPosition(pos.cast()),
-            rand::thread_rng().gen_range(0..=18).try_into().unwrap()
+            WorldPosition(pos.cast() + world_offset),
+          ( (pos.x % 3 + pos.y % 4 + pos.z % 7) as u16).try_into().unwrap()
         );
     }
 }
