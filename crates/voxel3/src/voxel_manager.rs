@@ -4,11 +4,15 @@ use std::sync::{Arc, Mutex};
 
 use bytemuck::{bytes_of, AnyBitPattern, NoUninit};
 use gfx::wgpu::{self, include_wgsl};
-use gfx::{glm, CacheablePipelineLayoutDescriptor, CacheableRenderPipelineDescriptor};
+use gfx::{
+    glm,
+    CacheablePipelineLayoutDescriptor,
+    CacheableRenderPipelineDescriptor,
+    CpuTrackedDenseSet
+};
 
 use crate::chunk_manager::{get_chunk_position_from_world, ChunkManager};
 use crate::material::MaterialManager;
-use crate::CpuTrackedDenseSet;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Hash)]
 pub struct WorldPosition(pub glm::I32Vec3);
@@ -27,7 +31,7 @@ pub struct VoxelManager
     uuid: util::Uuid,
 
     face_id_allocator: Mutex<util::FreelistAllocator>,
-    face_id_buffer:    Mutex<Arc<super::CpuTrackedDenseSet<u32>>>,
+    face_id_buffer:    gfx::CpuTrackedDenseSet<u32>,
     face_data_buffer:  gfx::CpuTrackedBuffer<GpuFaceData>,
     chunk_manager:     Mutex<ChunkManager>,
     material_manager:  MaterialManager
@@ -197,7 +201,7 @@ impl VoxelManager
             bind_group_layout: bind_group_layout.clone(),
             uuid:              util::Uuid::new(),
             face_id_allocator: Mutex::new(util::FreelistAllocator::new(INITIAL_SIZE)),
-            face_id_buffer:    Mutex::new(id_buffer),
+            face_id_buffer:    id_buffer,
             face_data_buffer:  data_buffer,
             chunk_manager:     Mutex::new(chunk_manager),
             material_manager:  mat_manager
@@ -227,10 +231,7 @@ impl VoxelManager
             face_id_allocator.allocate().unwrap()
         };
 
-        self.face_id_buffer
-            .lock()
-            .unwrap()
-            .insert(new_face_id as u32);
+        self.face_id_buffer.insert(new_face_id as u32);
 
         let (chunk_world_pos, face_in_chunk_pos) = get_chunk_position_from_world(face.position);
 
@@ -251,7 +252,7 @@ impl VoxelManager
     fn generate_bind_group(
         renderer: &gfx::Renderer,
         bind_group_layout: &wgpu::BindGroupLayout,
-        face_id_buffer: &super::CpuTrackedDenseSet<u32>,
+        face_id_buffer: &gfx::CpuTrackedDenseSet<u32>,
         face_data_buffer: &gfx::CpuTrackedBuffer<GpuFaceData>,
         chunk_manager: &ChunkManager,
         material_manager: &MaterialManager
@@ -319,10 +320,9 @@ impl gfx::Recordable for VoxelManager
     {
         let mut needs_resize = false;
 
-        let face_id_buffer = self.face_id_buffer.lock().unwrap();
         let chunk_manager = self.chunk_manager.lock().unwrap();
 
-        needs_resize |= face_id_buffer.flush_to_gpu();
+        needs_resize |= self.face_id_buffer.replicate_to_gpu();
         needs_resize |= self.face_data_buffer.replicate_to_gpu();
         needs_resize |= chunk_manager.replicate_to_gpu();
 
@@ -333,7 +333,7 @@ impl gfx::Recordable for VoxelManager
             *bind_group = Self::generate_bind_group(
                 renderer,
                 &self.bind_group_layout,
-                &face_id_buffer,
+                &self.face_id_buffer,
                 &self.face_data_buffer,
                 &chunk_manager,
                 &self.material_manager
@@ -364,7 +364,7 @@ impl gfx::Recordable for VoxelManager
             unreachable!()
         };
 
-        let elements = self.face_id_buffer.lock().unwrap().get_number_of_elements() * 6;
+        let elements = self.face_id_buffer.get_number_of_elements() * 6;
 
         pass.set_push_constants(wgpu::ShaderStages::VERTEX, 0, bytes_of(&id));
         pass.draw(0..elements as u32, 0..1);
