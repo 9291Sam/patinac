@@ -4,6 +4,7 @@
 #![allow(clippy::type_complexity)]
 
 mod cpu_tracked_buffer;
+mod cpu_tracked_dense_set;
 mod input_manager;
 mod linalg;
 mod recordables;
@@ -33,5 +34,5 @@ pub mod glm
     pub use nalgebra::UnitQuaternion;
     pub use nalgebra_glm::*;
 }
-
+pub use cpu_tracked_dense_set::CpuTrackedDenseSet;
 pub use nalgebra as nal;

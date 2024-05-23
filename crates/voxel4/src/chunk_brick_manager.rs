@@ -16,7 +16,7 @@ use crate::gpu_data::{
 use crate::material::Voxel;
 use crate::{chunk_local_position_to_brick_position, BrickCoordinate, ChunkLocalPosition};
 
-struct ChunkBrickManager
+pub(crate) struct ChunkBrickManager
 {
     #[cfg(debug_assertions)]
     active_chunks: Mutex<HashSet<ChunkId>>,

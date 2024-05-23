@@ -3,6 +3,7 @@
 use gfx::glm;
 
 mod chunk_brick_manager;
+mod face_manager;
 mod gpu_data;
 mod material;
 mod voxel_rendering_dispatcher;
