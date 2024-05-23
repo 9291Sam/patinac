@@ -8,9 +8,10 @@ use crate::{get_world_position_from_chunk, ChunkCoordinate};
 
 pub(crate) struct ChunkManager
 {
-    chunk_data:         gfx::CpuTrackedBuffer<GpuChunkData>,
+    chunk_id_allocator: Mutex<util::FreelistAllocator>,
     chunk_pos_id_map:   DashMap<ChunkCoordinate, u16>,
-    chunk_id_allocator: Mutex<util::FreelistAllocator>
+
+    chunk_data: gfx::CpuTrackedBuffer<GpuChunkData> // TODO: brick map stuff
 }
 
 impl ChunkManager
@@ -39,7 +40,7 @@ impl ChunkManager
 
     pub fn get_chunk_id(&self, chunk_coord: ChunkCoordinate) -> Option<u16>
     {
-        self.chunk_pos_id_map.get(&chunk_coord).map(|r| r.clone())
+        self.chunk_pos_id_map.get(&chunk_coord).map(|r| *r)
     }
 
     pub fn insert_chunk_at(&self, chunk_coord: ChunkCoordinate) -> u16
