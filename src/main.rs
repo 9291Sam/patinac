@@ -48,7 +48,6 @@ fn main()
 
         let game = game::Game::new(renderer.clone(), renderer_renderpass_updater);
         *held_game.lock().unwrap() = Some(game.clone());
-
         {
             let _verdigris = verdigris::DemoScene::new(game.clone());
             let _debug_menu = gui::DebugMenu::new(&renderer, game.clone());

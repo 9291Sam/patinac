@@ -344,8 +344,8 @@ pub struct ChunkId(u16);
 
 pub struct ChunkBrickManagerBufferViews<'b>
 {
-    chunk_meta_data_buffer:  &'b wgpu::Buffer,
-    chunk_brick_map_buffer:  &'b wgpu::Buffer,
-    visibility_brick_buffer: &'b wgpu::Buffer,
-    material_brick_buffer:   &'b wgpu::Buffer
+    pub chunk_meta_data_buffer:  &'b wgpu::Buffer,
+    pub chunk_brick_map_buffer:  &'b wgpu::Buffer,
+    pub visibility_brick_buffer: &'b wgpu::Buffer,
+    pub material_brick_buffer:   &'b wgpu::Buffer
 }

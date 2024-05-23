@@ -2,6 +2,7 @@ use std::sync::{Arc, Mutex};
 
 use bytemuck::{AnyBitPattern, NoUninit};
 use gfx::{glm, wgpu};
+use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 pub(crate) struct FaceManager
 {
@@ -38,7 +39,7 @@ impl FaceManager
     {
         let mut face_id_allocator = self.face_id_allocator.lock().unwrap();
 
-        self.face_id_buffer.remove(face_id.0 as u32).unwrap();
+        self.face_id_buffer.remove(face_id.0).unwrap();
 
         unsafe { face_id_allocator.free(face_id.0 as usize) }
     }
@@ -51,6 +52,11 @@ impl FaceManager
         should_resize |= std::hint::black_box(self.face_data_buffer.replicate_to_gpu());
 
         should_resize
+    }
+
+    pub fn get_number_of_faces_to_draw(&self) -> usize
+    {
+        self.face_id_buffer.get_number_of_elements()
     }
 
     pub fn access_buffers<K>(&self, access_func: impl FnOnce(FaceManagerBuffers<'_>) -> K) -> K
@@ -68,14 +74,15 @@ impl FaceManager
 
 pub struct FaceManagerBuffers<'b>
 {
-    face_id_buffer:   &'b wgpu::Buffer,
-    face_data_buffer: &'b wgpu::Buffer
+    pub face_id_buffer:   &'b wgpu::Buffer,
+    pub face_data_buffer: &'b wgpu::Buffer
 }
 
 // insert face -> Faceid
 // remove face(faceId) -> void
 pub(crate) struct FaceId(u32);
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, TryFromPrimitive, IntoPrimitive)]
 pub enum VoxelFaceDirection
 {
     Top    = 0,
@@ -86,34 +93,8 @@ pub enum VoxelFaceDirection
     Back   = 5
 }
 
-impl TryFrom<u8> for VoxelFaceDirection
-{
-    type Error = u8;
-
-    fn try_from(value: u8) -> Result<Self, Self::Error>
-    {
-        use VoxelFaceDirection::*;
-
-        match value
-        {
-            0 => Ok(Top),
-            1 => Ok(Bottom),
-            2 => Ok(Left),
-            3 => Ok(Right),
-            4 => Ok(Front),
-            5 => Ok(Back),
-            _ => Err(value)
-        }
-    }
-}
-
 impl VoxelFaceDirection
 {
-    pub fn to_bits(self) -> u8
-    {
-        self as u8
-    }
-
     pub fn iterate() -> impl Iterator<Item = VoxelFaceDirection>
     {
         [
@@ -139,11 +120,24 @@ impl VoxelFaceDirection
             VoxelFaceDirection::Back => glm::I16Vec3::new(0, 0, 1)
         }
     }
+
+    pub fn opposite(self) -> VoxelFaceDirection
+    {
+        match self
+        {
+            VoxelFaceDirection::Top => VoxelFaceDirection::Bottom,
+            VoxelFaceDirection::Bottom => VoxelFaceDirection::Top,
+            VoxelFaceDirection::Left => VoxelFaceDirection::Right,
+            VoxelFaceDirection::Right => VoxelFaceDirection::Left,
+            VoxelFaceDirection::Front => VoxelFaceDirection::Back,
+            VoxelFaceDirection::Back => VoxelFaceDirection::Front
+        }
+    }
 }
 
 #[repr(C)]
 #[derive(Clone, Copy, AnyBitPattern, NoUninit, Debug)]
-struct GpuFaceData
+pub(crate) struct GpuFaceData
 // is allocated at a specific index
 {
     material_and_chunk_id: u32,
@@ -169,7 +163,7 @@ impl GpuFaceData
             location_within_chunk: (pos.x as u32)
                 | ((pos.y as u32) << 9)
                 | ((pos.z as u32) << 18)
-                | ((dir.to_bits() as u32) << 27)
+                | ((dir as u32) << 27)
         }
     }
 }
