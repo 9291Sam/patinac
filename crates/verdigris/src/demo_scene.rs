@@ -7,11 +7,11 @@ use gfx::wgpu;
 use itertools::iproduct;
 use noise::NoiseFn;
 use rand::Rng;
-use voxel3::{VoxelFace, VoxelFaceDirection, VoxelManager};
+use voxel3::{FaceManager, VoxelFace, VoxelFaceDirection};
 #[derive(Debug)]
 pub struct DemoScene
 {
-    dm: Arc<voxel3::VoxelManager>,
+    dm: Arc<voxel3::FaceManager>,
     id: util::Uuid // future: Mutex<util::Promise<()>>
 }
 
@@ -21,7 +21,7 @@ impl DemoScene
     {
         let noise_generator = noise::SuperSimplex::new(3478293422);
 
-        let dm = VoxelManager::new(game.clone());
+        let dm = FaceManager::new(game.clone());
 
         let c_game = game.clone();
         let c_dm = dm.clone();
@@ -85,7 +85,7 @@ impl game::Entity for DemoScene
     }
 }
 
-fn load_model_from_file_into(world_offset: glm::I32Vec3, dm: &VoxelManager, file: &str)
+fn load_model_from_file_into(world_offset: glm::I32Vec3, dm: &FaceManager, file: &str)
 {
     let file_data = dot_vox::load("teapot.vox").unwrap();
 
@@ -119,7 +119,7 @@ fn load_model_from_file_into(world_offset: glm::I32Vec3, dm: &VoxelManager, file
 }
 
 fn create_chunk(
-    dm: Arc<VoxelManager>,
+    dm: Arc<FaceManager>,
     game: Arc<game::Game>,
     noise: &(impl NoiseFn<f64, 2> + Sync),
     offset: glm::DVec3,

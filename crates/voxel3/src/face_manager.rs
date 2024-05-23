@@ -11,17 +11,11 @@ use gfx::{
     CpuTrackedDenseSet
 };
 
-use crate::chunk_manager::{get_chunk_position_from_world, ChunkManager};
+use crate::chunk_manager::ChunkManager;
 use crate::material::MaterialManager;
+use crate::{get_chunk_position_from_world, WorldPosition};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Hash)]
-pub struct WorldPosition(pub glm::I32Vec3);
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Hash)]
-pub struct ChunkCoordinate(pub glm::I32Vec3);
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Hash)]
-pub struct ChunkLocalPosition(pub glm::U16Vec3);
-
-pub struct VoxelManager
+pub struct FaceManager
 {
     game:              Arc<game::Game>,
     pipeline:          Arc<gfx::GenericPipeline>,
@@ -33,11 +27,11 @@ pub struct VoxelManager
     face_id_allocator: Mutex<util::FreelistAllocator>,
     face_id_buffer:    gfx::CpuTrackedDenseSet<u32>,
     face_data_buffer:  gfx::CpuTrackedBuffer<GpuFaceData>,
-    chunk_manager:     Mutex<ChunkManager>,
+    chunk_manager:     ChunkManager,
     material_manager:  MaterialManager
 }
 
-impl Debug for VoxelManager
+impl Debug for FaceManager
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
     {
@@ -45,7 +39,7 @@ impl Debug for VoxelManager
     }
 }
 
-impl VoxelManager
+impl FaceManager
 {
     pub fn new(game: Arc<game::Game>) -> Arc<Self>
     {
@@ -155,7 +149,7 @@ impl VoxelManager
             &mat_manager
         );
 
-        let this = Arc::new(VoxelManager {
+        let this = Arc::new(FaceManager {
             game:              game.clone(),
             pipeline:          renderer.render_cache.cache_render_pipeline(
                 CacheableRenderPipelineDescriptor {
@@ -203,7 +197,7 @@ impl VoxelManager
             face_id_allocator: Mutex::new(util::FreelistAllocator::new(INITIAL_SIZE)),
             face_id_buffer:    id_buffer,
             face_data_buffer:  data_buffer,
-            chunk_manager:     Mutex::new(chunk_manager),
+            chunk_manager:     chunk_manager,
             material_manager:  mat_manager
         });
 
@@ -239,10 +233,7 @@ impl VoxelManager
             new_face_id,
             GpuFaceData::new(
                 face.material,
-                self.chunk_manager
-                    .lock()
-                    .unwrap()
-                    .get_or_insert_chunk(chunk_world_pos),
+                self.chunk_manager.get_or_insert_chunk(chunk_world_pos),
                 face_in_chunk_pos.0,
                 face.direction
             )
@@ -299,7 +290,7 @@ impl VoxelManager
     }
 }
 
-impl gfx::Recordable for VoxelManager
+impl gfx::Recordable for FaceManager
 {
     fn get_name(&self) -> std::borrow::Cow<'_, str>
     {
@@ -320,11 +311,9 @@ impl gfx::Recordable for VoxelManager
     {
         let mut needs_resize = false;
 
-        let chunk_manager = self.chunk_manager.lock().unwrap();
-
         needs_resize |= self.face_id_buffer.replicate_to_gpu();
         needs_resize |= self.face_data_buffer.replicate_to_gpu();
-        needs_resize |= chunk_manager.replicate_to_gpu();
+        needs_resize |= self.chunk_manager.replicate_to_gpu();
 
         let mut bind_group = self.bind_group.lock().unwrap();
 
@@ -335,7 +324,7 @@ impl gfx::Recordable for VoxelManager
                 &self.bind_group_layout,
                 &self.face_id_buffer,
                 &self.face_data_buffer,
-                &chunk_manager,
+                &self.chunk_manager,
                 &self.material_manager
             );
         }

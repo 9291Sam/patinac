@@ -2328,6 +2328,7 @@ name = "voxel3"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
+ "dashmap",
  "game",
  "gfx",
  "itertools",
