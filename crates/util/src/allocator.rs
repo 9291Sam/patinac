@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{BTreeSet, HashSet};
 
 use bytemuck::Contiguous;
 
@@ -7,7 +7,10 @@ pub struct FreelistAllocator
 {
     free_blocks:     Vec<usize>,
     total_blocks:    usize,
-    next_free_block: usize
+    next_free_block: usize,
+
+    #[cfg(debug_assertions)]
+    allocated_blocks: BTreeSet<usize>
 }
 
 /// Valid Blocks [0, total_blocks]
@@ -16,10 +19,17 @@ impl FreelistAllocator
     pub fn new(size: usize) -> Self
     {
         FreelistAllocator {
-            free_blocks:     Vec::new(),
-            total_blocks:    size,
-            next_free_block: 0
+            free_blocks:                               Vec::new(),
+            total_blocks:                              size,
+            next_free_block:                           0,
+            #[cfg(debug_assertions)]
+            allocated_blocks:                          BTreeSet::new()
         }
+    }
+
+    pub fn has_next(&self) -> bool
+    {
+        !self.free_blocks.is_empty() || self.next_free_block < self.total_blocks
     }
 
     // (Free blocks , total blocks)
@@ -35,7 +45,15 @@ impl FreelistAllocator
     {
         match self.free_blocks.pop()
         {
-            Some(free_block) => Ok(free_block),
+            Some(free_block) =>
+            {
+                let ret_val = free_block;
+
+                #[cfg(debug_assertions)]
+                self.allocated_blocks.insert(ret_val);
+
+                Ok(ret_val)
+            }
             None =>
             {
                 if self.next_free_block >= self.total_blocks
@@ -46,7 +64,10 @@ impl FreelistAllocator
                 {
                     let block = self.next_free_block;
 
-                    self.next_free_block = self.next_free_block.checked_add(1).unwrap();
+                    self.next_free_block += 1;
+
+                    #[cfg(debug_assertions)]
+                    debug_assert!(self.allocated_blocks.insert(block));
 
                     Ok(block)
                 }
@@ -58,10 +79,8 @@ impl FreelistAllocator
     /// You must only free an integer allocated by this allocator
     pub unsafe fn free(&mut self, block: usize)
     {
-        if block > self.total_blocks
-        {
-            panic!("FreeListAllocator Free of Untracked Value")
-        };
+        #[cfg(debug_assertions)]
+        debug_assert!(self.allocated_blocks.remove(&block), "{block}");
 
         self.free_blocks.push(block)
     }
@@ -73,7 +92,7 @@ impl FreelistAllocator
 
     pub fn extend_size(&mut self, new_cap: usize)
     {
-        assert!(new_cap > self.total_blocks.into_integer());
+        debug_assert!(new_cap > self.total_blocks.into_integer());
 
         self.total_blocks = new_cap;
     }

@@ -1,22 +1,36 @@
 use std::borrow::Cow;
+use std::collections::BTreeMap;
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 
 use bytemuck::bytes_of;
+use gfx::wgpu::core::id;
 use gfx::wgpu::include_wgsl;
 use gfx::{wgpu, CacheablePipelineLayoutDescriptor, CacheableRenderPipelineDescriptor};
 
-use crate::face_manager::{FaceManager, VoxelFace, VoxelFaceDirection};
-use crate::material::Voxel;
-use crate::WorldPosition;
+use crate::chunk_manager::ChunkManager;
+use crate::face_manager::{
+    FaceId,
+    FaceManager,
+    FaceManagerBuffers,
+    GpuFaceData,
+    VoxelFaceDirection
+};
+use crate::material::{MaterialManager, Voxel};
+use crate::{get_chunk_position_from_world, WorldPosition};
 pub struct VoxelWorld
 {
-    game:     Arc<game::Game>,
-    pipeline: Arc<gfx::GenericPipeline>,
+    game:              Arc<game::Game>,
+    pipeline:          Arc<gfx::GenericPipeline>,
+    bind_group_layout: Arc<wgpu::BindGroupLayout>,
+    bind_group:        Mutex<Arc<wgpu::BindGroup>>,
 
     uuid: util::Uuid,
 
-    face_manager: FaceManager
+    face_manager:     FaceManager,
+    chunk_manager:    ChunkManager,
+    material_manager: MaterialManager,
+    world_voxel_list: Mutex<BTreeMap<WorldPosition, [Option<FaceId>; 6]>>
 }
 
 impl Debug for VoxelWorld
@@ -35,7 +49,68 @@ impl VoxelWorld
     {
         let renderer = game.get_renderer();
 
-        let (face_manager, bind_group_layout) = FaceManager::new(game.clone());
+        let bind_group_layout =
+            renderer
+                .render_cache
+                .cache_bind_group_layout(wgpu::BindGroupLayoutDescriptor {
+                    label:   Some("Voxel Manager Bind Group"),
+                    entries: &[
+                        wgpu::BindGroupLayoutEntry {
+                            binding:    0,
+                            visibility: wgpu::ShaderStages::VERTEX,
+                            ty:         wgpu::BindingType::Buffer {
+                                ty:                 wgpu::BufferBindingType::Storage {
+                                    read_only: true
+                                },
+                                has_dynamic_offset: false,
+                                min_binding_size:   None
+                            },
+                            count:      None
+                        },
+                        wgpu::BindGroupLayoutEntry {
+                            binding:    1,
+                            visibility: wgpu::ShaderStages::VERTEX,
+                            ty:         wgpu::BindingType::Buffer {
+                                ty:                 wgpu::BufferBindingType::Storage {
+                                    read_only: true
+                                },
+                                has_dynamic_offset: false,
+                                min_binding_size:   None
+                            },
+                            count:      None
+                        },
+                        wgpu::BindGroupLayoutEntry {
+                            binding:    2,
+                            visibility: wgpu::ShaderStages::VERTEX,
+                            ty:         wgpu::BindingType::Buffer {
+                                ty:                 wgpu::BufferBindingType::Storage {
+                                    read_only: true
+                                },
+                                has_dynamic_offset: false,
+                                min_binding_size:   None
+                            },
+                            count:      None
+                        },
+                        wgpu::BindGroupLayoutEntry {
+                            binding:    3,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty:         wgpu::BindingType::Buffer {
+                                ty:                 wgpu::BufferBindingType::Storage {
+                                    read_only: true
+                                },
+                                has_dynamic_offset: false,
+                                min_binding_size:   None
+                            },
+                            count:      None
+                        }
+                    ]
+                });
+
+        let face_manager = FaceManager::new(game.clone());
+
+        let voxel_chunk_manager = ChunkManager::new(renderer.clone());
+
+        let mat_manager = MaterialManager::new(&renderer);
 
         let pipeline_layout =
             renderer
@@ -98,8 +173,19 @@ impl VoxelWorld
                     multiview: None
                 }
             ),
+            bind_group_layout: bind_group_layout.clone(),
+            bind_group: Mutex::new(Self::generate_bind_group(
+                &renderer,
+                &bind_group_layout.clone(),
+                &face_manager,
+                &voxel_chunk_manager,
+                &mat_manager
+            )),
+            chunk_manager: voxel_chunk_manager,
+            material_manager: mat_manager,
             uuid: util::Uuid::new(),
-            face_manager
+            face_manager,
+            world_voxel_list: Mutex::new(BTreeMap::new())
         });
 
         renderer.register(this.clone());
@@ -109,14 +195,128 @@ impl VoxelWorld
 
     pub fn insert_voxel(&self, world_pos: WorldPosition, voxel: Voxel)
     {
+        let (chunk_coordinate, chunk_position) = get_chunk_position_from_world(world_pos);
+
+        let chunk_id = self.chunk_manager.get_or_insert_chunk(chunk_coordinate);
+
+        let mut world_voxels = self.world_voxel_list.lock().unwrap();
+
         for d in VoxelFaceDirection::iterate()
         {
-            self.face_manager.insert_face(VoxelFace {
-                direction: d,
-                position:  world_pos,
-                material:  voxel as u16
-            })
+            let adjacent_voxel_world_position = world_pos.0 + d.get_axis().cast();
+
+            // // theres a voxel face there, get rid of it
+            // if let Some(face_id_arr) =
+            //     world_voxels.get_mut(&WorldPosition(adjacent_voxel_world_position))
+            // {
+            //     let maybe_face_id: &mut Option<FaceId> = &mut face_id_arr[d as usize];
+
+            //     if maybe_face_id.is_some()
+            //     {
+            //         let id_to_remove = maybe_face_id.take();
+
+            //         self.face_manager.remove_face(id_to_remove.unwrap());
+
+            //         continue; // we dont want to put ourself here either
+            //     }
+            // }
+
+            // TODO: add strong typedefs to GpuFaceData
+            let this_face_id = self.face_manager.insert_face(GpuFaceData::new(
+                voxel as u16,
+                chunk_id,
+                chunk_position.0,
+                d
+            ));
+
+            match world_voxels.entry(world_pos)
+            {
+                std::collections::btree_map::Entry::Vacant(v) =>
+                {
+                    v.insert([const { None }; 6])[d as usize] = Some(this_face_id);
+                }
+                std::collections::btree_map::Entry::Occupied(mut o) =>
+                {
+                    o.get_mut()[d as usize] = Some(this_face_id);
+                }
+            }
         }
+
+        // TODO: insert into chunk manager so rt data can be populated!
+    }
+
+    fn get_bind_group(&self) -> Arc<wgpu::BindGroup>
+    {
+        let mut needs_resize = false;
+
+        needs_resize |= self.face_manager.replicate_to_gpu();
+        needs_resize |= self.chunk_manager.replicate_to_gpu();
+
+        let mut bind_group = self.bind_group.lock().unwrap();
+
+        if needs_resize
+        {
+            *bind_group = Self::generate_bind_group(
+                &self.game.get_renderer(),
+                &self.bind_group_layout,
+                &self.face_manager,
+                &self.chunk_manager,
+                &self.material_manager
+            );
+        }
+
+        bind_group.clone()
+    }
+
+    fn generate_bind_group(
+        renderer: &gfx::Renderer,
+        bind_group_layout: &wgpu::BindGroupLayout,
+        face_manager: &FaceManager,
+        chunk_manager: &ChunkManager,
+        material_manager: &MaterialManager
+    ) -> Arc<wgpu::BindGroup>
+    {
+        face_manager.access_buffers(
+            |FaceManagerBuffers {
+                 face_id_buffer,
+                 face_data_buffer
+             }| {
+                chunk_manager.get_buffer(|raw_chunk_buf| {
+                    let material_buffer = material_manager.get_material_buffer();
+
+                    Arc::new(renderer.create_bind_group(&wgpu::BindGroupDescriptor {
+                        label:   Some("Voxel Manager Bind Group"),
+                        layout:  &bind_group_layout,
+                        entries: &[
+                            wgpu::BindGroupEntry {
+                                binding:  0,
+                                resource: wgpu::BindingResource::Buffer(
+                                    face_id_buffer.as_entire_buffer_binding()
+                                )
+                            },
+                            wgpu::BindGroupEntry {
+                                binding:  1,
+                                resource: wgpu::BindingResource::Buffer(
+                                    face_data_buffer.as_entire_buffer_binding()
+                                )
+                            },
+                            wgpu::BindGroupEntry {
+                                binding:  2,
+                                resource: wgpu::BindingResource::Buffer(
+                                    raw_chunk_buf.as_entire_buffer_binding()
+                                )
+                            },
+                            wgpu::BindGroupEntry {
+                                binding:  3,
+                                resource: wgpu::BindingResource::Buffer(
+                                    material_buffer.as_entire_buffer_binding()
+                                )
+                            }
+                        ]
+                    }))
+                })
+            }
+        )
     }
 }
 
@@ -134,7 +334,7 @@ impl gfx::Recordable for VoxelWorld
 
     fn pre_record_update(
         &self,
-        renderer: &gfx::Renderer,
+        _: &gfx::Renderer,
         _: &gfx::Camera,
         global_bind_group: &std::sync::Arc<gfx::wgpu::BindGroup>
     ) -> gfx::RecordInfo
@@ -147,7 +347,7 @@ impl gfx::Recordable for VoxelWorld
             pipeline:    self.pipeline.clone(),
             bind_groups: [
                 Some(global_bind_group.clone()),
-                Some(self.face_manager.get_bind_group(renderer)),
+                Some(self.get_bind_group()),
                 None,
                 None
             ],
@@ -164,8 +364,6 @@ impl gfx::Recordable for VoxelWorld
         };
 
         let faces = self.face_manager.get_number_of_faces();
-
-        log::trace!("rendering {faces} faces");
 
         pass.set_push_constants(wgpu::ShaderStages::VERTEX, 0, bytes_of(&id));
         pass.draw(0..(faces * 6), 0..1);

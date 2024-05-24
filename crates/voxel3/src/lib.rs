@@ -6,12 +6,32 @@ mod voxel_world;
 use gfx::glm;
 pub use voxel_world::VoxelWorld;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct WorldPosition(pub glm::I32Vec3);
+
+impl Ord for WorldPosition
+{
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering
+    {
+        std::cmp::Ordering::Equal
+            .then(self.0.x.cmp(&other.0.x))
+            .then(self.0.y.cmp(&other.0.y))
+            .then(self.0.z.cmp(&other.0.z))
+    }
+}
+
+impl PartialOrd for WorldPosition
+{
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering>
+    {
+        Some(self.cmp(other))
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Hash)]
-pub struct ChunkCoordinate(pub glm::I32Vec3);
+pub(crate) struct ChunkCoordinate(pub glm::I32Vec3);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Hash)]
-pub struct ChunkLocalPosition(pub glm::U16Vec3);
+pub(crate) struct ChunkLocalPosition(pub glm::U16Vec3);
 
 pub fn get_chunk_position_from_world(
     WorldPosition(world_pos): WorldPosition

@@ -1,30 +1,17 @@
-use std::borrow::Cow;
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 
-use bytemuck::{bytes_of, AnyBitPattern, NoUninit};
-use gfx::wgpu::{self, include_wgsl};
-use gfx::{
-    glm,
-    CacheablePipelineLayoutDescriptor,
-    CacheableRenderPipelineDescriptor,
-    CpuTrackedDenseSet
-};
+use bytemuck::{AnyBitPattern, NoUninit};
+use gfx::wgpu::{self};
+use gfx::{glm, CpuTrackedDenseSet};
 
-use crate::chunk_manager::ChunkManager;
-use crate::material::MaterialManager;
-use crate::{get_chunk_position_from_world, WorldPosition};
+use crate::WorldPosition;
 
 pub(crate) struct FaceManager
 {
-    bind_group:        Mutex<Arc<wgpu::BindGroup>>,
-    bind_group_layout: Arc<wgpu::BindGroupLayout>,
-
     face_id_allocator: Mutex<util::FreelistAllocator>,
     face_id_buffer:    gfx::CpuTrackedDenseSet<u32>,
-    face_data_buffer:  gfx::CpuTrackedBuffer<GpuFaceData>,
-    chunk_manager:     ChunkManager,
-    material_manager:  MaterialManager
+    face_data_buffer:  gfx::CpuTrackedBuffer<GpuFaceData>
 }
 
 impl Debug for FaceManager
@@ -37,68 +24,10 @@ impl Debug for FaceManager
 
 impl FaceManager
 {
-    // TODO: this should take this as a parameter
-    pub fn new(game: Arc<game::Game>) -> (Self, Arc<wgpu::BindGroupLayout>)
+    pub fn new(game: Arc<game::Game>) -> Self
     {
         const INITIAL_SIZE: usize = 1024;
         let renderer = game.get_renderer().clone();
-
-        let bind_group_layout =
-            renderer
-                .render_cache
-                .cache_bind_group_layout(wgpu::BindGroupLayoutDescriptor {
-                    label:   Some("Voxel Manager Bind Group"),
-                    entries: &[
-                        wgpu::BindGroupLayoutEntry {
-                            binding:    0,
-                            visibility: wgpu::ShaderStages::VERTEX,
-                            ty:         wgpu::BindingType::Buffer {
-                                ty:                 wgpu::BufferBindingType::Storage {
-                                    read_only: true
-                                },
-                                has_dynamic_offset: false,
-                                min_binding_size:   None
-                            },
-                            count:      None
-                        },
-                        wgpu::BindGroupLayoutEntry {
-                            binding:    1,
-                            visibility: wgpu::ShaderStages::VERTEX,
-                            ty:         wgpu::BindingType::Buffer {
-                                ty:                 wgpu::BufferBindingType::Storage {
-                                    read_only: true
-                                },
-                                has_dynamic_offset: false,
-                                min_binding_size:   None
-                            },
-                            count:      None
-                        },
-                        wgpu::BindGroupLayoutEntry {
-                            binding:    2,
-                            visibility: wgpu::ShaderStages::VERTEX,
-                            ty:         wgpu::BindingType::Buffer {
-                                ty:                 wgpu::BufferBindingType::Storage {
-                                    read_only: true
-                                },
-                                has_dynamic_offset: false,
-                                min_binding_size:   None
-                            },
-                            count:      None
-                        },
-                        wgpu::BindGroupLayoutEntry {
-                            binding:    3,
-                            visibility: wgpu::ShaderStages::FRAGMENT,
-                            ty:         wgpu::BindingType::Buffer {
-                                ty:                 wgpu::BufferBindingType::Storage {
-                                    read_only: true
-                                },
-                                has_dynamic_offset: false,
-                                min_binding_size:   None
-                            },
-                            count:      None
-                        }
-                    ]
-                });
 
         let id_buffer = CpuTrackedDenseSet::new(
             renderer.clone(),
@@ -114,36 +43,17 @@ impl FaceManager
             wgpu::BufferUsages::STORAGE
         );
 
-        let voxel_chunk_manager = ChunkManager::new(renderer.clone());
-
-        let mat_manager = MaterialManager::new(&renderer);
-
-        let combined_bind_group = Self::generate_bind_group(
-            &renderer,
-            &bind_group_layout,
-            &id_buffer,
-            &data_buffer,
-            &voxel_chunk_manager,
-            &mat_manager
-        );
-
-        (
-            FaceManager {
-                bind_group:        Mutex::new(combined_bind_group),
-                bind_group_layout: bind_group_layout.clone(),
-                face_id_allocator: Mutex::new(util::FreelistAllocator::new(INITIAL_SIZE)),
-                face_id_buffer:    id_buffer,
-                face_data_buffer:  data_buffer,
-                chunk_manager:     voxel_chunk_manager,
-                material_manager:  mat_manager
-            },
-            bind_group_layout
-        )
+        FaceManager {
+            face_id_allocator: Mutex::new(util::FreelistAllocator::new(INITIAL_SIZE)),
+            face_id_buffer:    id_buffer,
+            face_data_buffer:  data_buffer
+        }
     }
 
     // no chunks for now, just one global chunk
 
-    pub fn insert_face(&self, face: VoxelFace)
+    #[must_use]
+    pub fn insert_face(&self, face: GpuFaceData) -> FaceId
     {
         let mut face_id_allocator = self.face_id_allocator.lock().unwrap();
 
@@ -162,97 +72,53 @@ impl FaceManager
 
         self.face_id_buffer.insert(new_face_id as u32);
 
-        let (chunk_world_pos, face_in_chunk_pos) = get_chunk_position_from_world(face.position);
+        self.face_data_buffer.write(new_face_id, face);
 
-        self.face_data_buffer.write(
-            new_face_id,
-            GpuFaceData::new(
-                face.material,
-                self.chunk_manager.get_or_insert_chunk(chunk_world_pos),
-                face_in_chunk_pos.0,
-                face.direction
-            )
-        );
+        FaceId(new_face_id as u32)
     }
 
-    pub fn get_bind_group(&self, renderer: &gfx::Renderer) -> Arc<wgpu::BindGroup>
+    pub fn remove_face(&self, face_id: FaceId)
+    {
+        let mut allocator = self.face_id_allocator.lock().unwrap();
+
+        unsafe { allocator.free(face_id.0 as usize) };
+
+        self.face_id_buffer.remove(face_id.0);
+    }
+
+    pub fn access_buffers<K>(&self, func: impl FnOnce(FaceManagerBuffers) -> K) -> K
+    {
+        self.face_id_buffer.get_buffer(|face_id_buffer| {
+            self.face_data_buffer.get_buffer(|face_data_buffer| {
+                func(FaceManagerBuffers {
+                    face_id_buffer,
+                    face_data_buffer
+                })
+            })
+        })
+    }
+
+    pub fn replicate_to_gpu(&self) -> bool
     {
         let mut needs_resize = false;
 
         needs_resize |= self.face_id_buffer.replicate_to_gpu();
+        std::hint::black_box(needs_resize);
         needs_resize |= self.face_data_buffer.replicate_to_gpu();
-        needs_resize |= self.chunk_manager.replicate_to_gpu();
 
-        let mut bind_group = self.bind_group.lock().unwrap();
-
-        if needs_resize
-        {
-            *bind_group = Self::generate_bind_group(
-                renderer,
-                &self.bind_group_layout,
-                &self.face_id_buffer,
-                &self.face_data_buffer,
-                &self.chunk_manager,
-                &self.material_manager
-            );
-        }
-
-        bind_group.clone()
+        needs_resize
     }
 
     pub fn get_number_of_faces(&self) -> u32
     {
         (self.face_id_buffer.get_number_of_elements()) as u32
     }
+}
 
-    fn generate_bind_group(
-        renderer: &gfx::Renderer,
-        bind_group_layout: &wgpu::BindGroupLayout,
-        face_id_buffer: &gfx::CpuTrackedDenseSet<u32>,
-        face_data_buffer: &gfx::CpuTrackedBuffer<GpuFaceData>,
-        chunk_manager: &ChunkManager,
-        material_manager: &MaterialManager
-    ) -> Arc<wgpu::BindGroup>
-    {
-        face_id_buffer.get_buffer(|raw_id_buf| {
-            face_data_buffer.get_buffer(|raw_data_buf| {
-                chunk_manager.get_buffer(|raw_chunk_buf| {
-                    let material_buffer = material_manager.get_material_buffer();
-
-                    Arc::new(renderer.create_bind_group(&wgpu::BindGroupDescriptor {
-                        label:   Some("Voxel Manager Bind Group"),
-                        layout:  bind_group_layout,
-                        entries: &[
-                            wgpu::BindGroupEntry {
-                                binding:  0,
-                                resource: wgpu::BindingResource::Buffer(
-                                    raw_id_buf.as_entire_buffer_binding()
-                                )
-                            },
-                            wgpu::BindGroupEntry {
-                                binding:  1,
-                                resource: wgpu::BindingResource::Buffer(
-                                    raw_data_buf.as_entire_buffer_binding()
-                                )
-                            },
-                            wgpu::BindGroupEntry {
-                                binding:  2,
-                                resource: wgpu::BindingResource::Buffer(
-                                    raw_chunk_buf.as_entire_buffer_binding()
-                                )
-                            },
-                            wgpu::BindGroupEntry {
-                                binding:  3,
-                                resource: wgpu::BindingResource::Buffer(
-                                    material_buffer.as_entire_buffer_binding()
-                                )
-                            }
-                        ]
-                    }))
-                })
-            })
-        })
-    }
+pub struct FaceManagerBuffers<'b>
+{
+    pub face_id_buffer:   &'b wgpu::Buffer,
+    pub face_data_buffer: &'b wgpu::Buffer
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -323,7 +189,7 @@ impl VoxelFaceDirection
 
 #[repr(C)]
 #[derive(Clone, Copy, AnyBitPattern, NoUninit, Debug)]
-struct GpuFaceData
+pub(crate) struct GpuFaceData
 // is allocated at a specific index
 {
     material_and_chunk_id: u32,
@@ -354,13 +220,8 @@ impl GpuFaceData
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd)]
-pub struct VoxelFace
-{
-    pub direction: VoxelFaceDirection,
-    pub position:  WorldPosition,
-    pub material:  u16
-}
-
+#[repr(transparent)]
+#[derive(Clone, Copy, AnyBitPattern, NoUninit, Debug, Hash)]
+pub struct FaceId(u32);
 // face manager: write_face(pos dir vox)
 // voxel manager: write_voxel(world pos, vox)
