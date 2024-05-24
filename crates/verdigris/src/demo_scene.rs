@@ -2,11 +2,12 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
+use dot_vox::DotVoxData;
 use gfx::glm::{self};
 use gfx::wgpu;
 use itertools::iproduct;
 use noise::NoiseFn;
-use rand::Rng;
+use rand::{Rng, SeedableRng};
 use voxel3::{VoxelWorld, WorldPosition};
 #[derive(Debug)]
 pub struct DemoScene
@@ -23,17 +24,25 @@ impl DemoScene
 
         let dm = VoxelWorld::new(game.clone());
 
-        let c_game = game.clone();
         let c_dm = dm.clone();
 
         util::run_async(move || {
-            
-            load_model_from_file_into(glm::I32Vec3::new(0, 0, 0), &c_dm, "teapot.vox");
-            load_model_from_file_into(glm::I32Vec3::new(0, 64, 0), &c_dm, "teapot.vox");
-            load_model_from_file_into(glm::I32Vec3::new(-78, 0, 0), &c_dm, "teapot.vox");
-            load_model_from_file_into(glm::I32Vec3::new(0, 0, -89), &c_dm, "teapot.vox");
-            load_model_from_file_into(glm::I32Vec3::new(0, 43, 96), &c_dm, "teapot.vox");
-            load_model_from_file_into(glm::I32Vec3::new(0, -75, 0), &c_dm, "teapot.vox");
+            let mut rng = rand::rngs::SmallRng::seed_from_u64(238902348902348);
+
+            let data = dot_vox::load_bytes(include_bytes!("../../../teapot.vox")).unwrap();
+
+            for _ in 0..24
+            {
+                load_model_from_file_into(
+                    glm::I32Vec3::new(
+                        rng.gen_range(-128..=128),
+                        rng.gen_range(-128..=128),
+                        rng.gen_range(-128..=128)
+                    ),
+                    &c_dm,
+                    &data
+                );
+            }
             // create_chunk(
             //     c_dm,
             //     c_game,
@@ -91,17 +100,13 @@ impl game::Entity for DemoScene
     }
 }
 
-fn load_model_from_file_into(world_offset: glm::I32Vec3, dm: &VoxelWorld, file: &str)
+fn load_model_from_file_into(world_offset: glm::I32Vec3, dm: &VoxelWorld, data: &DotVoxData)
 {
-    let file_data = dot_vox::load("teapot.vox").unwrap();
-
-    let voxels: HashMap<glm::U8Vec3, u8> = file_data.models[0]
+    let voxels: HashMap<glm::U8Vec3, u8> = data.models[0]
         .voxels
         .iter()
         .map(|mv| (glm::U8Vec3::new(mv.x, mv.y, mv.z), mv.i))
         .collect::<HashMap<_, _>>();
-
-    let occupied = |pos: &glm::U8Vec3| (voxels.contains_key(pos));
 
     for (pos, mat) in voxels.iter()
     {
@@ -109,161 +114,9 @@ fn load_model_from_file_into(world_offset: glm::I32Vec3, dm: &VoxelWorld, file: 
 
         dm.insert_voxel(
             WorldPosition(pos.cast() + world_offset),
-          ( (pos.x % 3 + pos.y % 4 + pos.z % 7) as u16).try_into().unwrap()
+            ((pos.x % 3 + pos.y % 4 + pos.z % 7) as u16)
+                .try_into()
+                .unwrap()
         );
     }
 }
-
-// fn create_chunk(
-//     dm: Arc<VoxelWorld>,
-//     game: Arc<game::Game>,
-//     noise: &(impl NoiseFn<f64, 2> + Sync),
-//     offset: glm::DVec3,
-//     scale: f64
-// )
-// {
-//     let raw_noise_sampler = |x: i32, z: i32| -> f64 {
-//         let h = 84.0f64;
-
-//         noise.get([(x as f64) / 256.0, (z as f64) / 256.0]) * h + h
-//     };
-
-//     let mut noise_cache: Box<[[f64; 512]; 512]> = unsafe { Box::new_zeroed().assume_init() };
-
-//     for x in 0..512
-//     {
-//         for z in 0..512
-//         {
-//             let world_x = x as f64 + offset.x;
-//             let world_z = z as f64 + offset.z;
-
-//             noise_cache[x][z] = raw_noise_sampler(world_x as i32, world_z as i32);
-//         }
-//     }
-
-//     let noise_sampler = |world_x: i32, world_z: i32| -> f64 {
-//         noise_cache[(world_x as f64 - offset.x) as usize][(world_z as f64 - offset.z) as usize]
-//     };
-
-//     let occupied = |x: i32, y: i32, z: i32| (y <= noise_sampler(x, z) as i32);
-
-//     let face_iterator =
-//         spiral::ChebyshevIterator::new(256, 256, 255).flat_map(|(local_x, local_z)| {
-//             let world_x = (scale * local_x as f64 + offset.x) as i32;
-//             let world_z = (scale * local_z as f64 + offset.z) as i32;
-
-//             let noise_h_world = noise_sampler(world_x, world_z);
-//             let local_h = (noise_h_world / scale) as i32;
-
-//             ((-4 + local_h)..(local_h + 4)).flat_map(move |sample_h_local| {
-//                 let sample_h_world = (sample_h_local as f64) * scale;
-
-//                 VoxelFaceDirection::iterate().filter_map(move |d| {
-//                     if !occupied(world_x, sample_h_world as i32, world_z)
-//                     {
-//                         return None;
-//                     }
-
-//                     let axis = d.get_axis();
-
-//                     if occupied(
-//                         (world_x as f64 + scale * 1.01 * axis.x as f64).round() as i32,
-//                         (sample_h_world + scale * 1.01 * axis.y as f64).round() as i32,
-//                         (world_z as f64 + scale * 1.01 * axis.z as f64).round() as i32
-//                     )
-//                     {
-//                         None
-//                     }
-//                     else
-//                     {
-//                         Some(VoxelFace {
-//                             direction: d,
-//                             position:  voxel3::WorldPosition(glm::I32Vec3::new(
-//                                 local_x as i32,
-//                                 (sample_h_world.max(0.0) / scale) as i32,
-//                                 local_z as i32
-//                             )),
-//                             material:  rand::thread_rng().gen_range(0..=18)
-//                         })
-//                     }
-//                 })
-//             })
-//         });
-
-//     for face in face_iterator
-//     {
-//         dm.insert_face(face)
-//     }
-// }
-
-// fn create_chunk_rt(
-//     game: &game::Game,
-//     noise: &impl NoiseFn<f64, 2>,
-//     offset: glm::DVec3,
-//     scale: f64,
-//     rx: oneshot::Receiver<Arc<VoxelChunkDataManager>>
-// ) -> Arc<BrickMapChunk>
-// {
-//     // let noise_sampler = |x: i32, z: i32| -> f64 {
-//     //     let h = 278.0f64;
-
-//     //     (noise.get([(x as f64) / 256.0, (z as f64) / 256.0]) * h +
-// h).clamp(0.0,     // 510.0) };
-
-//     // let occupied = |x: i32, y: i32, z: i32| (y <= noise_sampler(x, z) as
-// i32);
-
-//     let c = BrickMapChunk::new(
-//         game,
-//         glm::Vec3::new(offset.x as f32, offset.y as f32, offset.z as f32),
-//         Some(rx.recv().unwrap())
-//     );
-
-//     c.access_data_manager().flush_entire();
-
-//     // let dm = c.access_data_manager();
-
-//     // iproduct!(0..511i32, 0..511i32).for_each(|(local_x, local_z)| {
-//     //     let world_x = (scale * local_x as f64 + offset.x) as i32;
-//     //     let world_z = (scale * local_z as f64 + offset.z) as i32;
-
-//     //     let noise_h_world = noise_sampler(world_x, world_z);
-//     //     let local_h = (noise_h_world / scale) as i32;
-
-//     //     ((-4 + local_h)..(local_h + 4)).for_each(move |sample_h_local| {
-//     //         let sample_h_world = (sample_h_local as f64) * scale;
-//     //         let voxel = if world_x.abs() == 0 || world_z.abs() == 0
-//     //         {
-//     //             0
-//     //         }
-//     //         else
-//     //         {
-//     //             rand::thread_rng().gen_range(1..=12)
-//     //         };
-
-//     //         VoxelFaceDirection::iterate().for_each(move |d| {
-//     //             let axis = d.get_axis();
-
-//     //             if !occupied(
-//     //                 (world_x as f64 + scale * 1.01 * axis.x as
-// f64).round() as     // i32,                 (sample_h_world + scale * 1.01 *
-// axis.y as     // f64).round() as i32,                 (world_z as f64 + scale
-// * 1.01 *     // axis.z as f64).round() as i32             ) //             {
-//   //                 dm.write_voxel( // Voxel::try_from(voxel).unwrap(), //
-//   glm::U16Vec3::new( //                         local_x as u16, //
-//   (sample_h_world.max(0.0) / scale) as u16, // local_z as u16 // ) // ); // }
-//   //         }) //     }) // });
-
-//     // dm.flush_entire();
-
-//     c
-// }
-
-// VoxelFaceDirection::iterate().flat_map(move |d| {
-
-//     ((-5 + world_h)..(world_h + 5))
-//         .step_by(scale as usize)
-//         .filter_map(move |sample_world_h| {
-//
-//         })
-// })
