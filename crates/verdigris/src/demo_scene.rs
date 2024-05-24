@@ -31,7 +31,7 @@ impl DemoScene
 
             let data = dot_vox::load_bytes(include_bytes!("../../../teapot.vox")).unwrap();
 
-            for _ in 0..24
+            for _ in 0..48
             {
                 load_model_from_file_into(
                     glm::I32Vec3::new(

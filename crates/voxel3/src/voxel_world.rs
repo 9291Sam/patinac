@@ -163,7 +163,11 @@ impl gfx::Recordable for VoxelWorld
             unreachable!()
         };
 
+        let faces = self.face_manager.get_number_of_faces();
+
+        log::trace!("rendering {faces} faces");
+
         pass.set_push_constants(wgpu::ShaderStages::VERTEX, 0, bytes_of(&id));
-        pass.draw(0..(self.face_manager.get_number_of_faces() * 6), 0..1);
+        pass.draw(0..(faces * 6), 0..1);
     }
 }
