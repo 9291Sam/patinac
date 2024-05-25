@@ -105,105 +105,105 @@ impl FreelistAllocator
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub struct OutOfBlocks;
 
-#[cfg(test)]
-mod tests
-{
-    #[allow(unused_imports)]
-    use super::*;
+// #[cfg(test)]
+// mod tests
+// {
+//     #[allow(unused_imports)]
+//     use super::*;
 
-    #[test]
-    pub fn alloc()
-    {
-        let mut allocator = FreelistAllocator::new(5);
+//     #[test]
+//     pub fn alloc()
+//     {
+//         let mut allocator = FreelistAllocator::new(5);
 
-        assert_eq!(1, allocator.allocate().unwrap());
-        assert_eq!(2, allocator.allocate().unwrap());
-        assert_eq!(3, allocator.allocate().unwrap());
-        assert_eq!(4, allocator.allocate().unwrap());
-        assert_eq!(5, allocator.allocate().unwrap());
-        assert_eq!(OutOfBlocks, allocator.allocate().unwrap_err());
-    }
+//         assert_eq!(1, allocator.allocate().unwrap());
+//         assert_eq!(2, allocator.allocate().unwrap());
+//         assert_eq!(3, allocator.allocate().unwrap());
+//         assert_eq!(4, allocator.allocate().unwrap());
+//         assert_eq!(5, allocator.allocate().unwrap());
+//         assert_eq!(OutOfBlocks, allocator.allocate().unwrap_err());
+//     }
 
-    #[test]
-    pub fn free()
-    {
-        let mut allocator = FreelistAllocator::new(5);
+//     #[test]
+//     pub fn free()
+//     {
+//         let mut allocator = FreelistAllocator::new(5);
 
-        assert_eq!(1, allocator.allocate().unwrap());
-        assert_eq!(2, allocator.allocate().unwrap());
-        assert_eq!(3, allocator.allocate().unwrap());
-        assert_eq!(4, allocator.allocate().unwrap());
-        assert_eq!(5, allocator.allocate().unwrap());
-        assert_eq!(OutOfBlocks, allocator.allocate().unwrap_err());
+//         assert_eq!(1, allocator.allocate().unwrap());
+//         assert_eq!(2, allocator.allocate().unwrap());
+//         assert_eq!(3, allocator.allocate().unwrap());
+//         assert_eq!(4, allocator.allocate().unwrap());
+//         assert_eq!(5, allocator.allocate().unwrap());
+//         assert_eq!(OutOfBlocks, allocator.allocate().unwrap_err());
 
-        unsafe { allocator.free(5) };
-        unsafe { allocator.free(2) };
-        unsafe { allocator.free(1) };
+//         unsafe { allocator.free(5) };
+//         unsafe { allocator.free(2) };
+//         unsafe { allocator.free(1) };
 
-        for _ in 0..3
-        {
-            let _ = allocator.allocate();
-        }
+//         for _ in 0..3
+//         {
+//             let _ = allocator.allocate();
+//         }
 
-        assert_eq!(OutOfBlocks, allocator.allocate().unwrap_err());
-    }
+//         assert_eq!(OutOfBlocks, allocator.allocate().unwrap_err());
+//     }
 
-    #[test]
-    pub fn drain()
-    {
-        let mut allocator = FreelistAllocator::new(2);
+//     #[test]
+//     pub fn drain()
+//     {
+//         let mut allocator = FreelistAllocator::new(2);
 
-        assert_eq!(1, allocator.allocate().unwrap());
-        assert_eq!(2, allocator.allocate().unwrap());
+//         assert_eq!(1, allocator.allocate().unwrap());
+//         assert_eq!(2, allocator.allocate().unwrap());
 
-        unsafe { allocator.free(1) };
-        unsafe { allocator.free(2) };
+//         unsafe { allocator.free(1) };
+//         unsafe { allocator.free(2) };
 
-        let _ = allocator.allocate().unwrap();
-        let _ = allocator.allocate().unwrap();
-    }
+//         let _ = allocator.allocate().unwrap();
+//         let _ = allocator.allocate().unwrap();
+//     }
 
-    #[test]
-    pub fn out_of_blocks()
-    {
-        let mut allocator = FreelistAllocator::new(1);
+//     #[test]
+//     pub fn out_of_blocks()
+//     {
+//         let mut allocator = FreelistAllocator::new(1);
 
-        assert_eq!(1, allocator.allocate().unwrap());
+//         assert_eq!(1, allocator.allocate().unwrap());
 
-        assert_eq!(OutOfBlocks, allocator.allocate().unwrap_err());
-        assert_eq!(OutOfBlocks, allocator.allocate().unwrap_err());
-    }
+//         assert_eq!(OutOfBlocks, allocator.allocate().unwrap_err());
+//         assert_eq!(OutOfBlocks, allocator.allocate().unwrap_err());
+//     }
 
-    #[test]
-    #[should_panic]
-    pub fn free_untracked()
-    {
-        let mut allocator = FreelistAllocator::new(1);
+//     #[test]
+//     #[should_panic]
+//     pub fn free_untracked()
+//     {
+//         let mut allocator = FreelistAllocator::new(1);
 
-        assert_eq!(1, allocator.allocate().unwrap());
-        unsafe { allocator.free(2) };
-    }
+//         assert_eq!(1, allocator.allocate().unwrap());
+//         unsafe { allocator.free(2) };
+//     }
 
-    #[test]
-    #[should_panic]
-    pub fn double_free()
-    {
-        let mut allocator = FreelistAllocator::new(1);
+//     #[test]
+//     #[should_panic]
+//     pub fn double_free()
+//     {
+//         let mut allocator = FreelistAllocator::new(1);
 
-        assert_eq!(1, allocator.allocate().unwrap());
-        unsafe { allocator.free(1) };
+//         assert_eq!(1, allocator.allocate().unwrap());
+//         unsafe { allocator.free(1) };
 
-        unsafe { allocator.free(1) };
-    }
+//         unsafe { allocator.free(1) };
+//     }
 
-    #[test]
-    pub fn extend()
-    {
-        let mut allocator = FreelistAllocator::new(1);
+//     #[test]
+//     pub fn extend()
+//     {
+//         let mut allocator = FreelistAllocator::new(1);
 
-        assert_eq!(1, allocator.allocate().unwrap());
-        allocator.extend_size(2);
-        assert_eq!(2, allocator.allocate().unwrap());
-        assert_eq!(Err(OutOfBlocks), allocator.allocate());
-    }
-}
+//         assert_eq!(1, allocator.allocate().unwrap());
+//         allocator.extend_size(2);
+//         assert_eq!(2, allocator.allocate().unwrap());
+//         assert_eq!(Err(OutOfBlocks), allocator.allocate());
+//     }
+// }

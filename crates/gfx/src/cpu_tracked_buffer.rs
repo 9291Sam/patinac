@@ -22,7 +22,7 @@ struct CpuTrackedBufferCriticalSection<T>
     buffer_len_elements: usize,
     gpu_data:            wgpu::Buffer,
     cpu_data:            Vec<T>,
-    flush_list:          Vec<usize>
+    flush_list:          Vec<u64>
 }
 
 impl<T: AnyBitPattern + NoUninit + Debug> CpuTrackedBuffer<T>
@@ -98,10 +98,10 @@ impl<T: AnyBitPattern + NoUninit + Debug> CpuTrackedBuffer<T>
                 .expect("Out of Bounds access of CpuTrackedBuffer")
         );
 
-        if flush_list.len() < MAX_FLUSHES_BEFORE_ENTIRE
-        {
-            flush_list.push(index);
-        }
+        // if flush_list.len() < MAX_FLUSHES_BEFORE_ENTIRE
+        // {
+        flush_list.push(index as u64);
+        // }
 
         k
     }
@@ -114,10 +114,10 @@ impl<T: AnyBitPattern + NoUninit + Debug> CpuTrackedBuffer<T>
             ..
         } = &mut *self.critical_section.lock().unwrap();
 
-        if flush_list.len() < MAX_FLUSHES_BEFORE_ENTIRE
-        {
-            flush_list.push(index);
-        }
+        // if flush_list.len() < MAX_FLUSHES_BEFORE_ENTIRE
+        // {
+        flush_list.push(index as u64);
+        // }
 
         let len = cpu_data.len();
 
@@ -174,11 +174,10 @@ impl<T: AnyBitPattern + NoUninit + Debug> CpuTrackedBuffer<T>
             did_resize_occur = true;
         }
 
-        if flush_list.len() > MAX_FLUSHES_BEFORE_ENTIRE
-            || self.needs_resize_flush.swap(false, Ordering::SeqCst)
-        {
-            flush_list.clear();
+        let points_to_flush = std::mem::take(flush_list);
 
+        if self.needs_resize_flush.swap(false, Ordering::SeqCst)
+        {
             log::trace!("full flush of {}", self.name);
 
             self.renderer
@@ -194,21 +193,28 @@ impl<T: AnyBitPattern + NoUninit + Debug> CpuTrackedBuffer<T>
         }
         else
         {
-            flush_list
-                .drain(..)
-                .collect::<HashSet<_>>()
-                .into_iter()
-                .for_each(|i| {
+            let flush_ranges = crate::combine_into_ranges(points_to_flush, 65535, 64);
+
+            for range in flush_ranges
+            {
+                let range_len_elements = range.end() + 1 - range.start();
+
+                let usize_range = (*range.start() as usize)..=(*range.end() as usize);
+
+                if range_len_elements > 0
+                {
                     self.renderer
                         .queue
                         .write_buffer_with(
                             gpu_data,
-                            i as u64 * std::mem::size_of::<T>() as u64,
-                            NonZeroU64::new(std::mem::size_of::<T>() as u64).unwrap()
+                            *range.start() * std::mem::size_of::<T>() as u64,
+                            NonZeroU64::new(range_len_elements * std::mem::size_of::<T>() as u64)
+                                .unwrap()
                         )
                         .unwrap()
-                        .copy_from_slice(cast_slice(bytes_of(&cpu_data[i])));
-                });
+                        .copy_from_slice(cast_slice(&cpu_data[usize_range]))
+                }
+            }
         }
 
         did_resize_occur
