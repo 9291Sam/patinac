@@ -50,11 +50,9 @@ pub const unsafe fn extend_lifetime<'a, T>(t: &T) -> &'a T
 /// # Safety
 ///
 /// Don't use this not for testing
+#[cfg(not(debug_assertions))]
 pub unsafe fn asan_test() -> i32
 {
-    #[cfg(not(debug_assertions))]
-    compile_error!("Don't use this in a release build");
-
     let xs = [0, 1, 2, 3];
     std::hint::black_box(unsafe {
         *std::hint::black_box(xs.as_ptr()).offset(std::hint::black_box(4))

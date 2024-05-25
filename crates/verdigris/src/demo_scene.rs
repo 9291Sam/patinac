@@ -45,7 +45,7 @@ impl DemoScene
                 z
             } = data.models[0].size;
 
-            for (xx, yy, zz) in iproduct!(1..4, 1..4, 1..4)
+            for (xx, yy, zz) in iproduct!(0..3, 0..3, 0..3)
             {
                 load_model_from_file_into(
                     glm::I32Vec3::new(xx * x as i32 + 1, yy * z as i32 + 1, zz * y as i32 + 1),
