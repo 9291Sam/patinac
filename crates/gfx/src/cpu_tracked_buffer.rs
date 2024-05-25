@@ -174,18 +174,12 @@ impl<T: AnyBitPattern + NoUninit + Debug> CpuTrackedBuffer<T>
             did_resize_occur = true;
         }
 
-        if flush_list.len() > MAX_FLUSHES_BEFORE_ENTIRE || {
-            let (Ok(x) | Err(x)) = self.needs_resize_flush.compare_exchange(
-                false,
-                true,
-                Ordering::SeqCst,
-                Ordering::SeqCst
-            );
-
-            x
-        }
+        if flush_list.len() > MAX_FLUSHES_BEFORE_ENTIRE
+            || self.needs_resize_flush.swap(false, Ordering::SeqCst)
         {
             flush_list.clear();
+
+            log::trace!("full flush of {}", self.name);
 
             self.renderer
                 .queue
