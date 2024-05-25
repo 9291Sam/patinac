@@ -29,15 +29,15 @@ impl DemoScene
         util::run_async(move || {
             let mut rng = rand::rngs::SmallRng::seed_from_u64(238902348902348);
 
-            // for (x, y, z) in iproduct!(0..127, 0..127, 0..127)
-            // {
-            //     c_dm.insert_voxel(
-            //         WorldPosition(glm::I32Vec3::new(x, y, z)),
-            //         rng.gen_range(0..=18).try_into().unwrap()
-            //     );
-            // }
+            for (x, y, z) in iproduct!(-127..0, 0..127, 0..127)
+            {
+                c_dm.insert_voxel(
+                    WorldPosition(glm::I32Vec3::new(x, y, z)),
+                    rng.gen_range(0..=18).try_into().unwrap()
+                );
+            }
 
-            let data = dot_vox::load_bytes(include_bytes!("../../../teapot.vox")).unwrap();
+            let data = dot_vox::load_bytes(include_bytes!("../../../room.vox")).unwrap();
 
             let dot_vox::Size {
                 x,
@@ -45,7 +45,7 @@ impl DemoScene
                 z
             } = data.models[0].size;
 
-            for (xx, yy, zz) in iproduct!(0..5, 0..5, 0..5)
+            for (xx, yy, zz) in iproduct!(1..4, 1..4, 1..4)
             {
                 load_model_from_file_into(
                     glm::I32Vec3::new(xx * x as i32 + 1, yy * z as i32 + 1, zz * y as i32 + 1),
@@ -111,7 +111,7 @@ fn load_model_from_file_into(world_offset: glm::I32Vec3, dm: &VoxelWorld, data: 
         .map(|mv| (glm::U8Vec3::new(mv.x, mv.y, mv.z), mv.i))
         .collect::<HashMap<_, _>>();
 
-    for (pos, mat) in voxels.iter()
+    for (pos, _) in voxels.iter()
     {
         let pos = pos.xzy();
 

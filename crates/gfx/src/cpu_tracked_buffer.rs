@@ -1,12 +1,9 @@
-use std::collections::HashSet;
 use std::fmt::Debug;
 use std::num::NonZeroU64;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
-use bytemuck::{bytes_of, cast_slice, AnyBitPattern, NoUninit};
-
-const MAX_FLUSHES_BEFORE_ENTIRE: usize = 128;
+use bytemuck::{cast_slice, AnyBitPattern, NoUninit};
 
 pub struct CpuTrackedBuffer<T: AnyBitPattern + NoUninit + Debug>
 {

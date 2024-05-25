@@ -1,11 +1,5 @@
-use std::borrow::Cow;
-use std::collections::{BTreeSet, HashSet};
 use std::num::NonZeroUsize;
 use std::sync::{Arc, Mutex};
-
-use gfx::glm;
-use itertools::iproduct;
-use rand::Rng;
 
 fn main()
 {
