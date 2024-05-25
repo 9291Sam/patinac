@@ -2,10 +2,10 @@ use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::fmt::Debug;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 use bytemuck::bytes_of;
-use gfx::wgpu::core::id;
 use gfx::wgpu::include_wgsl;
 use gfx::{wgpu, CacheablePipelineLayoutDescriptor, CacheableRenderPipelineDescriptor};
 
@@ -19,6 +19,10 @@ use crate::face_manager::{
 };
 use crate::material::{MaterialManager, Voxel};
 use crate::{get_chunk_position_from_world, WorldPosition};
+
+#[no_mangle]
+static NUMBER_OF_VISIBLE_FACES: AtomicUsize = AtomicUsize::new(0);
+
 pub struct VoxelWorld
 {
     game:              Arc<game::Game>,
@@ -228,6 +232,7 @@ impl VoxelWorld
                         }
                         else
                         {
+                            #[allow(clippy::collapsible_else_if)]
                             if !was_cell_already_occupied
                             {
                                 log::warn!(
@@ -375,6 +380,8 @@ impl gfx::Recordable for VoxelWorld
         };
 
         let faces = self.face_manager.get_number_of_faces();
+
+        NUMBER_OF_VISIBLE_FACES.store(faces as usize, Ordering::Relaxed);
 
         pass.set_push_constants(wgpu::ShaderStages::VERTEX, 0, bytes_of(&id));
         pass.draw(0..(faces * 6), 0..1);

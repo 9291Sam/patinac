@@ -10,3 +10,4 @@ util = { workspace = true }
 glyphon = { workspace = true }
 log = { workspace = true }
 sys-locale = { workspace = true }
+num-format = { workspace = true }

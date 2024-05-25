@@ -39,10 +39,16 @@ impl DemoScene
 
             let data = dot_vox::load_bytes(include_bytes!("../../../teapot.vox")).unwrap();
 
-            for (x, y, z) in iproduct!(0..4, 0..4, 0..4)
+            let dot_vox::Size {
+                x,
+                y,
+                z
+            } = data.models[0].size;
+
+            for (xx, yy, zz) in iproduct!(0..5, 0..5, 0..5)
             {
                 load_model_from_file_into(
-                    glm::I32Vec3::new(x * 128, y * 128, z * 128),
+                    glm::I32Vec3::new(xx * x as i32 + 1, yy * z as i32 + 1, zz * y as i32 + 1),
                     &c_dm,
                     &data
                 );

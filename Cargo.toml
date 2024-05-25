@@ -67,6 +67,7 @@ dot_vox = "5.1.1"
 num_enum = "0.7.2"
 lockfree = "0.5.1"
 smallvec = "1.13.2"
+num-format = "0.4.4"
 
 [profile.dev]
 opt-level = 2

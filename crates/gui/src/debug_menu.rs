@@ -1,8 +1,14 @@
 use std::borrow::Cow;
 use std::fmt::Debug;
+use std::sync::atomic::AtomicUsize;
 use std::sync::{Arc, Mutex};
 
 use glyphon::{TextAtlas, TextRenderer};
+use num_format::{Locale, ToFormattedString};
+
+extern "C" {
+    static NUMBER_OF_VISIBLE_FACES: AtomicUsize;
+}
 
 pub struct DebugMenu
 {
@@ -159,11 +165,10 @@ impl gfx::Recordable for DebugMenu
             // ║ ║ ║
             // ╚═╩═╝
 
-            #[rustfmt::skip]
-        buffer.set_text(
-            font_system,
-            &format!(
-r#"╔═════════════════════╦═════════════╗
+            buffer.set_text(
+                font_system,
+                &format!(
+                    r#"╔═════════════════════╦═════════════╗
 ║  Frames per second  ║ {:<11.3} ║
 ╠═════════════════════╬═════════════╣
 ║   Frame Time (ms)   ║ {:<11.3} ║
@@ -174,27 +179,31 @@ r#"╔═════════════════════╦══�
 ╠═════════════════════╬═════════════╣
 ║      Ram Usage      ║ {:<11} ║
 ╠═════════════════════╬═════════════╣
+║    Faces Visible    ║ {:<11} ║
+╠═════════════════════╬═════════════╣
 ║ Camera Position (x) ║ {:<11.3} ║
 ╠═════════════════════╬═════════════╣
 ║ Camera Position (y) ║ {:<11.3} ║
 ╠═════════════════════╬═════════════╣
 ║ Camera Position (z) ║ {:<11.3} ║
 ╚═════════════════════╩═════════════╝"#,
-                1.0 / renderer.get_delta_time(),
-                renderer.get_delta_time() * 1000.0,
-                1.0 / self.game.get_delta_time(),
-                self.game.get_delta_time() * 1000.0,
-                util::bytes_as_string(
-                    util::get_bytes_of_active_allocations() as f64,
-                    util::SuffixType::Short
+                    1.0 / renderer.get_delta_time(),
+                    renderer.get_delta_time() * 1000.0,
+                    1.0 / self.game.get_delta_time(),
+                    self.game.get_delta_time() * 1000.0,
+                    util::bytes_as_string(
+                        util::get_bytes_of_active_allocations() as f64,
+                        util::SuffixType::Short
+                    ),
+                    unsafe { NUMBER_OF_VISIBLE_FACES.load(std::sync::atomic::Ordering::Relaxed) }
+                        .to_formatted_string(&Locale::en),
+                    camera.get_position().x,
+                    camera.get_position().y,
+                    camera.get_position().z,
                 ),
-                camera.get_position().x,
-                camera.get_position().y,
-                camera.get_position().z,
-            ),
-            glyphon::Attrs::new().family(glyphon::Family::Monospace),
-            glyphon::Shaping::Advanced
-        );
+                glyphon::Attrs::new().family(glyphon::Family::Monospace),
+                glyphon::Shaping::Advanced
+            );
             let (width, height) = {
                 let dim = renderer.get_framebuffer_size();
 
