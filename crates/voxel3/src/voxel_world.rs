@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
@@ -30,7 +31,7 @@ pub struct VoxelWorld
     face_manager:     FaceManager,
     chunk_manager:    ChunkManager,
     material_manager: MaterialManager,
-    world_voxel_list: Mutex<BTreeMap<WorldPosition, [Option<FaceId>; 6]>>
+    world_voxel_list: Mutex<BTreeMap<WorldPosition, RefCell<[Option<FaceId>; 6]>>>
 }
 
 impl Debug for VoxelWorld
@@ -203,46 +204,56 @@ impl VoxelWorld
 
         for d in VoxelFaceDirection::iterate()
         {
-            let adjacent_voxel_world_position = world_pos.0 + d.get_axis().cast();
+            let adjacent_voxel_world_position = WorldPosition(world_pos.0 + d.get_axis().cast());
+            let adjacent_voxel_face_direction = d.opposite();
 
-            // // theres a voxel face there, get rid of it
-            // if let Some(face_id_arr) =
-            //     world_voxels.get_mut(&WorldPosition(adjacent_voxel_world_position))
-            // {
-            //     let maybe_face_id: &mut Option<FaceId> = &mut face_id_arr[d as usize];
+            let was_cell_already_occupied = world_voxels
+                .try_insert(world_pos, RefCell::new([const { None }; 6]))
+                .is_err();
 
-            //     if maybe_face_id.is_some()
-            //     {
-            //         let id_to_remove = maybe_face_id.take();
+            let this_voxel_faces = world_voxels.get(&world_pos);
+            let adjacent_voxel_faces = world_voxels.get(&adjacent_voxel_world_position);
 
-            //         self.face_manager.remove_face(id_to_remove.unwrap());
-
-            //         continue; // we dont want to put ourself here either
-            //     }
-            // }
-
-            // TODO: add strong typedefs to GpuFaceData
-            let this_face_id = self.face_manager.insert_face(GpuFaceData::new(
-                voxel as u16,
-                chunk_id,
-                chunk_position.0,
-                d
-            ));
-
-            match world_voxels.entry(world_pos)
+            if let Some(this_faces_refcell) = this_voxel_faces
             {
-                std::collections::btree_map::Entry::Vacant(v) =>
+                match adjacent_voxel_faces
                 {
-                    v.insert([const { None }; 6])[d as usize] = Some(this_face_id);
-                }
-                std::collections::btree_map::Entry::Occupied(mut o) =>
-                {
-                    o.get_mut()[d as usize] = Some(this_face_id);
+                    Some(other_faces) =>
+                    {
+                        if let Some(conflicting_face) =
+                            other_faces.borrow_mut()[adjacent_voxel_face_direction as usize].take()
+                        {
+                            self.face_manager.remove_face(conflicting_face);
+                            // and don't add this face
+                        }
+                        else
+                        {
+                            if !was_cell_already_occupied
+                            {
+                                log::warn!(
+                                    "there was a naked voxel! @ {adjacent_voxel_world_position:?}"
+                                )
+                            }
+                        }
+                    }
+                    None =>
+                    {
+                        this_faces_refcell.borrow_mut()[d as usize] =
+                            Some(self.face_manager.insert_face(GpuFaceData::new(
+                                voxel as u16,
+                                chunk_id,
+                                chunk_position.0,
+                                d
+                            )));
+                    }
                 }
             }
+            else
+            {
+                unreachable!()
+            }
+            // TODO: this is actually very non-trivial
         }
-
-        // TODO: insert into chunk manager so rt data can be populated!
     }
 
     fn get_bind_group(&self) -> Arc<wgpu::BindGroup>
@@ -257,7 +268,7 @@ impl VoxelWorld
         if needs_resize
         {
             *bind_group = Self::generate_bind_group(
-                &self.game.get_renderer(),
+                self.game.get_renderer(),
                 &self.bind_group_layout,
                 &self.face_manager,
                 &self.chunk_manager,

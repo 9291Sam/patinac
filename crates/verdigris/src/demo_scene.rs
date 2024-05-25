@@ -29,37 +29,24 @@ impl DemoScene
         util::run_async(move || {
             let mut rng = rand::rngs::SmallRng::seed_from_u64(238902348902348);
 
-            for (x, y, z) in iproduct!(0..=256, 0..=256, 0..=8)
-            {
-                c_dm.insert_voxel(
-                    WorldPosition(glm::I32Vec3::new(x, y, z)),
-                    rng.gen_range(0..=18).try_into().unwrap()
-                );
-            }
-
-            // let data =
-            // dot_vox::load_bytes(include_bytes!("../../../teapot.vox")).
-            // unwrap();
-
-            // for _ in 0..48
+            // for (x, y, z) in iproduct!(0..127, 0..127, 0..127)
             // {
-            //     load_model_from_file_into(
-            //         glm::I32Vec3::new(
-            //             rng.gen_range(-128..=128),
-            //             rng.gen_range(-128..=128),
-            //             rng.gen_range(-128..=128)
-            //         ),
-            //         &c_dm,
-            //         &data
+            //     c_dm.insert_voxel(
+            //         WorldPosition(glm::I32Vec3::new(x, y, z)),
+            //         rng.gen_range(0..=18).try_into().unwrap()
             //     );
             // }
-            // create_chunk(
-            //     c_dm,
-            //     c_game,
-            //     &noise_generator,
-            //     glm::DVec3::new(0.0, 0.0, 0.0),
-            //     1.0
-            // );
+
+            let data = dot_vox::load_bytes(include_bytes!("../../../teapot.vox")).unwrap();
+
+            for (x, y, z) in iproduct!(0..4, 0..4, 0..4)
+            {
+                load_model_from_file_into(
+                    glm::I32Vec3::new(x * 128, y * 128, z * 128),
+                    &c_dm,
+                    &data
+                );
+            }
         })
         .detach();
 

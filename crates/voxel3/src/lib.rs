@@ -1,13 +1,24 @@
+#![feature(map_try_insert)]
 mod chunk_manager;
 mod face_manager;
 mod material;
 mod voxel_world;
 
+use std::fmt::Debug;
+
 use gfx::glm;
 pub use voxel_world::VoxelWorld;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct WorldPosition(pub glm::I32Vec3);
+
+impl Debug for WorldPosition
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
+    {
+        write!(f, "[{}, {}, {}]", self.0.x, self.0.y, self.0.z)
+    }
+}
 
 impl Ord for WorldPosition
 {

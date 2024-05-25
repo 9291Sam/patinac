@@ -80,7 +80,11 @@ impl FreelistAllocator
     pub unsafe fn free(&mut self, block: usize)
     {
         #[cfg(debug_assertions)]
-        debug_assert!(self.allocated_blocks.remove(&block), "{block}");
+        if !self.allocated_blocks.remove(&block)
+        {
+            log::warn!("free of untracked value {block}");
+            return;
+        }
 
         self.free_blocks.push(block)
     }

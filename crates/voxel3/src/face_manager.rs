@@ -185,6 +185,19 @@ impl VoxelFaceDirection
             VoxelFaceDirection::Back => glm::I16Vec3::new(0, 0, 1)
         }
     }
+
+    pub fn opposite(self) -> VoxelFaceDirection
+    {
+        match self
+        {
+            VoxelFaceDirection::Top => VoxelFaceDirection::Bottom,
+            VoxelFaceDirection::Bottom => VoxelFaceDirection::Top,
+            VoxelFaceDirection::Left => VoxelFaceDirection::Right,
+            VoxelFaceDirection::Right => VoxelFaceDirection::Left,
+            VoxelFaceDirection::Front => VoxelFaceDirection::Back,
+            VoxelFaceDirection::Back => VoxelFaceDirection::Front
+        }
+    }
 }
 
 #[repr(C)]
