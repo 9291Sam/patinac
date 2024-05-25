@@ -175,7 +175,7 @@ impl<T: AnyBitPattern + NoUninit + Debug> CpuTrackedBuffer<T>
 
         if self.needs_resize_flush.swap(false, Ordering::SeqCst)
         {
-            log::trace!("full flush of {}", self.name);
+            // log::trace!("full flush of {}", self.name);
 
             self.renderer
                 .queue

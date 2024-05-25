@@ -5,7 +5,8 @@ use std::hash::Hash;
 pub struct DenseSet<T: Hash + Clone + Eq>
 {
     element_to_idx_map: HashMap<T, usize>,
-    dense_elements:     Vec<T>
+    dense_elements:     Vec<T>,
+    changed_indices:    Vec<usize> // Store the indices that have changed
 }
 
 impl<T: Hash + Clone + Eq> DenseSet<T>
@@ -15,29 +16,31 @@ impl<T: Hash + Clone + Eq> DenseSet<T>
     {
         DenseSet {
             element_to_idx_map: HashMap::new(),
-            dense_elements:     Vec::new()
+            dense_elements:     Vec::new(),
+            changed_indices:    Vec::new() // Initialize the changed_indices vector
         }
     }
 
     /// Returns the previous element (if contained)
-    #[must_use]
     pub fn insert(&mut self, t: T) -> Option<T>
     {
         match self.element_to_idx_map.entry(t.clone())
         {
-            Entry::Occupied(occupied_entry) =>
+            Entry::Occupied(mut occupied_entry) =>
             {
                 let idx: usize = *occupied_entry.get();
                 let old_t: T = occupied_entry.replace_key();
 
-                self.dense_elements[idx] = t;
+                self.dense_elements[idx] = t.clone();
+                self.changed_indices.push(idx); // Track the changed index
 
                 Some(old_t)
             }
             Entry::Vacant(vacant_entry) =>
             {
                 let new_element_idx = self.dense_elements.len();
-                self.dense_elements.push(t);
+                self.dense_elements.push(t.clone());
+                self.changed_indices.push(new_element_idx); // Track the changed index
 
                 vacant_entry.insert(new_element_idx);
 
@@ -66,9 +69,12 @@ impl<T: Hash + Clone + Eq> DenseSet<T>
                         .element_to_idx_map
                         .get_mut(&self.dense_elements[rem_idx])
                         .unwrap() = rem_idx;
+
+                    self.changed_indices.push(rem_idx); // Track the changed index
                 }
 
                 self.dense_elements.pop();
+                self.changed_indices.push(last_idx); // Track the removed index
 
                 Ok(())
             }
@@ -76,26 +82,225 @@ impl<T: Hash + Clone + Eq> DenseSet<T>
         }
     }
 
-    pub fn retain(&mut self, should_be_retianed_func: impl Fn(&T) -> bool)
-    {
-        let elements_to_remove = self
-            .dense_elements
-            .iter()
-            .filter(|t| !should_be_retianed_func(&**t))
-            .cloned()
-            .collect::<Vec<_>>();
-
-        for t in elements_to_remove
-        {
-            self.remove(t).unwrap();
-        }
-    }
-
     pub fn to_dense_elements(&self) -> &[T]
     {
         &self.dense_elements
+    }
+
+    pub fn take_changed_indices(&mut self) -> Vec<usize>
+    {
+        std::mem::take(&mut self.changed_indices)
     }
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct NoElementContained;
+
+#[cfg(test)]
+mod tests
+{
+    use super::*;
+
+    #[test]
+    fn test_new_dense_set_is_empty()
+    {
+        let set: DenseSet<i32> = DenseSet::new();
+        assert!(set.to_dense_elements().is_empty());
+    }
+
+    #[test]
+    fn test_insert_element()
+    {
+        let mut set = DenseSet::new();
+        assert_eq!(set.insert(1), None);
+        assert_eq!(set.to_dense_elements(), &[1]);
+    }
+
+    #[test]
+    fn test_insert_duplicate_element()
+    {
+        let mut set = DenseSet::new();
+        assert_eq!(set.insert(1), None);
+        assert_eq!(set.insert(1), Some(1));
+        assert_eq!(set.to_dense_elements(), &[1]);
+    }
+
+    #[test]
+    fn test_insert_multiple_elements()
+    {
+        let mut set = DenseSet::new();
+        assert_eq!(set.insert(1), None);
+        assert_eq!(set.insert(2), None);
+        assert_eq!(set.to_dense_elements(), &[1, 2]);
+    }
+
+    #[test]
+    fn test_remove_existing_element()
+    {
+        let mut set = DenseSet::new();
+        set.insert(1);
+        set.insert(2);
+        assert_eq!(set.remove(1), Ok(()));
+        assert_eq!(set.to_dense_elements(), &[2]);
+    }
+
+    #[test]
+    fn test_remove_non_existing_element()
+    {
+        let mut set = DenseSet::new();
+        set.insert(1);
+        assert_eq!(set.remove(2), Err(NoElementContained));
+        assert_eq!(set.to_dense_elements(), &[1]);
+    }
+
+    #[test]
+    fn test_remove_last_element()
+    {
+        let mut set = DenseSet::new();
+        set.insert(1);
+        assert_eq!(set.remove(1), Ok(()));
+        assert!(set.to_dense_elements().is_empty());
+    }
+
+    #[test]
+    fn test_remove_and_insert_element()
+    {
+        let mut set = DenseSet::new();
+        set.insert(1);
+        set.insert(2);
+        set.remove(1).unwrap();
+        assert_eq!(set.insert(1), None);
+        assert_eq!(set.to_dense_elements(), &[2, 1]);
+    }
+
+    #[test]
+    fn test_insert_after_removal()
+    {
+        let mut set = DenseSet::new();
+        set.insert(1);
+        set.remove(1).unwrap();
+        assert_eq!(set.insert(1), None);
+        assert_eq!(set.to_dense_elements(), &[1]);
+    }
+
+    #[test]
+    fn test_remove_swapped_element()
+    {
+        let mut set = DenseSet::new();
+        set.insert(1);
+        set.insert(2);
+        set.insert(3);
+        set.remove(2).unwrap();
+        assert_eq!(set.to_dense_elements(), &[1, 3]);
+        set.remove(3).unwrap();
+        assert_eq!(set.to_dense_elements(), &[1]);
+    }
+
+    #[test]
+    fn test_remove_element_from_empty_set()
+    {
+        let mut set: DenseSet<i32> = DenseSet::new();
+        assert_eq!(set.remove(1), Err(NoElementContained));
+    }
+
+    #[test]
+    fn test_insert_large_number_of_elements()
+    {
+        let mut set = DenseSet::new();
+        for i in 0..1000
+        {
+            assert_eq!(set.insert(i), None);
+        }
+        let elements: Vec<i32> = (0..1000).collect();
+        assert_eq!(set.to_dense_elements(), elements.as_slice());
+    }
+
+    #[test]
+    fn test_remove_all_elements()
+    {
+        let mut set = DenseSet::new();
+        for i in 0..100
+        {
+            set.insert(i);
+        }
+        for i in 0..100
+        {
+            assert_eq!(set.remove(i), Ok(()));
+        }
+        assert!(set.to_dense_elements().is_empty());
+    }
+
+    #[test]
+    fn test_remove_elements_out_of_order()
+    {
+        let mut set = DenseSet::new();
+        set.insert(1);
+        set.insert(2);
+        set.insert(3);
+        assert_eq!(set.remove(2), Ok(()));
+        assert_eq!(set.to_dense_elements(), &[1, 3]);
+        assert_eq!(set.remove(1), Ok(()));
+        assert_eq!(set.to_dense_elements(), &[3]);
+        assert_eq!(set.remove(3), Ok(()));
+        assert!(set.to_dense_elements().is_empty());
+    }
+
+    #[test]
+    fn test_reinsertion_of_removed_element()
+    {
+        let mut set = DenseSet::new();
+        set.insert(1);
+        set.remove(1).unwrap();
+        assert_eq!(set.insert(1), None);
+        assert_eq!(set.to_dense_elements(), &[1]);
+    }
+
+    #[test]
+    fn test_insert_after_clear()
+    {
+        let mut set = DenseSet::new();
+        set.insert(1);
+        set.insert(2);
+        set.remove(1).unwrap();
+        set.remove(2).unwrap();
+        assert!(set.to_dense_elements().is_empty());
+        assert_eq!(set.insert(3), None);
+        assert_eq!(set.to_dense_elements(), &[3]);
+    }
+
+    #[test]
+    fn test_remove_and_insert_same_element()
+    {
+        let mut set = DenseSet::new();
+        set.insert(1);
+        set.remove(1).unwrap();
+        assert_eq!(set.insert(1), None);
+        assert_eq!(set.to_dense_elements(), &[1]);
+    }
+
+    #[test]
+    fn test_remove_middle_element()
+    {
+        let mut set = DenseSet::new();
+        set.insert(1);
+        set.insert(2);
+        set.insert(3);
+        set.remove(2).unwrap();
+        assert_eq!(set.to_dense_elements(), &[1, 3]);
+    }
+
+    #[test]
+    fn test_large_number_of_insertions_and_removals()
+    {
+        let mut set = DenseSet::new();
+        for i in 0..1000
+        {
+            set.insert(i);
+        }
+        for i in 0..1000
+        {
+            set.remove(i).unwrap();
+        }
+        assert!(set.to_dense_elements().is_empty());
+    }
+}

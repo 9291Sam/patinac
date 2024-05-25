@@ -3,7 +3,7 @@ use std::num::NonZero;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 
-use bytemuck::{cast_slice, AnyBitPattern, NoUninit};
+use bytemuck::{cast_slice, AnyBitPattern, Contiguous, NoUninit};
 use util::NoElementContained;
 
 use crate::Renderer;
@@ -48,10 +48,10 @@ impl<T: AnyBitPattern + NoUninit + Hash + Eq> CpuTrackedDenseSet<T>
         self.dense_set.lock().unwrap().insert(t)
     }
 
-    pub fn retain(&self, retain_func: impl Fn(&T) -> bool)
-    {
-        self.dense_set.lock().unwrap().retain(retain_func);
-    }
+    // pub fn retain(&self, retain_func: impl Fn(&T) -> bool)
+    // {
+    //     self.dense_set.lock().unwrap().retain(retain_func);
+    // }
 
     pub fn remove(&self, t: T) -> Result<(), NoElementContained>
     {
@@ -109,9 +109,12 @@ impl<T: AnyBitPattern + NoUninit + Hash + Eq> CpuTrackedDenseSet<T>
         {
             self.renderer
                 .queue
-                .write_buffer_with(&gpu_buffer, 0, data_len)
-                .unwrap()
-                .copy_from_slice(cast_slice(data_to_write));
+                .write_buffer(&gpu_buffer, 0, cast_slice(data_to_write));
+
+            log::trace!(
+                "CpuTrackedDenseSet full flush {}",
+                util::bytes_as_string(data_len.into_integer() as f64, util::SuffixType::Full)
+            );
         }
 
         resize_occurred
