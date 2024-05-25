@@ -45,14 +45,14 @@ impl DemoScene
                 z
             } = data.models[0].size;
 
-            for (xx, yy, zz) in iproduct!(0..3, 0..3, 0..3)
-            {
-                load_model_from_file_into(
-                    glm::I32Vec3::new(xx * x as i32 + 1, yy * z as i32 + 1, zz * y as i32 + 1),
-                    &c_dm,
-                    &data
-                );
-            }
+            // for (xx, yy, zz) in iproduct!(0..3, 0..3, 0..3)
+            // {
+            //     load_model_from_file_into(
+            //         glm::I32Vec3::new(xx * x as i32 + 1, yy * z as i32 + 1, zz * y as i32
+            // + 1),         &c_dm, &data );
+            // }
+
+            arbitrary_landscape_demo(&c_dm)
         })
         .detach();
 
@@ -122,4 +122,20 @@ fn load_model_from_file_into(world_offset: glm::I32Vec3, dm: &VoxelWorld, data: 
                 .unwrap()
         );
     }
+}
+
+fn arbitrary_landscape_demo(dm: &VoxelWorld)
+{
+    let noise = noise::OpenSimplex::new(2384247834);
+
+    spiral::ChebyshevIterator::new(0, 0, 512).for_each(|(x, z)| {
+        dm.insert_voxel(
+            WorldPosition(glm::I32Vec3::new(
+                x,
+                (noise.get([x as f64 / 256.0, z as f64 / 256.0]) * 256.0) as i32,
+                z
+            )),
+            rand::thread_rng().gen_range(1..=8).try_into().unwrap()
+        )
+    })
 }

@@ -113,12 +113,12 @@ impl<T: AnyBitPattern + NoUninit + Hash + Eq> CpuTrackedDenseSet<T>
 
             static ONCE: Once = Once::new();
 
-            ONCE.call_once(|| {
-                log::warn!(
-                    "CpuTrackedDenseSet full flush {}",
-                    util::bytes_as_string(data_len.into_integer() as f64, util::SuffixType::Full)
-                );
-            })
+            // ONCE.call_once(|| {
+            log::warn!(
+                "CpuTrackedDenseSet full flush {}",
+                util::bytes_as_string(data_len.into_integer() as f64, util::SuffixType::Full)
+            );
+            // })
         }
 
         resize_occurred
