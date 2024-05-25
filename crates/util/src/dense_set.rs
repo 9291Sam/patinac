@@ -6,7 +6,7 @@ pub struct DenseSet<T: Hash + Clone + Eq>
 {
     element_to_idx_map: HashMap<T, usize>,
     dense_elements:     Vec<T>,
-    changed_indices:    Vec<usize> // Store the indices that have changed
+    changed_indices:    Option<Vec<usize>>
 }
 
 impl<T: Hash + Clone + Eq> DenseSet<T>
@@ -17,7 +17,16 @@ impl<T: Hash + Clone + Eq> DenseSet<T>
         DenseSet {
             element_to_idx_map: HashMap::new(),
             dense_elements:     Vec::new(),
-            changed_indices:    Vec::new() // Initialize the changed_indices vector
+            changed_indices:    None
+        }
+    }
+
+    pub fn new_index_tracking() -> DenseSet<T>
+    {
+        DenseSet {
+            element_to_idx_map: HashMap::new(),
+            dense_elements:     Vec::new(),
+            changed_indices:    Some(Vec::new())
         }
     }
 
@@ -26,13 +35,16 @@ impl<T: Hash + Clone + Eq> DenseSet<T>
     {
         match self.element_to_idx_map.entry(t.clone())
         {
-            Entry::Occupied(mut occupied_entry) =>
+            Entry::Occupied(occupied_entry) =>
             {
                 let idx: usize = *occupied_entry.get();
                 let old_t: T = occupied_entry.replace_key();
 
                 self.dense_elements[idx] = t.clone();
-                self.changed_indices.push(idx); // Track the changed index
+                if let Some(v) = self.changed_indices.as_mut()
+                {
+                    v.push(idx)
+                }
 
                 Some(old_t)
             }
@@ -40,7 +52,10 @@ impl<T: Hash + Clone + Eq> DenseSet<T>
             {
                 let new_element_idx = self.dense_elements.len();
                 self.dense_elements.push(t.clone());
-                self.changed_indices.push(new_element_idx); // Track the changed index
+                if let Some(v) = self.changed_indices.as_mut()
+                {
+                    v.push(new_element_idx)
+                }
 
                 vacant_entry.insert(new_element_idx);
 
@@ -69,12 +84,14 @@ impl<T: Hash + Clone + Eq> DenseSet<T>
                         .element_to_idx_map
                         .get_mut(&self.dense_elements[rem_idx])
                         .unwrap() = rem_idx;
-
-                    self.changed_indices.push(rem_idx); // Track the changed index
                 }
 
                 self.dense_elements.pop();
-                self.changed_indices.push(last_idx); // Track the removed index
+                if let Some(v) = self.changed_indices.as_mut()
+                {
+                    v.push(rem_idx);
+                    v.push(last_idx)
+                }
 
                 Ok(())
             }
@@ -89,7 +106,11 @@ impl<T: Hash + Clone + Eq> DenseSet<T>
 
     pub fn take_changed_indices(&mut self) -> Vec<usize>
     {
-        std::mem::take(&mut self.changed_indices)
+        std::mem::take(
+            self.changed_indices
+                .as_mut()
+                .expect("Called take_change_indices on a DenseSet without index tracking enabled!")
+        )
     }
 }
 
