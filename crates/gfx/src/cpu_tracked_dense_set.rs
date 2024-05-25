@@ -1,7 +1,7 @@
 use std::hash::Hash;
 use std::num::NonZero;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, Mutex, Once, RwLock};
 
 use bytemuck::{cast_slice, AnyBitPattern, Contiguous, NoUninit};
 use util::NoElementContained;
@@ -93,11 +93,11 @@ impl<T: AnyBitPattern + NoUninit + Hash + Eq> CpuTrackedDenseSet<T>
             self.gpu_buffer_len_elements
                 .store(new_size_elements as usize, Ordering::SeqCst);
 
-            log::trace!(
-                "CpuTrackedDenseSet gpu buf Resize {} -> {}",
-                current_buf_len,
-                new_size_elements
-            );
+            // log::trace!(
+            //     "CpuTrackedDenseSet gpu buf Resize {} -> {}",
+            //     current_buf_len,
+            //     new_size_elements
+            // );
 
             resize_occurred = true;
         }
@@ -111,10 +111,14 @@ impl<T: AnyBitPattern + NoUninit + Hash + Eq> CpuTrackedDenseSet<T>
                 .queue
                 .write_buffer(&gpu_buffer, 0, cast_slice(data_to_write));
 
-            log::trace!(
-                "CpuTrackedDenseSet full flush {}",
-                util::bytes_as_string(data_len.into_integer() as f64, util::SuffixType::Full)
-            );
+            static ONCE: Once = Once::new();
+
+            ONCE.call_once(|| {
+                log::warn!(
+                    "CpuTrackedDenseSet full flush {}",
+                    util::bytes_as_string(data_len.into_integer() as f64, util::SuffixType::Full)
+                );
+            })
         }
 
         resize_occurred
