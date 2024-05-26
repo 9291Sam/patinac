@@ -111,10 +111,7 @@ impl<T: AnyBitPattern + NoUninit + Debug> CpuTrackedBuffer<T>
             ..
         } = &mut *self.critical_section.lock().unwrap();
 
-        // if flush_list.len() < MAX_FLUSHES_BEFORE_ENTIRE
-        // {
         flush_list.push(index as u64);
-        // }
 
         let len = cpu_data.len();
 
@@ -215,5 +212,33 @@ impl<T: AnyBitPattern + NoUninit + Debug> CpuTrackedBuffer<T>
         }
 
         did_resize_occur
+    }
+}
+
+impl<T: AnyBitPattern + NoUninit + Debug + Eq> CpuTrackedBuffer<T>
+{
+    pub fn write_eq_testing(&self, index: usize, t: T)
+    {
+        let CpuTrackedBufferCriticalSection {
+            cpu_data,
+            flush_list,
+            ..
+        } = &mut *self.critical_section.lock().unwrap();
+
+        let len = cpu_data.len();
+
+        let elem_to_test: &mut T = cpu_data.get_mut(index).unwrap_or_else(|| {
+            panic!(
+                "Cpu Tracked Buffer Index Out Of Bounds @ {} / {}",
+                index, len
+            )
+        });
+
+        if *elem_to_test != t
+        {
+            flush_list.push(index as u64);
+
+            *elem_to_test = t;
+        }
     }
 }

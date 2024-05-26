@@ -1,3 +1,4 @@
+use std::fmt::Debug;
 use std::hash::Hash;
 use std::num::NonZero;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -8,17 +9,14 @@ use util::NoElementContained;
 
 use crate::Renderer;
 
-pub struct CpuTrackedDenseSet<T: AnyBitPattern + NoUninit + Hash + Eq>
+pub struct CpuTrackedDenseSet<T: AnyBitPattern + NoUninit + Hash + Eq + Debug>
 {
-    renderer:                Arc<Renderer>,
-    name:                    String,
-    usage:                   wgpu::BufferUsages,
-    gpu_buffer_len_elements: AtomicUsize,
-    gpu_buffer:              RwLock<wgpu::Buffer>,
-    dense_set:               Mutex<util::DenseSet<T>>
+    // TODO: inline this struct and remove the cpu side duplication
+    gpu_buffer: crate::CpuTrackedBuffer<T>,
+    dense_set:  Mutex<util::DenseSet<T>>
 }
 
-impl<T: AnyBitPattern + NoUninit + Hash + Eq> CpuTrackedDenseSet<T>
+impl<T: AnyBitPattern + NoUninit + Hash + Eq + Debug> CpuTrackedDenseSet<T>
 {
     pub fn new(
         renderer: Arc<Renderer>,
@@ -28,18 +26,13 @@ impl<T: AnyBitPattern + NoUninit + Hash + Eq> CpuTrackedDenseSet<T>
     ) -> Self
     {
         CpuTrackedDenseSet {
-            renderer:                renderer.clone(),
-            name:                    name.clone(),
-            usage:                   buffer_usage,
-            gpu_buffer_len_elements: AtomicUsize::new(initial_gpu_buffer_len_elements),
-            gpu_buffer:              RwLock::new(renderer.create_buffer(&wgpu::BufferDescriptor {
-                label:              Some(&name),
-                size:               std::mem::size_of::<T>() as u64
-                    * initial_gpu_buffer_len_elements as u64,
-                usage:              buffer_usage | wgpu::BufferUsages::COPY_DST,
-                mapped_at_creation: false
-            })),
-            dense_set:               Mutex::new(util::DenseSet::new())
+            gpu_buffer: crate::CpuTrackedBuffer::new(
+                renderer,
+                initial_gpu_buffer_len_elements,
+                name,
+                buffer_usage
+            ),
+            dense_set:  Mutex::new(util::DenseSet::new())
         }
     }
 
@@ -47,11 +40,6 @@ impl<T: AnyBitPattern + NoUninit + Hash + Eq> CpuTrackedDenseSet<T>
     {
         self.dense_set.lock().unwrap().insert(t)
     }
-
-    // pub fn retain(&self, retain_func: impl Fn(&T) -> bool)
-    // {
-    //     self.dense_set.lock().unwrap().retain(retain_func);
-    // }
 
     pub fn remove(&self, t: T) -> Result<(), NoElementContained>
     {
@@ -65,62 +53,27 @@ impl<T: AnyBitPattern + NoUninit + Hash + Eq> CpuTrackedDenseSet<T>
 
     pub fn get_buffer<R>(&self, buf_access_func: impl FnOnce(&wgpu::Buffer) -> R) -> R
     {
-        buf_access_func(&self.gpu_buffer.read().unwrap())
+        self.gpu_buffer.get_buffer(buf_access_func)
     }
 
     #[must_use]
     // returns whether or not a resize of the gpu-internal buffer ocurred
     pub fn replicate_to_gpu(&self) -> bool
     {
-        let mut resize_occurred = false;
+        let dense_set = self.dense_set.lock().unwrap();
+        let dense_set_data = dense_set.to_dense_elements();
 
-        let mut gpu_buffer = self.gpu_buffer.write().unwrap();
-
-        let current_set_elements = self.get_number_of_elements();
-        let current_buf_len = self.gpu_buffer_len_elements.load(Ordering::SeqCst);
-
-        if current_set_elements > current_buf_len
+        if dense_set_data.len() > self.gpu_buffer.get_cpu_len()
         {
-            let new_size_elements: u64 = self.get_number_of_elements() as u64 * 2;
-
-            *gpu_buffer = self.renderer.create_buffer(&wgpu::BufferDescriptor {
-                label:              Some(&self.name),
-                size:               new_size_elements * std::mem::size_of::<T>() as u64,
-                usage:              self.usage | wgpu::BufferUsages::COPY_DST,
-                mapped_at_creation: false
-            });
-
-            self.gpu_buffer_len_elements
-                .store(new_size_elements as usize, Ordering::SeqCst);
-
-            // log::trace!(
-            //     "CpuTrackedDenseSet gpu buf Resize {} -> {}",
-            //     current_buf_len,
-            //     new_size_elements
-            // );
-
-            resize_occurred = true;
+            self.gpu_buffer.realloc(dense_set_data.len() * 2);
         }
 
-        let data_mtx = &self.dense_set.lock().unwrap();
-        let data_to_write: &[u8] = cast_slice(data_mtx.to_dense_elements());
+        dense_set
+            .to_dense_elements()
+            .iter()
+            .enumerate()
+            .for_each(|(idx, t)| self.gpu_buffer.write_eq_testing(idx, *t));
 
-        if let Some(data_len) = NonZero::new(data_to_write.len() as u64)
-        {
-            self.renderer
-                .queue
-                .write_buffer(&gpu_buffer, 0, cast_slice(data_to_write));
-
-            static ONCE: Once = Once::new();
-
-            // ONCE.call_once(|| {
-            log::warn!(
-                "CpuTrackedDenseSet full flush {}",
-                util::bytes_as_string(data_len.into_integer() as f64, util::SuffixType::Full)
-            );
-            // })
-        }
-
-        resize_occurred
+        self.gpu_buffer.replicate_to_gpu()
     }
 }
