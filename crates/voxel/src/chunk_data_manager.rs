@@ -4,14 +4,17 @@ use std::sync::Arc;
 
 use gfx::{glm, wgpu};
 
+use crate::face_manager::{FaceId, VoxelFaceDirection};
 use crate::material::Voxel;
 use crate::{
     chunk_local_position_to_brick_position,
     get_world_offset_of_chunk,
     gpu_data,
     BrickCoordinate,
+    BrickLocalPosition,
     ChunkCoordinate,
-    ChunkLocalPosition
+    ChunkLocalPosition,
+    BRICK_EDGE_LEN_VOXELS
 };
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -27,7 +30,9 @@ pub(crate) struct ChunkDataManager
 
     brick_ptr_allocator:     util::FreelistAllocator,
     visibility_brick_buffer: gfx::CpuTrackedBuffer<gpu_data::VisibilityBrick>,
-    material_brick_buffer:   gfx::CpuTrackedBuffer<gpu_data::MaterialBrick>
+    material_brick_buffer:   gfx::CpuTrackedBuffer<gpu_data::MaterialBrick>,
+
+    registered_faces: Vec<FaceIdBrick>
 }
 
 #[no_mangle]
@@ -71,7 +76,8 @@ impl ChunkDataManager
                 MAX_BRICKS,
                 String::from("ChunkBrickManager MaterialBrick Buffer"),
                 wgpu::BufferUsages::STORAGE
-            )
+            ),
+            registered_faces:        vec![FaceIdBrick::new_empty(); MAX_BRICKS]
         }
     }
 
@@ -94,19 +100,12 @@ impl ChunkDataManager
         voxel: Voxel
     ) -> Voxel
     {
-        let (BrickCoordinate(brick_coordinate), brick_local_pos) =
-            chunk_local_position_to_brick_position(pos);
+        let (brick_coordinate, brick_local_pos) = chunk_local_position_to_brick_position(pos);
 
         let maybe_brick_ptr = self
             .chunk_brick_map
             .access_ref(chunk_id.0 as usize, |brick_map: &gpu_data::BrickMap| {
-                unsafe {
-                    *brick_map
-                        .brick_map
-                        .get_unchecked(brick_coordinate.x as usize)
-                        .get_unchecked(brick_coordinate.y as usize)
-                        .get_unchecked(brick_coordinate.z as usize)
-                }
+                brick_map.get(brick_coordinate)
             })
             .to_option();
 
@@ -126,14 +125,7 @@ impl ChunkDataManager
                 self.chunk_brick_map.access_mut(
                     chunk_id.0 as usize,
                     |brick_map: &mut gpu_data::BrickMap| {
-                        unsafe {
-                            *brick_map
-                                .brick_map
-                                .get_unchecked_mut(brick_coordinate.x as usize)
-                                .get_unchecked_mut(brick_coordinate.y as usize)
-                                .get_unchecked_mut(brick_coordinate.z as usize) =
-                                gpu_data::MaybeBrickPtr(new_ptr.0);
-                        }
+                        *brick_map.get_mut(brick_coordinate) = gpu_data::MaybeBrickPtr(new_ptr.0);
                     }
                 );
 
@@ -179,14 +171,57 @@ impl ChunkDataManager
         )
     }
 
-    // #[inline(always)]
-    // pub fn read_brick_map(
-    //     &self,
-    //     chunk_id: ChunkId,
-    //     brick_coordinate: BrickCoordinate
-    // ) -> (&gpu_data::MaterialBrick, &gpu_data::VisibilityBrick)
-    // {
-    // }
+    // returns None if no brick is inserted
+    pub fn get_voxel_faces(
+        &mut self,
+        chunk_id: ChunkId,
+        pos: ChunkLocalPosition
+    ) -> Option<&mut [Option<FaceId>; 6]>
+    {
+        let (brick_coordinate, brick_local_pos) = chunk_local_position_to_brick_position(pos);
+
+        let brick_ptr = self
+            .chunk_brick_map
+            .access_ref(chunk_id.0 as usize, |brick_map: &gpu_data::BrickMap| {
+                brick_map.get(brick_coordinate)
+            })
+            .to_option()?;
+
+        Some(
+            self.registered_faces
+                .get_mut(brick_ptr.0 as usize)
+                .unwrap()
+                .get_mut(brick_local_pos)
+        )
+    }
+
+    pub fn register_voxel_face(
+        &mut self,
+        chunk_id: ChunkId,
+        pos: ChunkLocalPosition,
+        direction: VoxelFaceDirection,
+        face_id: FaceId
+    )
+    {
+        let maybe_old_face_id = std::mem::replace(
+            &mut self.get_voxel_faces(chunk_id, pos).as_mut().unwrap()[direction as usize],
+            Some(face_id)
+        );
+
+        assert!(maybe_old_face_id.is_none())
+    }
+
+    pub fn deregister_voxel_face(
+        &mut self,
+        chunk_id: ChunkId,
+        pos: ChunkLocalPosition,
+        direction: VoxelFaceDirection
+    ) -> FaceId
+    {
+        self.get_voxel_faces(chunk_id, pos).as_mut().unwrap()[direction as usize]
+            .take()
+            .unwrap()
+    }
 
     pub fn insert_chunk_at(&mut self, chunk_coord: ChunkCoordinate) -> ChunkId
     {
@@ -221,11 +256,13 @@ impl ChunkDataManager
         new_id
     }
 
-    pub fn delete_chunk_at(&mut self, chunk_coord: ChunkCoordinate, id: ChunkId)
+    pub fn delete_chunk_at(&mut self, chunk_coord: ChunkCoordinate, id: ChunkId) -> Vec<FaceId>
     {
         assert_eq!(self.get_chunk_id(chunk_coord), Some(id));
 
         unsafe { self.chunk_id_allocator.free(id.0 as usize) };
+
+        let mut face_ids_to_dealloc: Vec<FaceId> = Vec::new();
 
         self.chunk_brick_map
             .access_mut(id.0 as usize, |brick_map: &mut gpu_data::BrickMap| {
@@ -238,9 +275,23 @@ impl ChunkDataManager
                         if let Some(ptr) = maybe_ptr.to_option()
                         {
                             unsafe { self.brick_ptr_allocator.free(ptr.0 as usize) }
+
+                            self.registered_faces
+                                .get_mut(ptr.0 as usize)
+                                .unwrap()
+                                .get_flattened_face_ids()
+                                .iter()
+                                .for_each(|f| {
+                                    if let &Some(face_id_to_remove) = f
+                                    {
+                                        face_ids_to_dealloc.push(face_id_to_remove);
+                                    }
+                                })
                         }
-                    });
+                    })
             });
+
+        face_ids_to_dealloc
     }
 
     pub fn get_buffer<R>(&self, buf_access_func: impl FnOnce(&wgpu::Buffer) -> R) -> R
@@ -314,5 +365,38 @@ impl ChunkCoordinateToIdMap
             unsafe { Some(self.data.get(idx).unwrap_unchecked().1) },
             Err(_) => None
         }
+    }
+}
+
+#[derive(Clone)]
+struct FaceIdBrick
+{
+    brick: [[[[Option<FaceId>; 6]; BRICK_EDGE_LEN_VOXELS]; BRICK_EDGE_LEN_VOXELS];
+        BRICK_EDGE_LEN_VOXELS]
+}
+
+impl FaceIdBrick
+{
+    pub fn new_empty() -> Self
+    {
+        Self {
+            brick: [[[[const { None }; 6]; BRICK_EDGE_LEN_VOXELS]; BRICK_EDGE_LEN_VOXELS];
+                BRICK_EDGE_LEN_VOXELS]
+        }
+    }
+
+    pub fn get_mut(&mut self, brick_local_pos: BrickLocalPosition) -> &mut [Option<FaceId>; 6]
+    {
+        unsafe {
+            self.brick
+                .get_unchecked_mut(brick_local_pos.0.x as usize)
+                .get_unchecked_mut(brick_local_pos.0.y as usize)
+                .get_unchecked_mut(brick_local_pos.0.z as usize)
+        }
+    }
+
+    pub fn get_flattened_face_ids(&self) -> &[Option<FaceId>]
+    {
+        self.brick.as_flattened().as_flattened().as_flattened()
     }
 }

@@ -1,6 +1,6 @@
 use bytemuck::{AnyBitPattern, NoUninit, Pod, Zeroable};
 
-use crate::CHUNK_EDGE_LEN_BRICKS;
+use crate::{BrickCoordinate, CHUNK_EDGE_LEN_BRICKS};
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
@@ -43,6 +43,35 @@ impl BrickMap
             .as_flattened_mut()
             .iter_mut()
             .for_each(|p| *p = MaybeBrickPtr::NULL);
+    }
+
+    pub fn get(&self, coord: BrickCoordinate) -> MaybeBrickPtr
+    {
+        debug_assert!((coord.0.x as usize) < CHUNK_EDGE_LEN_BRICKS);
+        debug_assert!((coord.0.y as usize) < CHUNK_EDGE_LEN_BRICKS);
+        debug_assert!((coord.0.z as usize) < CHUNK_EDGE_LEN_BRICKS);
+
+        unsafe {
+            *self
+                .brick_map
+                .get_unchecked(coord.0.x as usize)
+                .get_unchecked(coord.0.y as usize)
+                .get_unchecked(coord.0.z as usize)
+        }
+    }
+
+    pub fn get_mut(&mut self, coord: BrickCoordinate) -> &mut MaybeBrickPtr
+    {
+        debug_assert!((coord.0.x as usize) < CHUNK_EDGE_LEN_BRICKS);
+        debug_assert!((coord.0.y as usize) < CHUNK_EDGE_LEN_BRICKS);
+        debug_assert!((coord.0.z as usize) < CHUNK_EDGE_LEN_BRICKS);
+
+        unsafe {
+            self.brick_map
+                .get_unchecked_mut(coord.0.x as usize)
+                .get_unchecked_mut(coord.0.y as usize)
+                .get_unchecked_mut(coord.0.z as usize)
+        }
     }
 }
 
