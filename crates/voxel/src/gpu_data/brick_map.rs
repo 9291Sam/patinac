@@ -39,8 +39,8 @@ impl BrickMap
     pub fn null_all_ptrs(&mut self)
     {
         self.brick_map
-            .flatten_mut()
-            .flatten_mut()
+            .as_flattened_mut()
+            .as_flattened_mut()
             .iter_mut()
             .for_each(|p| *p = MaybeBrickPtr::NULL);
     }
