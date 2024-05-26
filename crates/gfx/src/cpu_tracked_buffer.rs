@@ -40,7 +40,7 @@ impl<T: AnyBitPattern + NoUninit + Debug> CpuTrackedBuffer<T>
             renderer,
             buffer_len_elements: elements,
             gpu_data,
-            cpu_data: vec![T::zeroed(); elements],
+            cpu_data: unsafe { Box::new_zeroed_slice(elements).assume_init().into_vec() },
             flush_list: Vec::new(),
             needs_resize_flush: false,
             name,

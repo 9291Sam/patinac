@@ -9,7 +9,7 @@ use bytemuck::bytes_of;
 use gfx::wgpu::include_wgsl;
 use gfx::{wgpu, CacheablePipelineLayoutDescriptor, CacheableRenderPipelineDescriptor};
 
-use crate::chunk_manager::ChunkManager;
+use crate::chunk_data_manager::ChunkDataManager;
 use crate::face_manager::{
     FaceId,
     FaceManager,
@@ -35,7 +35,7 @@ pub struct VoxelWorld
     estimate_number_of_visible_faces: AtomicU32,
 
     face_manager:     Mutex<FaceManager>,
-    chunk_manager:    Mutex<ChunkManager>,
+    chunk_manager:    Mutex<ChunkDataManager>,
     material_manager: MaterialManager,
     world_voxel_list: Mutex<BTreeMap<WorldPosition, RefCell<[Option<FaceId>; 6]>>>
 }
@@ -113,7 +113,7 @@ impl VoxelWorld
 
         let face_manager = FaceManager::new(game.clone());
 
-        let voxel_chunk_manager = ChunkManager::new(renderer.clone());
+        let voxel_chunk_manager = ChunkDataManager::new(renderer.clone());
 
         let mat_manager = MaterialManager::new(&renderer);
 
@@ -328,7 +328,7 @@ impl VoxelWorld
         renderer: &gfx::Renderer,
         bind_group_layout: &wgpu::BindGroupLayout,
         face_manager: &FaceManager,
-        chunk_manager: &ChunkManager,
+        chunk_manager: &ChunkDataManager,
         material_manager: &MaterialManager
     ) -> Arc<wgpu::BindGroup>
     {

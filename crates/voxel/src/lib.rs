@@ -1,12 +1,14 @@
 #![feature(map_try_insert)]
+#![feature(slice_flatten)]
 
 use std::fmt::Debug;
 
 use gfx::glm;
 pub use voxel_world::VoxelWorld;
 
-mod chunk_manager;
+mod chunk_data_manager;
 mod face_manager;
+mod gpu_data;
 mod material;
 mod voxel_world;
 

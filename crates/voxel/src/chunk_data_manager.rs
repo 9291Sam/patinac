@@ -1,38 +1,44 @@
-use std::collections::{HashMap, VecDeque};
-use std::sync::{Arc, Mutex};
+use std::collections::VecDeque;
+use std::sync::Arc;
 
 use bytemuck::{AnyBitPattern, NoUninit};
-use dashmap::DashMap;
 use gfx::{glm, wgpu};
 
-use crate::{get_world_position_from_chunk, ChunkCoordinate};
+use crate::{get_world_position_from_chunk, gpu_data, ChunkCoordinate};
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct ChunkId(pub(crate) u16);
 
-pub(crate) struct ChunkManager
+pub(crate) struct ChunkDataManager
 {
-    chunk_id_allocator: util::FreelistAllocator,
-    chunk_pos_id_map:   ChunkCoordinateToIdMap, // HashMap<ChunkCoordinate, ChunkId>,
+    chunk_pos_id_map: ChunkCoordinateToIdMap,
 
-    chunk_data: gfx::CpuTrackedBuffer<GpuChunkData> // TODO: brick map stuff
+    chunk_id_allocator: util::FreelistAllocator,
+    chunk_meta_data:    gfx::CpuTrackedBuffer<gpu_data::ChunkMetaData>,
+    chunk_brick_map:    gfx::CpuTrackedBuffer<gpu_data::BrickMap>
 }
 
-impl ChunkManager
+impl ChunkDataManager
 {
     pub fn new(renderer: Arc<gfx::Renderer>) -> Self
     {
         let max_valid_id = u16::MAX - 1;
 
-        ChunkManager {
-            chunk_data:         gfx::CpuTrackedBuffer::new(
+        ChunkDataManager {
+            chunk_pos_id_map:   ChunkCoordinateToIdMap::new(),
+            chunk_id_allocator: util::FreelistAllocator::new(max_valid_id as usize),
+            chunk_meta_data:    gfx::CpuTrackedBuffer::new(
                 renderer.clone(),
                 max_valid_id as usize,
                 String::from("Chunk Data Buffer"),
                 wgpu::BufferUsages::STORAGE
             ),
-            chunk_pos_id_map:   ChunkCoordinateToIdMap::new(),
-            chunk_id_allocator: util::FreelistAllocator::new(max_valid_id as usize)
+            chunk_brick_map:    gfx::CpuTrackedBuffer::new(
+                renderer.clone(),
+                16,
+                String::from("ChunkBrickManager BrickMap Buffer"),
+                wgpu::BufferUsages::STORAGE
+            )
         }
     }
 
@@ -57,9 +63,9 @@ impl ChunkManager
                 .expect("Tried to allocate too many chunks") as u16
         );
 
-        self.chunk_data.write(
+        self.chunk_meta_data.write(
             new_id.0 as usize,
-            GpuChunkData {
+            gpu_data::ChunkMetaData {
                 position: glm::vec3_to_vec4(&get_world_position_from_chunk(chunk_coord).0.cast()),
                 scale:    glm::vec3_to_vec4(&glm::Vec3::new(1.0, 1.0, 1.0))
             }
@@ -75,21 +81,13 @@ impl ChunkManager
 
     pub fn get_buffer<R>(&self, buf_access_func: impl FnOnce(&wgpu::Buffer) -> R) -> R
     {
-        self.chunk_data.get_buffer(buf_access_func)
+        self.chunk_meta_data.get_buffer(buf_access_func)
     }
 
     pub(crate) fn replicate_to_gpu(&mut self) -> bool
     {
-        self.chunk_data.replicate_to_gpu()
+        self.chunk_meta_data.replicate_to_gpu()
     }
-}
-
-#[repr(C)]
-#[derive(Clone, Copy, AnyBitPattern, NoUninit, Debug)]
-struct GpuChunkData
-{
-    position: glm::Vec4,
-    scale:    glm::Vec4
 }
 
 struct ChunkCoordinateToIdMap

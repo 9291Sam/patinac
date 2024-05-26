@@ -2,6 +2,7 @@
 #![feature(hasher_prefixfree_extras)]
 #![feature(map_try_insert)]
 #![feature(get_many_mut)]
+#![feature(new_uninit)]
 #![allow(clippy::type_complexity)]
 
 mod cpu_tracked_buffer;
