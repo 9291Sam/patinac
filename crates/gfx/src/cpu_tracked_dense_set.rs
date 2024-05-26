@@ -1,10 +1,8 @@
 use std::fmt::Debug;
 use std::hash::Hash;
-use std::num::NonZero;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex, Once, RwLock};
+use std::sync::{Arc, Mutex};
 
-use bytemuck::{cast_slice, AnyBitPattern, Contiguous, NoUninit};
+use bytemuck::{AnyBitPattern, NoUninit};
 use util::NoElementContained;
 
 use crate::Renderer;

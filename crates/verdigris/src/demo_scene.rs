@@ -29,30 +29,42 @@ impl DemoScene
         util::run_async(move || {
             let mut rng = rand::rngs::SmallRng::seed_from_u64(238902348902348);
 
-            for (x, y, z) in iproduct!(-127..0, 0..127, 0..127)
-            {
-                c_dm.insert_voxel(
+            let it = iproduct!(-127..0, 0..127, 0..127).map(|(x, y, z)| {
+                (
                     WorldPosition(glm::I32Vec3::new(x, y, z)),
                     rng.gen_range(0..=18).try_into().unwrap()
-                );
-            }
+                )
+            });
 
-            let data = dot_vox::load_bytes(include_bytes!("../../../room.vox")).unwrap();
+            c_dm.insert_many_voxel(it);
 
-            let dot_vox::Size {
-                x,
-                y,
-                z
-            } = data.models[0].size;
+            // for (x, y, z) in
+            // {
+            //     c_dm.insert_voxel(
+            //         ,
+
+            //     );
+            // }
+
+            // let data =
+            // dot_vox::load_bytes(include_bytes!("../../../room.vox")).
+            // unwrap();
+
+            // let dot_vox::Size {
+            //     x,
+            //     y,
+            //     z
+            // } = data.models[0].size;
 
             // for (xx, yy, zz) in iproduct!(0..3, 0..3, 0..3)
             // {
             //     load_model_from_file_into(
-            //         glm::I32Vec3::new(xx * x as i32 + 1, yy * z as i32 + 1, zz * y as i32
+            //         glm::I32Vec3::new(xx * x as i32 + 1, yy * z as i32 + 1,
+            // zz * y as i32
             // + 1),         &c_dm, &data );
             // }
 
-            arbitrary_landscape_demo(&c_dm)
+            // arbitrary_landscape_demo(&c_dm)
         })
         .detach();
 
