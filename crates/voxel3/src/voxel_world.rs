@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::fmt::Debug;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU32, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 use bytemuck::bytes_of;
@@ -32,7 +32,9 @@ pub struct VoxelWorld
 
     uuid: util::Uuid,
 
-    face_manager:     FaceManager,
+    estimate_number_of_visible_faces: AtomicU32,
+
+    face_manager:     Mutex<FaceManager>,
     chunk_manager:    Mutex<ChunkManager>,
     material_manager: MaterialManager,
     world_voxel_list: Mutex<BTreeMap<WorldPosition, RefCell<[Option<FaceId>; 6]>>>
@@ -137,8 +139,8 @@ impl VoxelWorld
             .cache_shader_module(include_wgsl!("voxel_world.wgsl"));
 
         let this = Arc::new(Self {
-            game: game.clone(),
-            pipeline: renderer.render_cache.cache_render_pipeline(
+            game:                             game.clone(),
+            pipeline:                         renderer.render_cache.cache_render_pipeline(
                 CacheableRenderPipelineDescriptor {
                     label: Cow::Borrowed("Voxel Manager Pipeline"),
                     layout: Some(pipeline_layout),
@@ -178,19 +180,20 @@ impl VoxelWorld
                     multiview: None
                 }
             ),
-            bind_group_layout: bind_group_layout.clone(),
-            bind_group: Mutex::new(Self::generate_bind_group(
+            bind_group_layout:                bind_group_layout.clone(),
+            bind_group:                       Mutex::new(Self::generate_bind_group(
                 &renderer,
                 &bind_group_layout.clone(),
                 &face_manager,
                 &voxel_chunk_manager,
                 &mat_manager
             )),
-            chunk_manager: Mutex::new(voxel_chunk_manager),
-            material_manager: mat_manager,
-            uuid: util::Uuid::new(),
-            face_manager,
-            world_voxel_list: Mutex::new(BTreeMap::new())
+            chunk_manager:                    Mutex::new(voxel_chunk_manager),
+            material_manager:                 mat_manager,
+            uuid:                             util::Uuid::new(),
+            face_manager:                     Mutex::new(face_manager),
+            world_voxel_list:                 Mutex::new(BTreeMap::new()),
+            estimate_number_of_visible_faces: AtomicU32::new(0)
         });
 
         renderer.register(this.clone());
@@ -202,9 +205,13 @@ impl VoxelWorld
     {
         let mut world_voxels = self.world_voxel_list.lock().unwrap();
         let mut chunk_manager = self.chunk_manager.lock().unwrap();
+        let mut face_manager = self.face_manager.lock().unwrap();
 
         for (world_pos, voxel) in it.into_iter()
         {
+            self.estimate_number_of_visible_faces
+                .store(face_manager.get_number_of_faces(), Ordering::Relaxed);
+
             let (chunk_coordinate, chunk_position) = get_chunk_position_from_world(world_pos);
 
             let chunk_id = chunk_manager.get_or_insert_chunk(chunk_coordinate);
@@ -232,7 +239,7 @@ impl VoxelWorld
                                 [adjacent_voxel_face_direction as usize]
                                 .take()
                             {
-                                self.face_manager.remove_face(conflicting_face);
+                                face_manager.remove_face(conflicting_face);
                                 // and don't add this face
                             }
                             else
@@ -250,7 +257,7 @@ impl VoxelWorld
                         None =>
                         {
                             this_faces_refcell.borrow_mut()[d as usize] =
-                                Some(self.face_manager.insert_face(GpuFaceData::new(
+                                Some(face_manager.insert_face(GpuFaceData::new(
                                     voxel as u16,
                                     chunk_id,
                                     chunk_position.0,
@@ -279,7 +286,8 @@ impl VoxelWorld
 
         let mut bind_group = self.bind_group.lock().unwrap();
 
-        let chunk_manager = match self.chunk_manager.try_lock()
+        // TODO: fix this lol
+        let mut chunk_manager = match self.chunk_manager.try_lock()
         {
             Ok(g) => g,
             Err(e) =>
@@ -292,7 +300,20 @@ impl VoxelWorld
             }
         };
 
-        needs_resize |= self.face_manager.replicate_to_gpu();
+        let mut face_manager = match self.face_manager.try_lock()
+        {
+            Ok(g) => g,
+            Err(e) =>
+            {
+                match e
+                {
+                    std::sync::TryLockError::Poisoned(_) => panic!(),
+                    std::sync::TryLockError::WouldBlock => return bind_group.clone()
+                }
+            }
+        };
+
+        needs_resize |= face_manager.replicate_to_gpu();
         needs_resize |= chunk_manager.replicate_to_gpu();
 
         if needs_resize
@@ -300,7 +321,7 @@ impl VoxelWorld
             *bind_group = Self::generate_bind_group(
                 self.game.get_renderer(),
                 &self.bind_group_layout,
-                &self.face_manager,
+                &face_manager,
                 &chunk_manager,
                 &self.material_manager
             );
@@ -327,7 +348,7 @@ impl VoxelWorld
 
                     Arc::new(renderer.create_bind_group(&wgpu::BindGroupDescriptor {
                         label:   Some("Voxel Manager Bind Group"),
-                        layout:  &bind_group_layout,
+                        layout:  bind_group_layout,
                         entries: &[
                             wgpu::BindGroupEntry {
                                 binding:  0,
@@ -404,11 +425,26 @@ impl gfx::Recordable for VoxelWorld
             unreachable!()
         };
 
-        let faces = self.face_manager.get_number_of_faces();
+        let face_manager_faces = match self.face_manager.try_lock()
+        {
+            Ok(g) => g.get_number_of_faces(),
+            Err(e) =>
+            {
+                match e
+                {
+                    std::sync::TryLockError::Poisoned(_) => panic!(),
+                    std::sync::TryLockError::WouldBlock =>
+                    {
+                        self.estimate_number_of_visible_faces
+                            .load(Ordering::Relaxed)
+                    }
+                }
+            }
+        };
 
-        NUMBER_OF_VISIBLE_FACES.store(faces as usize, Ordering::Relaxed);
+        NUMBER_OF_VISIBLE_FACES.store(face_manager_faces as usize, Ordering::Relaxed);
 
         pass.set_push_constants(wgpu::ShaderStages::VERTEX, 0, bytes_of(&id));
-        pass.draw(0..(faces * 6), 0..1);
+        pass.draw(0..(face_manager_faces * 6), 0..1);
     }
 }

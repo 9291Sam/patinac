@@ -11,7 +11,7 @@ pub struct CpuTrackedDenseSet<T: AnyBitPattern + NoUninit + Hash + Eq + Debug>
 {
     // TODO: inline this struct and remove the cpu side duplication
     gpu_buffer: crate::CpuTrackedBuffer<T>,
-    dense_set:  Mutex<util::DenseSet<T>>
+    dense_set:  util::DenseSet<T>
 }
 
 impl<T: AnyBitPattern + NoUninit + Hash + Eq + Debug> CpuTrackedDenseSet<T>
@@ -30,23 +30,23 @@ impl<T: AnyBitPattern + NoUninit + Hash + Eq + Debug> CpuTrackedDenseSet<T>
                 name,
                 buffer_usage
             ),
-            dense_set:  Mutex::new(util::DenseSet::new())
+            dense_set:  util::DenseSet::new()
         }
     }
 
-    pub fn insert(&self, t: T) -> Option<T>
+    pub fn insert(&mut self, t: T) -> Option<T>
     {
-        self.dense_set.lock().unwrap().insert(t)
+        self.dense_set.insert(t)
     }
 
-    pub fn remove(&self, t: T) -> Result<(), NoElementContained>
+    pub fn remove(&mut self, t: T) -> Result<(), NoElementContained>
     {
-        self.dense_set.lock().unwrap().remove(t)
+        self.dense_set.remove(t)
     }
 
     pub fn get_number_of_elements(&self) -> usize
     {
-        self.dense_set.lock().unwrap().to_dense_elements().len()
+        self.dense_set.to_dense_elements().len()
     }
 
     pub fn get_buffer<R>(&self, buf_access_func: impl FnOnce(&wgpu::Buffer) -> R) -> R
@@ -56,18 +56,16 @@ impl<T: AnyBitPattern + NoUninit + Hash + Eq + Debug> CpuTrackedDenseSet<T>
 
     #[must_use]
     // returns whether or not a resize of the gpu-internal buffer ocurred
-    pub fn replicate_to_gpu(&self) -> bool
+    pub fn replicate_to_gpu(&mut self) -> bool
     {
-        let dense_set = self.dense_set.lock().unwrap();
-        let dense_set_data = dense_set.to_dense_elements();
+        let dense_set_data = self.dense_set.to_dense_elements();
 
         if dense_set_data.len() > self.gpu_buffer.get_cpu_len()
         {
             self.gpu_buffer.realloc(dense_set_data.len() * 2);
         }
 
-        dense_set
-            .to_dense_elements()
+        dense_set_data
             .iter()
             .enumerate()
             .for_each(|(idx, t)| self.gpu_buffer.write_eq_testing(idx, *t));

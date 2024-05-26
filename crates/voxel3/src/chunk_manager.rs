@@ -74,7 +74,7 @@ impl ChunkManager
         self.chunk_data.get_buffer(buf_access_func)
     }
 
-    pub(crate) fn replicate_to_gpu(&self) -> bool
+    pub(crate) fn replicate_to_gpu(&mut self) -> bool
     {
         self.chunk_data.replicate_to_gpu()
     }

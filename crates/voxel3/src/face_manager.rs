@@ -9,7 +9,7 @@ use crate::WorldPosition;
 
 pub(crate) struct FaceManager
 {
-    face_id_allocator: Mutex<util::FreelistAllocator>,
+    face_id_allocator: util::FreelistAllocator,
     face_id_buffer:    gfx::CpuTrackedDenseSet<u32>,
     face_data_buffer:  gfx::CpuTrackedBuffer<GpuFaceData>
 }
@@ -44,7 +44,7 @@ impl FaceManager
         );
 
         FaceManager {
-            face_id_allocator: Mutex::new(util::FreelistAllocator::new(INITIAL_SIZE)),
+            face_id_allocator: util::FreelistAllocator::new(INITIAL_SIZE),
             face_id_buffer:    id_buffer,
             face_data_buffer:  data_buffer
         }
@@ -53,21 +53,19 @@ impl FaceManager
     // no chunks for now, just one global chunk
 
     #[must_use]
-    pub fn insert_face(&self, face: GpuFaceData) -> FaceId
+    pub fn insert_face(&mut self, face: GpuFaceData) -> FaceId
     {
-        let mut face_id_allocator = self.face_id_allocator.lock().unwrap();
-
-        let new_face_id = if let Ok(id) = face_id_allocator.allocate()
+        let new_face_id = if let Ok(id) = self.face_id_allocator.allocate()
         {
             id
         }
         else
         {
-            let realloc_size = face_id_allocator.get_total_blocks() * 3 / 2;
-            face_id_allocator.extend_size(realloc_size);
+            let realloc_size = self.face_id_allocator.get_total_blocks() * 3 / 2;
+            self.face_id_allocator.extend_size(realloc_size);
             self.face_data_buffer.realloc(realloc_size);
 
-            face_id_allocator.allocate().unwrap()
+            self.face_id_allocator.allocate().unwrap()
         };
 
         self.face_id_buffer.insert(new_face_id as u32);
@@ -77,11 +75,9 @@ impl FaceManager
         FaceId(new_face_id as u32)
     }
 
-    pub fn remove_face(&self, face_id: FaceId)
+    pub fn remove_face(&mut self, face_id: FaceId)
     {
-        let mut allocator = self.face_id_allocator.lock().unwrap();
-
-        unsafe { allocator.free(face_id.0 as usize) };
+        unsafe { self.face_id_allocator.free(face_id.0 as usize) };
 
         self.face_id_buffer.remove(face_id.0);
     }
@@ -98,12 +94,11 @@ impl FaceManager
         })
     }
 
-    pub fn replicate_to_gpu(&self) -> bool
+    pub fn replicate_to_gpu(&mut self) -> bool
     {
         let mut needs_resize = false;
 
         needs_resize |= self.face_id_buffer.replicate_to_gpu();
-        std::hint::black_box(needs_resize);
         needs_resize |= self.face_data_buffer.replicate_to_gpu();
 
         needs_resize
