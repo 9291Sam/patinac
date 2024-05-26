@@ -17,6 +17,7 @@ const CHUNK_EDGE_LEN_BRICKS: usize = CHUNK_EDGE_LEN_VOXELS / BRICK_EDGE_LEN_VOXE
 const BRICK_TOTAL_VOXELS: usize = BRICK_EDGE_LEN_VOXELS.pow(3);
 const VISIBILITY_BRICK_U32S_REQUIRED: usize = BRICK_TOTAL_VOXELS / u32::BITS as usize;
 
+#[allow(clippy::assertions_on_constants)]
 const _: () =
     const { assert!(CHUNK_EDGE_LEN_BRICKS * BRICK_EDGE_LEN_VOXELS == CHUNK_EDGE_LEN_VOXELS) };
 const _: () =
@@ -25,7 +26,7 @@ const _: () =
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct WorldPosition(pub glm::I32Vec3);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) struct ChunkCoordinate(pub glm::I32Vec3);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Hash)]
@@ -56,6 +57,24 @@ impl Ord for WorldPosition
 }
 
 impl PartialOrd for WorldPosition
+{
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering>
+    {
+        Some(self.cmp(other))
+    }
+}
+impl Ord for ChunkCoordinate
+{
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering
+    {
+        std::cmp::Ordering::Equal
+            .then(self.0.x.cmp(&other.0.x))
+            .then(self.0.y.cmp(&other.0.y))
+            .then(self.0.z.cmp(&other.0.z))
+    }
+}
+
+impl PartialOrd for ChunkCoordinate
 {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering>
     {

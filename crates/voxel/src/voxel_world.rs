@@ -257,7 +257,7 @@ impl VoxelWorld
                             this_faces_refcell.borrow_mut()[d as usize] =
                                 Some(face_manager.insert_face(GpuFaceData::new(
                                     voxel as u16,
-                                    chunk_id.0 as u16,
+                                    chunk_id.0,
                                     chunk_position.0,
                                     d
                                 )));
