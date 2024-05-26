@@ -84,6 +84,19 @@ impl<T: AnyBitPattern + NoUninit + Debug> CpuTrackedBuffer<T>
         k
     }
 
+    /// # Safety
+    ///
+    /// Calling this method with overlapping or out-of-bounds indices is
+    /// undefined behavior even if the resulting references are not used.
+    pub unsafe fn access_many_unchecked_mut<const N: usize, K>(
+        &mut self,
+        indices: [usize; N],
+        access_func: impl FnOnce([&mut T; N]) -> K
+    ) -> K
+    {
+        access_func(self.cpu_data.get_many_unchecked_mut(indices))
+    }
+
     pub fn write(&mut self, index: usize, t: T)
     {
         self.flush_list.push(index as u64);

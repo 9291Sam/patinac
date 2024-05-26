@@ -1,6 +1,7 @@
 #![feature(lazy_cell)]
 #![feature(hasher_prefixfree_extras)]
 #![feature(map_try_insert)]
+#![feature(get_many_mut)]
 #![allow(clippy::type_complexity)]
 
 mod cpu_tracked_buffer;
