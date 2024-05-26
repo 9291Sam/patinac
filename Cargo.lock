@@ -1500,7 +1500,6 @@ dependencies = [
  "util",
  "verdigris",
  "voxel",
- "voxel3",
 ]
 
 [[package]]
@@ -2318,7 +2317,7 @@ dependencies = [
  "rand",
  "spiral",
  "util",
- "voxel3",
+ "voxel",
 ]
 
 [[package]]
@@ -2332,19 +2331,6 @@ name = "voxel"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
- "game",
- "gfx",
- "itertools",
- "log",
- "rand",
- "util",
-]
-
-[[package]]
-name = "voxel3"
-version = "0.1.0"
-dependencies = [
- "bytemuck",
  "dashmap",
  "game",
  "gfx",
@@ -2352,21 +2338,6 @@ dependencies = [
  "log",
  "num_enum",
  "rand",
- "util",
-]
-
-[[package]]
-name = "voxel4"
-version = "0.1.0"
-dependencies = [
- "bytemuck",
- "game",
- "gfx",
- "itertools",
- "log",
- "num_enum",
- "rand",
- "smallvec",
  "util",
 ]
 

@@ -50,8 +50,6 @@ impl Debug for VoxelWorld
 
 impl VoxelWorld
 {
-    // insert remove voxels
-
     pub fn new(game: Arc<game::Game>) -> Arc<Self>
     {
         let renderer = game.get_renderer();
@@ -274,11 +272,7 @@ impl VoxelWorld
         }
     }
 
-    #[deprecated]
-    pub fn insert_voxel(&self, world_pos: WorldPosition, voxel: Voxel)
-    {
-        self.insert_many_voxel([(world_pos, voxel)])
-    }
+    // TODO: remove voxel
 
     fn get_bind_group(&self) -> Arc<wgpu::BindGroup>
     {

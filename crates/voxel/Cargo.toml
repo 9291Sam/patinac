@@ -11,3 +11,5 @@ rand = { workspace = true }
 bytemuck = { workspace = true }
 game = { workspace = true }
 log = { workspace = true }
+num_enum = { workspace = true }
+dashmap = { workspace = true }

@@ -8,11 +8,11 @@ use gfx::wgpu;
 use itertools::iproduct;
 use noise::NoiseFn;
 use rand::{Rng, SeedableRng};
-use voxel3::{VoxelWorld, WorldPosition};
+use voxel::{VoxelWorld, WorldPosition};
 #[derive(Debug)]
 pub struct DemoScene
 {
-    dm: Arc<voxel3::VoxelWorld>,
+    dm: Arc<voxel::VoxelWorld>,
     id: util::Uuid // future: Mutex<util::Promise<()>>
 }
 
@@ -20,8 +20,6 @@ impl DemoScene
 {
     pub fn new(game: Arc<game::Game>) -> Arc<Self>
     {
-        let noise_generator = noise::SuperSimplex::new(3478293422);
-
         let dm = VoxelWorld::new(game.clone());
 
         let c_dm = dm.clone();
@@ -37,40 +35,12 @@ impl DemoScene
             });
 
             c_dm.insert_many_voxel(it);
-
-            // for (x, y, z) in
-            // {
-            //     c_dm.insert_voxel(
-            //         ,
-
-            //     );
-            // }
-
-            // let data =
-            // dot_vox::load_bytes(include_bytes!("../../../room.vox")).
-            // unwrap();
-
-            // let dot_vox::Size {
-            //     x,
-            //     y,
-            //     z
-            // } = data.models[0].size;
-
-            // for (xx, yy, zz) in iproduct!(0..3, 0..3, 0..3)
-            // {
-            //     load_model_from_file_into(
-            //         glm::I32Vec3::new(xx * x as i32 + 1, yy * z as i32 + 1,
-            // zz * y as i32
-            // + 1),         &c_dm, &data );
-            // }
-
-            // arbitrary_landscape_demo(&c_dm)
         })
         .detach();
 
         let this = Arc::new(DemoScene {
             dm: dm.clone(),
-            id: util::Uuid::new() // future: Mutex::new(future.into())
+            id: util::Uuid::new()
         });
 
         game.register(this.clone());
@@ -117,31 +87,24 @@ impl game::Entity for DemoScene
 
 fn load_model_from_file_into(world_offset: glm::I32Vec3, dm: &VoxelWorld, data: &DotVoxData)
 {
-    let voxels: HashMap<glm::U8Vec3, u8> = data.models[0]
-        .voxels
-        .iter()
-        .map(|mv| (glm::U8Vec3::new(mv.x, mv.y, mv.z), mv.i))
-        .collect::<HashMap<_, _>>();
-
-    for (pos, _) in voxels.iter()
-    {
-        let pos = pos.xzy();
-
-        dm.insert_voxel(
-            WorldPosition(pos.cast() + world_offset),
+    let it = data.models[0].voxels.iter().map(|pos| {
+        (
+            WorldPosition(glm::U8Vec3::new(pos.x, pos.y, pos.z).cast() + world_offset),
             ((pos.x % 3 + pos.y % 4 + pos.z % 7) as u16)
                 .try_into()
                 .unwrap()
-        );
-    }
+        )
+    });
+
+    dm.insert_many_voxel(it);
 }
 
 fn arbitrary_landscape_demo(dm: &VoxelWorld)
 {
     let noise = noise::OpenSimplex::new(2384247834);
 
-    spiral::ChebyshevIterator::new(0, 0, 512).for_each(|(x, z)| {
-        dm.insert_voxel(
+    let it = spiral::ChebyshevIterator::new(0, 0, 512).map(|(x, z)| {
+        (
             WorldPosition(glm::I32Vec3::new(
                 x,
                 (noise.get([x as f64 / 256.0, z as f64 / 256.0]) * 256.0) as i32,
@@ -149,5 +112,7 @@ fn arbitrary_landscape_demo(dm: &VoxelWorld)
             )),
             rand::thread_rng().gen_range(1..=8).try_into().unwrap()
         )
-    })
+    });
+
+    dm.insert_many_voxel(it);
 }
