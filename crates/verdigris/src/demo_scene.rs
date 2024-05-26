@@ -1,10 +1,8 @@
 use std::borrow::Cow;
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use dot_vox::DotVoxData;
 use gfx::glm::{self};
-use gfx::wgpu;
 use itertools::iproduct;
 use noise::NoiseFn;
 use rand::{Rng, SeedableRng};
@@ -35,6 +33,18 @@ impl DemoScene
             });
 
             c_dm.insert_many_voxel(it);
+
+            std::thread::sleep_ms(10);
+
+            load_model_from_file_into(
+                glm::I32Vec3::new(0, 126, 0),
+                &c_dm,
+                &dot_vox::load_bytes(include_bytes!("../../../menger.vox")).unwrap()
+            );
+
+            std::thread::sleep_ms(10);
+
+            arbitrary_landscape_demo(&c_dm);
         })
         .detach();
 

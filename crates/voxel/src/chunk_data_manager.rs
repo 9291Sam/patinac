@@ -20,7 +20,11 @@ pub(crate) struct ChunkDataManager
 
     chunk_id_allocator: util::FreelistAllocator,
     chunk_meta_data:    gfx::CpuTrackedBuffer<gpu_data::ChunkMetaData>,
-    chunk_brick_map:    gfx::CpuTrackedBuffer<gpu_data::BrickMap>
+    chunk_brick_map:    gfx::CpuTrackedBuffer<gpu_data::BrickMap>,
+
+    brick_ptr_allocator:     util::FreelistAllocator,
+    visibility_brick_buffer: gfx::CpuTrackedBuffer<gpu_data::VisibilityBrick>,
+    material_brick_buffer:   gfx::CpuTrackedBuffer<gpu_data::MaterialBrick>
 }
 
 impl ChunkDataManager
@@ -30,18 +34,31 @@ impl ChunkDataManager
         let max_valid_id = u16::MAX - 1;
 
         ChunkDataManager {
-            chunk_pos_id_map:   ChunkCoordinateToIdMap::new(),
-            chunk_id_allocator: util::FreelistAllocator::new(max_valid_id as usize),
-            chunk_meta_data:    gfx::CpuTrackedBuffer::new(
+            chunk_pos_id_map:        ChunkCoordinateToIdMap::new(),
+            chunk_id_allocator:      util::FreelistAllocator::new(max_valid_id as usize),
+            chunk_meta_data:         gfx::CpuTrackedBuffer::new(
                 renderer.clone(),
                 max_valid_id as usize,
                 String::from("Chunk Data Buffer"),
                 wgpu::BufferUsages::STORAGE
             ),
-            chunk_brick_map:    gfx::CpuTrackedBuffer::new(
+            chunk_brick_map:         gfx::CpuTrackedBuffer::new(
                 renderer.clone(),
                 16,
                 String::from("ChunkBrickManager BrickMap Buffer"),
+                wgpu::BufferUsages::STORAGE
+            ),
+            brick_ptr_allocator:     util::FreelistAllocator::new(2usize.pow(22)),
+            visibility_brick_buffer: gfx::CpuTrackedBuffer::new(
+                renderer.clone(),
+                32768,
+                String::from("ChunkBrickManager VisibilityBrick Buffer"),
+                wgpu::BufferUsages::STORAGE
+            ),
+            material_brick_buffer:   gfx::CpuTrackedBuffer::new(
+                renderer.clone(),
+                32768,
+                String::from("ChunkBrickManager MaterialBrick Buffer"),
                 wgpu::BufferUsages::STORAGE
             )
         }
