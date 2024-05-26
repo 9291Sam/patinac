@@ -1,5 +1,5 @@
-use std::collections::VecDeque;
-use std::sync::Arc;
+use std::collections::{HashSet, VecDeque};
+use std::sync::{Arc, Mutex};
 
 use bytemuck::{AnyBitPattern, NoUninit};
 use gfx::{glm, wgpu};
@@ -77,7 +77,7 @@ impl ChunkDataManager
 
     pub fn insert_chunk_at(&mut self, chunk_coord: ChunkCoordinate) -> ChunkId
     {
-        debug_assert!(self.get_chunk_id(chunk_coord).is_none());
+        assert!(self.get_chunk_id(chunk_coord).is_none());
 
         let new_id = ChunkId(
             self.chunk_id_allocator
@@ -93,12 +93,39 @@ impl ChunkDataManager
             }
         );
 
+        self.chunk_brick_map
+            .access_mut(new_id.0 as usize, |brick_map: &mut gpu_data::BrickMap| {
+                brick_map.null_all_ptrs();
+            });
+
         self.chunk_pos_id_map
             .insert(chunk_coord, new_id)
             .ok_or::<()>(())
             .unwrap_err();
 
         new_id
+    }
+
+    pub fn delete_chunk_at(&mut self, chunk_coord: ChunkCoordinate, id: ChunkId)
+    {
+        assert_eq!(self.get_chunk_id(chunk_coord), Some(id));
+
+        unsafe { self.chunk_id_allocator.free(id.0 as usize) };
+
+        self.chunk_brick_map
+            .access_mut(id.0 as usize, |brick_map: &mut gpu_data::BrickMap| {
+                brick_map
+                    .brick_map
+                    .iter()
+                    .flatten()
+                    .flatten()
+                    .for_each(|maybe_ptr| {
+                        if let Some(ptr) = maybe_ptr.to_option()
+                        {
+                            unsafe { self.brick_ptr_allocator.free(ptr.0 as usize) }
+                        }
+                    });
+            });
     }
 
     pub fn get_buffer<R>(&self, buf_access_func: impl FnOnce(&wgpu::Buffer) -> R) -> R
