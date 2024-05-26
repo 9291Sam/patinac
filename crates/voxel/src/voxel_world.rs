@@ -18,7 +18,7 @@ use crate::face_manager::{
     VoxelFaceDirection
 };
 use crate::material::{MaterialManager, Voxel};
-use crate::{get_chunk_position_from_world, WorldPosition};
+use crate::{world_position_to_chunk_position, WorldPosition};
 
 #[no_mangle]
 static NUMBER_OF_VISIBLE_FACES: AtomicUsize = AtomicUsize::new(0);
@@ -210,7 +210,7 @@ impl VoxelWorld
             self.estimate_number_of_visible_faces
                 .store(face_manager.get_number_of_faces(), Ordering::Relaxed);
 
-            let (chunk_coordinate, chunk_position) = get_chunk_position_from_world(world_pos);
+            let (chunk_coordinate, chunk_position) = world_position_to_chunk_position(world_pos);
 
             let chunk_id = chunk_manager.get_or_insert_chunk(chunk_coordinate);
 

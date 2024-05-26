@@ -4,7 +4,12 @@ use std::sync::Arc;
 use bytemuck::{AnyBitPattern, NoUninit};
 use gfx::{glm, wgpu};
 
-use crate::{get_world_position_from_chunk, gpu_data, ChunkCoordinate};
+use crate::{
+    get_world_offset_of_chunk,
+    gpu_data,
+    world_position_to_chunk_position,
+    ChunkCoordinate
+};
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct ChunkId(pub(crate) u16);
@@ -66,7 +71,7 @@ impl ChunkDataManager
         self.chunk_meta_data.write(
             new_id.0 as usize,
             gpu_data::ChunkMetaData {
-                position: glm::vec3_to_vec4(&get_world_position_from_chunk(chunk_coord).0.cast()),
+                position: glm::vec3_to_vec4(&get_world_offset_of_chunk(chunk_coord).0.cast()),
                 scale:    glm::vec3_to_vec4(&glm::Vec3::new(1.0, 1.0, 1.0))
             }
         );

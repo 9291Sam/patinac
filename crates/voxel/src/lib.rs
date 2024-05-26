@@ -84,17 +84,39 @@ impl PartialOrd for ChunkCoordinate
     }
 }
 
-pub(crate) fn get_chunk_position_from_world(
+pub(crate) fn world_position_to_chunk_position(
     WorldPosition(world_pos): WorldPosition
 ) -> (ChunkCoordinate, ChunkLocalPosition)
 {
     (
-        ChunkCoordinate(world_pos.map(|w| w.div_euclid(512))),
-        ChunkLocalPosition(world_pos.map(|w| w.rem_euclid(512)).try_cast().unwrap())
+        ChunkCoordinate(world_pos.map(|x| x.div_euclid(CHUNK_EDGE_LEN_VOXELS as i32))),
+        ChunkLocalPosition(
+            world_pos
+                .map(|x| x.rem_euclid(CHUNK_EDGE_LEN_VOXELS as i32))
+                .try_cast()
+                .unwrap()
+        )
     )
 }
 
-pub(crate) fn get_world_position_from_chunk(chunk_coord: ChunkCoordinate) -> WorldPosition
+pub(crate) fn get_world_offset_of_chunk(
+    ChunkCoordinate(chunk_coordinate): ChunkCoordinate
+) -> WorldPosition
 {
-    WorldPosition(chunk_coord.0.map(|p| p * 512).cast())
+    WorldPosition(chunk_coordinate.map(|x| x * CHUNK_EDGE_LEN_VOXELS as i32))
+}
+
+pub(crate) fn chunk_local_position_to_brick_position(
+    ChunkLocalPosition(local_chunk_pos): ChunkLocalPosition
+) -> (BrickCoordinate, BrickLocalPosition)
+{
+    (
+        BrickCoordinate(local_chunk_pos.map(|x| x.div_euclid(BRICK_EDGE_LEN_VOXELS as u16))),
+        BrickLocalPosition(
+            local_chunk_pos
+                .map(|x| x.rem_euclid(BRICK_EDGE_LEN_VOXELS as u16))
+                .try_cast()
+                .unwrap()
+        )
+    )
 }
