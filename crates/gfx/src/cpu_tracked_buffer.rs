@@ -22,6 +22,7 @@ pub struct CpuTrackedBuffer<T: AnyBitPattern + NoUninit + Debug>
 
 impl<T: AnyBitPattern + NoUninit + Debug> CpuTrackedBuffer<T>
 {
+    #[inline(always)]
     pub fn new(
         renderer: Arc<super::Renderer>,
         elements: usize,
@@ -48,36 +49,47 @@ impl<T: AnyBitPattern + NoUninit + Debug> CpuTrackedBuffer<T>
         }
     }
 
+    #[inline(always)]
     pub fn get_cpu_len(&self) -> usize
     {
         self.cpu_data.len()
     }
 
+    #[inline(always)]
     #[allow(clippy::clone_on_copy)]
     pub fn read_clone(&self, index: usize) -> T
     {
         self.cpu_data
             .get(index)
-            .expect("Out of Bounds access of CpuTrackedBuffer")
+            .unwrap_or_else(|| {
+                panic!(
+                    "Out of Bounds access of CpuTrackedBuffer {} / {}",
+                    index, self.buffer_len_elements
+                )
+            })
             .clone()
     }
 
+    #[inline(always)]
     pub fn access_ref<K>(&self, index: usize, access_func: impl FnOnce(&T) -> K) -> K
     {
-        access_func(
-            self.cpu_data
-                .get(index)
-                .expect("Out of Bounds access of CpuTrackedBuffer")
-        )
+        access_func(self.cpu_data.get(index).unwrap_or_else(|| {
+            panic!(
+                "Out of Bounds access of CpuTrackedBuffer {} / {}",
+                index, self.buffer_len_elements
+            )
+        }))
     }
 
+    #[inline(always)]
     pub fn access_mut<K>(&mut self, index: usize, access_func: impl FnOnce(&mut T) -> K) -> K
     {
-        let k = access_func(
-            self.cpu_data
-                .get_mut(index)
-                .expect("Out of Bounds access of CpuTrackedBuffer")
-        );
+        let k = access_func(self.cpu_data.get_mut(index).unwrap_or_else(|| {
+            panic!(
+                "Out of Bounds access of CpuTrackedBuffer {} / {}",
+                index, self.buffer_len_elements
+            )
+        }));
 
         self.flush_list.push(index as u64);
 
@@ -88,6 +100,7 @@ impl<T: AnyBitPattern + NoUninit + Debug> CpuTrackedBuffer<T>
     ///
     /// Calling this method with overlapping or out-of-bounds indices is
     /// undefined behavior even if the resulting references are not used.
+    #[inline(always)]
     pub unsafe fn access_many_unchecked_mut<const N: usize, K>(
         &mut self,
         indices: [usize; N],
@@ -97,6 +110,7 @@ impl<T: AnyBitPattern + NoUninit + Debug> CpuTrackedBuffer<T>
         access_func(self.cpu_data.get_many_unchecked_mut(indices))
     }
 
+    #[inline(always)]
     pub fn write(&mut self, index: usize, t: T)
     {
         self.flush_list.push(index as u64);
@@ -111,6 +125,7 @@ impl<T: AnyBitPattern + NoUninit + Debug> CpuTrackedBuffer<T>
         }) = t;
     }
 
+    #[inline(always)]
     pub fn realloc(&mut self, elements: usize)
     {
         self.cpu_data.resize_with(elements, T::zeroed);
@@ -118,11 +133,13 @@ impl<T: AnyBitPattern + NoUninit + Debug> CpuTrackedBuffer<T>
         self.needs_resize_flush = true;
     }
 
+    #[inline(always)]
     pub fn get_buffer<R>(&self, buf_access_func: impl FnOnce(&wgpu::Buffer) -> R) -> R
     {
         buf_access_func(&self.gpu_data)
     }
 
+    #[inline(always)]
     #[must_use]
     /// true if the buffer was recreated
     pub fn replicate_to_gpu(&mut self) -> bool

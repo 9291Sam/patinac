@@ -8,6 +8,9 @@ use num_format::{Locale, ToFormattedString};
 
 extern "C" {
     static NUMBER_OF_VISIBLE_FACES: AtomicUsize;
+    static NUMBER_OF_VISIBLE_BRICKS: AtomicUsize;
+    static NUMBER_OF_CHUNKS: AtomicUsize;
+
 }
 
 pub struct DebugMenu
@@ -181,6 +184,10 @@ impl gfx::Recordable for DebugMenu
 ╠═════════════════════╬═════════════╣
 ║    Faces Visible    ║ {:<11} ║
 ╠═════════════════════╬═════════════╣
+║   Chunks Allocated  ║ {:<11} ║
+╠═════════════════════╬═════════════╣
+║   Bricks Allocated  ║ {:<11} ║
+╠═════════════════════╬═════════════╣
 ║ Camera Position (x) ║ {:<11.3} ║
 ╠═════════════════════╬═════════════╣
 ║ Camera Position (y) ║ {:<11.3} ║
@@ -197,6 +204,10 @@ impl gfx::Recordable for DebugMenu
                     ),
                     unsafe { NUMBER_OF_VISIBLE_FACES.load(std::sync::atomic::Ordering::Relaxed) }
                         .to_formatted_string(&Locale::en),
+                    unsafe { NUMBER_OF_CHUNKS.load(std::sync::atomic::Ordering::Relaxed) }
+                        .to_formatted_string(&Locale::en),
+                    unsafe { NUMBER_OF_VISIBLE_BRICKS.load(std::sync::atomic::Ordering::Relaxed) }
+                        .to_formatted_string(&Locale::en),
                     camera.get_position().x,
                     camera.get_position().y,
                     camera.get_position().z,
@@ -209,6 +220,8 @@ impl gfx::Recordable for DebugMenu
 
                 (dim.x, dim.y)
             };
+
+            let framebuffer_size = renderer.get_framebuffer_size();
 
             text_renderer
                 .prepare(
@@ -228,8 +241,8 @@ impl gfx::Recordable for DebugMenu
                         bounds: glyphon::TextBounds {
                             left:   0,
                             top:    0,
-                            right:  600,
-                            bottom: 320
+                            right:  framebuffer_size.x as i32,
+                            bottom: framebuffer_size.y as i32
                         },
                         default_color: glyphon::Color::rgb(255, 255, 255)
                     }],

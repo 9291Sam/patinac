@@ -32,7 +32,7 @@ impl FreelistAllocator
         !self.free_blocks.is_empty() || self.next_free_block < self.total_blocks
     }
 
-    // (Free blocks , total blocks)
+    // (used blocks, total blocks)
     pub fn peek(&self) -> (usize, usize)
     {
         let used_blocks =

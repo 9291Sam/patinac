@@ -29,7 +29,8 @@ pub enum Voxel
     SilverMeta0,
     SilverMeta1,
     GoldMetal0,
-    GoldMetal1
+    GoldMetal1,
+    Air   = u16::MAX
 }
 
 unsafe impl Zeroable for Voxel {}
@@ -122,10 +123,13 @@ impl MaterialManager
     }
 }
 
+#[inline(never)]
+#[cold]
 fn get_material_from_voxel(v: Voxel) -> VoxelMaterial
 {
     match v
     {
+        Voxel::Air => get_material_from_voxel(Voxel::Error),
         Voxel::Error =>
         {
             VoxelMaterial {

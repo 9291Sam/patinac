@@ -79,7 +79,7 @@ impl FaceManager
     {
         unsafe { self.face_id_allocator.free(face_id.0 as usize) };
 
-        self.face_id_buffer.remove(face_id.0);
+        self.face_id_buffer.remove(face_id.0).unwrap();
     }
 
     pub fn access_buffers<K>(&self, func: impl FnOnce(FaceManagerBuffers) -> K) -> K

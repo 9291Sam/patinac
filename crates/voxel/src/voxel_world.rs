@@ -1,3 +1,4 @@
+use core::panic;
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
@@ -214,15 +215,23 @@ impl VoxelWorld
 
             let chunk_id = chunk_manager.get_or_insert_chunk(chunk_coordinate);
 
+            let maybe_prev_voxel = chunk_manager.insert_voxel(chunk_id, chunk_position, voxel);
+
+            let was_cell_already_occupied = !matches!(maybe_prev_voxel, Voxel::Air);
+
+            if !was_cell_already_occupied
+            {
+                world_voxels
+                    .insert(world_pos, RefCell::new([const { None }; 6]))
+                    .ok_or(())
+                    .unwrap_err();
+            }
+
             for d in VoxelFaceDirection::iterate()
             {
                 let adjacent_voxel_world_position =
                     WorldPosition(world_pos.0 + d.get_axis().cast());
                 let adjacent_voxel_face_direction = d.opposite();
-
-                let was_cell_already_occupied = world_voxels
-                    .try_insert(world_pos, RefCell::new([const { None }; 6]))
-                    .is_err();
 
                 let this_voxel_faces = world_voxels.get(&world_pos);
                 let adjacent_voxel_faces = world_voxels.get(&adjacent_voxel_world_position);
@@ -266,7 +275,7 @@ impl VoxelWorld
                 }
                 else
                 {
-                    unreachable!()
+                    panic!("No Voxel Faces were registered at {world_pos:?}")
                 }
             }
         }
