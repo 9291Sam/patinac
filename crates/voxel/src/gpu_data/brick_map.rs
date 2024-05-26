@@ -1,7 +1,6 @@
 use bytemuck::{AnyBitPattern, NoUninit, Pod, Zeroable};
 
-use crate::material::Voxel;
-use crate::{BRICK_EDGE_LEN_VOXELS, CHUNK_EDGE_LEN_BRICKS, VISIBILITY_BRICK_U32S_REQUIRED};
+use crate::CHUNK_EDGE_LEN_BRICKS;
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
@@ -49,6 +48,7 @@ impl BrickMap
 
 impl Clone for BrickMap
 {
+    #[allow(clippy::non_canonical_clone_impl)]
     #[track_caller]
     fn clone(&self) -> Self
     {
@@ -58,7 +58,7 @@ impl Clone for BrickMap
         );
 
         Self {
-            brick_map: self.brick_map.clone()
+            brick_map: self.brick_map
         }
     }
 }

@@ -1,11 +1,9 @@
 use std::fmt::Debug;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use bytemuck::{AnyBitPattern, NoUninit};
 use gfx::wgpu::{self};
 use gfx::{glm, CpuTrackedDenseSet};
-
-use crate::WorldPosition;
 
 pub(crate) struct FaceManager
 {

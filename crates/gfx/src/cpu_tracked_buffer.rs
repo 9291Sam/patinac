@@ -1,7 +1,6 @@
 use std::fmt::Debug;
 use std::num::NonZeroU64;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use bytemuck::{cast_slice, AnyBitPattern, NoUninit};
 

@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::fmt::Debug;
-use std::sync::atomic::{AtomicU32, AtomicU64, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 use bytemuck::bytes_of;
@@ -116,7 +116,7 @@ impl VoxelWorld
 
         let voxel_chunk_manager = ChunkDataManager::new(renderer.clone());
 
-        let mat_manager = MaterialManager::new(&renderer);
+        let mat_manager = MaterialManager::new(renderer);
 
         let pipeline_layout =
             renderer
@@ -181,7 +181,7 @@ impl VoxelWorld
             ),
             bind_group_layout:                bind_group_layout.clone(),
             bind_group:                       Mutex::new(Self::generate_bind_group(
-                &renderer,
+                renderer,
                 &bind_group_layout.clone(),
                 &face_manager,
                 &voxel_chunk_manager,

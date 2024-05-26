@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 use std::hash::Hash;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use bytemuck::{AnyBitPattern, NoUninit};
 use util::NoElementContained;

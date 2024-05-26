@@ -31,13 +31,7 @@ impl MaterialBrick
         debug_assert!(y < BRICK_EDGE_LEN_VOXELS, "Out of range access @ {y}");
         debug_assert!(z < BRICK_EDGE_LEN_VOXELS, "Out of range access @ {z}");
 
-        unsafe {
-            *self
-                .data
-                .get_unchecked(x as usize)
-                .get_unchecked(y as usize)
-                .get_unchecked(z as usize)
-        }
+        unsafe { *self.data.get_unchecked(x).get_unchecked(y).get_unchecked(z) }
     }
 
     // Returns the old voxel
@@ -59,12 +53,12 @@ impl MaterialBrick
 
         let voxel_to_modify: &mut Voxel = unsafe {
             self.data
-                .get_unchecked_mut(x as usize)
-                .get_unchecked_mut(y as usize)
-                .get_unchecked_mut(z as usize)
+                .get_unchecked_mut(x)
+                .get_unchecked_mut(y)
+                .get_unchecked_mut(z)
         };
 
-        let previous_voxel = voxel_to_modify.clone();
+        let previous_voxel = *voxel_to_modify;
 
         *voxel_to_modify = new_voxel;
 

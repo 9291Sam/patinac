@@ -1,8 +1,7 @@
-use std::collections::{HashSet, VecDeque};
+use std::collections::VecDeque;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
-use bytemuck::{AnyBitPattern, NoUninit};
 use gfx::{glm, wgpu};
 
 use crate::material::Voxel;
@@ -10,9 +9,7 @@ use crate::{
     chunk_local_position_to_brick_position,
     get_world_offset_of_chunk,
     gpu_data,
-    world_position_to_chunk_position,
     BrickCoordinate,
-    BrickLocalPosition,
     ChunkCoordinate,
     ChunkLocalPosition
 };

@@ -1,7 +1,4 @@
-use std::cell::UnsafeCell;
-use std::sync::atomic::{self, AtomicU32};
-
-use bytemuck::{AnyBitPattern, NoUninit, Pod, Zeroable};
+use bytemuck::{AnyBitPattern, NoUninit};
 
 use crate::{BrickLocalPosition, BRICK_EDGE_LEN_VOXELS, VISIBILITY_BRICK_U32S_REQUIRED};
 
