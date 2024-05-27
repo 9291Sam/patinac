@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use gfx::{glm, wgpu};
 
-use crate::face_manager::{FaceId, VoxelFaceDirection};
+use crate::face_manager::{FaceId, MaybeFaceId, VoxelFaceDirection};
 use crate::material::Voxel;
 use crate::{
     chunk_local_position_to_brick_position,
@@ -35,6 +35,15 @@ pub(crate) struct ChunkDataManager
     registered_faces: Vec<FaceIdBrick>
 }
 
+#[cfg(debug_assertions)]
+impl Drop for ChunkDataManager
+{
+    fn drop(&mut self)
+    {
+        assert_eq!(self.chunk_id_allocator.peek().0, 0, "Retained ChunkIds");
+    }
+}
+
 #[no_mangle]
 static NUMBER_OF_VISIBLE_BRICKS: AtomicUsize = AtomicUsize::new(0);
 #[no_mangle]
@@ -47,7 +56,7 @@ impl ChunkDataManager
         let max_valid_id = u16::MAX - 1;
 
         // TODO: reisizing the buffers rather than preallocation
-        const MAX_BRICKS: usize = 2usize.pow(20);
+        const MAX_BRICKS: usize = 2usize.pow(18);
 
         ChunkDataManager {
             chunk_pos_id_map:        ChunkCoordinateToIdMap::new(),
@@ -176,7 +185,7 @@ impl ChunkDataManager
         &mut self,
         chunk_id: ChunkId,
         pos: ChunkLocalPosition
-    ) -> Option<&mut [Option<FaceId>; 6]>
+    ) -> Option<&mut [OMaybeFaceId>; 6]>
     {
         let (brick_coordinate, brick_local_pos) = chunk_local_position_to_brick_position(pos);
 
@@ -282,7 +291,7 @@ impl ChunkDataManager
                                 .get_flattened_face_ids()
                                 .iter()
                                 .for_each(|f| {
-                                    if let &Some(face_id_to_remove) = f
+                                    if let Some(face_id_to_remove) = f.to_option()
                                     {
                                         face_ids_to_dealloc.push(face_id_to_remove);
                                     }
@@ -371,8 +380,8 @@ impl ChunkCoordinateToIdMap
 #[derive(Clone)]
 struct FaceIdBrick
 {
-    brick: [[[[Option<FaceId>; 6]; BRICK_EDGE_LEN_VOXELS]; BRICK_EDGE_LEN_VOXELS];
-        BRICK_EDGE_LEN_VOXELS]
+    brick:
+        [[[[MaybeFaceId; 6]; BRICK_EDGE_LEN_VOXELS]; BRICK_EDGE_LEN_VOXELS]; BRICK_EDGE_LEN_VOXELS]
 }
 
 impl FaceIdBrick
@@ -380,12 +389,12 @@ impl FaceIdBrick
     pub fn new_empty() -> Self
     {
         Self {
-            brick: [[[[const { None }; 6]; BRICK_EDGE_LEN_VOXELS]; BRICK_EDGE_LEN_VOXELS];
+            brick: [[[[MaybeFaceId::NULL; 6]; BRICK_EDGE_LEN_VOXELS]; BRICK_EDGE_LEN_VOXELS];
                 BRICK_EDGE_LEN_VOXELS]
         }
     }
 
-    pub fn get_mut(&mut self, brick_local_pos: BrickLocalPosition) -> &mut [Option<FaceId>; 6]
+    pub fn get_mut(&mut self, brick_local_pos: BrickLocalPosition) -> &mut [MaybeFaceId; 6]
     {
         unsafe {
             self.brick
@@ -395,7 +404,7 @@ impl FaceIdBrick
         }
     }
 
-    pub fn get_flattened_face_ids(&self) -> &[Option<FaceId>]
+    pub fn get_flattened_face_ids(&self) -> &[MaybeFaceId]
     {
         self.brick.as_flattened().as_flattened().as_flattened()
     }

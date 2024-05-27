@@ -1,4 +1,3 @@
-#![feature(lazy_cell)]
 #![feature(hasher_prefixfree_extras)]
 #![feature(map_try_insert)]
 #![feature(get_many_mut)]

@@ -227,7 +227,26 @@ impl GpuFaceData
 }
 
 #[repr(transparent)]
-#[derive(Clone, Copy, AnyBitPattern, NoUninit, Debug, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, AnyBitPattern, NoUninit, Debug, Hash)]
 pub struct FaceId(u32);
-// face manager: write_face(pos dir vox)
-// voxel manager: write_voxel(world pos, vox)
+
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, AnyBitPattern, NoUninit, Debug, Hash)]
+pub struct MaybeFaceId(u32);
+
+impl MaybeFaceId
+{
+    pub const NULL: MaybeFaceId = MaybeFaceId(u32::MAX);
+
+    pub fn to_option(self) -> Option<FaceId>
+    {
+        if self == Self::NULL
+        {
+            None
+        }
+        else
+        {
+            Some(FaceId(self.0))
+        }
+    }
+}
