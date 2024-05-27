@@ -37,9 +37,20 @@ pub struct VoxelWorld
 
     face_manager:     Mutex<FaceManager>,
     chunk_manager:    Mutex<ChunkDataManager>,
-    material_manager: MaterialManager,
-    world_voxel_list: Mutex<BTreeMap<WorldPosition, RefCell<[Option<FaceId>; 6]>>>
+    material_manager: MaterialManager
 }
+
+// #[cfg(debug_assertions)]
+// impl Drop for VoxelWorld
+// {
+//     fn drop(&mut self)
+//     {
+//         let mut face_manager = self.face_manager.get_mut().unwrap();
+//         let mut chunk_manager = self.chunk_manager.get_mut().unwrap();
+
+//         chunk_manager.
+//     }
+// }
 
 impl Debug for VoxelWorld
 {
@@ -191,7 +202,7 @@ impl VoxelWorld
             material_manager:                 mat_manager,
             uuid:                             util::Uuid::new(),
             face_manager:                     Mutex::new(face_manager),
-            world_voxel_list:                 Mutex::new(BTreeMap::new()),
+            // world_voxel_list:                 Mutex::new(BTreeMap::new()),
             estimate_number_of_visible_faces: AtomicU32::new(0)
         });
 
@@ -202,7 +213,7 @@ impl VoxelWorld
 
     pub fn insert_many_voxel(&self, it: impl IntoIterator<Item = (WorldPosition, Voxel)>)
     {
-        let mut world_voxels = self.world_voxel_list.lock().unwrap();
+        // let mut world_voxels = self.world_voxel_list.lock().unwrap();
         let mut chunk_manager = self.chunk_manager.lock().unwrap();
         let mut face_manager = self.face_manager.lock().unwrap();
 
@@ -219,63 +230,52 @@ impl VoxelWorld
 
             let was_cell_already_occupied = !matches!(maybe_prev_voxel, Voxel::Air);
 
-            if !was_cell_already_occupied
+            for dir in VoxelFaceDirection::iterate()
             {
-                world_voxels
-                    .insert(world_pos, RefCell::new([const { None }; 6]))
-                    .ok_or(())
-                    .unwrap_err();
-            }
+                let adjacent_world_pos = WorldPosition(world_pos.0 + dir.get_axis().cast());
+                let (adjacent_chunk_coordinate, adjacent_chunk_local_position) =
+                    world_position_to_chunk_position(adjacent_world_pos);
+                let maybe_adjacent_chunk_id = chunk_manager.get_chunk_id(adjacent_chunk_coordinate);
+                let adjacent_direction = dir.opposite();
 
-            for d in VoxelFaceDirection::iterate()
-            {
-                let adjacent_voxel_world_position =
-                    WorldPosition(world_pos.0 + d.get_axis().cast());
-                let adjacent_voxel_face_direction = d.opposite();
+                macro_rules! add_this_face {
+                    () => {
+                        chunk_manager.register_voxel_face(
+                            chunk_id,
+                            chunk_position,
+                            dir,
+                            face_manager.insert_face(GpuFaceData::new(
+                                voxel as u16,
+                                chunk_id.0 as u16,
+                                chunk_position.0,
+                                dir
+                            ))
+                        )
+                    };
+                }
 
-                let this_voxel_faces = world_voxels.get(&world_pos);
-                let adjacent_voxel_faces = world_voxels.get(&adjacent_voxel_world_position);
-
-                if let Some(this_faces_refcell) = this_voxel_faces
+                if let Some(adjacent_chunk_id) = maybe_adjacent_chunk_id
                 {
-                    match adjacent_voxel_faces
+                    if chunk_manager
+                        .is_voxel_visible(adjacent_chunk_id, adjacent_chunk_local_position)
                     {
-                        Some(other_faces) =>
+                        if !was_cell_already_occupied
                         {
-                            if let Some(conflicting_face) = other_faces.borrow_mut()
-                                [adjacent_voxel_face_direction as usize]
-                                .take()
-                            {
-                                face_manager.remove_face(conflicting_face);
-                                // and don't add this face
-                            }
-                            else
-                            {
-                                #[allow(clippy::collapsible_else_if)]
-                                if !was_cell_already_occupied
-                                {
-                                    log::warn!(
-                                        "there was a naked voxel! @ \
-                                         {adjacent_voxel_world_position:?}"
-                                    )
-                                }
-                            }
+                            face_manager.remove_face(chunk_manager.deregister_voxel_face(
+                                adjacent_chunk_id,
+                                adjacent_chunk_local_position,
+                                adjacent_direction
+                            ));
                         }
-                        None =>
-                        {
-                            this_faces_refcell.borrow_mut()[d as usize] =
-                                Some(face_manager.insert_face(GpuFaceData::new(
-                                    voxel as u16,
-                                    chunk_id.0,
-                                    chunk_position.0,
-                                    d
-                                )));
-                        }
+                    }
+                    else
+                    {
+                        add_this_face!()
                     }
                 }
                 else
                 {
-                    panic!("No Voxel Faces were registered at {world_pos:?}")
+                    add_this_face!()
                 }
             }
         }

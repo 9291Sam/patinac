@@ -12,6 +12,15 @@ pub(crate) struct FaceManager
     face_data_buffer:  gfx::CpuTrackedBuffer<GpuFaceData>
 }
 
+#[cfg(debug_assertions)]
+impl Drop for FaceManager
+{
+    fn drop(&mut self)
+    {
+        assert_eq!(self.face_id_allocator.peek().0, 0, "Retained FaceIds");
+    }
+}
+
 impl Debug for FaceManager
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
@@ -237,6 +246,18 @@ pub struct MaybeFaceId(u32);
 impl MaybeFaceId
 {
     pub const NULL: MaybeFaceId = MaybeFaceId(u32::MAX);
+
+    pub fn new(data: u32) -> MaybeFaceId
+    {
+        debug_assert!(data != Self::NULL.0);
+
+        MaybeFaceId(data)
+    }
+
+    pub fn from_face_id(id: FaceId) -> MaybeFaceId
+    {
+        MaybeFaceId(id.0)
+    }
 
     pub fn to_option(self) -> Option<FaceId>
     {

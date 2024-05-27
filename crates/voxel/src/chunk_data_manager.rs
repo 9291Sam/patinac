@@ -180,12 +180,34 @@ impl ChunkDataManager
         )
     }
 
+    pub fn is_voxel_visible(&self, chunk_id: ChunkId, pos: ChunkLocalPosition) -> bool
+    {
+        let (brick_coordinate, brick_local_pos) = chunk_local_position_to_brick_position(pos);
+
+        self.chunk_brick_map
+            .access_ref(chunk_id.0 as usize, |brick_map: &gpu_data::BrickMap| {
+                match brick_map.get(brick_coordinate).to_option()
+                {
+                    Some(ptr) =>
+                    {
+                        self.visibility_brick_buffer.access_ref(
+                            ptr.0 as usize,
+                            |visibility_brick: &gpu_data::VisibilityBrick| {
+                                visibility_brick.is_visible(brick_local_pos)
+                            }
+                        )
+                    }
+                    None => false
+                }
+            })
+    }
+
     // returns None if no brick is inserted
     pub fn get_voxel_faces(
         &mut self,
         chunk_id: ChunkId,
         pos: ChunkLocalPosition
-    ) -> Option<&mut [OMaybeFaceId>; 6]>
+    ) -> Option<&mut [MaybeFaceId; 6]>
     {
         let (brick_coordinate, brick_local_pos) = chunk_local_position_to_brick_position(pos);
 
@@ -204,6 +226,21 @@ impl ChunkDataManager
         )
     }
 
+    // returns None if no brick is inserted
+    pub fn does_face_exist(
+        &mut self,
+        chunk_id: ChunkId,
+        pos: ChunkLocalPosition,
+        direction: VoxelFaceDirection
+    ) -> bool
+    {
+        match self.get_voxel_faces(chunk_id, pos)
+        {
+            Some(faces) => faces[direction as usize].to_option().is_some(),
+            None => false
+        }
+    }
+
     pub fn register_voxel_face(
         &mut self,
         chunk_id: ChunkId,
@@ -214,10 +251,10 @@ impl ChunkDataManager
     {
         let maybe_old_face_id = std::mem::replace(
             &mut self.get_voxel_faces(chunk_id, pos).as_mut().unwrap()[direction as usize],
-            Some(face_id)
+            MaybeFaceId::from_face_id(face_id)
         );
 
-        assert!(maybe_old_face_id.is_none())
+        assert!(maybe_old_face_id.to_option().is_none())
     }
 
     pub fn deregister_voxel_face(
@@ -227,9 +264,12 @@ impl ChunkDataManager
         direction: VoxelFaceDirection
     ) -> FaceId
     {
-        self.get_voxel_faces(chunk_id, pos).as_mut().unwrap()[direction as usize]
-            .take()
-            .unwrap()
+        let old_face_id = std::mem::replace(
+            &mut self.get_voxel_faces(chunk_id, pos).as_mut().unwrap()[direction as usize],
+            MaybeFaceId::NULL
+        );
+
+        old_face_id.to_option().unwrap()
     }
 
     pub fn insert_chunk_at(&mut self, chunk_coord: ChunkCoordinate) -> ChunkId
