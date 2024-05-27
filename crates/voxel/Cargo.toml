@@ -13,3 +13,4 @@ game = { workspace = true }
 log = { workspace = true }
 num_enum = { workspace = true }
 dashmap = { workspace = true }
+smallvec = { workspace = true }

@@ -3,6 +3,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
 use gfx::{glm, wgpu};
+use smallvec::SmallVec;
 
 use crate::face_manager::{FaceId, MaybeFaceId, VoxelFaceDirection};
 use crate::material::Voxel;
@@ -180,6 +181,37 @@ impl ChunkDataManager
         )
     }
 
+    pub fn remove_voxel(&mut self, chunk_id: ChunkId, pos: ChunkLocalPosition) -> Voxel
+    {
+        let (brick_coordinate, brick_local_pos) = chunk_local_position_to_brick_position(pos);
+
+        let brick_ptr = self
+            .chunk_brick_map
+            .access_ref(chunk_id.0 as usize, |brick_map: &gpu_data::BrickMap| {
+                brick_map.get(brick_coordinate)
+            })
+            .to_option()
+            .expect("Tried to remove a voxel in an unallocated brick!");
+
+        self.visibility_brick_buffer.access_mut(
+            brick_ptr.0 as usize,
+            |visibility_brick: &mut gpu_data::VisibilityBrick| {
+                visibility_brick.set_visibility(brick_local_pos, false);
+            }
+        );
+
+        self.material_brick_buffer.access_mut(
+            brick_ptr.0 as usize,
+            |material_brick: &mut gpu_data::MaterialBrick| {
+                let prev_voxel = material_brick.get_voxel(brick_local_pos);
+
+                material_brick.set_voxel(brick_local_pos, Voxel::Air);
+
+                prev_voxel
+            }
+        )
+    }
+
     pub fn is_voxel_visible(&self, chunk_id: ChunkId, pos: ChunkLocalPosition) -> bool
     {
         let (brick_coordinate, brick_local_pos) = chunk_local_position_to_brick_position(pos);
@@ -202,8 +234,19 @@ impl ChunkDataManager
             })
     }
 
+    pub fn deregister_all_voxel_faces(
+        &mut self,
+        chunk_id: ChunkId,
+        pos: ChunkLocalPosition
+    ) -> SmallVec<[FaceId; 6]>
+    {
+        let mut out = SmallVec::new();
+
+        out
+    }
+
     // returns None if no brick is inserted
-    pub fn get_voxel_faces(
+    fn get_voxel_faces(
         &mut self,
         chunk_id: ChunkId,
         pos: ChunkLocalPosition

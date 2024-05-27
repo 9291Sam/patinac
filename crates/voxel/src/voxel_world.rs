@@ -16,6 +16,7 @@ use crate::face_manager::{
     FaceManager,
     FaceManagerBuffers,
     GpuFaceData,
+    MaybeFaceId,
     VoxelFaceDirection
 };
 use crate::material::{MaterialManager, Voxel};
@@ -240,19 +241,35 @@ impl VoxelWorld
 
                 macro_rules! add_this_face {
                     () => {
-                        chunk_manager.register_voxel_face(
-                            chunk_id,
-                            chunk_position,
-                            dir,
-                            face_manager.insert_face(GpuFaceData::new(
-                                voxel as u16,
-                                chunk_id.0 as u16,
-                                chunk_position.0,
-                                dir
-                            ))
-                        )
+                        if was_cell_already_occupied
+                        {
+                            chunk_manager
+                                .deregister_all_voxel_faces(chunk_id, chunk_position)
+                                .into_iter()
+                                .for_each(|f| {
+                                    face_manager.remove_face(f);
+                                });
+
+                            chunk_manager.remove_voxel(chunk_id, chunk_position);
+                        }
+                        else
+                        {
+                            chunk_manager.register_voxel_face(
+                                chunk_id,
+                                chunk_position,
+                                dir,
+                                face_manager.insert_face(GpuFaceData::new(
+                                    voxel as u16,
+                                    chunk_id.0 as u16,
+                                    chunk_position.0,
+                                    dir
+                                ))
+                            )
+                        }
                     };
                 }
+
+                // TODO: if you insert a voxel twice in the same location it errors
 
                 if let Some(adjacent_chunk_id) = maybe_adjacent_chunk_id
                 {

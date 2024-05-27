@@ -28,13 +28,10 @@ const _: () =
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct WorldPosition(pub glm::I32Vec3);
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) struct ChunkCoordinate(pub glm::I32Vec3);
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Hash)]
 pub(crate) struct ChunkLocalPosition(pub glm::U16Vec3);
-
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Hash)]
 pub(crate) struct BrickCoordinate(pub glm::U16Vec3);
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Hash)]

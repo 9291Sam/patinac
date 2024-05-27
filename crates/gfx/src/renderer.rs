@@ -601,7 +601,6 @@ impl Renderer
             order_of_passes.sort_by(|l, r| l.1.cmp(&r.1));
 
             let mut final_renderpass_drawcalls: Vec<(
-                // TODO: add the screen's texture to this function
                 EncoderToPassFn,
                 Vec<(
                     Option<Arc<GenericPipeline>>,
