@@ -46,7 +46,9 @@ fn vs_main(
     var out: VertexOutput;
     out.tex_coords = model.tex_coords;
 
-    let angle = push_constants.time_alive;
+    let t = push_constants.time_alive;
+
+    let angle = t + f32(instance_index / push_constants.edge_dim) * 0.1 * sin(t) + f32(instance_index % push_constants.edge_dim) * 0.1 * cos(t);
     let cos_angle = cos(angle);
     let sin_angle = sin(angle);
 
@@ -56,7 +58,20 @@ fn vs_main(
         vec3<f32>(sin_angle, 0.0, cos_angle)
     );
 
-    let model_space_pos = rotation_matrix * vec3<f32>(model.position) + vec3<f32>(f32(instance_index / push_constants.edge_dim), 0.0, f32(instance_index % push_constants.edge_dim));
+    // var addvec: vec3<f32>;
+
+    // if (instance_index % 2 == 0)
+    // {
+    //     addvec = vec3<f32>(f32(instance_index / 2), 0.0, 0.0);
+    // }
+    // else
+    // {
+    //     addvec = vec3<f32>(0.0, 0.0, f32(instance_index / 2));  
+    // }
+
+    let addvec = vec3<f32>(f32(instance_index / push_constants.edge_dim), 0.0, f32(instance_index % push_constants.edge_dim));
+
+    let model_space_pos = rotation_matrix * vec3<f32>(model.position) + addvec;
 
     out.clip_position = global_model_view_projection.data[push_constants.id] * vec4<f32>(model_space_pos, 1.0);
     
