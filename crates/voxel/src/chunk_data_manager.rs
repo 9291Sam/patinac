@@ -244,6 +244,28 @@ impl ChunkDataManager
     {
         let mut out = SmallVec::new();
 
+        self.chunk_brick_map
+            .access_ref(chunk_id.0 as usize, |brick_map: &gpu_data::BrickMap| {
+                let (brick_coordinate, brick_local_pos) =
+                    chunk_local_position_to_brick_position(pos);
+
+                let ptr = match brick_map.get(brick_coordinate).to_option()
+                {
+                    Some(p) => p,
+                    None => return
+                };
+
+                let old_faces = std::mem::replace(
+                    self.registered_faces[ptr.0 as usize].get_mut(brick_local_pos),
+                    [MaybeFaceId::NULL; 6]
+                );
+
+                old_faces
+                    .into_iter()
+                    .filter_map(|f| f.to_option())
+                    .for_each(|f| out.push(f));
+            });
+
         out
     }
 
@@ -476,6 +498,16 @@ impl FaceIdBrick
         Self {
             brick: [[[[MaybeFaceId::NULL; 6]; BRICK_EDGE_LEN_VOXELS]; BRICK_EDGE_LEN_VOXELS];
                 BRICK_EDGE_LEN_VOXELS]
+        }
+    }
+
+    pub fn get(&self, brick_local_pos: BrickLocalPosition) -> &[MaybeFaceId; 6]
+    {
+        unsafe {
+            self.brick
+                .get_unchecked(brick_local_pos.0.x as usize)
+                .get_unchecked(brick_local_pos.0.y as usize)
+                .get_unchecked(brick_local_pos.0.z as usize)
         }
     }
 
