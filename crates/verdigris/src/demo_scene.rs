@@ -8,7 +8,7 @@ use noise::NoiseFn;
 use rand::{Rng, SeedableRng};
 use voxel::{VoxelWorld, WorldPosition};
 
-use crate::recordables;
+use crate::instanced_indirect::InstancedIndirect;
 use crate::recordables::flat_textured::FlatTextured;
 use crate::recordables::lit_textured::LitTextured;
 #[derive(Debug)]
@@ -57,6 +57,14 @@ impl DemoScene
                 ]
             })
             .flatten()
+            .chain([InstancedIndirect::new_pentagon(
+                game.clone(),
+                gfx::Transform {
+                    translation: glm::Vec3::new(-64.0, 186.0, 64.0),
+                    scale: glm::Vec3::repeat(-18.0),
+                    ..Default::default()
+                }
+            ) as Arc<dyn gfx::Recordable>])
             .collect();
 
         util::run_async(move || {
