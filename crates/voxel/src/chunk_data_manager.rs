@@ -73,7 +73,7 @@ impl ChunkDataManager
             ),
             chunk_brick_map:         gfx::CpuTrackedBuffer::new(
                 renderer.clone(),
-                16,
+                48,
                 String::from("ChunkBrickManager BrickMap Buffer"),
                 wgpu::BufferUsages::STORAGE
             ),

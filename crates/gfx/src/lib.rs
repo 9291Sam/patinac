@@ -41,7 +41,7 @@ pub use cpu_tracked_dense_set::CpuTrackedDenseSet;
 pub use nalgebra as nal;
 
 pub(crate) fn combine_into_ranges(
-    points: Vec<u64>,
+    mut points: Vec<u64>,
     max_distance: u64,
     max_ranges: usize
 ) -> Vec<RangeInclusive<u64>>
@@ -51,48 +51,62 @@ pub(crate) fn combine_into_ranges(
         return vec![];
     }
 
-    let mut points = points;
-    points.sort();
+    points.sort_unstable();
 
-    let mut ranges = Vec::new();
-    let mut start = points[0];
-    let mut end = points[0];
+    let mut ranges = Vec::with_capacity(points.len());
+    let mut start = unsafe { *points.get_unchecked(0) };
+    let mut end = start;
 
-    for &point in &points[1..]
-    {
-        if point - end <= max_distance
+    let mut points_ptr = points.as_ptr();
+    let points_end_ptr = unsafe { points_ptr.add(points.len()) };
+
+    unsafe {
+        points_ptr = points_ptr.add(1);
+
+        while points_ptr != points_end_ptr
         {
-            end = point;
-        }
-        else
-        {
-            ranges.push(start..=end);
-            start = point;
-            end = point;
-        }
-    }
-
-    ranges.push(start..=end);
-
-    // Post-processing to merge ranges if there are more than `max_ranges` ranges
-    while ranges.len() > max_ranges
-    {
-        let mut min_distance = u64::MAX;
-        let mut min_index = 0;
-
-        for i in 0..ranges.len() - 1
-        {
-            let distance = *ranges[i + 1].start() - *ranges[i].end();
-            if distance < min_distance
+            let point = *points_ptr;
+            if point - end <= max_distance
             {
-                min_distance = distance;
-                min_index = i;
+                end = point;
             }
+            else
+            {
+                ranges.push(start..=end);
+                start = point;
+                end = point;
+            }
+            points_ptr = points_ptr.add(1);
         }
 
-        let merged_range = *ranges[min_index].start()..=*ranges[min_index + 1].end();
-        ranges[min_index] = merged_range;
-        ranges.remove(min_index + 1);
+        ranges.push(start..=end);
+
+        if ranges.len() > max_ranges
+        {
+            while ranges.len() > max_ranges
+            {
+                let mut min_distance = u64::MAX;
+                let mut min_index = 0;
+
+                for i in 0..ranges.len() - 1
+                {
+                    let distance =
+                        *ranges.get_unchecked(i + 1).start() - *ranges.get_unchecked(i).end();
+                    if distance < min_distance
+                    {
+                        min_distance = distance;
+                        min_index = i;
+                    }
+                }
+
+                let merged_range = *ranges.get_unchecked(min_index).start()
+                    ..=*ranges.get_unchecked(min_index + 1).end();
+                *ranges.get_unchecked_mut(min_index) = merged_range;
+                ranges.remove(min_index + 1);
+            }
+
+            ranges.set_len(max_ranges);
+        }
     }
 
     ranges

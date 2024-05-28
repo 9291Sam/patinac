@@ -214,11 +214,10 @@ impl VoxelWorld
 
     pub fn insert_many_voxel(&self, it: impl IntoIterator<Item = (WorldPosition, Voxel)>)
     {
-        // let mut world_voxels = self.world_voxel_list.lock().unwrap();
         let mut chunk_manager = self.chunk_manager.lock().unwrap();
         let mut face_manager = self.face_manager.lock().unwrap();
 
-        for (world_pos, voxel) in it.into_iter()
+        for (world_pos, voxel) in it
         {
             self.estimate_number_of_visible_faces
                 .store(face_manager.get_number_of_faces(), Ordering::Relaxed);
