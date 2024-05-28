@@ -214,6 +214,23 @@ impl VoxelWorld
 
     pub fn insert_many_voxel(&self, it: impl IntoIterator<Item = (WorldPosition, Voxel)>)
     {
+        let iterator = it.into_iter();
+
+        let mut chunks = iterator.array_chunks::<3072>();
+
+        for i in chunks.by_ref()
+        {
+            self.insert_many_voxel_deadlocking(i);
+        }
+
+        if let Some(remainder) = chunks.into_remainder()
+        {
+            self.insert_many_voxel_deadlocking(remainder);
+        }
+    }
+
+    fn insert_many_voxel_deadlocking(&self, it: impl IntoIterator<Item = (WorldPosition, Voxel)>)
+    {
         let mut chunk_manager = self.chunk_manager.lock().unwrap();
         let mut face_manager = self.face_manager.lock().unwrap();
 
@@ -306,31 +323,8 @@ impl VoxelWorld
         let mut bind_group = self.bind_group.lock().unwrap();
 
         // TODO: fix this lol
-        let mut chunk_manager = match self.chunk_manager.try_lock()
-        {
-            Ok(g) => g,
-            Err(e) =>
-            {
-                match e
-                {
-                    std::sync::TryLockError::Poisoned(_) => panic!(),
-                    std::sync::TryLockError::WouldBlock => return bind_group.clone()
-                }
-            }
-        };
-
-        let mut face_manager = match self.face_manager.try_lock()
-        {
-            Ok(g) => g,
-            Err(e) =>
-            {
-                match e
-                {
-                    std::sync::TryLockError::Poisoned(_) => panic!(),
-                    std::sync::TryLockError::WouldBlock => return bind_group.clone()
-                }
-            }
-        };
+        let mut chunk_manager = self.chunk_manager.lock().unwrap();
+        let mut face_manager = self.face_manager.lock().unwrap();
 
         needs_resize |= face_manager.replicate_to_gpu();
         needs_resize |= chunk_manager.replicate_to_gpu();

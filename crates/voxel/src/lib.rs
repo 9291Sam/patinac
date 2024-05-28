@@ -1,6 +1,7 @@
 #![feature(map_try_insert)]
 #![feature(slice_flatten)]
 #![feature(slice_as_chunks)]
+#![feature(iter_array_chunks)]
 
 use std::fmt::Debug;
 

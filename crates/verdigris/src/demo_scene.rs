@@ -113,7 +113,7 @@ fn arbitrary_landscape_demo(dm: &VoxelWorld)
 {
     let noise = noise::OpenSimplex::new(2384247834);
 
-    let it = spiral::ChebyshevIterator::new(0, 0, 512).map(|(x, z)| {
+    let it = spiral::ChebyshevIterator::new(0, 0, 1024).map(|(x, z)| {
         (
             WorldPosition(glm::I32Vec3::new(
                 x,
