@@ -2,10 +2,12 @@
 #![feature(slice_flatten)]
 #![feature(slice_as_chunks)]
 #![feature(iter_array_chunks)]
+#![feature(const_for)]
 
 use std::fmt::Debug;
 
 use gfx::glm;
+use itertools::iproduct;
 pub use voxel_world::VoxelWorld;
 
 mod chunk_data_manager;
@@ -37,6 +39,36 @@ pub(crate) struct ChunkLocalPosition(pub glm::U16Vec3);
 pub(crate) struct BrickCoordinate(pub glm::U16Vec3);
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Hash)]
 pub(crate) struct BrickLocalPosition(pub glm::U8Vec3);
+
+impl BrickLocalPosition
+{
+    pub fn iter() -> &'static [BrickLocalPosition]
+    {
+        static DATA: [BrickLocalPosition; BRICK_TOTAL_VOXELS] = const {
+            let mut out = [BrickLocalPosition(glm::U8Vec3::new(0, 0, 0)); BRICK_TOTAL_VOXELS];
+            let mut idx = 0;
+
+            loop
+            {
+                if idx == BRICK_TOTAL_VOXELS
+                {
+                    break;
+                }
+
+                out[idx] = BrickLocalPosition(glm::U8Vec3::new(
+                    (idx / (BRICK_EDGE_LEN_VOXELS * BRICK_EDGE_LEN_VOXELS)) as u8,
+                    (idx / BRICK_EDGE_LEN_VOXELS) as u8,
+                    (idx % BRICK_EDGE_LEN_VOXELS) as u8
+                ));
+                idx += 1;
+            }
+
+            out
+        };
+
+        &DATA
+    }
+}
 
 impl Debug for WorldPosition
 {
