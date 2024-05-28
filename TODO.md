@@ -30,3 +30,17 @@ code review fix imports and exports in lib.rs
 
 
 if you want someone to help comment the codebase
+
+
+
+once you need to do culling you can split things up into indirect calls
+use "vertex pulling" to get the u32 of the voxel's data (face)
+makeyour faces u32s 9 bits each xyz pos and then a normal
+
+from there look into the brick map and get the material data and stuff
+
+
+in each indirect call you store the chunk's ptr which holds a material buffer
+
+
+indirect calls per chunk and per direction cpu side culling should be dead simple (gpu culling is also an option lol)
