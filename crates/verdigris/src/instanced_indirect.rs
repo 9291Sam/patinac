@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 use std::sync::{Arc, Mutex};
 
-use bytemuck::{bytes_of, Pod, Zeroable};
+use bytemuck::{bytes_of, cast_slice, Pod, Zeroable};
 use gfx::{glm, wgpu};
 use image::GenericImageView;
 use wgpu::util::DeviceExt;
@@ -29,14 +29,43 @@ impl Vertex
     }
 }
 
+#[repr(C)]
+#[derive(Copy, Clone, Debug, Pod, Zeroable)]
+pub struct PerCallData
+{
+    pub data: u32
+}
+
+impl PerCallData
+{
+    const ATTRIBS: [wgpu::VertexAttribute; 1] = wgpu::vertex_attr_array![2 => Uint32];
+
+    pub fn new(data: u32) -> PerCallData
+    {
+        Self {
+            data
+        }
+    }
+
+    pub fn desc() -> wgpu::VertexBufferLayout<'static>
+    {
+        wgpu::VertexBufferLayout {
+            array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
+            step_mode:    wgpu::VertexStepMode::Instance,
+            attributes:   &Self::ATTRIBS
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct InstancedIndirect
 {
-    game:            Arc<game::Game>,
-    id:              util::Uuid,
-    vertex_buffer:   wgpu::Buffer,
-    index_buffer:    wgpu::Buffer,
-    indirect_buffer: wgpu::Buffer,
+    game:                 Arc<game::Game>,
+    id:                   util::Uuid,
+    vertex_buffer:        wgpu::Buffer,
+    index_buffer:         wgpu::Buffer,
+    indirect_buffer:      wgpu::Buffer,
+    per_call_data_buffer: wgpu::Buffer,
 
     tree_bind_group: Arc<wgpu::BindGroup>,
     pipeline:        Arc<gfx::GenericPipeline>,
@@ -101,6 +130,16 @@ impl InstancedIndirect
             label:    Some("Index Buffer"),
             contents: bytemuck::cast_slice(indices),
             usage:    wgpu::BufferUsages::INDEX
+        });
+
+        let per_call_data_buffer = renderer.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label:    Some("Per Call Data Buffer"),
+            contents: cast_slice(&[
+                PerCallData::new(0),
+                PerCallData::new(32),
+                PerCallData::new(64)
+            ]),
+            usage:    wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::INDIRECT
         });
 
         let diffuse_bytes = include_bytes!("recordables/res/flat_textured/happy-tree.png");
@@ -207,7 +246,7 @@ impl InstancedIndirect
                     layout: Some(pipeline_layout),
                     vertex_module: shader.clone(),
                     vertex_entry_point: "vs_main".into(),
-                    vertex_buffer_layouts: vec![Vertex::desc()],
+                    vertex_buffer_layouts: vec![Vertex::desc(), PerCallData::desc()],
                     fragment_state: Some(gfx::CacheableFragmentState {
                         module:                           shader,
                         entry_point:                      "fs_main".into(),
@@ -252,10 +291,12 @@ impl InstancedIndirect
             indirect_buffer: renderer.create_buffer(&wgpu::BufferDescriptor {
                 label:              Some("indirectbufferinstancestset"),
                 size:               std::mem::size_of::<wgpu::util::DrawIndexedIndirectArgs>()
-                    as u64,
+                    as u64
+                    * 3,
                 usage:              wgpu::BufferUsages::INDIRECT | wgpu::BufferUsages::COPY_DST,
                 mapped_at_creation: false
-            })
+            }),
+            per_call_data_buffer
         });
 
         renderer.register(this.clone());
@@ -323,21 +364,47 @@ impl gfx::Recordable for InstancedIndirect
         };
 
         pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+        pass.set_vertex_buffer(1, self.per_call_data_buffer.slice(..));
         pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
         pass.set_push_constants(wgpu::ShaderStages::VERTEX, 0, bytes_of(&id));
 
         self.game.get_renderer().queue.write_buffer(
             &self.indirect_buffer,
             0,
-            &wgpu::util::DrawIndexedIndirectArgs {
-                index_count:    self.number_of_indices,
-                instance_count: 1,
-                first_index:    0,
-                base_vertex:    0,
-                first_instance: 0
-            }
-            .as_bytes()
+            draw_args_as_bytes(&[
+                wgpu::util::DrawIndexedIndirectArgs {
+                    index_count:    self.number_of_indices,
+                    instance_count: 1,
+                    first_index:    0,
+                    base_vertex:    0,
+                    first_instance: 0
+                },
+                wgpu::util::DrawIndexedIndirectArgs {
+                    index_count:    self.number_of_indices,
+                    instance_count: 1,
+                    first_index:    0,
+                    base_vertex:    0,
+                    first_instance: 1
+                },
+                wgpu::util::DrawIndexedIndirectArgs {
+                    index_count:    self.number_of_indices,
+                    instance_count: 1,
+                    first_index:    0,
+                    base_vertex:    0,
+                    first_instance: 2
+                }
+            ])
         );
-        pass.multi_draw_indexed_indirect(&self.indirect_buffer, 0, 1);
+        pass.multi_draw_indexed_indirect(&self.indirect_buffer, 0, 3);
+    }
+}
+
+fn draw_args_as_bytes(args: &[wgpu::util::DrawIndexedIndirectArgs]) -> &[u8]
+{
+    unsafe {
+        std::slice::from_raw_parts(
+            args.as_ptr() as *const u8,
+            args.len() * std::mem::size_of::<wgpu::util::DrawIndexedIndirectArgs>()
+        )
     }
 }

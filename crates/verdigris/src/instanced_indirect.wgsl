@@ -4,6 +4,7 @@
 struct VertexInput {
     @location(0) position: vec3<f32>,
     @location(1) tex_coords: vec2<f32>,
+    @location(2) extra_data: u32,
 }
 
 struct VertexOutput {
@@ -39,10 +40,11 @@ var<push_constant> push_constants: PushConstants;
 @vertex
 fn vs_main(
     model: VertexInput,
+    @builtin(instance_index) instance_index: u32
 ) -> VertexOutput {
     var out: VertexOutput;
     out.tex_coords = model.tex_coords;
-    out.clip_position = global_model_view_projection.data[push_constants.id] * vec4<f32>(model.position, 1.0);
+    out.clip_position = global_model_view_projection.data[push_constants.id] * vec4<f32>(model.position + vec3<f32>(0.0, f32(instance_index * 32), 0.0), 1.0);
     
     return out;
 }

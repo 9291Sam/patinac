@@ -237,7 +237,7 @@ impl gfx::Recordable for DebugMenu
                         buffer,
                         left: 2.0,
                         top: 0.0,
-                        scale: 1.0,
+                        scale: 0.75,
                         bounds: glyphon::TextBounds {
                             left:   0,
                             top:    0,

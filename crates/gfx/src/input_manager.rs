@@ -100,31 +100,36 @@ impl InputManager
 
                     if *is_cursor_attached
                     {
-                        if ignore
+                        let value_to_store = if ignore
                         {
-                            self.delta_mouse_pos_px.store((0.0, 0.0), Ordering::Release);
+                            (0.0, 0.0)
                         }
                         else
                         {
-                            self.delta_mouse_pos_px.store(
-                                (
-                                    (best_guess_mouse_pos.x - previous_frame_mouse_pos.x) as f32,
-                                    (best_guess_mouse_pos.y - previous_frame_mouse_pos.y) as f32
-                                ),
-                                Ordering::Release
-                            );
-                        }
+                            (
+                                (best_guess_mouse_pos.x - previous_frame_mouse_pos.x) as f32,
+                                (best_guess_mouse_pos.y - previous_frame_mouse_pos.y) as f32
+                            )
+                        };
 
                         let c = get_center_screen_pos(*window_size);
 
                         *previous_frame_mouse_pos = c;
 
-                        if self.window.set_cursor_position(c).is_err()
+                        match self.window.set_cursor_position(c)
                         {
-                            log::warn!(
-                                "Failed to set cursor position to center of screen, did the \
-                                 sticky keys prompt appear?"
-                            )
+                            Ok(_) =>
+                            {
+                                self.delta_mouse_pos_px
+                                    .store(value_to_store, Ordering::Release)
+                            }
+                            Err(_) =>
+                            {
+                                log::trace!(
+                                    "Failed to set cursor position to center of screen, another \
+                                     did the sticky keys prompt appear?"
+                                )
+                            }
                         }
 
                         *best_guess_mouse_pos = c;

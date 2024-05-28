@@ -168,7 +168,8 @@ impl Renderer
                     label:             Some("Device"),
                     required_features: wgpu::Features::PUSH_CONSTANTS
                         | wgpu::Features::POLYGON_MODE_LINE
-                        | wgpu::Features::MULTI_DRAW_INDIRECT,
+                        | wgpu::Features::MULTI_DRAW_INDIRECT
+                        | wgpu::Features::INDIRECT_FIRST_INSTANCE,
                     required_limits:   adapter.limits()
                 },
                 None

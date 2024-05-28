@@ -170,5 +170,8 @@ fn arbitrary_landscape_demo(dm: &VoxelWorld)
         )
     });
 
+    // in a spiral formation stating at the center broding out, sample a height map
+    // and collect a vector of the samplied points and a random color value
+
     dm.insert_many_voxel(it);
 }
