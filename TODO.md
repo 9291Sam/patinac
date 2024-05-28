@@ -52,3 +52,6 @@ remove that "rt" look by using some type of logarithmic falloff for lighting i.e
 100 to 0.999
 
 this prevents things getting washed out
+
+
+add how many calls are rendererd / how many objects are registererd 

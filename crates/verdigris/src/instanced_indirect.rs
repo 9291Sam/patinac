@@ -29,46 +29,17 @@ impl Vertex
     }
 }
 
-#[repr(C)]
-#[derive(Copy, Clone, Debug, Pod, Zeroable)]
-pub struct PerCallData
-{
-    pub data: u32
-}
-
-impl PerCallData
-{
-    const ATTRIBS: [wgpu::VertexAttribute; 1] = wgpu::vertex_attr_array![2 => Uint32];
-
-    pub fn new(data: u32) -> PerCallData
-    {
-        Self {
-            data
-        }
-    }
-
-    pub fn desc() -> wgpu::VertexBufferLayout<'static>
-    {
-        wgpu::VertexBufferLayout {
-            array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
-            step_mode:    wgpu::VertexStepMode::Instance,
-            attributes:   &Self::ATTRIBS
-        }
-    }
-}
-
 #[derive(Debug)]
 pub struct InstancedIndirect
 {
-    game:                 Arc<game::Game>,
-    id:                   util::Uuid,
-    vertex_buffer:        wgpu::Buffer,
-    index_buffer:         wgpu::Buffer,
-    indirect_buffer:      wgpu::Buffer,
-    per_call_data_buffer: wgpu::Buffer,
-
+    game:            Arc<game::Game>,
+    id:              util::Uuid,
+    vertex_buffer:   wgpu::Buffer,
+    index_buffer:    wgpu::Buffer,
+    indirect_buffer: wgpu::Buffer,
     tree_bind_group: Arc<wgpu::BindGroup>,
     pipeline:        Arc<gfx::GenericPipeline>,
+    edge_dim:        u32,
 
     time_alive:        Mutex<f32>,
     number_of_indices: u32,
@@ -101,13 +72,18 @@ impl InstancedIndirect
         }
     ];
 
-    pub fn new_pentagon(game: Arc<game::Game>, transform: gfx::Transform) -> Arc<Self>
+    pub fn new_pentagonal_array(
+        game: Arc<game::Game>,
+        transform: gfx::Transform,
+        edge_dim: u32
+    ) -> Arc<Self>
     {
         Self::new(
             game,
             transform,
             Self::PENTAGON_VERTICES,
-            Self::PENTAGON_INDICES
+            Self::PENTAGON_INDICES,
+            edge_dim
         )
     }
 
@@ -115,7 +91,8 @@ impl InstancedIndirect
         game: Arc<game::Game>,
         transform: gfx::Transform,
         vertices: &[Vertex],
-        indices: &[u16]
+        indices: &[u16],
+        edge_dim: u32
     ) -> Arc<Self>
     {
         let renderer = game.get_renderer().clone();
@@ -132,14 +109,25 @@ impl InstancedIndirect
             usage:    wgpu::BufferUsages::INDEX
         });
 
-        let per_call_data_buffer = renderer.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label:    Some("Per Call Data Buffer"),
-            contents: cast_slice(&[
-                PerCallData::new(0),
-                PerCallData::new(32),
-                PerCallData::new(64)
-            ]),
-            usage:    wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::INDIRECT
+        let number_of_indices = indices.len() as u32;
+        let total_pentagons = edge_dim * edge_dim;
+
+        let draw_args = (0..total_pentagons)
+            .map(|idx| {
+                wgpu::util::DrawIndexedIndirectArgs {
+                    index_count:    number_of_indices,
+                    instance_count: 1,
+                    first_index:    0,
+                    base_vertex:    0,
+                    first_instance: idx
+                }
+            })
+            .collect::<Vec<_>>();
+
+        let indirect_buffer = renderer.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label:    Some("Instance Buffer"),
+            contents: draw_args_as_bytes(&draw_args),
+            usage:    wgpu::BufferUsages::INDIRECT
         });
 
         let diffuse_bytes = include_bytes!("recordables/res/flat_textured/happy-tree.png");
@@ -230,7 +218,7 @@ impl InstancedIndirect
                     ],
                     push_constant_ranges: vec![wgpu::PushConstantRange {
                         stages: wgpu::ShaderStages::VERTEX,
-                        range:  0..(std::mem::size_of::<glm::Mat4>() as u32)
+                        range:  0..8
                     }]
                 });
 
@@ -246,7 +234,7 @@ impl InstancedIndirect
                     layout: Some(pipeline_layout),
                     vertex_module: shader.clone(),
                     vertex_entry_point: "vs_main".into(),
-                    vertex_buffer_layouts: vec![Vertex::desc(), PerCallData::desc()],
+                    vertex_buffer_layouts: vec![Vertex::desc()],
                     fragment_state: Some(gfx::CacheableFragmentState {
                         module:                           shader,
                         entry_point:                      "fs_main".into(),
@@ -288,15 +276,8 @@ impl InstancedIndirect
             transform,
             pipeline,
             game,
-            indirect_buffer: renderer.create_buffer(&wgpu::BufferDescriptor {
-                label:              Some("indirectbufferinstancestset"),
-                size:               std::mem::size_of::<wgpu::util::DrawIndexedIndirectArgs>()
-                    as u64
-                    * 3,
-                usage:              wgpu::BufferUsages::INDIRECT | wgpu::BufferUsages::COPY_DST,
-                mapped_at_creation: false
-            }),
-            per_call_data_buffer
+            indirect_buffer,
+            edge_dim
         });
 
         renderer.register(this.clone());
@@ -363,39 +344,15 @@ impl gfx::Recordable for InstancedIndirect
             panic!("Generic RenderPass bound with incorrect type!")
         };
 
-        pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-        pass.set_vertex_buffer(1, self.per_call_data_buffer.slice(..));
-        pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-        pass.set_push_constants(wgpu::ShaderStages::VERTEX, 0, bytes_of(&id));
+        let mut pc: [u8; 8] = Zeroable::zeroed();
+        pc[0..4].copy_from_slice(bytes_of(&id));
+        pc[4..8].copy_from_slice(bytes_of(&self.edge_dim));
 
-        self.game.get_renderer().queue.write_buffer(
-            &self.indirect_buffer,
-            0,
-            draw_args_as_bytes(&[
-                wgpu::util::DrawIndexedIndirectArgs {
-                    index_count:    self.number_of_indices,
-                    instance_count: 1,
-                    first_index:    0,
-                    base_vertex:    0,
-                    first_instance: 0
-                },
-                wgpu::util::DrawIndexedIndirectArgs {
-                    index_count:    self.number_of_indices,
-                    instance_count: 1,
-                    first_index:    0,
-                    base_vertex:    0,
-                    first_instance: 1
-                },
-                wgpu::util::DrawIndexedIndirectArgs {
-                    index_count:    self.number_of_indices,
-                    instance_count: 1,
-                    first_index:    0,
-                    base_vertex:    0,
-                    first_instance: 2
-                }
-            ])
-        );
-        pass.multi_draw_indexed_indirect(&self.indirect_buffer, 0, 3);
+        pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+        pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+        pass.set_push_constants(wgpu::ShaderStages::VERTEX, 0, &pc);
+
+        pass.multi_draw_indexed_indirect(&self.indirect_buffer, 0, self.edge_dim * self.edge_dim);
     }
 }
 
