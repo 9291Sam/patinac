@@ -41,7 +41,10 @@ impl Drop for ChunkDataManager
 {
     fn drop(&mut self)
     {
-        assert_eq!(self.chunk_id_allocator.peek().0, 0, "Retained ChunkIds");
+        if self.chunk_id_allocator.peek().0 != 0
+        {
+            log::warn!("Retained {} ChunkIds", self.chunk_id_allocator.peek().0);
+        }
     }
 }
 

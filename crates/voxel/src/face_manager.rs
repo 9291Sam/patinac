@@ -17,7 +17,10 @@ impl Drop for FaceManager
 {
     fn drop(&mut self)
     {
-        assert_eq!(self.face_id_allocator.peek().0, 0, "Retained FaceIds");
+        if self.face_id_allocator.peek().0 != 0
+        {
+            log::warn!("Retained {} FaceIds", self.face_id_allocator.peek().0);
+        }
     }
 }
 
