@@ -6,6 +6,8 @@ use std::sync::{Arc, LazyLock, Mutex};
 
 use wgpu::{PipelineCompilationOptions, PipelineLayout};
 
+// TODO: remove labels in release
+
 #[derive(Debug)]
 pub struct RenderCache
 {
