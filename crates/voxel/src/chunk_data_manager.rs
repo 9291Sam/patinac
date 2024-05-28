@@ -11,7 +11,6 @@ use crate::{
     chunk_local_position_to_brick_position,
     get_world_offset_of_chunk,
     gpu_data,
-    BrickCoordinate,
     BrickLocalPosition,
     ChunkCoordinate,
     ChunkLocalPosition,

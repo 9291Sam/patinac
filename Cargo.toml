@@ -25,6 +25,7 @@ dashmap = { workspace = true }
 voxel = { workspace = true }
 rand = { workspace = true }
 itertools = { workspace = true }
+rlsf = "0.2.1"
 
 [workspace.dependencies]
 util = { path = "crates/util" }
