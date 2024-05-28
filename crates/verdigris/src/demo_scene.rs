@@ -47,7 +47,7 @@ impl DemoScene
                         gfx::Transform {
                             translation: glm::Vec3::new(
                                 x as f32 * 12.0 - 64.0,
-                                144.0,
+                                184.0,
                                 z as f32 * 12.0 + 64.0
                             ),
                             scale: glm::Vec3::repeat(-16.0),
@@ -60,8 +60,8 @@ impl DemoScene
             .chain([InstancedIndirect::new_pentagonal_array(
                 game.clone(),
                 gfx::Transform {
-                    translation: glm::Vec3::new(-127.0, 186.0, 0.0),
-                    scale: glm::Vec3::repeat(-18.0),
+                    translation: glm::Vec3::new(-127.0, 218.0, 0.0),
+                    scale: glm::Vec3::new(18.0, -18.0, 18.0),
                     ..Default::default()
                 },
                 512

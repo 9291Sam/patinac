@@ -26,6 +26,7 @@ struct PushConstants
 {
     id: u32,
     edge_dim: u32,
+    time_alive: f32,
 }
 
 @group(0) @binding(0) var<uniform> global_info: GlobalInfo;
@@ -44,7 +45,20 @@ fn vs_main(
 ) -> VertexOutput {
     var out: VertexOutput;
     out.tex_coords = model.tex_coords;
-    out.clip_position = global_model_view_projection.data[push_constants.id] * vec4<f32>(model.position + vec3<f32>(f32(instance_index / push_constants.edge_dim), 0.0, f32(instance_index % push_constants.edge_dim)), 1.0);
+
+    let angle = push_constants.time_alive;
+    let cos_angle = cos(angle);
+    let sin_angle = sin(angle);
+
+    let rotation_matrix = mat3x3<f32>(
+        vec3<f32>(cos_angle, 0.0, -sin_angle),
+        vec3<f32>(0.0, 1.0, 0.0),
+        vec3<f32>(sin_angle, 0.0, cos_angle)
+    );
+
+    let model_space_pos = rotation_matrix * vec3<f32>(model.position) + vec3<f32>(f32(instance_index / push_constants.edge_dim), 0.0, f32(instance_index % push_constants.edge_dim));
+
+    out.clip_position = global_model_view_projection.data[push_constants.id] * vec4<f32>(model_space_pos, 1.0);
     
     return out;
 }

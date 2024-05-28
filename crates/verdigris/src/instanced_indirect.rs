@@ -218,7 +218,7 @@ impl InstancedIndirect
                     ],
                     push_constant_ranges: vec![wgpu::PushConstantRange {
                         stages: wgpu::ShaderStages::VERTEX,
-                        range:  0..8
+                        range:  0..12
                     }]
                 });
 
@@ -300,25 +300,13 @@ impl gfx::Recordable for InstancedIndirect
 
     fn pre_record_update(
         &self,
-        renderer: &gfx::Renderer,
+        _: &gfx::Renderer,
         _: &gfx::Camera,
         global_bind_group: &Arc<wgpu::BindGroup>
     ) -> gfx::RecordInfo
     {
-        let time_alive = {
-            let mut guard = self.time_alive.lock().unwrap();
-            *guard += renderer.get_delta_time();
-            *guard
-        };
-
-        let mut transform = self.transform.clone();
-
-        transform.rotation *= *glm::UnitQuaternion::from_axis_angle(
-            &gfx::Transform::global_up_vector(),
-            5.0 * time_alive
-        );
-
-        transform.rotation.normalize_mut();
+        let mut guard = self.time_alive.lock().unwrap();
+        *guard += self.game.get_renderer().get_delta_time();
 
         gfx::RecordInfo::Record {
             render_pass: self
@@ -332,7 +320,7 @@ impl gfx::Recordable for InstancedIndirect
                 None,
                 None
             ],
-            transform:   Some(transform)
+            transform:   Some(self.transform.clone())
         }
     }
 
@@ -344,9 +332,12 @@ impl gfx::Recordable for InstancedIndirect
             panic!("Generic RenderPass bound with incorrect type!")
         };
 
-        let mut pc: [u8; 8] = Zeroable::zeroed();
+        let time_alive = *self.time_alive.lock().unwrap();
+
+        let mut pc: [u8; 12] = Zeroable::zeroed();
         pc[0..4].copy_from_slice(bytes_of(&id));
         pc[4..8].copy_from_slice(bytes_of(&self.edge_dim));
+        pc[8..12].copy_from_slice(bytes_of(&time_alive));
 
         pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
         pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
