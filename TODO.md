@@ -44,3 +44,11 @@ in each indirect call you store the chunk's ptr which holds a material buffer
 
 
 indirect calls per chunk and per direction cpu side culling should be dead simple (gpu culling is also an option lol)
+
+
+remove that "rt" look by using some type of logarithmic falloff for lighting i.e
+1 power gets it to ike 0.9 brightness 
+10 gets it to 0.98
+100 to 0.999
+
+this prevents things getting washed out

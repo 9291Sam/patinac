@@ -3,5 +3,6 @@
 
 mod demo_scene;
 mod instanced_indirect;
+mod recordables;
 
 pub use demo_scene::DemoScene;

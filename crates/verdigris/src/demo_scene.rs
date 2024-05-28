@@ -7,11 +7,16 @@ use itertools::iproduct;
 use noise::NoiseFn;
 use rand::{Rng, SeedableRng};
 use voxel::{VoxelWorld, WorldPosition};
+
+use crate::recordables;
+use crate::recordables::flat_textured::FlatTextured;
+use crate::recordables::lit_textured::LitTextured;
 #[derive(Debug)]
 pub struct DemoScene
 {
-    dm: Arc<voxel::VoxelWorld>,
-    id: util::Uuid // future: Mutex<util::Promise<()>>
+    dm:    Arc<voxel::VoxelWorld>,
+    draws: Vec<Arc<dyn gfx::Recordable>>,
+    id:    util::Uuid // future: Mutex<util::Promise<()>>
 }
 
 impl DemoScene
@@ -21,6 +26,38 @@ impl DemoScene
         let dm = VoxelWorld::new(game.clone());
 
         let c_dm = dm.clone();
+
+        let draws = spiral::ChebyshevIterator::new(0, 0, 4)
+            .map(|(x, z)| {
+                [
+                    LitTextured::new_cube(
+                        game.clone(),
+                        gfx::Transform {
+                            translation: glm::Vec3::new(
+                                x as f32 * 12.0 - 64.0,
+                                164.0,
+                                z as f32 * 12.0 + 64.0
+                            ),
+                            scale: glm::Vec3::repeat(4.0),
+                            ..Default::default()
+                        }
+                    ) as Arc<dyn gfx::Recordable>,
+                    FlatTextured::new_pentagon(
+                        game.clone(),
+                        gfx::Transform {
+                            translation: glm::Vec3::new(
+                                x as f32 * 12.0 - 64.0,
+                                144.0,
+                                z as f32 * 12.0 + 64.0
+                            ),
+                            scale: glm::Vec3::repeat(-16.0),
+                            ..Default::default()
+                        }
+                    ) as Arc<dyn gfx::Recordable>
+                ]
+            })
+            .flatten()
+            .collect();
 
         util::run_async(move || {
             let mut rng = rand::rngs::SmallRng::seed_from_u64(238902348902348);
@@ -50,7 +87,8 @@ impl DemoScene
 
         let this = Arc::new(DemoScene {
             dm: dm.clone(),
-            id: util::Uuid::new()
+            id: util::Uuid::new(),
+            draws
         });
 
         game.register(this.clone());
@@ -113,7 +151,7 @@ fn arbitrary_landscape_demo(dm: &VoxelWorld)
 {
     let noise = noise::OpenSimplex::new(2384247834);
 
-    let it = spiral::ChebyshevIterator::new(0, 0, 1024).map(|(x, z)| {
+    let it = spiral::ChebyshevIterator::new(0, 0, 512).map(|(x, z)| {
         (
             WorldPosition(glm::I32Vec3::new(
                 x,
