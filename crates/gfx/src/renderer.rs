@@ -735,7 +735,7 @@ impl Renderer
                     [Option<Arc<wgpu::BindGroup>>; 4],
                     Option<DrawId>,
                     Arc<dyn Recordable>
-                )> = unsafe { util::extend_lifetime(raw_recordables) };
+                )> = unsafe { util::modify_lifetime(raw_recordables) };
 
                 pass_func(
                     &mut encoder,
