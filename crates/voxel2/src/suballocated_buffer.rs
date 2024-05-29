@@ -7,7 +7,7 @@ use bytemuck::{cast_slice, Pod};
 use gfx::wgpu;
 pub use offset_allocator::{Allocation as OAllocation, Allocator as OAllocator};
 
-struct SubAllocatedCpuTrackedBuffer<T: Pod>
+pub struct SubAllocatedCpuTrackedBuffer<T: Pod>
 {
     renderer:  Arc<gfx::Renderer>,
     allocator: OAllocator<u32>,
@@ -18,7 +18,7 @@ struct SubAllocatedCpuTrackedBuffer<T: Pod>
     flush_ranges: Vec<RangeInclusive<u32>>
 }
 
-struct BufferAllocation
+pub struct BufferAllocation
 {
     internal_allocation: OAllocation,
     length:              u32
@@ -35,9 +35,14 @@ impl Hash for BufferAllocation
 
 impl BufferAllocation
 {
-    fn to_valid_range(&self) -> Range<u32>
+    pub fn to_global_valid_range(&self) -> Range<u32>
     {
         self.internal_allocation.offset..(self.internal_allocation.offset + self.length)
+    }
+
+    pub fn get_length(&self) -> u32
+    {
+        self.length
     }
 }
 
@@ -64,6 +69,7 @@ impl<T: Pod> SubAllocatedCpuTrackedBuffer<T>
         }
     }
 
+    #[must_use]
     pub fn allocate(&mut self, length: u32) -> BufferAllocation
     {
         let internal_allocation = self.allocator.allocate(length).unwrap_or_else(|| {
@@ -94,7 +100,7 @@ impl<T: Pod> SubAllocatedCpuTrackedBuffer<T>
         }
         else
         {
-            let old_data_range = old_allocation.to_valid_range();
+            let old_data_range = old_allocation.to_global_valid_range();
             self.allocator.free(old_allocation.internal_allocation);
 
             let new_allocation_internal =
@@ -113,10 +119,10 @@ impl<T: Pod> SubAllocatedCpuTrackedBuffer<T>
 
             self.cpu_buffer.copy_within(
                 (old_data_range.start as usize)..(old_data_range.end as usize),
-                new_allocation.to_valid_range().start as usize
+                new_allocation.to_global_valid_range().start as usize
             );
 
-            let new_allocation_range = new_allocation.to_valid_range();
+            let new_allocation_range = new_allocation.to_global_valid_range();
 
             self.flush_ranges
                 .push(new_allocation_range.start..=new_allocation_range.end - 1);
@@ -227,7 +233,7 @@ impl<T: Pod> SubAllocatedCpuTrackedBuffer<T>
 
         #[cfg(debug_assertions)]
         {
-            let allocated_range = allocation.to_valid_range();
+            let allocated_range = allocation.to_global_valid_range();
 
             debug_assert!(read_range.start >= allocated_range.start);
             debug_assert!(read_range.end <= allocated_range.end);

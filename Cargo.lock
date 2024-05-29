@@ -1565,6 +1565,7 @@ dependencies = [
  "util",
  "verdigris",
  "voxel",
+ "voxel2",
 ]
 
 [[package]]
