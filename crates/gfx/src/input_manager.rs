@@ -1,9 +1,11 @@
+use std::error::Error;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 use dashmap::DashMap;
 use util::{AtomicF32, AtomicF32F32};
 use winit::dpi::{PhysicalPosition, PhysicalSize};
+use winit::error::ExternalError;
 use winit::event::{ElementState, Event, KeyEvent, MouseButton, WindowEvent};
 use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::window::Window;
@@ -67,6 +69,13 @@ impl InputManager
             ..
         } = event
         {
+            match window_event
+            {
+                WindowEvent::RedrawRequested =>
+                {}
+                _ => log::trace!("{window_event:?}")
+            }
+
             match window_event
             {
                 WindowEvent::RedrawRequested =>
@@ -153,6 +162,17 @@ impl InputManager
                 } =>
                 {
                     self.critical_section.lock().unwrap().best_guess_mouse_pos = *position;
+                }
+                WindowEvent::Focused(new_focus_state) =>
+                {
+                    if *new_focus_state
+                    {
+                        self.attach_cursor();
+                    }
+                    else
+                    {
+                        self.detach_cursor();
+                    }
                 }
                 // WindowEvent::CursorEntered {
                 //     device_id
@@ -242,9 +262,22 @@ impl InputManager
         *best_guess_mouse_pos = ZERO_POS;
         self.delta_mouse_pos_px.store((0.0, 0.0), Ordering::Release);
 
-        self.window
+        if let Err(e) = self
+            .window
             .set_cursor_position(get_center_screen_pos(*window_size))
-            .unwrap();
+        {
+            if let ExternalError::Os(os_err) = e
+            {
+                if let Some(src) = os_err.source()
+                {
+                    log::warn!("Unknown OsError {:?}", src);
+                }
+            }
+            else
+            {
+                log::warn!("Unable to set mouse cursor to the center of the screen! {e:?}")
+            }
+        }
         self.window.set_cursor_visible(true);
     }
 }
