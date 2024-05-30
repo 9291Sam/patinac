@@ -44,7 +44,7 @@ impl ChunkManager
 
         let mut allocator = Box::pin(Mutex::new(SubAllocatedCpuTrackedBuffer::new(
             renderer.clone(),
-            780974,
+            1048576,
             "ChunkFacesSubBuffer",
             wgpu::BufferUsages::STORAGE
         )));
@@ -128,7 +128,7 @@ impl ChunkManager
                         zero_initialize_workgroup_memory: false
                     }),
                     primitive_state: wgpu::PrimitiveState {
-                        topology:           wgpu::PrimitiveTopology::TriangleStrip,
+                        topology:           wgpu::PrimitiveTopology::TriangleList,
                         strip_index_format: None,
                         front_face:         wgpu::FrontFace::Ccw,
                         cull_mode:          None,
@@ -199,9 +199,9 @@ impl gfx::Recordable for ChunkManager
             .filter_map(|f| f)
             .for_each(|v: (Range<u32>, VoxelFaceDirection)| {
                 r.push(wgpu::util::DrawIndirectArgs {
-                    vertex_count:   (v.0.end - v.0.start) * 6,
+                    vertex_count:   (v.0.end + 1 - v.0.start) * 6,
                     instance_count: 1,
-                    first_vertex:   v.0.start,
+                    first_vertex:   v.0.start * 6,
                     first_instance: v.1 as u32
                 })
             });
@@ -273,7 +273,7 @@ impl DirectionalFaceData
         dir: cpu::VoxelFaceDirection
     ) -> DirectionalFaceData
     {
-        let alloc = allocator.lock().unwrap().allocate(96000);
+        let alloc = allocator.lock().unwrap().allocate(131072);
 
         Self {
             owning_allocator: allocator as *mut _,

@@ -53,7 +53,7 @@ fn vs_main(@builtin(vertex_index) vertex_index: u32, @builtin(instance_index) in
     // let chunk_id = (face_data.mat_and_chunk_id >> 16) & sixteen_bit_mask;
     // let chunk_data = chunk_data_buffer[chunk_id];
     // let chunk_pos = chunk_data.position;
-    let chunk_pos = vec3<f32>(256.0);
+    let chunk_pos = vec3<f32>(0.0);
     // let chunk_scale = chunk_data.scale;
     let chunk_scale = vec3<f32>(1.0);
 
@@ -66,22 +66,22 @@ fn vs_main(@builtin(vertex_index) vertex_index: u32, @builtin(instance_index) in
     let face_point_world = vec4<f32>(face_point_local + vec3<f32>(face_voxel_pos) + chunk_pos.xyz, 1.0);
 
     return VertexOutput(
-        global_model_view_projection[pc_id] * face_point_world //,
-        // material, 
+        global_model_view_projection[pc_id] * face_point_world,
+        face_normal_id, 
     );
 }
 
 struct VertexOutput
 {
     @builtin(position) position: vec4<f32>,
-    // @location(0) material: u32,
+    @location(0) material: u32,
     // @location(1) uv: vec2<f32>,
 }
 
 @fragment
-fn fs_main() -> @location(0) vec4<f32>
+fn fs_main(@location(0) m: u32) -> @location(0) vec4<f32>
 {
-    return vec4<f32>(1.0); // material_buffer[voxel_material_id].diffuse_color;
+    return vec4<f32>(sin(f32(m) * 3784.0 + 3843.21) / 7, cos(f32(m) - 484.0 ), sin(f32(m) * 3034.33), 1.0); // material_buffer[voxel_material_id].diffuse_color;
 }
 
 const ERROR_COLOR: vec4<f32> = vec4<f32>(1.0, 0.0, 1.0, 1.0);
