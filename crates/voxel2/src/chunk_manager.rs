@@ -19,7 +19,7 @@ pub struct ChunkManager
     indirect_buffer:    wgpu::Buffer,
     face_id_bind_group: Arc<wgpu::BindGroup>,
 
-    global_face_storage: Pin<Box<SubAllocatedCpuTrackedBuffer<gpu::VoxelFace>>>,
+    global_face_storage: Pin<Box<Mutex<SubAllocatedCpuTrackedBuffer<gpu::VoxelFace>>>>,
     chunk:               Mutex<Chunk>,
 
     number_of_indirect_calls_flushed: AtomicU32
@@ -42,12 +42,12 @@ impl ChunkManager
     {
         let renderer = game.get_renderer().clone();
 
-        let mut allocator = Box::pin(SubAllocatedCpuTrackedBuffer::new(
+        let mut allocator = Box::pin(Mutex::new(SubAllocatedCpuTrackedBuffer::new(
             renderer.clone(),
             780974,
             "ChunkFacesSubBuffer",
             wgpu::BufferUsages::STORAGE
-        ));
+        )));
 
         let bind_group_layout =
             renderer
@@ -68,15 +68,17 @@ impl ChunkManager
                     label:   Some("FaceIdBindGroupIndirectLayout")
                 });
 
+        let buffer_len_bytes = allocator.get_mut().unwrap().get_buffer_size_bytes();
+
         let face_ids_bind_group =
             Arc::new(renderer.create_bind_group(&wgpu::BindGroupDescriptor {
                 layout:  &bind_group_layout,
                 entries: &[wgpu::BindGroupEntry {
                     binding:  0,
                     resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                        buffer: allocator.access_buffer(),
+                        buffer: allocator.get_mut().unwrap().access_buffer(),
                         offset: 0,
-                        size:   Some(allocator.get_buffer_size_bytes())
+                        size:   Some(buffer_len_bytes)
                     })
                 }],
                 label:   Some("FaceIdBindGroupIndirect")
@@ -187,6 +189,8 @@ impl gfx::Recordable for ChunkManager
     {
         let mut r: Vec<wgpu::util::DrawIndirectArgs> = Vec::new();
 
+        self.global_face_storage.lock().unwrap().replicate_to_gpu();
+
         self.chunk
             .lock()
             .unwrap()
@@ -202,7 +206,7 @@ impl gfx::Recordable for ChunkManager
                 })
             });
 
-        log::trace!("indirect calls: {:?}", &r[..]);
+        log::trace!("indirect calls: {:?}", r.len());
 
         fn draw_args_as_bytes(args: &[wgpu::util::DrawIndirectArgs]) -> &[u8]
         {
@@ -256,7 +260,7 @@ impl gfx::Recordable for ChunkManager
 
 struct DirectionalFaceData
 {
-    owning_allocator: *mut SubAllocatedCpuTrackedBuffer<gpu::VoxelFace>,
+    owning_allocator: *mut Mutex<SubAllocatedCpuTrackedBuffer<gpu::VoxelFace>>,
     dir:              cpu::VoxelFaceDirection,
     faces_allocation: BufferAllocation,
     faces_stored:     u32
@@ -265,11 +269,11 @@ struct DirectionalFaceData
 impl DirectionalFaceData
 {
     pub fn new(
-        allocator: &mut SubAllocatedCpuTrackedBuffer<gpu::VoxelFace>,
+        allocator: &mut Mutex<SubAllocatedCpuTrackedBuffer<gpu::VoxelFace>>,
         dir: cpu::VoxelFaceDirection
     ) -> DirectionalFaceData
     {
-        let alloc = allocator.allocate(96000);
+        let alloc = allocator.lock().unwrap().allocate(96000);
 
         Self {
             owning_allocator: allocator as *mut _,
@@ -286,11 +290,15 @@ impl DirectionalFaceData
             self.faces_stored += 1;
 
             unsafe {
-                self.owning_allocator.as_mut_unchecked().write(
-                    &self.faces_allocation,
-                    self.faces_stored..(self.faces_stored + 1),
-                    &[face]
-                )
+                self.owning_allocator
+                    .as_ref_unchecked()
+                    .lock()
+                    .unwrap()
+                    .write(
+                        &self.faces_allocation,
+                        self.faces_stored..(self.faces_stored + 1),
+                        &[face]
+                    )
             }
         }
         else
@@ -307,7 +315,7 @@ struct Chunk
 
 impl Chunk
 {
-    pub fn new(allocator: &mut SubAllocatedCpuTrackedBuffer<gpu::VoxelFace>) -> Chunk
+    pub fn new(allocator: &mut Mutex<SubAllocatedCpuTrackedBuffer<gpu::VoxelFace>>) -> Chunk
     {
         Chunk {
             drawable_faces: std::array::from_fn(|i| {
