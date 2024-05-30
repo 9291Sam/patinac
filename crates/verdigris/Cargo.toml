@@ -19,3 +19,4 @@ spiral = { workspace = true }
 dot_vox = { workspace = true }
 image = { workspace = true }
 tobj = { workspace = true }
+voxel2 = { workspace = true }

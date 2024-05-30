@@ -26,6 +26,12 @@ impl DemoScene
         let dm = VoxelWorld::new(game.clone());
 
         let c_dm = dm.clone();
+        let v2 = voxel2::ChunkManager::new(game.clone());
+
+        for (x, y, z) in iproduct!(127..138, 127..138, 127..238)
+        {
+            v2.insert_voxel(voxel2::ChunkLocalPosition(glm::U8Vec3::new(x, y, z)));
+        }
 
         let draws = spiral::ChebyshevIterator::new(0, 0, 4)
             .map(|(x, z)| {
@@ -66,6 +72,7 @@ impl DemoScene
                 },
                 512
             ) as Arc<dyn gfx::Recordable>])
+            .chain([v2 as Arc<dyn gfx::Recordable>])
             .collect();
 
         util::run_async(move || {

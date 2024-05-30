@@ -12,6 +12,7 @@ mod cpu;
 mod gpu;
 mod suballocated_buffer;
 
+pub use chunk_manager::ChunkManager;
 pub(crate) use suballocated_buffer::{BufferAllocation, SubAllocatedCpuTrackedBuffer};
 
 const CHUNK_EDGE_LEN_VOXELS: usize = 256;
@@ -32,7 +33,7 @@ pub struct WorldPosition(pub glm::I32Vec3);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) struct ChunkCoordinate(pub glm::I32Vec3);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Hash)]
-pub(crate) struct ChunkLocalPosition(pub glm::U8Vec3);
+pub struct ChunkLocalPosition(pub glm::U8Vec3);
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Hash)]
 pub(crate) struct BrickCoordinate(pub glm::U8Vec3);
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Hash)]

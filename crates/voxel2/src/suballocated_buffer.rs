@@ -61,7 +61,7 @@ impl<T: Pod> SubAllocatedCpuTrackedBuffer<T>
             gpu_buffer:   renderer.create_buffer(&wgpu::BufferDescriptor {
                 label:              Some(buffer_label),
                 size:               capacity as u64 * std::mem::size_of::<T>() as u64,
-                usage:              usages,
+                usage:              usages | wgpu::BufferUsages::COPY_DST,
                 mapped_at_creation: false
             }),
             cpu_buffer:   unsafe { Box::new_zeroed_slice(capacity as usize).assume_init() },
@@ -187,6 +187,11 @@ impl<T: Pod> SubAllocatedCpuTrackedBuffer<T>
     pub fn access_buffer(&self) -> &wgpu::Buffer
     {
         &self.gpu_buffer
+    }
+
+    pub fn get_buffer_size_bytes(&self) -> NonZeroU64
+    {
+        NonZeroU64::new(self.cpu_buffer.len() as u64 * std::mem::size_of::<T>() as u64).unwrap()
     }
 
     pub fn replicate_to_gpu(&mut self)
