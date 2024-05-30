@@ -72,13 +72,6 @@ impl InputManager
             match window_event
             {
                 WindowEvent::RedrawRequested =>
-                {}
-                _ => log::trace!("{window_event:?}")
-            }
-
-            match window_event
-            {
-                WindowEvent::RedrawRequested =>
                 {
                     let ignore: bool = if self.ignore_frames.load(Ordering::Acquire) != 0
                     {
