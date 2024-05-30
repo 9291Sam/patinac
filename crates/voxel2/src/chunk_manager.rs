@@ -206,8 +206,6 @@ impl gfx::Recordable for ChunkManager
                 })
             });
 
-        log::trace!("indirect calls: {:?}", r.len());
-
         fn draw_args_as_bytes(args: &[wgpu::util::DrawIndirectArgs]) -> &[u8]
         {
             unsafe {
