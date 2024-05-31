@@ -281,7 +281,7 @@ impl DirectionalFaceData
     {
         Self {
             dir:             dir.clone(),
-            faces_dense_set: SubAllocatedCpuTrackedDenseSet::new(131072, allocator)
+            faces_dense_set: SubAllocatedCpuTrackedDenseSet::new(1024, allocator)
         }
     }
 

@@ -17,3 +17,4 @@ dashmap = { workspace = true }
 smallvec = { workspace = true }
 nonmax = { workspace = true }
 fnv = { workspace = true }
+replace_with = { workspace = true }

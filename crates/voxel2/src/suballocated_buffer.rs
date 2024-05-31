@@ -54,11 +54,6 @@ impl<T: Pod> BufferAllocation<T>
     {
         self.internal_allocation.offset..(self.internal_allocation.offset + self.length)
     }
-
-    pub fn get_length(&self) -> u32
-    {
-        self.length
-    }
 }
 
 impl<T: Pod> SubAllocatedCpuTrackedBuffer<T>
@@ -342,9 +337,14 @@ impl<T: Pod + Eq + Hash> SubAllocatedCpuTrackedDenseSet<T>
             {
                 let new_element_idx = self.number_of_stored_elements;
 
-                self.number_of_stored_elements += 1;
+                if new_element_idx + 1 >= self.data.length
+                {
+                    replace_with::replace_with_or_abort(&mut self.data, |old_allocation| {
+                        allocator.realloc(new_element_idx * 2, old_allocation)
+                    });
+                }
 
-                // TODO: insert realloc
+                self.number_of_stored_elements += 1;
 
                 allocator.write(
                     &self.data,
