@@ -30,13 +30,11 @@ impl DemoScene
 
         let mut rng = rand::rngs::SmallRng::seed_from_u64(23879234789234);
 
-        for (x, y, z) in iproduct!(0..=255, 0..=255, 0..=255)
-        {
-            if rng.gen_bool(0.002)
-            {
-                v2.insert_voxel(voxel2::ChunkLocalPosition(glm::U8Vec3::new(x, y, z)));
-            }
-        }
+        let it = iproduct!(0..=255, 0..=255, 0..=255)
+            .filter(|_| rng.gen_bool(0.002))
+            .map(|(x, y, z)| voxel2::ChunkLocalPosition(glm::U8Vec3::new(x, y, z)));
+
+        v2.insert_many_voxel(it);
 
         let draws = spiral::ChebyshevIterator::new(0, 0, 4)
             .map(|(x, z)| {

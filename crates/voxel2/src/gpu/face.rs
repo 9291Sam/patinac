@@ -4,7 +4,7 @@ use gfx::glm;
 use crate::ChunkLocalPosition;
 
 #[repr(C)]
-#[derive(Clone, Copy, Debug, Pod, Zeroable)]
+#[derive(Clone, Copy, Debug, Pod, Zeroable, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct VoxelFace
 {
     // [0,  7]  - x pos

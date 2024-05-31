@@ -9,6 +9,7 @@ use bytemuck::{bytes_of, cast_slice};
 use gfx::{glm, wgpu, CacheablePipelineLayoutDescriptor};
 
 use crate::cpu::{self, VoxelFaceDirection};
+use crate::suballocated_buffer::SubAllocatedCpuTrackedDenseSet;
 use crate::{gpu, BufferAllocation, ChunkLocalPosition, SubAllocatedCpuTrackedBuffer};
 
 pub struct ChunkManager
@@ -19,7 +20,7 @@ pub struct ChunkManager
     indirect_buffer:    wgpu::Buffer,
     face_id_bind_group: Arc<wgpu::BindGroup>,
 
-    global_face_storage: Pin<Box<Mutex<SubAllocatedCpuTrackedBuffer<gpu::VoxelFace>>>>,
+    global_face_storage: Mutex<SubAllocatedCpuTrackedBuffer<gpu::VoxelFace>>,
     chunk:               Mutex<Chunk>,
 
     number_of_indirect_calls_flushed: AtomicU32
@@ -42,12 +43,12 @@ impl ChunkManager
     {
         let renderer = game.get_renderer().clone();
 
-        let mut allocator = Box::pin(Mutex::new(SubAllocatedCpuTrackedBuffer::new(
+        let mut allocator = Mutex::new(SubAllocatedCpuTrackedBuffer::new(
             renderer.clone(),
             1048576,
             "ChunkFacesSubBuffer",
             wgpu::BufferUsages::STORAGE
-        )));
+        ));
 
         let bind_group_layout =
             renderer
@@ -104,7 +105,9 @@ impl ChunkManager
             .cache_shader_module(wgpu::include_wgsl!("chunk_manager_indirect.wgsl"));
 
         let this = Arc::new(ChunkManager {
-            chunk:                            Mutex::new(Chunk::new(&mut allocator)),
+            chunk:                            Mutex::new(Chunk::new(
+                &mut allocator.get_mut().unwrap()
+            )),
             global_face_storage:              allocator,
             game:                             game.clone(),
             uuid:                             util::Uuid::new(),
@@ -162,9 +165,15 @@ impl ChunkManager
         this
     }
 
-    pub fn insert_voxel(&self, pos: ChunkLocalPosition)
+    pub fn insert_many_voxel(&self, pos: impl IntoIterator<Item = ChunkLocalPosition>)
     {
-        self.chunk.lock().unwrap().insert_voxel(pos);
+        let mut allocator = self.global_face_storage.lock().unwrap();
+        let mut chunk = self.chunk.lock().unwrap();
+
+        for p in pos
+        {
+            chunk.insert_voxel(p, &mut allocator);
+        }
     }
 }
 
@@ -189,12 +198,13 @@ impl gfx::Recordable for ChunkManager
     {
         let mut r: Vec<wgpu::util::DrawIndirectArgs> = Vec::new();
 
-        self.global_face_storage.lock().unwrap().replicate_to_gpu();
+        let mut buffer = self.global_face_storage.lock().unwrap();
+        buffer.replicate_to_gpu();
 
         self.chunk
             .lock()
             .unwrap()
-            .get_draw_ranges()
+            .get_draw_ranges(&mut buffer)
             .into_iter()
             .filter_map(|f| f)
             .for_each(|v: (Range<u32>, VoxelFaceDirection)| {
@@ -258,51 +268,30 @@ impl gfx::Recordable for ChunkManager
 
 struct DirectionalFaceData
 {
-    owning_allocator: *mut Mutex<SubAllocatedCpuTrackedBuffer<gpu::VoxelFace>>,
-    dir:              cpu::VoxelFaceDirection,
-    faces_allocation: BufferAllocation<gpu::VoxelFace>,
-    faces_stored:     u32
+    dir:             cpu::VoxelFaceDirection,
+    faces_dense_set: SubAllocatedCpuTrackedDenseSet<gpu::VoxelFace>
 }
 
 impl DirectionalFaceData
 {
     pub fn new(
-        allocator: &mut Mutex<SubAllocatedCpuTrackedBuffer<gpu::VoxelFace>>,
+        allocator: &mut SubAllocatedCpuTrackedBuffer<gpu::VoxelFace>,
         dir: cpu::VoxelFaceDirection
     ) -> DirectionalFaceData
     {
-        let alloc = allocator.lock().unwrap().allocate(131072);
-
         Self {
-            owning_allocator: allocator as *mut _,
-            dir,
-            faces_allocation: alloc,
-            faces_stored: 0
+            dir:             dir.clone(),
+            faces_dense_set: SubAllocatedCpuTrackedDenseSet::new(131072, allocator)
         }
     }
 
-    pub fn insert_face(&mut self, face: gpu::VoxelFace)
+    pub fn insert_face(
+        &mut self,
+        face: gpu::VoxelFace,
+        allocator: &mut SubAllocatedCpuTrackedBuffer<gpu::VoxelFace>
+    )
     {
-        if self.faces_allocation.get_length() > self.faces_stored
-        {
-            self.faces_stored += 1;
-
-            unsafe {
-                self.owning_allocator
-                    .as_ref_unchecked()
-                    .lock()
-                    .unwrap()
-                    .write(
-                        &self.faces_allocation,
-                        self.faces_stored..(self.faces_stored + 1),
-                        &[face]
-                    )
-            }
-        }
-        else
-        {
-            panic!()
-        }
+        self.faces_dense_set.insert(face, allocator);
     }
 }
 
@@ -313,7 +302,7 @@ struct Chunk
 
 impl Chunk
 {
-    pub fn new(allocator: &mut Mutex<SubAllocatedCpuTrackedBuffer<gpu::VoxelFace>>) -> Chunk
+    pub fn new(allocator: &mut SubAllocatedCpuTrackedBuffer<gpu::VoxelFace>) -> Chunk
     {
         Chunk {
             drawable_faces: std::array::from_fn(|i| {
@@ -325,26 +314,35 @@ impl Chunk
         }
     }
 
-    pub fn insert_voxel(&mut self, local_pos: ChunkLocalPosition)
+    pub fn insert_voxel(
+        &mut self,
+        local_pos: ChunkLocalPosition,
+        allocator: &mut SubAllocatedCpuTrackedBuffer<gpu::VoxelFace>
+    )
     {
         for d in VoxelFaceDirection::iterate()
         {
             self.drawable_faces[d as usize]
                 .as_mut()
                 .unwrap()
-                .insert_face(gpu::VoxelFace::new(local_pos, glm::U8Vec2::new(1, 1)));
+                .insert_face(
+                    gpu::VoxelFace::new(local_pos, glm::U8Vec2::new(1, 1)),
+                    allocator
+                );
         }
     }
 
-    pub fn get_draw_ranges(&self) -> [Option<(Range<u32>, VoxelFaceDirection)>; 6]
+    pub fn get_draw_ranges(
+        &self,
+        allocator: &mut SubAllocatedCpuTrackedBuffer<gpu::VoxelFace>
+    ) -> [Option<(Range<u32>, VoxelFaceDirection)>; 6]
     {
         std::array::from_fn(|i| {
             unsafe {
-                self.drawable_faces.get_unchecked(i).as_ref().map(|d| {
-                    let start = d.faces_allocation.to_global_valid_range().start;
-
-                    (start..(start + d.faces_stored), d.dir)
-                })
+                self.drawable_faces
+                    .get_unchecked(i)
+                    .as_ref()
+                    .map(|d| (d.faces_dense_set.get_global_range(allocator), d.dir))
             }
         })
     }

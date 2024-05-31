@@ -301,20 +301,20 @@ impl<T: Pod> SubAllocatedCpuTrackedBuffer<T>
     }
 }
 
-pub struct SubAllocatedDenseSet<T: Pod + Eq + Hash>
+pub struct SubAllocatedCpuTrackedDenseSet<T: Pod + Eq + Hash>
 {
     element_to_idx_map:        FnvHashMap<T, u32>,
     data:                      BufferAllocation<T>,
     number_of_stored_elements: u32
 }
 
-impl<T: Pod + Eq + Hash> SubAllocatedDenseSet<T>
+impl<T: Pod + Eq + Hash> SubAllocatedCpuTrackedDenseSet<T>
 {
     pub fn new(initial_elements: usize, allocator: &mut SubAllocatedCpuTrackedBuffer<T>) -> Self
     {
         assert!(std::mem::size_of::<T>() < 64);
 
-        SubAllocatedDenseSet {
+        SubAllocatedCpuTrackedDenseSet {
             element_to_idx_map:        FnvHashMap::with_capacity_and_hasher(
                 initial_elements,
                 Default::default()
@@ -343,6 +343,8 @@ impl<T: Pod + Eq + Hash> SubAllocatedDenseSet<T>
                 let new_element_idx = self.number_of_stored_elements;
 
                 self.number_of_stored_elements += 1;
+
+                // TODO: insert realloc
 
                 allocator.write(
                     &self.data,
@@ -391,6 +393,11 @@ impl<T: Pod + Eq + Hash> SubAllocatedDenseSet<T>
             }
             Entry::Vacant(_) => Err(NoElementContained)
         }
+    }
+
+    pub fn get_global_range(&self, allocator: &SubAllocatedCpuTrackedBuffer<T>) -> Range<u32>
+    {
+        allocator.get_allocation_range(&self.data, 0..self.number_of_stored_elements)
     }
 }
 
