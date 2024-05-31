@@ -15,7 +15,7 @@ alias GlobalPositions = array<vec3<f32>, NumberOfModels>;
 @group(0) @binding(2) var<uniform> global_model: GlobalMatricies;
 
 @group(1) @binding(0) var<storage, read> face_id_buffer: array<u32>;
-
+// face_data buffer (faceid is the index) which is the vertex index / 6
 var<push_constant> pc_id: u32;
 
 @vertex

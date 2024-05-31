@@ -1,5 +1,6 @@
 #![feature(new_uninit)]
 #![feature(ptr_as_ref_unchecked)]
+#![feature(map_entry_replace)]
 
 use std::fmt::Debug;
 

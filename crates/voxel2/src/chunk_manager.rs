@@ -260,7 +260,7 @@ struct DirectionalFaceData
 {
     owning_allocator: *mut Mutex<SubAllocatedCpuTrackedBuffer<gpu::VoxelFace>>,
     dir:              cpu::VoxelFaceDirection,
-    faces_allocation: BufferAllocation,
+    faces_allocation: BufferAllocation<gpu::VoxelFace>,
     faces_stored:     u32
 }
 

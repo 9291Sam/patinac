@@ -1,0 +1,21 @@
+face_data_buffer: [GpuFaceData]
+face_meta_data: [(is_visible: bool)]
+
+
+draw_indirect(chunk_id)
+{
+    vertex_index / 6 -> face_id
+    instance_index -> {chunk_id, normal}
+    vertex_output = rg32{face_id, u32(chunk_id, normal)}
+}
+
+// RG32 image of all ivisble faces
+
+compute_shader for each px
+{
+    face_meta_data[face_id] = 1
+}
+
+
+
+//
