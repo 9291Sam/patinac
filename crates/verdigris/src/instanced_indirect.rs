@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 use std::sync::{Arc, Mutex};
 
-use bytemuck::{bytes_of, cast_slice, Pod, Zeroable};
+use bytemuck::{bytes_of, Pod, Zeroable};
 use gfx::{glm, wgpu};
 use image::GenericImageView;
 use wgpu::util::DeviceExt;
@@ -41,9 +41,8 @@ pub struct InstancedIndirect
     pipeline:        Arc<gfx::GenericPipeline>,
     edge_dim:        u32,
 
-    time_alive:        Mutex<f32>,
-    number_of_indices: u32,
-    transform:         gfx::Transform
+    time_alive: Mutex<f32>,
+    transform:  gfx::Transform
 }
 
 impl InstancedIndirect
@@ -272,7 +271,6 @@ impl InstancedIndirect
             index_buffer,
             tree_bind_group: Arc::new(tree_bind_group),
             time_alive: Mutex::new(0.0),
-            number_of_indices: indices.len() as u32,
             transform,
             pipeline,
             game,

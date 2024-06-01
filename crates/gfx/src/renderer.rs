@@ -6,7 +6,7 @@ use std::num::NonZero;
 use std::ops::Deref;
 use std::panic::{RefUnwindSafe, UnwindSafe};
 use std::sync::atomic::Ordering::{self};
-use std::sync::atomic::{AtomicU32, AtomicU64, AtomicUsize};
+use std::sync::atomic::{AtomicU32, AtomicUsize};
 use std::sync::{Arc, Mutex, Weak};
 use std::thread::ThreadId;
 
@@ -139,7 +139,7 @@ impl Renderer
 
         let adapter: wgpu::Adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
-                power_preference:       wgpu::PowerPreference::LowPower,
+                power_preference:       wgpu::PowerPreference::HighPerformance,
                 compatible_surface:     Some(&surface),
                 force_fallback_adapter: false
             })

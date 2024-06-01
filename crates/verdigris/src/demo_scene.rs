@@ -14,9 +14,9 @@ use crate::recordables::lit_textured::LitTextured;
 #[derive(Debug)]
 pub struct DemoScene
 {
-    dm:    Arc<voxel::VoxelWorld>,
-    draws: Vec<Arc<dyn gfx::Recordable>>,
-    id:    util::Uuid // future: Mutex<util::Promise<()>>
+    _dm:    Arc<voxel::VoxelWorld>,
+    _draws: Vec<Arc<dyn gfx::Recordable>>,
+    id:     util::Uuid
 }
 
 impl DemoScene
@@ -111,9 +111,9 @@ impl DemoScene
         .detach();
 
         let this = Arc::new(DemoScene {
-            dm: dm.clone(),
-            id: util::Uuid::new(),
-            draws
+            _dm:    dm.clone(),
+            id:     util::Uuid::new(),
+            _draws: draws
         });
 
         game.register(this.clone());
