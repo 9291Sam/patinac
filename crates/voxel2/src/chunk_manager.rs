@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::collections::HashSet;
 use std::fmt::Debug;
 use std::ops::Range;
 use std::pin::Pin;
@@ -6,6 +7,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 
 use bytemuck::{bytes_of, cast_slice};
+use fnv::FnvHashSet;
 use gfx::{glm, wgpu, CacheablePipelineLayoutDescriptor};
 
 use crate::cpu::{self, VoxelFaceDirection};
@@ -45,7 +47,7 @@ impl ChunkManager
 
         let mut allocator = Mutex::new(SubAllocatedCpuTrackedBuffer::new(
             renderer.clone(),
-            1048576,
+            1048576 * 256,
             "ChunkFacesSubBuffer",
             wgpu::BufferUsages::STORAGE
         ));
@@ -293,11 +295,21 @@ impl DirectionalFaceData
     {
         self.faces_dense_set.insert(face, allocator);
     }
+
+    pub fn remove_face(
+        &mut self,
+        face: gpu::VoxelFace,
+        allocator: &mut SubAllocatedCpuTrackedBuffer<gpu::VoxelFace>
+    )
+    {
+        self.faces_dense_set.remove(face, allocator).unwrap();
+    }
 }
 
 struct Chunk
 {
-    drawable_faces: [Option<DirectionalFaceData>; 6]
+    drawable_faces: [Option<DirectionalFaceData>; 6],
+    voxel_exists:   FnvHashSet<ChunkLocalPosition>
 }
 
 impl Chunk
@@ -310,7 +322,8 @@ impl Chunk
                     allocator,
                     VoxelFaceDirection::try_from(i as u8).unwrap()
                 ))
-            })
+            }),
+            voxel_exists:   FnvHashSet::default()
         }
     }
 
@@ -320,15 +333,36 @@ impl Chunk
         allocator: &mut SubAllocatedCpuTrackedBuffer<gpu::VoxelFace>
     )
     {
+        self.voxel_exists.insert(local_pos);
+
         for d in VoxelFaceDirection::iterate()
         {
-            self.drawable_faces[d as usize]
-                .as_mut()
-                .unwrap()
-                .insert_face(
-                    gpu::VoxelFace::new(local_pos, glm::U8Vec2::new(1, 1)),
-                    allocator
-                );
+            if let Some(adj_pos) = (local_pos.0.cast() + d.get_axis())
+                .try_cast()
+                .map(ChunkLocalPosition)
+            {
+                if !self.voxel_exists.contains(&adj_pos)
+                // other is empty
+                {
+                    self.drawable_faces[d as usize]
+                        .as_mut()
+                        .unwrap()
+                        .insert_face(
+                            gpu::VoxelFace::new(local_pos, glm::U8Vec2::new(1, 1)),
+                            allocator
+                        );
+                }
+                else
+                {
+                    self.drawable_faces[d.opposite() as usize]
+                        .as_mut()
+                        .unwrap()
+                        .remove_face(
+                            gpu::VoxelFace::new(adj_pos, glm::U8Vec2::new(1, 1)),
+                            allocator
+                        );
+                }
+            }
         }
     }
 

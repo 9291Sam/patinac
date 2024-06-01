@@ -337,7 +337,7 @@ impl<T: Pod + Eq + Hash> SubAllocatedCpuTrackedDenseSet<T>
             {
                 let new_element_idx = self.number_of_stored_elements;
 
-                if new_element_idx + 1 >= self.data.length
+                if new_element_idx >= self.data.length
                 {
                     replace_with::replace_with_or_abort(&mut self.data, |old_allocation| {
                         allocator.realloc(new_element_idx * 2, old_allocation)

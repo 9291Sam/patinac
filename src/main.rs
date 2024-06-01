@@ -25,7 +25,7 @@ fn main()
 
     *util::access_global_thread_pool().write().unwrap() = Some(util::ThreadPool::new(
         std::thread::available_parallelism()
-            .unwrap_or(NonZeroUsize::new(1).unwrap())
+            .unwrap_or(NonZeroUsize::new(4).unwrap())
             .get(),
         "Patinac async threadpool"
     ));
