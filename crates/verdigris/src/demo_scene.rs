@@ -88,7 +88,7 @@ impl DemoScene
             load_model_from_file_into(
                 glm::I32Vec3::new(0, 126, 0),
                 &c_dm2,
-                &dot_vox::load_bytes(include_bytes!("../../../menger.vox")).unwrap()
+                &dot_vox::load_bytes(include_bytes!("../../../models/menger.vox")).unwrap()
             );
 
             arbitrary_landscape_demo(&c_dm2);
@@ -145,14 +145,10 @@ impl game::Entity for DemoScene
 
 fn load_model_from_file_into(world_offset: glm::I32Vec3, dm: &ChunkManager, data: &DotVoxData)
 {
-    let it = data.models[0].voxels.iter().map(|pos| {
-        (
-            WorldPosition(glm::U8Vec3::new(pos.x, pos.y, pos.z).cast() + world_offset)
-            // ((pos.x % 3 + pos.y % 4 + pos.z % 7) as u16)
-            //     .try_into()
-            //     .unwrap()
-        )
-    });
+    let it = data.models[0]
+        .voxels
+        .iter()
+        .map(|pos| WorldPosition(glm::U8Vec3::new(pos.x, pos.y, pos.z).cast() + world_offset));
 
     dm.insert_many_voxel(it);
 }
@@ -162,14 +158,11 @@ fn arbitrary_landscape_demo(dm: &ChunkManager)
     let noise = noise::OpenSimplex::new(2384247834);
 
     let it = spiral::ChebyshevIterator::new(0, 0, 1024).map(|(x, z)| {
-        (
-            WorldPosition(glm::I32Vec3::new(
-                x,
-                (noise.get([x as f64 / 256.0, z as f64 / 256.0]) * 256.0) as i32,
-                z
-            ))
-            // rand::thread_rng().gen_range(1..=8).try_into().unwrap()
-        )
+        WorldPosition(glm::I32Vec3::new(
+            x,
+            (noise.get([x as f64 / 256.0, z as f64 / 256.0]) * 256.0) as i32,
+            z
+        ))
     });
 
     // in a spiral formation stating at the center broding out, sample a height map
