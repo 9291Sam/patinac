@@ -59,3 +59,6 @@ add how many calls are rendererd / how many objects are registererd
 TODO: figure out tab off clicking
 
 occlussion culling (replace the 0.5 with a 0.0 when off axis)
+
+cap tick time
+fix input lag

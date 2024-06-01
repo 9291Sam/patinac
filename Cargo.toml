@@ -72,6 +72,7 @@ num-format = "0.4.4"
 nonmax = "0.5.5"
 fnv = "1.0.7"
 replace_with = "0.1.7"
+spin_sleep = "1.2.0"
 
 
 [profile.dev]

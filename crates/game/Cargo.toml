@@ -12,3 +12,4 @@ rand = { workspace = true }
 oneshot = { workspace = true }
 strum = { workspace = true }
 dashmap = { workspace = true }
+spin_sleep = { workspace = true }

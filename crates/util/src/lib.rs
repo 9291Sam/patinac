@@ -47,11 +47,11 @@ pub const unsafe fn modify_lifetime<'a, T>(t: &T) -> &'a T
 
 #[cold]
 #[inline(never)]
+#[cfg(debug_assertions)]
 /// # Safety
 ///
 /// Don't use this not for testing
-#[cfg(not(debug_assertions))]
-pub unsafe fn asan_test() -> i32
+pub unsafe fn asan_test() -> i64
 {
     let xs = [0, 1, 2, 3];
     std::hint::black_box(unsafe {

@@ -3,6 +3,7 @@ use std::panic::{RefUnwindSafe, UnwindSafe};
 use std::sync::atomic::Ordering::*;
 use std::sync::atomic::{AtomicU32, AtomicU64};
 use std::sync::{Arc, Mutex, Weak};
+use std::time::Duration;
 
 use gfx::glm;
 
@@ -242,12 +243,20 @@ impl Game
 
         let tick_pool = util::ThreadPool::new(4, "Game Tick");
 
+        let minimum_tick_time = Duration::from_micros(10);
+
         while poll_continue_func()
         {
             let now = std::time::Instant::now();
 
-            delta_time = (now - prev).as_secs_f64();
+            let delta_duration = now - prev;
+            delta_time = delta_duration.as_secs_f64();
             prev = now;
+
+            if let Some(d) = minimum_tick_time.checked_sub(delta_duration)
+            {
+                spin_sleep::sleep(d);
+            }
 
             self.float_delta_time
                 .store((delta_time as f32).to_bits(), Release);

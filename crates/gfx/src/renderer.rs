@@ -460,14 +460,6 @@ impl Renderer
                         }
                     });
 
-                // We must ensure that these resizes occur before the ping gets sent out
-
-                std::sync::atomic::fence(Ordering::SeqCst);
-                std::sync::atomic::fence(Ordering::SeqCst);
-
-                std::sync::atomic::compiler_fence(Ordering::SeqCst);
-                std::sync::atomic::compiler_fence(Ordering::SeqCst);
-
                 self.resize_pingers.0.ping();
             }
         };
