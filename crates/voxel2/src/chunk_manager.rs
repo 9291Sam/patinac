@@ -31,7 +31,7 @@ static NUMBER_OF_CHUNKS: AtomicUsize = AtomicUsize::new(0);
 static NUMBER_OF_VISIBLE_FACES: AtomicUsize = AtomicUsize::new(0);
 
 #[no_mangle]
-static NUMBER_OF_VISIBLE_BRICKS: AtomicUsize = AtomicUsize::new(0);
+static NUMBER_OF_TOTAL_FACES: AtomicUsize = AtomicUsize::new(0);
 
 pub struct ChunkManager
 {
@@ -67,7 +67,7 @@ impl ChunkManager
 
         let mut allocator = Mutex::new(SubAllocatedCpuTrackedBuffer::new(
             renderer.clone(),
-            1048576 * 256,
+            1048576 * 32,
             "ChunkFacesSubBuffer",
             wgpu::BufferUsages::STORAGE
         ));
@@ -259,7 +259,8 @@ impl gfx::Recordable for ChunkManager
 
         // TODO: tomorrow 0.5 for shaded axis chunks and 0.0 elsewhere /shrug
         let mut idx = 0;
-        let mut number_of_visible_faces = 0;
+        let mut total_number_of_faces = 0;
+        let mut rendered_faces = 0;
 
         for (coordinate, chunk) in chunks.iter()
         {
@@ -269,6 +270,10 @@ impl gfx::Recordable for ChunkManager
             {
                 if let Some((r, dir)) = range
                 {
+                    // on axis culling
+                    // off axis culling
+                    // chunk culling (is any part of its bounding box in frame)
+                    // ^^ logical extension of this can be done on the gpu later
                     if camera.get_forward_vector().dot(&dir.get_axis().cast()) < 0.5
                         && !r.is_empty()
                     {
@@ -286,8 +291,10 @@ impl gfx::Recordable for ChunkManager
 
                         idx += 1;
 
-                        number_of_visible_faces += r.end + 1 - r.start;
+                        rendered_faces += r.end + 1 - r.start;
                     }
+
+                    total_number_of_faces += r.end + 1 - r.start
                 }
             }
         }
@@ -303,7 +310,8 @@ impl gfx::Recordable for ChunkManager
         }
 
         NUMBER_OF_CHUNKS.store(indirect_args.len(), Ordering::Relaxed);
-        NUMBER_OF_VISIBLE_FACES.store(number_of_visible_faces as usize, Ordering::Relaxed);
+        NUMBER_OF_VISIBLE_FACES.store(rendered_faces as usize, Ordering::Relaxed);
+        NUMBER_OF_TOTAL_FACES.store(total_number_of_faces as usize, Ordering::Relaxed);
 
         self.number_of_indirect_calls_flushed
             .store(indirect_args.len() as u32, Ordering::SeqCst);

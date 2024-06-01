@@ -8,7 +8,7 @@ use num_format::{Locale, ToFormattedString};
 
 extern "C" {
     static NUMBER_OF_VISIBLE_FACES: AtomicUsize;
-    static NUMBER_OF_VISIBLE_BRICKS: AtomicUsize;
+    static NUMBER_OF_TOTAL_FACES: AtomicUsize;
     static NUMBER_OF_CHUNKS: AtomicUsize;
     static NUMBER_OF_TOTAL_RECORDABLES: AtomicUsize;
     static NUMBER_OF_ACTIVE_RECORDABLES: AtomicUsize;
@@ -186,11 +186,11 @@ impl gfx::Recordable for DebugMenu
 ╠═════════════════════╬═════════════╣
 ║    Faces Visible    ║ {:<11} ║
 ╠═════════════════════╬═════════════╣
+║   Faces Allocated   ║ {:<11} ║
+╠═════════════════════╬═════════════╣
 ║ Draw Calls / Record ║ {:<11} ║
 ╠═════════════════════╬═════════════╣
 ║   Chunks Allocated  ║ {:<11} ║
-╠═════════════════════╬═════════════╣
-║   Bricks Allocated  ║ {:<11} ║
 ╠═════════════════════╬═════════════╣
 ║ Camera Position (x) ║ {:<11.3} ║
 ╠═════════════════════╬═════════════╣
@@ -208,6 +208,8 @@ impl gfx::Recordable for DebugMenu
                     ),
                     unsafe { NUMBER_OF_VISIBLE_FACES.load(std::sync::atomic::Ordering::Relaxed) }
                         .to_formatted_string(&Locale::en),
+                    unsafe { NUMBER_OF_TOTAL_FACES.load(std::sync::atomic::Ordering::Relaxed) }
+                        .to_formatted_string(&Locale::en),
                     format!(
                         "{:>5}/{:<5}",
                         unsafe {
@@ -219,8 +221,6 @@ impl gfx::Recordable for DebugMenu
                     )
                     .trim(),
                     unsafe { NUMBER_OF_CHUNKS.load(std::sync::atomic::Ordering::Relaxed) }
-                        .to_formatted_string(&Locale::en),
-                    unsafe { NUMBER_OF_VISIBLE_BRICKS.load(std::sync::atomic::Ordering::Relaxed) }
                         .to_formatted_string(&Locale::en),
                     camera.get_position().x,
                     camera.get_position().y,
