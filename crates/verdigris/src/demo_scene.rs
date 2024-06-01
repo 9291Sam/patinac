@@ -77,7 +77,7 @@ impl DemoScene
         let draws = vec![v2 as Arc<dyn gfx::Recordable>];
 
         util::run_async(move || {
-            iproduct!(0..=1024, 0..=1024, 0..=1024)
+            iproduct!(0..=64, 0..=64, 0..=64)
                 .filter(|_| rng.gen_bool(0.0002))
                 .for_each(|(x, y, z)| {
                     c_v2.insert_many_voxel([voxel2::WorldPosition(glm::I32Vec3::new(x, y, z))])
@@ -88,7 +88,7 @@ impl DemoScene
         util::run_async(move || {
             let mut rng = rand::rngs::SmallRng::seed_from_u64(238902348902348);
 
-            let it = iproduct!(-127..0, 0..127, 0..127).map(|(x, y, z)| {
+            let it = iproduct!(-64..0, 0..64, 0..64).map(|(x, y, z)| {
                 (
                     WorldPosition(glm::I32Vec3::new(x, y, z))
                     // rng.gen_range(0..=18).try_into().unwrap()
@@ -176,7 +176,7 @@ fn arbitrary_landscape_demo(dm: &ChunkManager)
 {
     let noise = noise::OpenSimplex::new(2384247834);
 
-    let it = spiral::ChebyshevIterator::new(0, 0, 512).map(|(x, z)| {
+    let it = spiral::ChebyshevIterator::new(0, 0, 1024).map(|(x, z)| {
         (
             WorldPosition(glm::I32Vec3::new(
                 x,

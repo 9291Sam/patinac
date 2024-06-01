@@ -249,6 +249,10 @@ impl gfx::Recordable for ChunkManager
         global_bind_group: &Arc<wgpu::BindGroup>
     ) -> gfx::RecordInfo
     {
+        let (camera_chunk_coordinate, _) = world_position_to_chunk_position(WorldPosition(
+            camera.get_position().try_cast().unwrap()
+        ));
+
         let mut indirect_args: Vec<wgpu::util::DrawIndirectArgs> = Vec::new();
         let mut indirect_data: Vec<PackedInstanceData> = Vec::new();
 
@@ -270,31 +274,35 @@ impl gfx::Recordable for ChunkManager
             {
                 if let Some((r, dir)) = range
                 {
-                    // on axis culling
-                    // off axis culling
-                    // chunk culling (is any part of its bounding box in frame)
-                    // ^^ logical extension of this can be done on the gpu later
-                    if camera.get_forward_vector().dot(&dir.get_axis().cast()) < 0.5
-                        && !r.is_empty()
+                    total_number_of_faces += r.end + 1 - r.start;
+
+                    if r.is_empty()
                     {
-                        indirect_args.push(wgpu::util::DrawIndirectArgs {
-                            vertex_count:   (r.end + 1 - r.start) * 6,
-                            instance_count: 1,
-                            first_vertex:   r.start * 6,
-                            first_instance: idx as u32
-                        });
-
-                        indirect_data.push(PackedInstanceData {
-                            chunk_world_offset: get_world_offset_of_chunk(*coordinate).0.cast(),
-                            normal_id:          dir as u32
-                        });
-
-                        idx += 1;
-
-                        rendered_faces += r.end + 1 - r.start;
+                        continue;
                     }
 
-                    total_number_of_faces += r.end + 1 - r.start
+                    if camera.get_forward_vector().dot(&dir.get_axis().cast()) > 0.5
+                    {
+                        continue;
+                    }
+
+                    // TODO: chunk occlussion culling (is it in the frustum?)
+
+                    indirect_args.push(wgpu::util::DrawIndirectArgs {
+                        vertex_count:   (r.end + 1 - r.start) * 6,
+                        instance_count: 1,
+                        first_vertex:   r.start * 6,
+                        first_instance: idx as u32
+                    });
+
+                    indirect_data.push(PackedInstanceData {
+                        chunk_world_offset: get_world_offset_of_chunk(*coordinate).0.cast(),
+                        normal_id:          dir as u32
+                    });
+
+                    idx += 1;
+
+                    rendered_faces += r.end + 1 - r.start;
                 }
             }
         }
@@ -312,6 +320,8 @@ impl gfx::Recordable for ChunkManager
         NUMBER_OF_CHUNKS.store(indirect_args.len(), Ordering::Relaxed);
         NUMBER_OF_VISIBLE_FACES.store(rendered_faces as usize, Ordering::Relaxed);
         NUMBER_OF_TOTAL_FACES.store(total_number_of_faces as usize, Ordering::Relaxed);
+
+        log::trace!("{total_number_of_faces}");
 
         self.number_of_indirect_calls_flushed
             .store(indirect_args.len() as u32, Ordering::SeqCst);
