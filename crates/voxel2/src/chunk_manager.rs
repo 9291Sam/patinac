@@ -321,8 +321,6 @@ impl gfx::Recordable for ChunkManager
         NUMBER_OF_VISIBLE_FACES.store(rendered_faces as usize, Ordering::Relaxed);
         NUMBER_OF_TOTAL_FACES.store(total_number_of_faces as usize, Ordering::Relaxed);
 
-        log::trace!("{total_number_of_faces}");
-
         self.number_of_indirect_calls_flushed
             .store(indirect_args.len() as u32, Ordering::SeqCst);
 

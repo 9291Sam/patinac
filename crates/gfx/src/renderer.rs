@@ -493,10 +493,13 @@ impl Renderer
                 maybe_new_id
             };
 
+            // log::trace!("before calling all pre_record_update s");
+
             let strong_renderable_record_info: Vec<(RecordInfo, Arc<dyn Recordable>)> = self
                 .renderables
                 .access()
                 .into_iter()
+                // .inspect(|(id, ptr)| log::trace!("{} @ {:?}", id, ptr.as_ptr() as *const ()))
                 .filter_map(|(id, maybe_recordable)| {
                     match maybe_recordable.upgrade()
                     {
@@ -517,6 +520,8 @@ impl Renderer
                     }
                 })
                 .collect();
+
+            // log::trace!("after calling all pre_record_update s");
 
             NUMBER_OF_TOTAL_RECORDABLES
                 .store(strong_renderable_record_info.len(), Ordering::Relaxed);
