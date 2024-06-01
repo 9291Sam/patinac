@@ -6,7 +6,7 @@ use gfx::glm::{self};
 use itertools::iproduct;
 use noise::NoiseFn;
 use rand::{Rng, SeedableRng};
-use voxel::{VoxelWorld, WorldPosition};
+use voxel2::{ChunkManager, WorldPosition};
 
 use crate::instanced_indirect::InstancedIndirect;
 use crate::recordables::flat_textured::FlatTextured;
@@ -14,7 +14,7 @@ use crate::recordables::lit_textured::LitTextured;
 #[derive(Debug)]
 pub struct DemoScene
 {
-    _dm:    Arc<voxel::VoxelWorld>,
+    _dm:    Arc<voxel2::ChunkManager>,
     _draws: Vec<Arc<dyn gfx::Recordable>>,
     id:     util::Uuid
 }
@@ -23,7 +23,7 @@ impl DemoScene
 {
     pub fn new(game: Arc<game::Game>) -> Arc<Self>
     {
-        let dm = VoxelWorld::new(game.clone());
+        let dm = ChunkManager::new(game.clone());
         let c_dm = dm.clone();
         let c_dm2 = dm.clone();
 
@@ -32,52 +32,52 @@ impl DemoScene
 
         let mut rng = rand::rngs::SmallRng::seed_from_u64(23879234789234);
 
-        let draws = spiral::ChebyshevIterator::new(0, 0, 4)
-            .map(|(x, z)| {
-                [
-                    LitTextured::new_cube(
-                        game.clone(),
-                        gfx::Transform {
-                            translation: glm::Vec3::new(
-                                x as f32 * 12.0 - 64.0,
-                                164.0,
-                                z as f32 * 12.0 + 64.0
-                            ),
-                            scale: glm::Vec3::repeat(4.0),
-                            ..Default::default()
-                        }
-                    ) as Arc<dyn gfx::Recordable>,
-                    FlatTextured::new_pentagon(
-                        game.clone(),
-                        gfx::Transform {
-                            translation: glm::Vec3::new(
-                                x as f32 * 12.0 - 64.0,
-                                184.0,
-                                z as f32 * 12.0 + 64.0
-                            ),
-                            scale: glm::Vec3::repeat(-16.0),
-                            ..Default::default()
-                        }
-                    ) as Arc<dyn gfx::Recordable>
-                ]
-            })
-            .flatten()
-            .chain([InstancedIndirect::new_pentagonal_array(
-                game.clone(),
-                gfx::Transform {
-                    translation: glm::Vec3::new(-127.0, 218.0, 0.0),
-                    scale: glm::Vec3::new(18.0, -18.0, 18.0),
-                    ..Default::default()
-                },
-                512
-            ) as Arc<dyn gfx::Recordable>])
-            .chain([v2 as Arc<dyn gfx::Recordable>])
-            .collect();
+        // let draws = spiral::ChebyshevIterator::new(0, 0, 4)
+        //     .map(|(x, z)| {
+        //         [
+        //             LitTextured::new_cube(
+        //                 game.clone(),
+        //                 gfx::Transform {
+        //                     translation: glm::Vec3::new(
+        //                         x as f32 * 12.0 - 64.0,
+        //                         164.0,
+        //                         z as f32 * 12.0 + 64.0
+        //                     ),
+        //                     scale: glm::Vec3::repeat(4.0),
+        //                     ..Default::default()
+        //                 }
+        //             ) as Arc<dyn gfx::Recordable>,
+        //             FlatTextured::new_pentagon(
+        //                 game.clone(),
+        //                 gfx::Transform {
+        //                     translation: glm::Vec3::new(
+        //                         x as f32 * 12.0 - 64.0,
+        //                         184.0,
+        //                         z as f32 * 12.0 + 64.0
+        //                     ),
+        //                     scale: glm::Vec3::repeat(-16.0),
+        //                     ..Default::default()
+        //                 }
+        //             ) as Arc<dyn gfx::Recordable>
+        //         ]
+        //     })
+        //     .flatten()
+        //     .chain([InstancedIndirect::new_pentagonal_array(
+        //         game.clone(),
+        //         gfx::Transform {
+        //             translation: glm::Vec3::new(-127.0, 218.0, 0.0),
+        //             scale: glm::Vec3::new(18.0, -18.0, 18.0),
+        //             ..Default::default()
+        //         },
+        //         512
+        //     ) as Arc<dyn gfx::Recordable>])
+        //     .chain([v2 as Arc<dyn gfx::Recordable>])
+        //     .collect();
 
-        // let draws = vec![v2 as Arc<dyn gfx::Recordable>];
+        let draws = vec![v2 as Arc<dyn gfx::Recordable>];
 
         util::run_async(move || {
-            iproduct!(0..=512, 0..=512, 0..=512)
+            iproduct!(0..=1024, 0..=1024, 0..=1024)
                 .filter(|_| rng.gen_bool(0.0002))
                 .for_each(|(x, y, z)| {
                     c_v2.insert_many_voxel([voxel2::WorldPosition(glm::I32Vec3::new(x, y, z))])
@@ -90,8 +90,8 @@ impl DemoScene
 
             let it = iproduct!(-127..0, 0..127, 0..127).map(|(x, y, z)| {
                 (
-                    WorldPosition(glm::I32Vec3::new(x, y, z)),
-                    rng.gen_range(0..=18).try_into().unwrap()
+                    WorldPosition(glm::I32Vec3::new(x, y, z))
+                    // rng.gen_range(0..=18).try_into().unwrap()
                 )
             });
 
@@ -158,21 +158,21 @@ impl game::Entity for DemoScene
     }
 }
 
-fn load_model_from_file_into(world_offset: glm::I32Vec3, dm: &VoxelWorld, data: &DotVoxData)
+fn load_model_from_file_into(world_offset: glm::I32Vec3, dm: &ChunkManager, data: &DotVoxData)
 {
     let it = data.models[0].voxels.iter().map(|pos| {
         (
-            WorldPosition(glm::U8Vec3::new(pos.x, pos.y, pos.z).cast() + world_offset),
-            ((pos.x % 3 + pos.y % 4 + pos.z % 7) as u16)
-                .try_into()
-                .unwrap()
+            WorldPosition(glm::U8Vec3::new(pos.x, pos.y, pos.z).cast() + world_offset)
+            // ((pos.x % 3 + pos.y % 4 + pos.z % 7) as u16)
+            //     .try_into()
+            //     .unwrap()
         )
     });
 
     dm.insert_many_voxel(it);
 }
 
-fn arbitrary_landscape_demo(dm: &VoxelWorld)
+fn arbitrary_landscape_demo(dm: &ChunkManager)
 {
     let noise = noise::OpenSimplex::new(2384247834);
 
@@ -182,8 +182,8 @@ fn arbitrary_landscape_demo(dm: &VoxelWorld)
                 x,
                 (noise.get([x as f64 / 256.0, z as f64 / 256.0]) * 256.0) as i32,
                 z
-            )),
-            rand::thread_rng().gen_range(1..=8).try_into().unwrap()
+            ))
+            // rand::thread_rng().gen_range(1..=8).try_into().unwrap()
         )
     });
 

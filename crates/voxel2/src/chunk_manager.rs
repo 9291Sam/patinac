@@ -4,7 +4,7 @@ use std::collections::HashSet;
 use std::fmt::Debug;
 use std::ops::Range;
 use std::pin::Pin;
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 use bytemuck::{bytes_of, cast_slice, Pod, Zeroable};
@@ -23,6 +23,15 @@ use crate::{
     SubAllocatedCpuTrackedBuffer,
     WorldPosition
 };
+
+#[no_mangle]
+static NUMBER_OF_CHUNKS: AtomicUsize = AtomicUsize::new(0);
+
+#[no_mangle]
+static NUMBER_OF_VISIBLE_FACES: AtomicUsize = AtomicUsize::new(0);
+
+#[no_mangle]
+static NUMBER_OF_VISIBLE_BRICKS: AtomicUsize = AtomicUsize::new(0);
 
 pub struct ChunkManager
 {
@@ -182,7 +191,24 @@ impl ChunkManager
         this
     }
 
-    pub fn insert_many_voxel(&self, pos: impl IntoIterator<Item = WorldPosition>)
+    pub fn insert_many_voxel(&self, it: impl IntoIterator<Item = WorldPosition>)
+    {
+        let iterator = it.into_iter();
+
+        let mut chunks = iterator.array_chunks::<3072>();
+
+        for i in chunks.by_ref()
+        {
+            self.insert_many_voxel_deadlocking(i);
+        }
+
+        if let Some(remainder) = chunks.into_remainder()
+        {
+            self.insert_many_voxel_deadlocking(remainder);
+        }
+    }
+
+    fn insert_many_voxel_deadlocking(&self, pos: impl IntoIterator<Item = WorldPosition>)
     {
         let mut allocator = self.global_face_storage.lock().unwrap();
         let mut chunks = self.chunks.lock().unwrap();
@@ -233,6 +259,7 @@ impl gfx::Recordable for ChunkManager
 
         // TODO: tomorrow 0.5 for shaded axis chunks and 0.0 elsewhere /shrug
         let mut idx = 0;
+        let mut number_of_visible_faces = 0;
 
         for (coordinate, chunk) in chunks.iter()
         {
@@ -258,6 +285,8 @@ impl gfx::Recordable for ChunkManager
                         });
 
                         idx += 1;
+
+                        number_of_visible_faces += r.end + 1 - r.start;
                     }
                 }
             }
@@ -272,6 +301,9 @@ impl gfx::Recordable for ChunkManager
                 )
             }
         }
+
+        NUMBER_OF_CHUNKS.store(indirect_args.len(), Ordering::Relaxed);
+        NUMBER_OF_VISIBLE_FACES.store(number_of_visible_faces as usize, Ordering::Relaxed);
 
         self.number_of_indirect_calls_flushed
             .store(indirect_args.len() as u32, Ordering::SeqCst);
@@ -376,7 +408,8 @@ impl DirectionalFaceData
         allocator: &mut SubAllocatedCpuTrackedBuffer<gpu::VoxelFace>
     )
     {
-        self.faces_dense_set.remove(face, allocator).unwrap();
+        // TODO: deal with duplicates properly
+        let _ = self.faces_dense_set.remove(face, allocator);
     }
 }
 

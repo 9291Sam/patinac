@@ -2425,7 +2425,6 @@ dependencies = [
  "spiral",
  "tobj",
  "util",
- "voxel",
  "voxel2",
 ]
 

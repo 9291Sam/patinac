@@ -1,6 +1,8 @@
 #![feature(new_uninit)]
 #![feature(ptr_as_ref_unchecked)]
 #![feature(map_entry_replace)]
+#![feature(array_chunks)]
+#![feature(iter_array_chunks)]
 
 use std::fmt::Debug;
 
@@ -34,7 +36,7 @@ pub struct WorldPosition(pub glm::I32Vec3);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) struct ChunkCoordinate(pub glm::I32Vec3);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Hash)]
-pub struct ChunkLocalPosition(pub glm::U8Vec3);
+pub(crate) struct ChunkLocalPosition(pub glm::U8Vec3);
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Hash)]
 pub(crate) struct BrickCoordinate(pub glm::U8Vec3);
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Hash)]

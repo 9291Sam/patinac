@@ -79,14 +79,26 @@ fn vs_main(in: VertexInput, @builtin(vertex_index) vertex_index: u32) -> VertexO
 struct VertexOutput
 {
     @builtin(position) position: vec4<f32>,
-    @location(0) material: u32,
+    @location(0) normal: u32,
     // @location(1) uv: vec2<f32>,
 }
 
 @fragment
 fn fs_main(@location(0) m: u32) -> @location(0) vec4<f32>
 {
-    return vec4<f32>(sin(f32(m) * 3784.0 + 3843.21) / 7, cos(f32(m) - 484.0 ), sin(f32(m) * 3034.33), 1.0); // material_buffer[voxel_material_id].diffuse_color;
+    var normal: vec3<f32>;
+    switch (m)
+    {
+        case 0u: {normal = vec3<f32>(0.0, 1.0, 0.0); }
+        case 1u: {normal = vec3<f32>(0.0, -1.0, 0.0); }     
+        case 2u: {normal = vec3<f32>(-1.0, 0.0, 0.0); }       
+        case 3u: {normal = vec3<f32>(1.0, 0.0, 0.0); }       
+        case 4u: {normal = vec3<f32>(0.0, 0.0, -1.0); }      
+        case 5u: {normal = vec3<f32>(0.0, 0.0, 1.0); }
+        case default: {normal = vec3<f32>(0.0); }
+    }
+
+    return vec4<f32>((normal + vec3<f32>(1.0)) / 2.0, 1.0); // material_buffer[voxel_material_id].diffuse_color;
 }
 
 const ERROR_COLOR: vec4<f32> = vec4<f32>(1.0, 0.0, 1.0, 1.0);
