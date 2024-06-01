@@ -6,7 +6,7 @@ use std::num::NonZero;
 use std::ops::Deref;
 use std::panic::{RefUnwindSafe, UnwindSafe};
 use std::sync::atomic::Ordering::{self};
-use std::sync::atomic::{AtomicU32, AtomicU64};
+use std::sync::atomic::{AtomicU32, AtomicU64, AtomicUsize};
 use std::sync::{Arc, Mutex, Weak};
 use std::thread::ThreadId;
 
@@ -24,6 +24,11 @@ use winit::window::{Window, WindowBuilder};
 use crate::recordables::{RecordInfo, Recordable, RenderPassId};
 use crate::render_cache::{GenericPass, RenderCache};
 use crate::{Camera, DrawId, GenericPipeline, InputManager};
+
+#[no_mangle]
+static NUMBER_OF_TOTAL_RECORDABLES: AtomicUsize = AtomicUsize::new(0);
+#[no_mangle]
+static NUMBER_OF_ACTIVE_RECORDABLES: AtomicUsize = AtomicUsize::new(0);
 
 #[derive(Debug)]
 pub struct Renderer
@@ -134,7 +139,7 @@ impl Renderer
 
         let adapter: wgpu::Adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
-                power_preference:       wgpu::PowerPreference::HighPerformance,
+                power_preference:       wgpu::PowerPreference::LowPower,
                 compatible_surface:     Some(&surface),
                 force_fallback_adapter: false
             })
@@ -190,10 +195,10 @@ impl Renderer
 
         let desired_present_modes = [
             wgpu::PresentMode::Mailbox,
-            #[cfg(not(debug_assertions))]
-            wgpu::PresentMode::FifoRelaxed,
-            #[cfg(not(debug_assertions))]
-            wgpu::PresentMode::Fifo,
+            // #[cfg(not(debug_assertions))]
+            // wgpu::PresentMode::FifoRelaxed,
+            // #[cfg(not(debug_assertions))]
+            // wgpu::PresentMode::Fifo,
             wgpu::PresentMode::Immediate
         ];
 
@@ -362,8 +367,6 @@ impl Renderer
 
         let mut camera = camera_update_func(&input_manager, self.get_delta_time());
 
-        let frame_counter: AtomicU64 = AtomicU64::new(0);
-
         let max_shader_matrices = usize::min(
             self.limits.max_uniform_buffer_binding_size as usize / std::mem::size_of::<glm::Mat4>(),
             4096
@@ -515,6 +518,9 @@ impl Renderer
                 })
                 .collect();
 
+            NUMBER_OF_TOTAL_RECORDABLES
+                .store(strong_renderable_record_info.len(), Ordering::Relaxed);
+
             let mut renderpass_order_map: HashMap<RenderPassId, usize> = HashMap::new();
 
             let mut renderpass_data: HashMap<
@@ -542,8 +548,15 @@ impl Renderer
                 })
                 .collect();
 
+            let mut number_of_recorded = 0;
+
             for (info, recordable) in strong_renderable_record_info
             {
+                if !matches!(info, RecordInfo::NoRecord)
+                {
+                    number_of_recorded += 1;
+                }
+
                 match info
                 {
                     RecordInfo::NoRecord =>
@@ -594,6 +607,8 @@ impl Renderer
                     }
                 }
             }
+
+            NUMBER_OF_ACTIVE_RECORDABLES.store(number_of_recorded, Ordering::Relaxed);
 
             let mut order_of_passes: Vec<(RenderPassId, usize)> = renderpass_order_map
                 .into_iter()
@@ -714,10 +729,7 @@ impl Renderer
                 }
             }
 
-            let render_encoder_name = format!(
-                "Patinac Main Command Encoder | Frame: #{}",
-                frame_counter.fetch_add(1, Ordering::AcqRel)
-            );
+            let render_encoder_name = format!("Patinac Main Command Encoder");
 
             let mut encoder = self
                 .device
@@ -804,6 +816,8 @@ impl Renderer
                             }
 
                             recordable.record(render_pass, *draw_id);
+
+                            number_of_recorded += 1;
                         }
 
                         active_pipeline = None;
