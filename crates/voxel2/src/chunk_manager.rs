@@ -194,27 +194,31 @@ impl gfx::Recordable for ChunkManager
     fn pre_record_update(
         &self,
         renderer: &gfx::Renderer,
-        _: &gfx::Camera,
+        camera: &gfx::Camera,
         global_bind_group: &Arc<wgpu::BindGroup>
     ) -> gfx::RecordInfo
     {
-        let mut r: Vec<wgpu::util::DrawIndirectArgs> = Vec::new();
+        let mut draw_indirect_calls: Vec<wgpu::util::DrawIndirectArgs> = Vec::new();
 
-        let mut buffer = self.global_face_storage.lock().unwrap();
-        buffer.replicate_to_gpu();
+        let mut face_allocator = self.global_face_storage.lock().unwrap();
+        let chunk = self.chunk.lock().unwrap();
 
-        self.chunk
-            .lock()
-            .unwrap()
-            .get_draw_ranges(&mut buffer)
+        face_allocator.replicate_to_gpu();
+
+        // TODO: not actually perfect, but close, figure out the actual relation
+        // tomorrow
+        chunk
+            .get_draw_ranges(&mut face_allocator)
             .into_iter()
             .filter_map(|f| f)
-            .for_each(|v: (Range<u32>, VoxelFaceDirection)| {
-                r.push(wgpu::util::DrawIndirectArgs {
-                    vertex_count:   (v.0.end + 1 - v.0.start) * 6,
+            .filter(|(_, dir)| camera.get_forward_vector().dot(&dir.get_axis().cast()) < 0.0)
+            .filter(|(range, _)| !range.is_empty())
+            .for_each(|(range, dir)| {
+                draw_indirect_calls.push(wgpu::util::DrawIndirectArgs {
+                    vertex_count:   (range.end + 1 - range.start) * 6,
                     instance_count: 1,
-                    first_vertex:   v.0.start * 6,
-                    first_instance: v.1 as u32
+                    first_vertex:   range.start * 6,
+                    first_instance: dir as u32
                 })
             });
 
@@ -229,11 +233,13 @@ impl gfx::Recordable for ChunkManager
         }
 
         self.number_of_indirect_calls_flushed
-            .store(r.len() as u32, Ordering::SeqCst);
+            .store(draw_indirect_calls.len() as u32, Ordering::SeqCst);
 
-        renderer
-            .queue
-            .write_buffer(&self.indirect_buffer, 0, draw_args_as_bytes(&r[..]));
+        renderer.queue.write_buffer(
+            &self.indirect_buffer,
+            0,
+            draw_args_as_bytes(&draw_indirect_calls[..])
+        );
 
         gfx::RecordInfo::Record {
             render_pass: self
