@@ -426,9 +426,11 @@ impl ChunkDataManager
                             //     .get_flattened_face_ids()
                             //     .iter()
                             //     .for_each(|f| {
-                            //         if let Some(face_id_to_remove) = f.to_option()
+                            //         if let Some(face_id_to_remove) =
+                            // f.to_option()
                             //         {
-                            //             face_ids_to_dealloc.push(face_id_to_remove);
+                            //
+                            // face_ids_to_dealloc.push(face_id_to_remove);
                             //         }
                             //     })
                         }

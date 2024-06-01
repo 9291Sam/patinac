@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::collections::hash_map::Entry;
 use std::collections::HashSet;
 use std::fmt::Debug;
 use std::ops::Range;
@@ -6,13 +7,22 @@ use std::pin::Pin;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 
-use bytemuck::{bytes_of, cast_slice};
-use fnv::FnvHashSet;
+use bytemuck::{bytes_of, cast_slice, Pod, Zeroable};
+use fnv::{FnvHashMap, FnvHashSet};
 use gfx::{glm, wgpu, CacheablePipelineLayoutDescriptor};
 
 use crate::cpu::{self, VoxelFaceDirection};
 use crate::suballocated_buffer::SubAllocatedCpuTrackedDenseSet;
-use crate::{gpu, BufferAllocation, ChunkLocalPosition, SubAllocatedCpuTrackedBuffer};
+use crate::{
+    get_world_offset_of_chunk,
+    gpu,
+    world_position_to_chunk_position,
+    BufferAllocation,
+    ChunkCoordinate,
+    ChunkLocalPosition,
+    SubAllocatedCpuTrackedBuffer,
+    WorldPosition
+};
 
 pub struct ChunkManager
 {
@@ -20,10 +30,11 @@ pub struct ChunkManager
     uuid:               util::Uuid,
     pipeline:           Arc<gfx::GenericPipeline>,
     indirect_buffer:    wgpu::Buffer,
+    instance_data:      wgpu::Buffer,
     face_id_bind_group: Arc<wgpu::BindGroup>,
 
     global_face_storage: Mutex<SubAllocatedCpuTrackedBuffer<gpu::VoxelFace>>,
-    chunk:               Mutex<Chunk>,
+    chunks:              Mutex<FnvHashMap<ChunkCoordinate, Chunk>>,
 
     number_of_indirect_calls_flushed: AtomicU32
 }
@@ -107,20 +118,24 @@ impl ChunkManager
             .cache_shader_module(wgpu::include_wgsl!("chunk_manager_indirect.wgsl"));
 
         let this = Arc::new(ChunkManager {
-            chunk:                            Mutex::new(Chunk::new(
-                &mut allocator.get_mut().unwrap()
-            )),
+            chunks:                           Mutex::new(FnvHashMap::default()),
             global_face_storage:              allocator,
             game:                             game.clone(),
             uuid:                             util::Uuid::new(),
             face_id_bind_group:               face_ids_bind_group,
+            instance_data:                    renderer.create_buffer(&wgpu::BufferDescriptor {
+                label:              Some("Indirect Instance Data Buffer"),
+                size:               std::mem::size_of::<PackedInstanceData>() as u64 * 32768,
+                usage:              wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false
+            }),
             pipeline:                         renderer.render_cache.cache_render_pipeline(
                 gfx::CacheableRenderPipelineDescriptor {
                     label: "ChunkManager Pipeline Indirect".into(),
                     layout: Some(layout),
                     vertex_module: shader.clone(),
                     vertex_entry_point: "vs_main".into(),
-                    vertex_buffer_layouts: vec![],
+                    vertex_buffer_layouts: vec![PackedInstanceData::desc()],
                     fragment_state: Some(gfx::CacheableFragmentState {
                         module:                           shader,
                         entry_point:                      "fs_main".into(),
@@ -167,14 +182,24 @@ impl ChunkManager
         this
     }
 
-    pub fn insert_many_voxel(&self, pos: impl IntoIterator<Item = ChunkLocalPosition>)
+    pub fn insert_many_voxel(&self, pos: impl IntoIterator<Item = WorldPosition>)
     {
         let mut allocator = self.global_face_storage.lock().unwrap();
-        let mut chunk = self.chunk.lock().unwrap();
+        let mut chunks = self.chunks.lock().unwrap();
 
         for p in pos
         {
-            chunk.insert_voxel(p, &mut allocator);
+            let (chunk_coordinate, local_pos) = world_position_to_chunk_position(p);
+
+            match chunks.entry(chunk_coordinate)
+            {
+                Entry::Occupied(mut e) => e.get_mut().insert_voxel(local_pos, &mut allocator),
+                Entry::Vacant(e) =>
+                {
+                    e.insert(Chunk::new(&mut allocator))
+                        .insert_voxel(local_pos, &mut allocator)
+                }
+            }
         }
     }
 }
@@ -198,29 +223,45 @@ impl gfx::Recordable for ChunkManager
         global_bind_group: &Arc<wgpu::BindGroup>
     ) -> gfx::RecordInfo
     {
-        let mut draw_indirect_calls: Vec<wgpu::util::DrawIndirectArgs> = Vec::new();
+        let mut indirect_args: Vec<wgpu::util::DrawIndirectArgs> = Vec::new();
+        let mut indirect_data: Vec<PackedInstanceData> = Vec::new();
 
         let mut face_allocator = self.global_face_storage.lock().unwrap();
-        let chunk = self.chunk.lock().unwrap();
+        let chunks = self.chunks.lock().unwrap();
 
         face_allocator.replicate_to_gpu();
 
-        // TODO: not actually perfect, but close, figure out the actual relation
-        // tomorrow 0.5 for shaded axis chunks and 0.0 elsewhere /shrug
-        chunk
-            .get_draw_ranges(&mut face_allocator)
-            .into_iter()
-            .filter_map(|f| f)
-            .filter(|(_, dir)| camera.get_forward_vector().dot(&dir.get_axis().cast()) < 0.5)
-            .filter(|(range, _)| !range.is_empty())
-            .for_each(|(range, dir)| {
-                draw_indirect_calls.push(wgpu::util::DrawIndirectArgs {
-                    vertex_count:   (range.end + 1 - range.start) * 6,
-                    instance_count: 1,
-                    first_vertex:   range.start * 6,
-                    first_instance: dir as u32
-                })
-            });
+        // TODO: tomorrow 0.5 for shaded axis chunks and 0.0 elsewhere /shrug
+        let mut idx = 0;
+
+        for (coordinate, chunk) in chunks.iter()
+        {
+            let draw_ranges = chunk.get_draw_ranges(&mut face_allocator);
+
+            for range in draw_ranges
+            {
+                if let Some((r, dir)) = range
+                {
+                    if camera.get_forward_vector().dot(&dir.get_axis().cast()) < 0.5
+                        && !r.is_empty()
+                    {
+                        indirect_args.push(wgpu::util::DrawIndirectArgs {
+                            vertex_count:   (r.end + 1 - r.start) * 6,
+                            instance_count: 1,
+                            first_vertex:   r.start * 6,
+                            first_instance: idx as u32
+                        });
+
+                        indirect_data.push(PackedInstanceData {
+                            chunk_world_offset: get_world_offset_of_chunk(*coordinate).0.cast(),
+                            normal_id:          dir as u32
+                        });
+
+                        idx += 1;
+                    }
+                }
+            }
+        }
 
         fn draw_args_as_bytes(args: &[wgpu::util::DrawIndirectArgs]) -> &[u8]
         {
@@ -233,13 +274,17 @@ impl gfx::Recordable for ChunkManager
         }
 
         self.number_of_indirect_calls_flushed
-            .store(draw_indirect_calls.len() as u32, Ordering::SeqCst);
+            .store(indirect_args.len() as u32, Ordering::SeqCst);
 
         renderer.queue.write_buffer(
             &self.indirect_buffer,
             0,
-            draw_args_as_bytes(&draw_indirect_calls[..])
+            draw_args_as_bytes(&indirect_args[..])
         );
+
+        renderer
+            .queue
+            .write_buffer(&self.instance_data, 0, cast_slice(&indirect_data[..]));
 
         gfx::RecordInfo::Record {
             render_pass: self
@@ -265,12 +310,35 @@ impl gfx::Recordable for ChunkManager
             panic!("Generic RenderPass bound with incorrect type!")
         };
 
+        pass.set_vertex_buffer(0, self.instance_data.slice(..));
         pass.set_push_constants(wgpu::ShaderStages::VERTEX, 0, bytes_of(&id));
         pass.multi_draw_indirect(
             &self.indirect_buffer,
             0,
             self.number_of_indirect_calls_flushed.load(Ordering::SeqCst)
         );
+    }
+}
+#[repr(C)]
+#[derive(Copy, Clone, Debug, Pod, Zeroable)]
+pub struct PackedInstanceData
+{
+    pub chunk_world_offset: glm::Vec3,
+    pub normal_id:          u32
+}
+
+impl PackedInstanceData
+{
+    const ATTRIBS: [wgpu::VertexAttribute; 2] =
+        wgpu::vertex_attr_array![0 => Float32x3, 1 => Uint32];
+
+    pub fn desc() -> wgpu::VertexBufferLayout<'static>
+    {
+        wgpu::VertexBufferLayout {
+            array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
+            step_mode:    wgpu::VertexStepMode::Instance,
+            attributes:   &Self::ATTRIBS
+        }
     }
 }
 

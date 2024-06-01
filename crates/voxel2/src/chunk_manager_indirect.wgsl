@@ -18,8 +18,13 @@ alias GlobalPositions = array<vec3<f32>, NumberOfModels>;
 // face_data buffer (faceid is the index) which is the vertex index / 6
 var<push_constant> pc_id: u32;
 
+struct VertexInput {
+    @location(0) position: vec3<f32>,
+    @location(1) normal_id: u32
+}
+
 @vertex
-fn vs_main(@builtin(vertex_index) vertex_index: u32, @builtin(instance_index) instance_index: u32) -> VertexOutput
+fn vs_main(in: VertexInput, @builtin(vertex_index) vertex_index: u32) -> VertexOutput
 {
     var FACE_LOOKUP_TABLE: array<array<vec3<u32>, 4>, 6> =
     array<array<vec3<u32>, 4>, 6>(
@@ -47,13 +52,13 @@ fn vs_main(@builtin(vertex_index) vertex_index: u32, @builtin(instance_index) in
     let z_pos: u32 = (face_id >> 16) & eight_bit_mask;
 
     let face_voxel_pos = vec3<u32>(x_pos, y_pos, z_pos);
-    let face_normal_id = instance_index & three_bit_mask;
+    let face_normal_id = in.normal_id;
 
     // var material = face_data.mat_and_chunk_id & sixteen_bit_mask;
     // let chunk_id = (face_data.mat_and_chunk_id >> 16) & sixteen_bit_mask;
     // let chunk_data = chunk_data_buffer[chunk_id];
     // let chunk_pos = chunk_data.position;
-    let chunk_pos = vec3<f32>(0.0);
+    let chunk_pos = in.position;
     // let chunk_scale = chunk_data.scale;
     let chunk_scale = vec3<f32>(1.0);
 

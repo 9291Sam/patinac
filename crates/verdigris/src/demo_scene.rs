@@ -77,10 +77,10 @@ impl DemoScene
         // let draws = vec![v2 as Arc<dyn gfx::Recordable>];
 
         util::run_async(move || {
-            iproduct!(0..=255, 0..=255, 0..=255)
-                .filter(|_| rng.gen_bool(0.02))
+            iproduct!(0..=512, 0..=512, 0..=512)
+                .filter(|_| rng.gen_bool(0.0002))
                 .for_each(|(x, y, z)| {
-                    c_v2.insert_many_voxel([voxel2::ChunkLocalPosition(glm::U8Vec3::new(x, y, z))])
+                    c_v2.insert_many_voxel([voxel2::WorldPosition(glm::I32Vec3::new(x, y, z))])
                 });
         })
         .detach();
