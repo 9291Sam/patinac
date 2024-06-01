@@ -25,6 +25,7 @@ impl DemoScene
     {
         let dm = VoxelWorld::new(game.clone());
         let c_dm = dm.clone();
+        let c_dm2 = dm.clone();
 
         let v2 = voxel2::ChunkManager::new(game.clone());
         let c_v2 = v2.clone();
@@ -76,12 +77,15 @@ impl DemoScene
         // let draws = vec![v2 as Arc<dyn gfx::Recordable>];
 
         util::run_async(move || {
-            let it = iproduct!(0..=255, 0..=255, 0..=255)
-                .filter(|_| rng.gen_bool(0.2))
+            iproduct!(0..=255, 0..=255, 0..=255)
+                .filter(|_| rng.gen_bool(0.02))
                 .for_each(|(x, y, z)| {
                     c_v2.insert_many_voxel([voxel2::ChunkLocalPosition(glm::U8Vec3::new(x, y, z))])
                 });
+        })
+        .detach();
 
+        util::run_async(move || {
             let mut rng = rand::rngs::SmallRng::seed_from_u64(238902348902348);
 
             let it = iproduct!(-127..0, 0..127, 0..127).map(|(x, y, z)| {
@@ -92,18 +96,17 @@ impl DemoScene
             });
 
             c_dm.insert_many_voxel(it);
+        })
+        .detach();
 
-            std::thread::sleep_ms(10);
-
+        util::run_async(move || {
             load_model_from_file_into(
                 glm::I32Vec3::new(0, 126, 0),
-                &c_dm,
+                &c_dm2,
                 &dot_vox::load_bytes(include_bytes!("../../../menger.vox")).unwrap()
             );
 
-            std::thread::sleep_ms(10);
-
-            arbitrary_landscape_demo(&c_dm);
+            arbitrary_landscape_demo(&c_dm2);
         })
         .detach();
 

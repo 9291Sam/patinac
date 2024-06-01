@@ -206,12 +206,12 @@ impl gfx::Recordable for ChunkManager
         face_allocator.replicate_to_gpu();
 
         // TODO: not actually perfect, but close, figure out the actual relation
-        // tomorrow
+        // tomorrow 0.5 for shaded axis chunks and 0.0 elsewhere /shrug
         chunk
             .get_draw_ranges(&mut face_allocator)
             .into_iter()
             .filter_map(|f| f)
-            .filter(|(_, dir)| camera.get_forward_vector().dot(&dir.get_axis().cast()) < 0.0)
+            .filter(|(_, dir)| camera.get_forward_vector().dot(&dir.get_axis().cast()) < 0.5)
             .filter(|(range, _)| !range.is_empty())
             .for_each(|(range, dir)| {
                 draw_indirect_calls.push(wgpu::util::DrawIndirectArgs {
