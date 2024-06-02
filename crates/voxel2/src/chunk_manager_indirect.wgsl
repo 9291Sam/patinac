@@ -73,21 +73,34 @@ fn vs_main(in: VertexInput, @builtin(vertex_index) vertex_index: u32) -> VertexO
     return VertexOutput(
         global_model_view_projection[pc_id] * face_point_world,
         face_normal_id, 
+        vec3<f32>(
+            rand(face_id),
+            rand(face_id + 83483724),
+            rand(face_id + 747474995),
+        )
     );
 }
+
+fn rand(s: u32) -> f32
+{
+    return fract(sin(f32(s) / 473.489484));
+}
+
 
 struct VertexOutput
 {
     @builtin(position) position: vec4<f32>,
     @location(0) normal: u32,
+    @location(1) color: vec3<f32>,
     // @location(1) uv: vec2<f32>,
 }
 
 @fragment
-fn fs_main(@location(0) m: u32) -> @location(0) vec4<f32>
+fn fs_main( m: VertexOutput) -> @location(0) vec4<f32>
 {
     var normal: vec3<f32>;
-    switch (m)
+
+    switch (m.normal)
     {
         case 0u: {normal = vec3<f32>(0.0, 1.0, 0.0); }
         case 1u: {normal = vec3<f32>(0.0, -1.0, 0.0); }     
@@ -98,7 +111,8 @@ fn fs_main(@location(0) m: u32) -> @location(0) vec4<f32>
         case default: {normal = vec3<f32>(0.0); }
     }
 
-    return vec4<f32>((normal + vec3<f32>(1.0)) / 2.0, 1.0); // material_buffer[voxel_material_id].diffuse_color;
+    // return vec4<f32>((normal + vec3<f32>(1.0)) / 2.0, 1.0);
+    return vec4<f32>(normalize(m.color), 1.0);
 }
 
 const ERROR_COLOR: vec4<f32> = vec4<f32>(1.0, 0.0, 1.0, 1.0);
