@@ -175,8 +175,6 @@ impl Game
             let v = *gfx::Transform::global_up_vector() * move_scale;
 
             camera.add_position(v * camera_delta_time);
-
-            eprintln!("SPACE PRESSED!");
         };
 
         if input_manager.is_key_pressed(gfx::KeyCode::ControlLeft)
