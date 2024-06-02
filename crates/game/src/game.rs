@@ -1,16 +1,20 @@
 use std::fmt::Debug;
 use std::panic::{RefUnwindSafe, UnwindSafe};
-use std::sync::atomic::Ordering::*;
+use std::sync::atomic::Ordering::{self, *};
 use std::sync::atomic::{AtomicU32, AtomicU64};
 use std::sync::{Arc, Mutex, Weak};
 use std::time::Duration;
 
 use gfx::glm;
+use util::AtomicF32;
 
 use crate::renderpasses::RenderPassManager;
 use crate::{Entity, SelfManagedEntity};
 
 pub struct TickTag(());
+
+#[no_mangle]
+static DEMO_FLOAT_HEIGHT: AtomicF32 = AtomicF32::new(0.0);
 
 pub trait World: Send + Sync
 {
@@ -245,6 +249,38 @@ impl Game
 
         let minimum_tick_time = Duration::from_micros(10);
 
+        use rapier3d::prelude::*;
+
+        let mut rigid_body_set = RigidBodySet::new();
+        let mut collider_set = ColliderSet::new();
+
+        // Create the ground.
+        let collider = ColliderBuilder::cuboid(100.0, 1.0, 100.0).build();
+        collider_set.insert(collider);
+
+        // Create the bounding ball.
+        let rigid_body = RigidBodyBuilder::dynamic()
+            .translation(vector![0.0, 100.0, 0.0])
+            .build();
+        let collider = ColliderBuilder::ball(5.0).restitution(2.1784723234).build();
+        let ball_body_handle = rigid_body_set.insert(rigid_body);
+        collider_set.insert_with_parent(collider, ball_body_handle, &mut rigid_body_set);
+
+        // Create other structures necessary for the simulation.
+        let gravity = vector![0.0, -9.81, 0.0];
+        let mut physics_pipeline = PhysicsPipeline::new();
+        let mut island_manager = IslandManager::new();
+        let mut broad_phase = BroadPhaseMultiSap::new();
+        let mut narrow_phase = NarrowPhase::new();
+        let mut impulse_joint_set = ImpulseJointSet::new();
+        let mut multibody_joint_set = MultibodyJointSet::new();
+        let mut ccd_solver = CCDSolver::new();
+        let mut query_pipeline = QueryPipeline::new();
+        let physics_hooks = ();
+        let event_handler = ();
+
+        let minimum_tick_time = Duration::from_micros(100);
+
         while poll_continue_func()
         {
             let now = std::time::Instant::now();
@@ -252,6 +288,34 @@ impl Game
             let delta_duration = now - prev;
             delta_time = delta_duration.as_secs_f64();
             prev = now;
+
+            if let Some(d) = minimum_tick_time.checked_sub(delta_duration)
+            {
+                spin_sleep::sleep(d);
+            }
+
+            physics_pipeline.step(
+                &gravity,
+                &IntegrationParameters {
+                    dt: delta_time as f32,
+                    ..Default::default()
+                },
+                &mut island_manager,
+                &mut broad_phase,
+                &mut narrow_phase,
+                &mut rigid_body_set,
+                &mut collider_set,
+                &mut impulse_joint_set,
+                &mut multibody_joint_set,
+                &mut ccd_solver,
+                Some(&mut query_pipeline),
+                &physics_hooks,
+                &event_handler
+            );
+
+            let ball_body = &rigid_body_set[ball_body_handle];
+            // log::trace!("Ball altitude: {}", ball_body.translation().y);
+            DEMO_FLOAT_HEIGHT.store(ball_body.translation().y, Ordering::Relaxed);
 
             if let Some(d) = minimum_tick_time.checked_sub(delta_duration)
             {

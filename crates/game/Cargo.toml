@@ -13,3 +13,4 @@ oneshot = { workspace = true }
 strum = { workspace = true }
 dashmap = { workspace = true }
 spin_sleep = { workspace = true }
+rapier3d = { workspace = true }

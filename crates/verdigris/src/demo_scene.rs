@@ -6,17 +6,25 @@ use gfx::glm::{self};
 use itertools::iproduct;
 use noise::NoiseFn;
 use rand::{Rng, SeedableRng};
+use util::AtomicF32;
 use voxel2::{ChunkManager, WorldPosition};
 
 use crate::instanced_indirect::InstancedIndirect;
 use crate::recordables::flat_textured::FlatTextured;
 use crate::recordables::lit_textured::LitTextured;
+
+extern "C" {
+
+    static DEMO_FLOAT_HEIGHT: AtomicF32;
+}
+
 #[derive(Debug)]
 pub struct DemoScene
 {
-    _dm:    Arc<voxel2::ChunkManager>,
-    _draws: Vec<Arc<dyn gfx::Recordable>>,
-    id:     util::Uuid
+    _dm:               Arc<voxel2::ChunkManager>,
+    _draws:            Vec<Arc<dyn gfx::Recordable>>,
+    lit_textured_cube: Arc<LitTextured>,
+    id:                util::Uuid
 }
 
 impl DemoScene
@@ -96,9 +104,10 @@ impl DemoScene
         .detach();
 
         let this = Arc::new(DemoScene {
-            _dm:    dm.clone(),
-            id:     util::Uuid::new(),
-            _draws: draws
+            _dm:               dm.clone(),
+            id:                util::Uuid::new(),
+            _draws:            draws,
+            lit_textured_cube: LitTextured::new_cube(game.clone(), gfx::Transform::new())
         });
 
         game.register(this.clone());
@@ -139,7 +148,11 @@ impl game::Entity for DemoScene
 
     fn tick(&self, _: &game::Game, _: game::TickTag)
     {
-        // self.future.lock().unwrap().poll_ref();
+        self.lit_textured_cube.transform.lock().unwrap().translation = glm::Vec3::new(
+            -164.0,
+            unsafe { DEMO_FLOAT_HEIGHT.load(std::sync::atomic::Ordering::Relaxed) } + 180.0,
+            38.0
+        );
     }
 }
 

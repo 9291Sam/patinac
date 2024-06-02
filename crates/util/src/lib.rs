@@ -3,7 +3,7 @@
 #![feature(unchecked_shifts)]
 #![feature(map_entry_replace)]
 #![feature(get_many_mut)]
-
+#![feature(const_float_bits_conv)]
 mod allocator;
 mod r#async;
 mod atomics;

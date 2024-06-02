@@ -103,6 +103,7 @@ impl AtomicU32U32
     }
 }
 
+#[repr(transparent)]
 pub struct AtomicF32
 {
     data: AtomicU32
@@ -120,7 +121,7 @@ impl Debug for AtomicF32
 
 impl AtomicF32
 {
-    pub fn new(val: f32) -> Self
+    pub const fn new(val: f32) -> Self
     {
         AtomicF32 {
             data: AtomicU32::new(val.to_bits())
