@@ -107,7 +107,13 @@ impl DemoScene
             _dm:               dm.clone(),
             id:                util::Uuid::new(),
             _draws:            draws,
-            lit_textured_cube: LitTextured::new_cube(game.clone(), gfx::Transform::new())
+            lit_textured_cube: LitTextured::new_cube(
+                game.clone(),
+                gfx::Transform {
+                    scale: glm::Vec3::new(5.0, 5.0, 5.0),
+                    ..Default::default()
+                }
+            )
         });
 
         game.register(this.clone());
@@ -149,9 +155,9 @@ impl game::Entity for DemoScene
     fn tick(&self, _: &game::Game, _: game::TickTag)
     {
         self.lit_textured_cube.transform.lock().unwrap().translation = glm::Vec3::new(
-            -164.0,
-            unsafe { DEMO_FLOAT_HEIGHT.load(std::sync::atomic::Ordering::Relaxed) } + 180.0,
-            38.0
+            -40.0,
+            unsafe { DEMO_FLOAT_HEIGHT.load(std::sync::atomic::Ordering::Relaxed) } + 64.0,
+            30.0
         );
     }
 }

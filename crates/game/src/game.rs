@@ -262,12 +262,15 @@ impl Game
         let rigid_body = RigidBodyBuilder::dynamic()
             .translation(vector![0.0, 100.0, 0.0])
             .build();
-        let collider = ColliderBuilder::ball(5.0).restitution(2.1784723234).build();
+        let collider = ColliderBuilder::ball(5.0)
+            .contact_force_event_threshold(f32::MIN_POSITIVE)
+            .restitution(1.0)
+            .build();
         let ball_body_handle = rigid_body_set.insert(rigid_body);
         collider_set.insert_with_parent(collider, ball_body_handle, &mut rigid_body_set);
 
         // Create other structures necessary for the simulation.
-        let gravity = vector![0.0, -9.81, 0.0];
+        let gravity = vector![0.0, -108.823241, 0.0];
         let mut physics_pipeline = PhysicsPipeline::new();
         let mut island_manager = IslandManager::new();
         let mut broad_phase = BroadPhaseMultiSap::new();

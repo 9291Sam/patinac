@@ -70,7 +70,7 @@ offset-allocator = "0.1.0"
 num-format = "0.4.4"
 nonmax = "0.5.5"
 fnv = "1.0.7"
-rapier3d = { version = "0.19.0", features = ["simd-stable"] }
+rapier3d = "0.19.0"
 replace_with = "0.1.7"
 spin_sleep = "1.2.0"
 
