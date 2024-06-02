@@ -175,6 +175,8 @@ impl Game
             let v = *gfx::Transform::global_up_vector() * move_scale;
 
             camera.add_position(v * camera_delta_time);
+
+            eprintln!("SPACE PRESSED!");
         };
 
         if input_manager.is_key_pressed(gfx::KeyCode::ControlLeft)
@@ -292,10 +294,10 @@ impl Game
             delta_time = delta_duration.as_secs_f64();
             prev = now;
 
-            if let Some(d) = minimum_tick_time.checked_sub(delta_duration)
-            {
-                spin_sleep::sleep(d);
-            }
+            // if let Some(d) = minimum_tick_time.checked_sub(delta_duration)
+            // {
+            //     spin_sleep::sleep(d);
+            // }
 
             physics_pipeline.step(
                 &gravity,

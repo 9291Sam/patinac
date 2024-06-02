@@ -194,7 +194,7 @@ impl Renderer
             .unwrap();
 
         let desired_present_modes = [
-            wgpu::PresentMode::Mailbox,
+            // wgpu::PresentMode::Mailbox,
             // #[cfg(not(debug_assertions))]
             // wgpu::PresentMode::FifoRelaxed,
             // #[cfg(not(debug_assertions))]
@@ -222,7 +222,7 @@ impl Renderer
             present_mode:                  selected_mode.unwrap(),
             alpha_mode:                    surface_caps.alpha_modes[0],
             view_formats:                  vec![],
-            desired_maximum_frame_latency: 3
+            desired_maximum_frame_latency: 0
         };
         surface.configure(&device, &config);
 
@@ -365,8 +365,6 @@ impl Renderer
             }
         );
 
-        let mut camera = camera_update_func(&input_manager, self.get_delta_time());
-
         let max_shader_matrices = usize::min(
             self.limits.max_uniform_buffer_binding_size as usize / std::mem::size_of::<glm::Mat4>(),
             4096
@@ -467,7 +465,7 @@ impl Renderer
         let shader_mvps = RefCell::new(ShaderMatrices::new(max_shader_matrices));
         let shader_models = RefCell::new(ShaderMatrices::new(max_shader_matrices));
 
-        let render_func = |camera: Camera| -> Result<(), wgpu::SurfaceError> {
+        let render_func = || -> Result<(), wgpu::SurfaceError> {
             let screen_texture = surface.get_current_texture()?;
             let screen_texture_view = screen_texture
                 .texture
@@ -486,6 +484,7 @@ impl Renderer
             };
 
             // log::trace!("before calling all pre_record_update s");
+            let camera = camera_update_func(&input_manager, self.get_delta_time());
 
             let strong_renderable_record_info: Vec<(RecordInfo, Arc<dyn Recordable>)> = self
                 .renderables
@@ -861,14 +860,12 @@ impl Renderer
                         {
                             use wgpu::SurfaceError::*;
 
-                            camera = camera_update_func(&input_manager, self.get_delta_time());
-
                             if input_manager.is_key_pressed(KeyCode::Escape)
                             {
                                 control_flow.exit();
                             }
 
-                            match render_func(camera.clone())
+                            match render_func()
                             {
                                 Ok(_) => (),
                                 Err(Timeout) => log::warn!("render timeout!"),

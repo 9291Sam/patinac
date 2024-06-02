@@ -67,7 +67,7 @@ impl ChunkManager
 
         let mut allocator = Mutex::new(SubAllocatedCpuTrackedBuffer::new(
             renderer.clone(),
-            1048576 * 32,
+            1048576 * 96,
             "ChunkFacesSubBuffer",
             wgpu::BufferUsages::STORAGE
         ));
