@@ -208,6 +208,8 @@ impl ChunkManager
         }
     }
 
+    // fn new_insert_many_voxel_deadlocking(&)
+
     fn insert_many_voxel_deadlocking(&self, pos: impl IntoIterator<Item = WorldPosition>)
     {
         let mut allocator = self.global_face_storage.lock().unwrap();
@@ -281,10 +283,10 @@ impl gfx::Recordable for ChunkManager
                         continue;
                     }
 
-                    if camera.get_forward_vector().dot(&dir.get_axis().cast()) > 0.5
-                    {
-                        continue;
-                    }
+                    // if camera.get_forward_vector().dot(&dir.get_axis().cast()) > 0.5
+                    // {
+                    //     continue;
+                    // }
 
                     // TODO: chunk occlussion culling (is it in the frustum?)
 

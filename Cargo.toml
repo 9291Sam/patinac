@@ -10,7 +10,6 @@ members = [
     "crates/game",
     "crates/verdigris",
     "crates/gui",
-    "crates/voxel",
     "crates/voxel2",
 ]
 
@@ -24,16 +23,15 @@ log = { workspace = true }
 voxel2 = { workspace = true }
 oneshot = { workspace = true }
 dashmap = { workspace = true }
-voxel = { workspace = true }
 rand = { workspace = true }
 itertools = { workspace = true }
+
 [workspace.dependencies]
 util = { path = "crates/util" }
 gfx = { path = "crates/gfx" }
 game = { path = "crates/game" }
 verdigris = { path = "crates/verdigris" }
 gui = { path = "crates/gui" }
-voxel = { path = "crates/voxel" }
 voxel2 = { path = "crates/voxel2" }
 log = { version = "0.4.20", features = ["std"] }
 bytemuck = { version = "1.14.1", features = ["derive"] }
