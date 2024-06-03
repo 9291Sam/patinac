@@ -79,14 +79,14 @@ impl DemoScene
         //     // ) as Arc<dyn gfx::Recordable>])
         //     .collect();
 
-        util::run_async(move || {
-            iproduct!(0..=512, 0..=512, 0..=512)
-                .filter(|_| rng.gen_bool(0.0002))
-                .for_each(|(x, y, z)| {
-                    c_dm.insert_many_voxel([voxel2::WorldPosition(glm::I32Vec3::new(x, y, z))])
-                });
-        })
-        .detach();
+        // util::run_async(move || {
+        //     iproduct!(0..=512, 0..=512, 0..=512)
+        //         .filter(|_| rng.gen_bool(0.0002))
+        //         .for_each(|(x, y, z)| {
+        //             c_dm.insert_many_voxel([voxel2::WorldPosition(glm::I32Vec3::new(x, y, z))])
+        //         });
+        // })
+        // .detach();
 
         util::run_async(move || {
             let it = iproduct!(-64..0, 0..64, 0..64)
@@ -177,7 +177,7 @@ fn arbitrary_landscape_demo(dm: &ChunkManager)
 {
     let noise = noise::OpenSimplex::new(2384247834);
 
-    let it = spiral::ChebyshevIterator::new(0, 0, 2048).map(|(x, z)| {
+    let it = spiral::ChebyshevIterator::new(0, 0, 256).map(|(x, z)| {
         WorldPosition(glm::I32Vec3::new(
             x,
             (noise.get([x as f64 / 256.0, z as f64 / 256.0]) * 256.0) as i32,
