@@ -37,49 +37,50 @@ impl DemoScene
 
         let mut rng = rand::rngs::SmallRng::seed_from_u64(23879234789234);
 
-        let draws = spiral::ChebyshevIterator::new(0, 0, 4)
-            .map(|(x, z)| {
-                [
-                    LitTextured::new_cube(
-                        game.clone(),
-                        gfx::Transform {
-                            translation: glm::Vec3::new(
-                                x as f32 * 12.0 - 64.0,
-                                164.0,
-                                z as f32 * 12.0 + 64.0
-                            ),
-                            scale: glm::Vec3::repeat(4.0),
-                            ..Default::default()
-                        }
-                    ) as Arc<dyn gfx::Recordable>,
-                    FlatTextured::new_pentagon(
-                        game.clone(),
-                        gfx::Transform {
-                            translation: glm::Vec3::new(
-                                x as f32 * 12.0 - 64.0,
-                                184.0,
-                                z as f32 * 12.0 + 64.0
-                            ),
-                            scale: glm::Vec3::repeat(-16.0),
-                            ..Default::default()
-                        }
-                    ) as Arc<dyn gfx::Recordable>
-                ]
-            })
-            .flatten()
-            // .chain([InstancedIndirect::new_pentagonal_array(
-            //     game.clone(),
-            //     gfx::Transform {
-            //         translation: glm::Vec3::new(-127.0, 218.0, 0.0),
-            //         scale: glm::Vec3::new(18.0, -18.0, 18.0),
-            //         ..Default::default()
-            //     },
-            //     512
-            // ) as Arc<dyn gfx::Recordable>])
-            .collect();
+        let draws = Vec::new();
+        // spiral::ChebyshevIterator::new(0, 0, 4)
+        //     .map(|(x, z)| {
+        //         [
+        //             LitTextured::new_cube(
+        //                 game.clone(),
+        //                 gfx::Transform {
+        //                     translation: glm::Vec3::new(
+        //                         x as f32 * 12.0 - 64.0,
+        //                         164.0,
+        //                         z as f32 * 12.0 + 64.0
+        //                     ),
+        //                     scale: glm::Vec3::repeat(4.0),
+        //                     ..Default::default()
+        //                 }
+        //             ) as Arc<dyn gfx::Recordable>,
+        //             FlatTextured::new_pentagon(
+        //                 game.clone(),
+        //                 gfx::Transform {
+        //                     translation: glm::Vec3::new(
+        //                         x as f32 * 12.0 - 64.0,
+        //                         184.0,
+        //                         z as f32 * 12.0 + 64.0
+        //                     ),
+        //                     scale: glm::Vec3::repeat(-16.0),
+        //                     ..Default::default()
+        //                 }
+        //             ) as Arc<dyn gfx::Recordable>
+        //         ]
+        //     })
+        //     .flatten()
+        //     // .chain([InstancedIndirect::new_pentagonal_array(
+        //     //     game.clone(),
+        //     //     gfx::Transform {
+        //     //         translation: glm::Vec3::new(-127.0, 218.0, 0.0),
+        //     //         scale: glm::Vec3::new(18.0, -18.0, 18.0),
+        //     //         ..Default::default()
+        //     //     },
+        //     //     512
+        //     // ) as Arc<dyn gfx::Recordable>])
+        //     .collect();
 
         util::run_async(move || {
-            iproduct!(0..=64, 0..=64, 0..=64)
+            iproduct!(0..=512, 0..=512, 0..=512)
                 .filter(|_| rng.gen_bool(0.0002))
                 .for_each(|(x, y, z)| {
                     c_dm.insert_many_voxel([voxel2::WorldPosition(glm::I32Vec3::new(x, y, z))])
