@@ -89,7 +89,7 @@ impl DemoScene
         // .detach();
 
         util::run_async(move || {
-            let it = iproduct!(-64..0, 0..64, 0..64)
+            let it = iproduct!(0..64, -64..0, 0..64)
                 .map(|(x, y, z)| WorldPosition(glm::I32Vec3::new(x, y, z)));
 
             c_dm2.insert_many_voxel(it);
@@ -156,9 +156,9 @@ impl game::Entity for DemoScene
     fn tick(&self, _: &game::Game, _: game::TickTag)
     {
         self.lit_textured_cube.transform.lock().unwrap().translation = glm::Vec3::new(
-            -40.0,
-            unsafe { DEMO_FLOAT_HEIGHT.load(std::sync::atomic::Ordering::Relaxed) } + 64.0,
-            30.0
+            32.0,
+            unsafe { DEMO_FLOAT_HEIGHT.load(std::sync::atomic::Ordering::Relaxed) },
+            32.0
         );
     }
 }
@@ -180,7 +180,7 @@ fn arbitrary_landscape_demo(dm: &ChunkManager)
     let it = spiral::ChebyshevIterator::new(0, 0, 256).map(|(x, z)| {
         WorldPosition(glm::I32Vec3::new(
             x,
-            (noise.get([x as f64 / 256.0, z as f64 / 256.0]) * 256.0) as i32,
+            (noise.get([x as f64 / 256.0, z as f64 / 256.0]) * 256.0 - 128.0) as i32,
             z
         ))
     });

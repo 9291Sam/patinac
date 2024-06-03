@@ -255,7 +255,7 @@ impl Game
         let mut collider_set = ColliderSet::new();
 
         // Create the ground.
-        let collider = ColliderBuilder::cuboid(100.0, 1.0, 100.0).build();
+        let collider = ColliderBuilder::cuboid(128.0, 1.0, 128.0).build();
         collider_set.insert(collider);
 
         // Create the bounding ball.
