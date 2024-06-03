@@ -22,5 +22,7 @@ Misc (low):
 
 
 Goals:
-   Colored Voxels
-   New Input Manager
+    Physics
+    Colored Voxels
+    Editable World
+    Shadows + lighting?

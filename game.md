@@ -45,3 +45,6 @@ MVP tasks:
 3. ---- MVP Checkpoint ---- 
 	- At this point you should have a game. Show it off, ask others for their opinions. 
 
+
+
+wandering trader
