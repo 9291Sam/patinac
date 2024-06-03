@@ -45,8 +45,10 @@ pub struct Renderer
     window_size:           AtomicU32U32,
     delta_time:            AtomicF32,
     limits:                wgpu::Limits,
+    input_manager:         InputManager,
 
     // Rendering
+    camera_window:    util::Window<Camera>,
     thread_id:        ThreadId,
     critical_section: Mutex<CriticalSection>
 }
@@ -106,7 +108,11 @@ impl Renderer
     /// on
     pub unsafe fn new(
         window_title: impl Into<String>
-    ) -> (Self, util::WindowUpdater<RenderPassSendFunction>)
+    ) -> (
+        Self,
+        util::WindowUpdater<RenderPassSendFunction>,
+        util::WindowUpdater<Camera>
+    )
     {
         let event_loop = EventLoop::new().unwrap();
         let window = Arc::new(
@@ -226,6 +232,14 @@ impl Renderer
         };
         surface.configure(&device, &config);
 
+        let input_manager = InputManager::new(
+            window.clone(),
+            PhysicalSize {
+                width:  config.width,
+                height: config.height
+            }
+        );
+
         let (renderpass_func_window, tx) =
             util::Window::<RenderPassSendFunction>::new(RenderPassSendFunction::new(Vec::new()));
 
@@ -277,6 +291,9 @@ impl Renderer
 
         let render_cache = RenderCache::new(device.clone());
 
+        let (camera_window, camera_window_updater) =
+            util::Window::new(Camera::new(glm::Vec3::repeat(0.0), 0.0, 0.0));
+
         (
             Renderer {
                 thread_id: std::thread::current().id(),
@@ -290,9 +307,12 @@ impl Renderer
                 window_size: AtomicU32U32::new((size.width, size.height)),
                 delta_time: AtomicF32::new(0.0f32),
                 render_cache,
-                limits: adapter.limits()
+                limits: adapter.limits(),
+                input_manager,
+                camera_window
             },
-            tx
+            tx,
+            camera_window_updater
         )
     }
 
@@ -334,12 +354,7 @@ impl Renderer
         self.delta_time.load(Ordering::SeqCst)
     }
 
-    pub fn enter_gfx_loop(
-        &self,
-        should_continue: &dyn Fn() -> bool,
-        request_terminate: &dyn Fn(),
-        camera_update_func: &dyn Fn(&InputManager, f32) -> Camera
-    )
+    pub fn enter_gfx_loop(&self, should_continue: &dyn Fn() -> bool, request_terminate: &dyn Fn())
     {
         let mut guard = self.critical_section.lock().unwrap();
         let CriticalSection {
@@ -355,14 +370,6 @@ impl Renderer
             *thread_id == std::thread::current().id(),
             "Renderer::enter_gfx_loop() must be called on the same thread that Renderer::new() \
              was called from!"
-        );
-
-        let input_manager = InputManager::new(
-            window.clone(),
-            PhysicalSize {
-                width:  config.width,
-                height: config.height
-            }
         );
 
         let max_shader_matrices = usize::min(
@@ -484,7 +491,7 @@ impl Renderer
             };
 
             // log::trace!("before calling all pre_record_update s");
-            let camera = camera_update_func(&input_manager, self.get_delta_time());
+            let camera = self.camera_window.get();
 
             let strong_renderable_record_info: Vec<(RecordInfo, Arc<dyn Recordable>)> = self
                 .renderables
@@ -828,14 +835,14 @@ impl Renderer
             screen_texture.present();
 
             self.delta_time
-                .store(input_manager.get_delta_time(), Ordering::Release);
+                .store(self.input_manager.get_delta_time(), Ordering::Release);
 
             std::mem::drop(final_renderpass_drawcalls);
 
             Ok(())
         };
 
-        input_manager.attach_cursor();
+        self.input_manager.attach_cursor();
 
         let _ = event_loop.run_on_demand(|event, control_flow| {
             if !should_continue()
@@ -843,7 +850,7 @@ impl Renderer
                 control_flow.exit();
             }
 
-            input_manager.update_with_event(&event);
+            self.input_manager.update_with_event(&event);
 
             match event
             {
@@ -860,7 +867,7 @@ impl Renderer
                         {
                             use wgpu::SurfaceError::*;
 
-                            if input_manager.is_key_pressed(KeyCode::Escape)
+                            if self.input_manager.is_key_pressed(KeyCode::Escape)
                             {
                                 control_flow.exit();
                             }
@@ -901,6 +908,11 @@ impl Renderer
             stencil:             wgpu::StencilState::default(),
             bias:                wgpu::DepthBiasState::default()
         }
+    }
+
+    pub fn get_input_manager(&self) -> &InputManager
+    {
+        &self.input_manager
     }
 
     pub(crate) fn register_screen_sized_image(&self, img: Arc<super::ScreenSizedTexture>)

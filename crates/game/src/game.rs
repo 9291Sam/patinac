@@ -5,7 +5,9 @@ use std::sync::atomic::{AtomicU32, AtomicU64};
 use std::sync::{Arc, Mutex, Weak};
 use std::time::Duration;
 
-use gfx::glm;
+use gfx::{glm, nal as nalgebra, InputManager};
+use nalgebra::{Isometry3, Quaternion, UnitQuaternion};
+use rapier3d::control::KinematicCharacterController;
 use util::AtomicF32;
 
 use crate::renderpasses::RenderPassManager;
@@ -29,9 +31,9 @@ pub struct Game
     self_managed_entities: util::Registrar<util::Uuid, Arc<dyn SelfManagedEntity>>,
     float_delta_time:      AtomicU32,
     float_time_alive:      AtomicU64,
-    camera:                Mutex<gfx::Camera>,
     world:                 Mutex<Option<Weak<dyn World>>>,
     render_pass_manager:   Arc<RenderPassManager>,
+    camera_updater:        util::WindowUpdater<gfx::Camera>,
     render_pass_updater:   util::WindowUpdater<gfx::RenderPassSendFunction>
 }
 
@@ -62,7 +64,8 @@ impl Game
 {
     pub fn new(
         renderer: Arc<gfx::Renderer>,
-        render_pass_updater: util::WindowUpdater<gfx::RenderPassSendFunction>
+        render_pass_updater: util::WindowUpdater<gfx::RenderPassSendFunction>,
+        camera_updater: util::WindowUpdater<gfx::Camera>
     ) -> Arc<Self>
     {
         Arc::new_cyclic(|this_weak| {
@@ -73,14 +76,11 @@ impl Game
                 float_delta_time: AtomicU32::new(0.0f32.to_bits()),
                 float_time_alive: AtomicU64::new(0.0f64.to_bits()),
                 this_weak: this_weak.clone(),
-                camera: Mutex::new(gfx::Camera::new(
-                    glm::Vec3::new(-186.0, 154.0, -168.0),
-                    0.218903,
-                    0.748343
-                )),
+
                 world: Mutex::new(None),
                 render_pass_manager: Arc::new(RenderPassManager::new(renderer)),
-                render_pass_updater
+                render_pass_updater,
+                camera_updater
             };
 
             this.render_pass_updater
@@ -124,12 +124,15 @@ impl Game
     }
 
     pub fn poll_input_updates(
-        &self,
-        input_manager: &gfx::InputManager,
-        camera_delta_time: f32
+        old_camera: gfx::Camera,
+        renderer_framebuffer_size: glm::UVec2,
+        renderer_fov: glm::Vec2,
+        renderer_delta_time: f32,
+        game_delta_time: f32,
+        input_manager: &gfx::InputManager
     ) -> gfx::Camera
     {
-        let mut camera = self.camera.lock().unwrap();
+        let mut camera = old_camera;
 
         let move_scale = 10.0
             * if input_manager.is_key_pressed(gfx::KeyCode::ShiftLeft)
@@ -146,42 +149,42 @@ impl Game
         {
             let v = camera.get_forward_vector() * move_scale;
 
-            camera.add_position(v * camera_delta_time);
+            camera.add_position(v * game_delta_time);
         };
 
         if input_manager.is_key_pressed(gfx::KeyCode::KeyS)
         {
             let v = camera.get_forward_vector() * -move_scale;
 
-            camera.add_position(v * camera_delta_time);
+            camera.add_position(v * game_delta_time);
         };
 
         if input_manager.is_key_pressed(gfx::KeyCode::KeyD)
         {
             let v = camera.get_right_vector() * move_scale;
 
-            camera.add_position(v * camera_delta_time);
+            camera.add_position(v * game_delta_time);
         };
 
         if input_manager.is_key_pressed(gfx::KeyCode::KeyA)
         {
             let v = camera.get_right_vector() * -move_scale;
 
-            camera.add_position(v * camera_delta_time);
+            camera.add_position(v * game_delta_time);
         };
 
         if input_manager.is_key_pressed(gfx::KeyCode::Space)
         {
             let v = *gfx::Transform::global_up_vector() * move_scale;
 
-            camera.add_position(v * camera_delta_time);
+            camera.add_position(v * game_delta_time);
         };
 
         if input_manager.is_key_pressed(gfx::KeyCode::ControlLeft)
         {
             let v = *gfx::Transform::global_up_vector() * -move_scale;
 
-            camera.add_position(v * camera_delta_time);
+            camera.add_position(v * game_delta_time);
         };
 
         if input_manager.is_key_pressed(gfx::KeyCode::Backslash)
@@ -201,7 +204,7 @@ impl Game
         };
 
         let screen_size_px: glm::Vec2 = {
-            let screen_size_u32 = self.get_renderer().get_framebuffer_size();
+            let screen_size_u32 = renderer_framebuffer_size;
 
             glm::Vec2::new(screen_size_u32.x as f32, screen_size_u32.y as f32)
         };
@@ -211,12 +214,12 @@ impl Game
 
         let delta_rads = normalized_delta
             .component_div(&glm::Vec2::repeat(2.0))
-            .component_mul(&self.get_renderer().get_fov());
+            .component_mul(&renderer_fov);
 
-        if self.renderer.get_delta_time() != 0.0
+        if renderer_delta_time != 0.0
         {
-            camera.add_yaw(delta_rads.x * rotate_scale);
-            camera.add_pitch(delta_rads.y * rotate_scale);
+            camera.add_yaw(delta_rads.x / renderer_delta_time * rotate_scale * game_delta_time);
+            camera.add_pitch(delta_rads.y / renderer_delta_time * rotate_scale * game_delta_time);
         }
 
         // // process world interaction
@@ -237,7 +240,7 @@ impl Game
         //     }
         // };
 
-        camera.clone()
+        camera
     }
 
     pub fn enter_tick_loop(&self, poll_continue_func: &dyn Fn() -> bool)
@@ -253,6 +256,8 @@ impl Game
 
         let mut rigid_body_set = RigidBodySet::new();
         let mut collider_set = ColliderSet::new();
+
+        let mut player_controller = KinematicCharacterController::default();
 
         // Create the ground.
         let collider = ColliderBuilder::cuboid(128.0, 1.0, 128.0).build();
@@ -270,7 +275,7 @@ impl Game
         collider_set.insert_with_parent(collider, ball_body_handle, &mut rigid_body_set);
 
         // Create other structures necessary for the simulation.
-        let gravity = vector![0.0, -108.823241, 0.0];
+        let gravity = vector![0.0, -0.823241, 0.0];
         let mut physics_pipeline = PhysicsPipeline::new();
         let mut island_manager = IslandManager::new();
         let mut broad_phase = BroadPhaseMultiSap::new();
@@ -284,6 +289,11 @@ impl Game
 
         let minimum_tick_time = Duration::from_micros(100);
 
+        let mut previous_frame_camera =
+            gfx::Camera::new(glm::Vec3::new(-186.0, 154.0, -168.0), 0.218903, 0.748343);
+
+        let renderer = self.renderer.clone();
+
         while poll_continue_func()
         {
             let now = std::time::Instant::now();
@@ -291,6 +301,15 @@ impl Game
             let delta_duration = now - prev;
             delta_time = delta_duration.as_secs_f64();
             prev = now;
+
+            let mut this_frame_camera = Self::poll_input_updates(
+                previous_frame_camera.clone(),
+                renderer.get_framebuffer_size(),
+                renderer.get_fov(),
+                renderer.get_delta_time(),
+                self.get_delta_time(),
+                &renderer.get_input_manager()
+            );
 
             // if let Some(d) = minimum_tick_time.checked_sub(delta_duration)
             // {
@@ -315,6 +334,25 @@ impl Game
                 &physics_hooks,
                 &event_handler
             );
+
+            let corrected_movement = player_controller.move_shape(
+                delta_time as f32, // The timestep length (can be set to SimulationSettings::dt).
+                &mut rigid_body_set,
+                &mut collider_set,
+                &query_pipeline,
+                &Ball::new(1.0),
+                &Isometry3::from_parts(
+                    nalgebra::Translation {
+                        vector: previous_frame_camera.get_position()
+                    },
+                    UnitQuaternion::identity()
+                ),
+                this_frame_camera.get_position(),
+                QueryFilter::default(),
+                |_| {}
+            );
+
+            this_frame_camera.set_position(corrected_movement.translation);
 
             let ball_body = &rigid_body_set[ball_body_handle];
             // log::trace!("Ball altitude: {}", ball_body.translation().y);
@@ -367,6 +405,9 @@ impl Game
                     })
                 })
                 .for_each(|future| future.get());
+
+            self.camera_updater.update(this_frame_camera.clone());
+            previous_frame_camera = this_frame_camera;
         }
     }
 }

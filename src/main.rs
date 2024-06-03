@@ -34,13 +34,17 @@ fn main()
     let held_game: Mutex<Option<Arc<game::Game>>> = Mutex::new(None);
 
     util::handle_crashes(|new_thread_func, should_loops_continue, terminate_loops| {
-        let (renderer, renderer_renderpass_updater) =
+        let (renderer, renderer_renderpass_updater, camera_updater) =
             unsafe { gfx::Renderer::new(format!("Patinac {}", env!("CARGO_PKG_VERSION"))) };
 
         let renderer = Arc::new(renderer);
         *held_renderer.lock().unwrap() = Some(renderer.clone());
 
-        let game = game::Game::new(renderer.clone(), renderer_renderpass_updater);
+        let game = game::Game::new(
+            renderer.clone(),
+            renderer_renderpass_updater,
+            camera_updater
+        );
         *held_game.lock().unwrap() = Some(game.clone());
         {
             let _verdigris = verdigris::DemoScene::new(game.clone());
@@ -54,16 +58,8 @@ fn main()
             );
 
             let input_game = game.clone();
-            let input_update_func =
-                move |input_manager: &gfx::InputManager, camera_delta_time: f32| {
-                    input_game.poll_input_updates(input_manager, camera_delta_time)
-                };
 
-            renderer.enter_gfx_loop(
-                &*should_loops_continue,
-                &*terminate_loops,
-                &input_update_func
-            );
+            renderer.enter_gfx_loop(&*should_loops_continue, &*terminate_loops);
         }
 
         util::access_global_thread_pool()
