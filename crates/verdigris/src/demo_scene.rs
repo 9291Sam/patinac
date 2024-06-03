@@ -67,15 +67,15 @@ impl DemoScene
                 ]
             })
             .flatten()
-            .chain([InstancedIndirect::new_pentagonal_array(
-                game.clone(),
-                gfx::Transform {
-                    translation: glm::Vec3::new(-127.0, 218.0, 0.0),
-                    scale: glm::Vec3::new(18.0, -18.0, 18.0),
-                    ..Default::default()
-                },
-                512
-            ) as Arc<dyn gfx::Recordable>])
+            // .chain([InstancedIndirect::new_pentagonal_array(
+            //     game.clone(),
+            //     gfx::Transform {
+            //         translation: glm::Vec3::new(-127.0, 218.0, 0.0),
+            //         scale: glm::Vec3::new(18.0, -18.0, 18.0),
+            //         ..Default::default()
+            //     },
+            //     512
+            // ) as Arc<dyn gfx::Recordable>])
             .collect();
 
         util::run_async(move || {
