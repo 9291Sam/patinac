@@ -708,6 +708,7 @@ dependencies = [
  "oneshot",
  "rand",
  "rapier3d",
+ "smallvec",
  "spin_sleep",
  "strum",
  "util",

@@ -107,15 +107,14 @@ impl Game
 
     pub fn register(&self, entity: Arc<dyn Entity>)
     {
+        if let Some(self_managed) = entity.clone().as_self_managed()
+        {
+            self.self_managed_entities
+                .insert(self_managed.get_uuid(), self_managed);
+        }
+
         self.entities
             .insert(entity.get_uuid(), Arc::downgrade(&entity));
-    }
-
-    pub fn register_self_managed(&self, entity: Arc<dyn SelfManagedEntity>)
-    {
-        self.register(entity.clone());
-
-        self.self_managed_entities.insert(entity.get_uuid(), entity);
     }
 
     pub fn register_chunk(&self, chunk: Weak<dyn World>)
@@ -222,24 +221,6 @@ impl Game
             camera.add_pitch(delta_rads.y / renderer_delta_time * rotate_scale * game_delta_time);
         }
 
-        // // process world interaction
-        // camera.add_position(glm::Vec3::new(0.0, -100.0, 0.0) * camera_delta_time);
-
-        // if let Some(w) = &*self.world.lock().unwrap()
-        // {
-        //     if let Some(world) = w.upgrade()
-        //     {
-        //         let p = camera.get_position().y;
-        //         let target: f32 = world.get_height(camera.get_position()) + 32.5;
-
-        //         let diff = target - p;
-        //         if diff > 0.0
-        //         {
-        //             camera.add_position(glm::Vec3::new(0.0, diff, 0.0));
-        //         }
-        //     }
-        // };
-
         camera
     }
 
@@ -250,42 +231,41 @@ impl Game
 
         let tick_pool = util::ThreadPool::new(4, "Game Tick");
 
-        let minimum_tick_time = Duration::from_micros(10);
+        // use rapier3d::prelude::*;
 
-        use rapier3d::prelude::*;
+        // let mut rigid_body_set = RigidBodySet::new();
+        // let mut collider_set = ColliderSet::new();
 
-        let mut rigid_body_set = RigidBodySet::new();
-        let mut collider_set = ColliderSet::new();
+        // let mut player_controller = KinematicCharacterController::default();
 
-        let mut player_controller = KinematicCharacterController::default();
+        // // Create the ground.
+        // let collider = ColliderBuilder::cuboid(128.0, 1.0, 128.0).build();
+        // collider_set.insert(collider);
 
-        // Create the ground.
-        let collider = ColliderBuilder::cuboid(128.0, 1.0, 128.0).build();
-        collider_set.insert(collider);
+        // // Create the bounding ball.
+        // let rigid_body = RigidBodyBuilder::dynamic()
+        //     .translation(vector![0.0, 100.0, 0.0])
+        //     .build();
+        // let collider = ColliderBuilder::ball(5.0)
+        //     .contact_force_event_threshold(f32::MIN_POSITIVE)
+        //     .restitution(1.0)
+        //     .build();
+        // let ball_body_handle = rigid_body_set.insert(rigid_body);
+        // collider_set.insert_with_parent(collider, ball_body_handle, &mut
+        // rigid_body_set);
 
-        // Create the bounding ball.
-        let rigid_body = RigidBodyBuilder::dynamic()
-            .translation(vector![0.0, 100.0, 0.0])
-            .build();
-        let collider = ColliderBuilder::ball(5.0)
-            .contact_force_event_threshold(f32::MIN_POSITIVE)
-            .restitution(1.0)
-            .build();
-        let ball_body_handle = rigid_body_set.insert(rigid_body);
-        collider_set.insert_with_parent(collider, ball_body_handle, &mut rigid_body_set);
-
-        // Create other structures necessary for the simulation.
-        let gravity = vector![0.0, -0.823241, 0.0];
-        let mut physics_pipeline = PhysicsPipeline::new();
-        let mut island_manager = IslandManager::new();
-        let mut broad_phase = BroadPhaseMultiSap::new();
-        let mut narrow_phase = NarrowPhase::new();
-        let mut impulse_joint_set = ImpulseJointSet::new();
-        let mut multibody_joint_set = MultibodyJointSet::new();
-        let mut ccd_solver = CCDSolver::new();
-        let mut query_pipeline = QueryPipeline::new();
-        let physics_hooks = ();
-        let event_handler = ();
+        // // Create other structures necessary for the simulation.
+        // let gravity = vector![0.0, -0.823241, 0.0];
+        // let mut physics_pipeline = PhysicsPipeline::new();
+        // let mut island_manager = IslandManager::new();
+        // let mut broad_phase = BroadPhaseMultiSap::new();
+        // let mut narrow_phase = NarrowPhase::new();
+        // let mut impulse_joint_set = ImpulseJointSet::new();
+        // let mut multibody_joint_set = MultibodyJointSet::new();
+        // let mut ccd_solver = CCDSolver::new();
+        // let mut query_pipeline = QueryPipeline::new();
+        // let physics_hooks = ();
+        // let event_handler = ();
 
         let minimum_tick_time = Duration::from_micros(100);
 
@@ -308,7 +288,7 @@ impl Game
                 renderer.get_fov(),
                 renderer.get_delta_time(),
                 self.get_delta_time(),
-                &renderer.get_input_manager()
+                renderer.get_input_manager()
             );
 
             // if let Some(d) = minimum_tick_time.checked_sub(delta_duration)
@@ -316,47 +296,47 @@ impl Game
             //     spin_sleep::sleep(d);
             // }
 
-            physics_pipeline.step(
-                &gravity,
-                &IntegrationParameters {
-                    dt: delta_time as f32,
-                    ..Default::default()
-                },
-                &mut island_manager,
-                &mut broad_phase,
-                &mut narrow_phase,
-                &mut rigid_body_set,
-                &mut collider_set,
-                &mut impulse_joint_set,
-                &mut multibody_joint_set,
-                &mut ccd_solver,
-                Some(&mut query_pipeline),
-                &physics_hooks,
-                &event_handler
-            );
+            // physics_pipeline.step(
+            //     &gravity,
+            //     &IntegrationParameters {
+            //         dt: delta_time as f32,
+            //         ..Default::default()
+            //     },
+            //     &mut island_manager,
+            //     &mut broad_phase,
+            //     &mut narrow_phase,
+            //     &mut rigid_body_set,
+            //     &mut collider_set,
+            //     &mut impulse_joint_set,
+            //     &mut multibody_joint_set,
+            //     &mut ccd_solver,
+            //     Some(&mut query_pipeline),
+            //     &physics_hooks,
+            //     &event_handler
+            // );
 
-            let corrected_movement = player_controller.move_shape(
-                delta_time as f32, // The timestep length (can be set to SimulationSettings::dt).
-                &mut rigid_body_set,
-                &mut collider_set,
-                &query_pipeline,
-                &Ball::new(1.0),
-                &Isometry3::from_parts(
-                    nalgebra::Translation {
-                        vector: previous_frame_camera.get_position()
-                    },
-                    UnitQuaternion::identity()
-                ),
-                this_frame_camera.get_position(),
-                QueryFilter::default(),
-                |_| {}
-            );
+            // let corrected_movement = player_controller.move_shape(
+            //     delta_time as f32, // The timestep length (can be set to
+            // SimulationSettings::dt).     &mut rigid_body_set,
+            //     &mut collider_set,
+            //     &query_pipeline,
+            //     &Ball::new(1.0),
+            //     &Isometry3::from_parts(
+            //         nalgebra::Translation {
+            //             vector: previous_frame_camera.get_position()
+            //         },
+            //         UnitQuaternion::identity()
+            //     ),
+            //     this_frame_camera.get_position(),
+            //     QueryFilter::default(),
+            //     |_| {}
+            // );
 
-            this_frame_camera.set_position(corrected_movement.translation);
+            // this_frame_camera.set_position(corrected_movement.translation);
 
-            let ball_body = &rigid_body_set[ball_body_handle];
-            // log::trace!("Ball altitude: {}", ball_body.translation().y);
-            DEMO_FLOAT_HEIGHT.store(ball_body.translation().y, Ordering::Relaxed);
+            // let ball_body = &rigid_body_set[ball_body_handle];
+            // // log::trace!("Ball altitude: {}", ball_body.translation().y);
+            // DEMO_FLOAT_HEIGHT.store(ball_body.translation().y, Ordering::Relaxed);
 
             if let Some(d) = minimum_tick_time.checked_sub(delta_duration)
             {

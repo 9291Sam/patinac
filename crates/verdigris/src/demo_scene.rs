@@ -125,18 +125,19 @@ impl DemoScene
 
 impl game::EntityCastDepot for DemoScene
 {
-    fn as_entity(&self) -> Option<&dyn game::Entity>
-    {
-        Some(self)
-    }
-
-    fn as_positionable(&self) -> Option<&dyn game::Positionable>
-    {
+    fn as_self_managed(self: Arc<Self>) -> Option<Arc<dyn game::SelfManagedEntity>> {
         None
     }
 
-    fn as_transformable(&self) -> Option<&dyn game::Transformable>
-    {
+    fn as_positionalable(&self) -> Option<&dyn game::Positionalable> {
+        None
+    }
+
+    fn as_transformable(&self) -> Option<&dyn game::Transformable> {
+        None
+    }
+
+    fn as_collideable(&self) -> Option<&dyn game::Collideable> {
         None
     }
 }
