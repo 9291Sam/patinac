@@ -65,11 +65,7 @@ impl Drop for Renderer
             )
         }
 
-        self.renderables
-            .access()
-            .into_iter()
-            .filter_map(|(_, weak)| weak.upgrade())
-            .for_each(|strong| log::warn!("Retained Renderable! {:?}", &*strong));
+        self.display_holdover_recordables_info();
     }
 }
 
@@ -919,6 +915,15 @@ impl Renderer
     {
         self.screen_sized_textures
             .insert(util::Uuid::new(), Arc::downgrade(&img))
+    }
+
+    pub fn display_holdover_recordables_info(&self)
+    {
+        self.renderables
+            .access()
+            .into_iter()
+            .filter_map(|(_, weak)| weak.upgrade())
+            .for_each(|strong| log::warn!("Retained Renderable! {:?}", &*strong));
     }
 }
 

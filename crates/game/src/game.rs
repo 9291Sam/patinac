@@ -18,7 +18,6 @@ pub struct TickTag(());
 
 pub struct Game
 {
-    this_weak:  Weak<Game>,
     delta_time: AtomicF32,
 
     entities:              DashMap<util::Uuid, Weak<dyn Entity>>,
@@ -45,10 +44,7 @@ impl Drop for Game
 {
     fn drop(&mut self)
     {
-        self.entities
-            .iter()
-            .filter_map(|r| r.value().upgrade())
-            .for_each(|strong| log::warn!("Retained Entity! {:?}", &*strong));
+        self.display_holdover_entities_info();
     }
 }
 
@@ -61,23 +57,20 @@ impl Game
         render_pass_updater: util::WindowUpdater<gfx::RenderPassSendFunction>
     ) -> Arc<Self>
     {
-        Arc::new_cyclic(|this_weak| {
-            let this = Game {
-                renderer: renderer.clone(),
-                entities: DashMap::new(),
-                collideables: DashMap::new(),
-                self_managed_entities: DashMap::new(),
-                delta_time: AtomicF32::new(0.0),
-                this_weak: this_weak.clone(),
-                render_pass_manager: Arc::new(RenderPassManager::new(renderer)),
-                render_pass_updater
-            };
+        let this = Arc::new(Game {
+            renderer: renderer.clone(),
+            entities: DashMap::new(),
+            collideables: DashMap::new(),
+            self_managed_entities: DashMap::new(),
+            delta_time: AtomicF32::new(0.0),
+            render_pass_manager: Arc::new(RenderPassManager::new(renderer)),
+            render_pass_updater
+        });
 
-            this.render_pass_updater
-                .update(this.render_pass_manager.clone().generate_renderpass_vec());
+        this.render_pass_updater
+            .update(this.render_pass_manager.clone().generate_renderpass_vec());
 
-            this
-        })
+        this
     }
 
     pub fn get_renderer(&self) -> &Arc<gfx::Renderer>
@@ -117,7 +110,7 @@ impl Game
         let mut prev = std::time::Instant::now();
         let mut delta_time: f64;
 
-        // let tick_pool = util::ThreadPool::new(4, "Game Tick");
+        let tick_pool = util::ThreadPool::new(4, "Game Tick");
 
         let mut rigid_body_set = RigidBodySet::new();
         let mut collider_set = ColliderSet::new();
@@ -305,11 +298,33 @@ impl Game
                 }
             }
 
-            // Entity Tick
-            for entity in strong_entities
+            let mut tick_futures = Vec::new();
+
+            if strong_entities.len() > 128
             {
-                entity.tick(self, TickTag(()));
+                for e in strong_entities
+                {
+                    let me = unsafe { util::modify_lifetime(self) };
+                    tick_futures.push(tick_pool.run_async(move || e.tick(me, TickTag(()))))
+                }
             }
+            else
+            {
+                for e in strong_entities
+                {
+                    e.tick(self, TickTag(()))
+                }
+            }
+
+            tick_futures.into_iter().for_each(|f| f.get());
         }
+    }
+
+    pub fn display_holdover_entities_info(&self)
+    {
+        self.entities
+            .iter()
+            .filter_map(|r| r.value().upgrade())
+            .for_each(|strong| log::warn!("Retained Entity! {:?}", &*strong));
     }
 }

@@ -87,6 +87,11 @@ impl Camera
         self.transform.translation
     }
 
+    pub fn get_transform(&self) -> Transform
+    {
+        self.transform.clone()
+    }
+
     pub fn set_position(&mut self, position: glm::Vec3)
     {
         self.transform.translation = position;

@@ -8,16 +8,16 @@ use noise::NoiseFn;
 use rand::SeedableRng;
 use voxel2::{ChunkManager, WorldPosition};
 
+use crate::player::Player;
 use crate::recordables::lit_textured::LitTextured;
 
-#[derive(Debug)]
 pub struct DemoScene
 {
     _dm:               Arc<voxel2::ChunkManager>,
     lit_textured_cube: Arc<LitTextured>,
     id:                util::Uuid,
 
-    camera:         Mutex<gfx::Camera>,
+    player:         Arc<Player>,
     camera_updater: util::WindowUpdater<gfx::Camera>
 }
 
@@ -48,10 +48,12 @@ impl DemoScene
         })
         .detach();
 
-        let inital_camera =
-            gfx::Camera::new(glm::Vec3::new(-186.0, 154.0, -168.0), 0.218903, 0.748343);
+        let player = Player::new(
+            &game,
+            gfx::Camera::new(glm::Vec3::new(-186.0, 154.0, -168.0), 0.218903, 0.748343)
+        );
 
-        camera_updater.update(inital_camera.clone());
+        camera_updater.update(player.get_camera());
 
         let this = Arc::new(DemoScene {
             _dm: dm.clone(),
@@ -63,7 +65,7 @@ impl DemoScene
                     ..Default::default()
                 }
             ),
-            camera: Mutex::new(inital_camera),
+            player,
             camera_updater
         });
 
@@ -110,19 +112,7 @@ impl game::Entity for DemoScene
 
     fn tick(&self, game: &game::Game, _: game::TickTag)
     {
-        let renderer = game.get_renderer().clone();
-        let mut camera = self.camera.lock().unwrap();
-
-        *camera = modify_camera_for_next_frame(
-            camera.clone(),
-            renderer.get_framebuffer_size(),
-            renderer.get_fov(),
-            renderer.get_delta_time(),
-            game.get_delta_time(),
-            renderer.get_input_manager()
-        );
-
-        self.camera_updater.update(camera.clone());
+        self.camera_updater.update(self.player.get_camera());
     }
 }
 
@@ -152,106 +142,4 @@ fn arbitrary_landscape_demo(dm: &ChunkManager)
     // and collect a vector of the samplied points and a random color value
 
     dm.insert_many_voxel(it);
-}
-
-pub fn modify_camera_for_next_frame(
-    old_camera: gfx::Camera,
-    renderer_framebuffer_size: glm::UVec2,
-    renderer_fov: glm::Vec2,
-    renderer_delta_time: f32,
-    game_delta_time: f32,
-    input_manager: &gfx::InputManager
-) -> gfx::Camera
-{
-    let mut camera = old_camera;
-
-    let move_scale = 10.0
-        * if input_manager.is_key_pressed(gfx::KeyCode::ShiftLeft)
-        {
-            20.0
-        }
-        else
-        {
-            4.0
-        };
-    let rotate_scale = 10.0;
-
-    if input_manager.is_key_pressed(gfx::KeyCode::KeyW)
-    {
-        let v = camera.get_forward_vector() * move_scale;
-
-        camera.add_position(v * game_delta_time);
-    };
-
-    if input_manager.is_key_pressed(gfx::KeyCode::KeyS)
-    {
-        let v = camera.get_forward_vector() * -move_scale;
-
-        camera.add_position(v * game_delta_time);
-    };
-
-    if input_manager.is_key_pressed(gfx::KeyCode::KeyD)
-    {
-        let v = camera.get_right_vector() * move_scale;
-
-        camera.add_position(v * game_delta_time);
-    };
-
-    if input_manager.is_key_pressed(gfx::KeyCode::KeyA)
-    {
-        let v = camera.get_right_vector() * -move_scale;
-
-        camera.add_position(v * game_delta_time);
-    };
-
-    if input_manager.is_key_pressed(gfx::KeyCode::Space)
-    {
-        let v = *gfx::Transform::global_up_vector() * move_scale;
-
-        camera.add_position(v * game_delta_time);
-    };
-
-    if input_manager.is_key_pressed(gfx::KeyCode::ControlLeft)
-    {
-        let v = *gfx::Transform::global_up_vector() * -move_scale;
-
-        camera.add_position(v * game_delta_time);
-    };
-
-    if input_manager.is_key_pressed(gfx::KeyCode::Backslash)
-    {
-        input_manager.detach_cursor();
-    };
-
-    if input_manager.is_key_pressed(gfx::KeyCode::KeyK)
-    {
-        log::info!("Camera: {}", camera)
-    };
-
-    let mouse_diff_px: glm::Vec2 = {
-        let mouse_cords_diff_px_f32: (f32, f32) = input_manager.get_mouse_delta();
-
-        glm::Vec2::new(mouse_cords_diff_px_f32.0, mouse_cords_diff_px_f32.1)
-    };
-
-    let screen_size_px: glm::Vec2 = {
-        let screen_size_u32 = renderer_framebuffer_size;
-
-        glm::Vec2::new(screen_size_u32.x as f32, screen_size_u32.y as f32)
-    };
-
-    // delta over the whole screen -1 -> 1
-    let normalized_delta = mouse_diff_px.component_div(&screen_size_px);
-
-    let delta_rads = normalized_delta
-        .component_div(&glm::Vec2::repeat(2.0))
-        .component_mul(&renderer_fov);
-
-    if renderer_delta_time != 0.0
-    {
-        camera.add_yaw(delta_rads.x / renderer_delta_time * rotate_scale * game_delta_time);
-        camera.add_pitch(delta_rads.y / renderer_delta_time * rotate_scale * game_delta_time);
-    }
-
-    camera
 }

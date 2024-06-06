@@ -276,6 +276,18 @@ impl gfx::Recordable for ChunkManager
             {
                 if let Some((r, dir)) = range
                 {
+                    let camera_chunk_coordinate = world_position_to_chunk_position(WorldPosition(
+                        camera.get_position().map(|e| e as i32)
+                    ))
+                    .0;
+
+                    let is_axis_shared = coordinate
+                        .0
+                        .iter()
+                        .cloned()
+                        .zip(camera_chunk_coordinate.0.iter().cloned())
+                        .fold(false, |acc, (l, r)| acc | (l == r));
+
                     total_number_of_faces += r.end + 1 - r.start;
 
                     if r.is_empty()
@@ -283,10 +295,13 @@ impl gfx::Recordable for ChunkManager
                         continue;
                     }
 
-                    // if camera.get_forward_vector().dot(&dir.get_axis().cast()) > 0.5
-                    // {
-                    //     continue;
-                    // }
+                    if camera.get_forward_vector().dot(&dir.get_axis().cast()) > 0.5
+                    {
+                        continue;
+                    }
+
+                    // TODO: culling based on camera position -> chunk pos dot > 0.0
+                    // TODO: culling based on that above value being compared to the camera's normal
 
                     // TODO: chunk occlussion culling (is it in the frustum?)
 

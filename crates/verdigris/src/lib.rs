@@ -7,3 +7,4 @@ mod player;
 mod recordables;
 
 pub use demo_scene::DemoScene;
+pub(crate) use player::Player;

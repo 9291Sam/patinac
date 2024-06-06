@@ -53,8 +53,6 @@ fn main()
                 Box::new(move || game_tick.enter_tick_loop(&*game_continue))
             );
 
-            let input_game = game.clone();
-
             renderer.enter_gfx_loop(&*should_loops_continue, &*terminate_loops);
         }
 
@@ -70,7 +68,9 @@ fn main()
     {
         if let Err(g) = Arc::try_unwrap(arc_game)
         {
-            log::warn!("Game was retained with {} cycles", Arc::strong_count(&g))
+            log::warn!("Game was retained with {} cycles", Arc::strong_count(&g));
+
+            g.display_holdover_entities_info();
         }
     }
     else
@@ -85,7 +85,9 @@ fn main()
             log::warn!(
                 "Renderer was retained with {} cycles",
                 Arc::strong_count(&r)
-            )
+            );
+
+            r.display_holdover_recordables_info();
         }
     }
     else
