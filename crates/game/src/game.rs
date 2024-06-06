@@ -173,7 +173,7 @@ impl Game
             }
 
             // Collect entities that will influence this tick
-            let entities: Vec<Arc<dyn Entity>> = {
+            let strong_entities: Vec<Arc<dyn Entity>> = {
                 let mut entities_to_tick = Vec::new();
 
                 self.entities.retain(|uuid, weak_entity| {
@@ -228,48 +228,67 @@ impl Game
                 entities_to_tick
             };
 
+            let entities: Vec<&dyn Entity> = strong_entities
+                .iter()
+                .map(|e| unsafe { util::modify_lifetime(&**e) })
+                .collect();
+
+            let collideables = entities.iter().cloned().filter_map(|e| e.as_collideable());
+
             // Physics Tick
             {
-                for e in entities.iter().cloned()
+                // Handle first frame physics init things
+                for collideable in collideables
                 {
-                    if let Some(collideable) = (&*e)
-                        .as_collideable()
-                        .map(|c| unsafe { util::modify_lifetime(c) })
+                    if let Some(mut kv) = self.collideables.get_mut(&collideable.get_uuid())
                     {
-                        if let Some(mut kv) = self.collideables.get_mut(&collideable.get_uuid())
+                        if let Some(maybe_previous_collider_date) = kv
+                            .value_mut()
+                            .replace(rigid_body_set.insert(collideable.init_collideable()))
                         {
-                            if let Some(maybe_previous_collider_date) = kv
-                                .value_mut()
-                                .replace(rigid_body_set.insert(collideable.init_collideable()))
-                            {
-                                rigid_body_set.remove(
-                                    maybe_previous_collider_date,
-                                    &mut island_manager,
-                                    &mut collider_set,
-                                    &mut impulse_joint_set,
-                                    &mut multibody_joint_set,
-                                    true
-                                );
+                            rigid_body_set.remove(
+                                maybe_previous_collider_date,
+                                &mut island_manager,
+                                &mut collider_set,
+                                &mut impulse_joint_set,
+                                &mut multibody_joint_set,
+                                true
+                            );
 
-                                log::warn!(
-                                    "Previously registered collideable data was found for Entity \
-                                     {:?}",
-                                    collideable as &dyn Entity
-                                );
-                            }
-                        }
-                        else
-                        {
                             log::warn!(
-                                "Collideable {:?} was not properly prepared for Init! ",
+                                "Previously registered collideable data was found for Entity {:?}",
                                 collideable as &dyn Entity
                             );
                         }
                     }
-                }
-                // Handle first frame physics init things
+                    else
+                    {
+                        log::warn!(
+                            "Collideable {:?} was not properly prepared for Init! ",
+                            collideable as &dyn Entity
+                        );
+                    }
 
-                // and then do the actual tick
+                    // and then do the actual tick
+                    physics_pipeline.step(
+                        &gravity,
+                        &IntegrationParameters {
+                            dt: delta_time as f32,
+                            ..Default::default()
+                        },
+                        &mut island_manager,
+                        &mut broad_phase,
+                        &mut narrow_phase,
+                        &mut rigid_body_set,
+                        &mut collider_set,
+                        &mut impulse_joint_set,
+                        &mut multibody_joint_set,
+                        &mut ccd_solver,
+                        Some(&mut query_pipeline),
+                        &(),
+                        &()
+                    );
+                }
             }
 
             // Entity Tick
