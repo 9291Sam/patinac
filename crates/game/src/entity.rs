@@ -41,41 +41,49 @@ pub trait Transformable: Positionalable
 }
 pub trait Collideable: Transformable
 {
-    fn init_collider(&self) -> (RigidBody, SmallVec<[Collider; COLLIDEABLE_MAX_COLLIDERS]>);
+    fn init_collider(&self) -> (RigidBody, CollideableSmallVec<Collider>);
     fn physics_tick(&self, game: &super::Game, _: TickTag);
 }
+pub type CollideableSmallVec<T> = SmallVec<[T; COLLIDEABLE_MAX_COLLIDERS]>;
 const COLLIDEABLE_MAX_COLLIDERS: usize = 4;
 
-impl<'a> dyn Entity + 'a
-{
-    pub fn cast<T: EntityCastTarget<'a> + ?Sized>(&'a self) -> Option<&'a T>
-    {
-        T::cast(self)
-    }
-}
+// impl<'a> dyn Entity + 'a
+// {
+//     pub fn cast<T: EntityCastTarget<'a> + ?Sized>(&'a self) -> Option<&'a T>
+//     {
+//         T::cast(self)
+//     }
+// }
 
-pub trait EntityCastTarget<'a>
-{
-    fn cast<T: EntityCastDepot + ?Sized>(this: &'a T) -> Option<&'a Self>;
-}
-impl<'a> EntityCastTarget<'a> for dyn Positionalable + 'a
-{
-    fn cast<T: EntityCastDepot + ?Sized>(this: &'a T) -> Option<&'a Self>
-    {
-        this.as_positionalable()
-    }
-}
-impl<'a> EntityCastTarget<'a> for dyn Transformable + 'a
-{
-    fn cast<T: EntityCastDepot + ?Sized>(this: &'a T) -> Option<&'a Self>
-    {
-        this.as_transformable()
-    }
-}
-impl<'a> EntityCastTarget<'a> for dyn Collideable + 'a
-{
-    fn cast<T: EntityCastDepot + ?Sized>(this: &'a T) -> Option<&'a Self>
-    {
-        this.as_collideable()
-    }
-}
+// pub trait EntityCastTarget<'a>
+// {
+//     fn cast<T: EntityCastDepot + ?Sized>(this: &'a T) -> Option<&'a Self>;
+// }
+// impl<'a> EntityCastTarget<'a> for dyn SelfManagedEntity + 'a
+// {
+//     fn cast<T: EntityCastDepot + ?Sized>(this: &'a T) -> Option<&'a Self>
+//     {
+//         this.as_self_managed()
+//     }
+// }
+// impl<'a> EntityCastTarget<'a> for dyn Positionalable + 'a
+// {
+//     fn cast<T: EntityCastDepot + ?Sized>(this: &'a T) -> Option<&'a Self>
+//     {
+//         this.as_positionalable()
+//     }
+// }
+// impl<'a> EntityCastTarget<'a> for dyn Transformable + 'a
+// {
+//     fn cast<T: EntityCastDepot + ?Sized>(this: &'a T) -> Option<&'a Self>
+//     {
+//         this.as_transformable()
+//     }
+// }
+// impl<'a> EntityCastTarget<'a> for dyn Collideable + 'a
+// {
+//     fn cast<T: EntityCastDepot + ?Sized>(this: &'a T) -> Option<&'a Self>
+//     {
+//         this.as_collideable()
+//     }
+// }

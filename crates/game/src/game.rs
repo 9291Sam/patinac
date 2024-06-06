@@ -1,39 +1,36 @@
 use std::fmt::Debug;
 use std::panic::{RefUnwindSafe, UnwindSafe};
-use std::sync::atomic::Ordering::{self, *};
-use std::sync::atomic::{AtomicU32, AtomicU64};
+use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, Weak};
 use std::time::Duration;
 
-use gfx::{glm, nal as nalgebra, InputManager};
-use nalgebra::{Isometry3, Quaternion, UnitQuaternion};
-use rapier3d::control::KinematicCharacterController;
+use dashmap::DashMap;
+use gfx::{glm, nal};
+use rapier3d::dynamics::RigidBodyHandle;
+use rapier3d::geometry::ColliderHandle;
 use util::AtomicF32;
 
+use crate::entity::CollideableSmallVec;
 use crate::renderpasses::RenderPassManager;
 use crate::{Entity, SelfManagedEntity};
 
 pub struct TickTag(());
 
-#[no_mangle]
-static DEMO_FLOAT_HEIGHT: AtomicF32 = AtomicF32::new(0.0);
-
-pub trait World: Send + Sync
-{
-    fn get_height(&self, pos: glm::Vec3) -> f32;
-}
-
 pub struct Game
 {
-    this_weak:             Weak<Game>,
-    renderer:              Arc<gfx::Renderer>,
-    entities:              util::Registrar<util::Uuid, Weak<dyn Entity>>,
-    self_managed_entities: util::Registrar<util::Uuid, Arc<dyn SelfManagedEntity>>,
-    float_delta_time:      AtomicU32,
-    float_time_alive:      AtomicU64,
-    world:                 Mutex<Option<Weak<dyn World>>>,
-    render_pass_manager:   Arc<RenderPassManager>,
-    render_pass_updater:   util::WindowUpdater<gfx::RenderPassSendFunction>
+    this_weak: Weak<Game>,
+
+    delta_time: AtomicF32,
+
+    entities:              DashMap<util::Uuid, Weak<dyn Entity>>,
+    // collideables:
+    //     DashMap<util::Uuid, Option<(RigidBodyHandle, CollideableSmallVec<ColliderHandle>)>>,
+    self_managed_entities: DashMap<util::Uuid, Arc<dyn SelfManagedEntity>>,
+
+    // TODO: move to a seperate class
+    renderer:            Arc<gfx::Renderer>,
+    render_pass_manager: Arc<RenderPassManager>,
+    render_pass_updater: util::WindowUpdater<gfx::RenderPassSendFunction>
 }
 
 impl UnwindSafe for Game {}
@@ -52,9 +49,8 @@ impl Drop for Game
     fn drop(&mut self)
     {
         self.entities
-            .access()
-            .into_iter()
-            .filter_map(|(_, weak)| weak.upgrade())
+            .iter()
+            .filter_map(|r| r.value().upgrade())
             .for_each(|strong| log::warn!("Retained Entity! {:?}", &*strong));
     }
 }
@@ -71,13 +67,10 @@ impl Game
         Arc::new_cyclic(|this_weak| {
             let this = Game {
                 renderer: renderer.clone(),
-                entities: util::Registrar::new(),
-                self_managed_entities: util::Registrar::new(),
-                float_delta_time: AtomicU32::new(0.0f32.to_bits()),
-                float_time_alive: AtomicU64::new(0.0f64.to_bits()),
+                entities: DashMap::new(),
+                self_managed_entities: DashMap::new(),
+                delta_time: AtomicF32::new(0.0),
                 this_weak: this_weak.clone(),
-
-                world: Mutex::new(None),
                 render_pass_manager: Arc::new(RenderPassManager::new(renderer)),
                 render_pass_updater
             };
@@ -101,7 +94,7 @@ impl Game
 
     pub fn get_delta_time(&self) -> f32
     {
-        f32::from_bits(self.float_delta_time.load(Acquire))
+        self.delta_time.load(Ordering::Acquire)
     }
 
     pub fn register(&self, entity: Arc<dyn Entity>)
@@ -112,13 +105,11 @@ impl Game
                 .insert(self_managed.get_uuid(), self_managed);
         }
 
+        if let Some(collideable) = entity.as_collideable()
+        {}
+
         self.entities
             .insert(entity.get_uuid(), Arc::downgrade(&entity));
-    }
-
-    pub fn register_chunk(&self, chunk: Weak<dyn World>)
-    {
-        *self.world.lock().unwrap() = Some(chunk);
     }
 
     pub fn enter_tick_loop(&self, poll_continue_func: &dyn Fn() -> bool)
@@ -164,9 +155,7 @@ impl Game
         // let physics_hooks = ();
         // let event_handler = ();
 
-        let minimum_tick_time = Duration::from_micros(100);
-
-        let renderer = self.renderer.clone();
+        // let minimum_tick_time = Duration::from_micros(100);
 
         while poll_continue_func()
         {
@@ -176,53 +165,37 @@ impl Game
             delta_time = delta_duration.as_secs_f64();
             prev = now;
 
-            if let Some(d) = minimum_tick_time.checked_sub(delta_duration)
-            {
-                spin_sleep::sleep(d);
-            }
+            // if let Some(d) = minimum_tick_time.checked_sub(delta_duration)
+            // {
+            //     spin_sleep::sleep(d);
+            // }
 
-            self.float_delta_time
-                .store((delta_time as f32).to_bits(), Release);
-            self.float_time_alive.store(
-                (f64::from_bits(self.float_time_alive.load(Acquire)) + delta_time).to_bits(),
-                Release
-            );
-
-            let thread_entities = &self.entities;
+            self.delta_time.store(delta_time as f32, Ordering::Release);
 
             let strong_game = self.this_weak.upgrade().unwrap();
 
             self.self_managed_entities
-                .access()
-                .into_iter()
-                .for_each(|(uuid, strong_entity)| {
-                    if !strong_entity.is_alive()
-                    {
-                        self.self_managed_entities.delete(uuid);
-                    }
-                });
+                .retain(|_, strong_entity| strong_entity.is_alive());
 
-            self.entities
-                .access()
-                .into_iter()
-                .filter_map(|(uuid, weak_renderable)| {
-                    match weak_renderable.upgrade()
-                    {
-                        Some(s) => Some(s),
-                        None =>
-                        {
-                            thread_entities.delete(uuid);
-                            None
-                        }
-                    }
-                })
-                .map(|strong_entity| {
-                    let local = strong_game.clone();
-                    tick_pool.run_async(move || {
-                        strong_entity.tick(&local, TickTag(()));
-                    })
-                })
-                .for_each(|future| future.get());
+            let mut futures = Vec::new();
+
+            self.entities.retain(|_, weak_entity| {
+                if let Some(strong_entity) = weak_entity.upgrade()
+                {
+                    let local_game: Arc<Game> = strong_game.clone();
+                    futures.push(tick_pool.run_async(move || {
+                        strong_entity.tick(&local_game, TickTag(()));
+                    }));
+
+                    true
+                }
+                else
+                {
+                    false
+                }
+            });
+
+            futures.into_iter().for_each(|f| f.get());
         }
     }
 }

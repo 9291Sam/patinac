@@ -1,4 +1,5 @@
 use std::any::{Any, TypeId};
+use std::future;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering::*;
 use std::sync::RwLock;
@@ -11,8 +12,10 @@ pub struct Future<T: Send>
 where
     Self: Send
 {
-    resolved: AtomicBool,
-    receiver: oneshot::Receiver<T>
+    resolved:          AtomicBool,
+    receiver:          oneshot::Receiver<T>,
+    #[cfg(debug_assertions)]
+    creation_location: std::panic::Location<'static>
 }
 
 impl<T: Send> Drop for Future<T>
@@ -53,11 +56,16 @@ impl<T: Send> Drop for Future<T>
 
 impl<T: Send> Future<T>
 {
-    fn new(receiver: oneshot::Receiver<T>) -> Future<T>
+    fn new(
+        receiver: oneshot::Receiver<T>,
+        #[cfg(debug_assertions)] creation_location: std::panic::Location<'static>
+    ) -> Future<T>
     {
         Future {
             resolved: AtomicBool::new(false),
-            receiver
+            receiver,
+            #[cfg(debug_assertions)]
+            creation_location
         }
     }
 
@@ -223,6 +231,7 @@ impl ThreadPool
     }
 
     #[track_caller]
+    #[must_use]
     pub fn run_async<T, F>(&self, func: F) -> Future<T>
     where
         T: Send + 'static,
@@ -230,9 +239,14 @@ impl ThreadPool
     {
         let (sender, receiver) = oneshot::channel();
 
-        let future = Future::new(receiver);
-
+        #[cfg(debug_assertions)]
         let caller = std::panic::Location::caller();
+
+        #[cfg(debug_assertions)]
+        let future = Future::new(receiver, caller.clone());
+
+        #[cfg(not(debug_assertions))]
+        let future = Future::new(receiver);
 
         self.enqueue_function(move || {
             if let Err(result) = sender.send(func())

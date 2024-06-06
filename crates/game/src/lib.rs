@@ -11,5 +11,5 @@ pub use entity::{
     SelfManagedEntity,
     Transformable
 };
-pub use game::{Game, TickTag, World};
+pub use game::{Game, TickTag};
 pub use renderpasses::{PassStage, RenderPassManager};
