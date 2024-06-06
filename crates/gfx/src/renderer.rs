@@ -48,7 +48,7 @@ pub struct Renderer
     input_manager:         InputManager,
 
     // Rendering
-    camera_window:    util::Window<Camera>,
+    camera_window:    util::JointWindow<Camera>,
     thread_id:        ThreadId,
     critical_section: Mutex<CriticalSection>
 }
@@ -108,11 +108,7 @@ impl Renderer
     /// on
     pub unsafe fn new(
         window_title: impl Into<String>
-    ) -> (
-        Self,
-        util::WindowUpdater<RenderPassSendFunction>,
-        util::WindowUpdater<Camera>
-    )
+    ) -> (Self, util::WindowUpdater<RenderPassSendFunction>)
     {
         let event_loop = EventLoop::new().unwrap();
         let window = Arc::new(
@@ -291,9 +287,6 @@ impl Renderer
 
         let render_cache = RenderCache::new(device.clone());
 
-        let (camera_window, camera_window_updater) =
-            util::Window::new(Camera::new(glm::Vec3::repeat(0.0), 0.0, 0.0));
-
         (
             Renderer {
                 thread_id: std::thread::current().id(),
@@ -309,11 +302,19 @@ impl Renderer
                 render_cache,
                 limits: adapter.limits(),
                 input_manager,
-                camera_window
+                camera_window: util::JointWindow::new(Camera::new(
+                    glm::Vec3::repeat(0.0),
+                    0.0,
+                    0.0
+                ))
             },
-            tx,
-            camera_window_updater
+            tx
         )
+    }
+
+    pub fn set_camera(&self, camera: Camera)
+    {
+        self.camera_window.update(camera);
     }
 
     pub fn register(&self, renderable: Arc<dyn Recordable>)

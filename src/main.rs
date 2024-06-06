@@ -34,17 +34,13 @@ fn main()
     let held_game: Mutex<Option<Arc<game::Game>>> = Mutex::new(None);
 
     util::handle_crashes(|new_thread_func, should_loops_continue, terminate_loops| {
-        let (renderer, renderer_renderpass_updater, camera_updater) =
+        let (renderer, renderer_renderpass_updater) =
             unsafe { gfx::Renderer::new(format!("Patinac {}", env!("CARGO_PKG_VERSION"))) };
 
         let renderer = Arc::new(renderer);
         *held_renderer.lock().unwrap() = Some(renderer.clone());
 
-        let game = game::Game::new(
-            renderer.clone(),
-            renderer_renderpass_updater,
-            camera_updater
-        );
+        let game = game::Game::new(renderer.clone(), renderer_renderpass_updater);
         *held_game.lock().unwrap() = Some(game.clone());
         {
             let _verdigris = verdigris::DemoScene::new(game.clone());

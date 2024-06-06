@@ -33,7 +33,6 @@ pub struct Game
     float_time_alive:      AtomicU64,
     world:                 Mutex<Option<Weak<dyn World>>>,
     render_pass_manager:   Arc<RenderPassManager>,
-    camera_updater:        util::WindowUpdater<gfx::Camera>,
     render_pass_updater:   util::WindowUpdater<gfx::RenderPassSendFunction>
 }
 
@@ -64,8 +63,7 @@ impl Game
 {
     pub fn new(
         renderer: Arc<gfx::Renderer>,
-        render_pass_updater: util::WindowUpdater<gfx::RenderPassSendFunction>,
-        camera_updater: util::WindowUpdater<gfx::Camera>
+        render_pass_updater: util::WindowUpdater<gfx::RenderPassSendFunction>
     ) -> Arc<Self>
     {
         Arc::new_cyclic(|this_weak| {
@@ -79,8 +77,7 @@ impl Game
 
                 world: Mutex::new(None),
                 render_pass_manager: Arc::new(RenderPassManager::new(renderer)),
-                render_pass_updater,
-                camera_updater
+                render_pass_updater
             };
 
             this.render_pass_updater
@@ -386,7 +383,7 @@ impl Game
                 })
                 .for_each(|future| future.get());
 
-            self.camera_updater.update(this_frame_camera.clone());
+            renderer.set_camera(this_frame_camera.clone());
             previous_frame_camera = this_frame_camera;
         }
     }

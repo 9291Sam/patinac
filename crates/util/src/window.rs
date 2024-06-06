@@ -42,6 +42,7 @@ impl<T: Send + Clone> WindowUpdater<T>
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct JointWindow<T: Send + Clone>
 {
     sender:   WindowUpdater<T>,
