@@ -239,7 +239,6 @@ impl ThreadPool
     {
         let (sender, receiver) = oneshot::channel();
 
-        #[cfg(debug_assertions)]
         let caller = std::panic::Location::caller();
 
         #[cfg(debug_assertions)]

@@ -40,7 +40,7 @@ pub use window::*;
 /// This function unsafely changes the lifetime of the given reference
 /// this should only be used when you have extra information that rust cannot
 /// understand
-pub const unsafe fn modify_lifetime<'a, T>(t: &T) -> &'a T
+pub const unsafe fn modify_lifetime<'a, T: ?Sized>(t: &T) -> &'a T
 {
     std::mem::transmute(t)
 }

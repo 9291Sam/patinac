@@ -5,18 +5,10 @@ use dot_vox::DotVoxData;
 use gfx::glm::{self};
 use itertools::iproduct;
 use noise::NoiseFn;
-use rand::{Rng, SeedableRng};
-use util::AtomicF32;
+use rand::SeedableRng;
 use voxel2::{ChunkManager, WorldPosition};
 
-use crate::instanced_indirect::InstancedIndirect;
-use crate::recordables::flat_textured::FlatTextured;
 use crate::recordables::lit_textured::LitTextured;
-
-extern "C" {
-
-    static DEMO_FLOAT_HEIGHT: AtomicF32;
-}
 
 #[derive(Debug)]
 pub struct DemoScene
@@ -148,7 +140,7 @@ fn arbitrary_landscape_demo(dm: &ChunkManager)
 {
     let noise = noise::OpenSimplex::new(2384247834);
 
-    let it = spiral::ChebyshevIterator::new(0, 0, 256).map(|(x, z)| {
+    let it = spiral::ChebyshevIterator::new(0, 0, 768).map(|(x, z)| {
         WorldPosition(glm::I32Vec3::new(
             x,
             (noise.get([x as f64 / 256.0, z as f64 / 256.0]) * 256.0 - 128.0) as i32,

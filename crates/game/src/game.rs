@@ -8,26 +8,23 @@ use dashmap::DashMap;
 use gfx::{glm, nal};
 use rapier3d::dynamics::RigidBodyHandle;
 use rapier3d::geometry::ColliderHandle;
+use rapier3d::prelude::*;
 use util::AtomicF32;
 
-use crate::entity::CollideableSmallVec;
 use crate::renderpasses::RenderPassManager;
-use crate::{Entity, SelfManagedEntity};
+use crate::{Collideable, Entity, SelfManagedEntity};
 
 pub struct TickTag(());
 
 pub struct Game
 {
-    this_weak: Weak<Game>,
-
+    this_weak:  Weak<Game>,
     delta_time: AtomicF32,
 
     entities:              DashMap<util::Uuid, Weak<dyn Entity>>,
-    // collideables:
-    //     DashMap<util::Uuid, Option<(RigidBodyHandle, CollideableSmallVec<ColliderHandle>)>>,
+    collideables:          DashMap<util::Uuid, Option<RigidBodyHandle>>,
     self_managed_entities: DashMap<util::Uuid, Arc<dyn SelfManagedEntity>>,
 
-    // TODO: move to a seperate class
     renderer:            Arc<gfx::Renderer>,
     render_pass_manager: Arc<RenderPassManager>,
     render_pass_updater: util::WindowUpdater<gfx::RenderPassSendFunction>
@@ -68,6 +65,7 @@ impl Game
             let this = Game {
                 renderer: renderer.clone(),
                 entities: DashMap::new(),
+                collideables: DashMap::new(),
                 self_managed_entities: DashMap::new(),
                 delta_time: AtomicF32::new(0.0),
                 this_weak: this_weak.clone(),
@@ -106,7 +104,9 @@ impl Game
         }
 
         if let Some(collideable) = entity.as_collideable()
-        {}
+        {
+            self.collideables.insert(collideable.get_uuid(), None);
+        }
 
         self.entities
             .insert(entity.get_uuid(), Arc::downgrade(&entity));
@@ -119,10 +119,8 @@ impl Game
 
         let tick_pool = util::ThreadPool::new(4, "Game Tick");
 
-        // use rapier3d::prelude::*;
-
-        // let mut rigid_body_set = RigidBodySet::new();
-        // let mut collider_set = ColliderSet::new();
+        let mut rigid_body_set = RigidBodySet::new();
+        let mut collider_set = ColliderSet::new();
 
         // let mut player_controller = KinematicCharacterController::default();
 
@@ -142,60 +140,140 @@ impl Game
         // collider_set.insert_with_parent(collider, ball_body_handle, &mut
         // rigid_body_set);
 
-        // // Create other structures necessary for the simulation.
-        // let gravity = vector![0.0, -0.823241, 0.0];
-        // let mut physics_pipeline = PhysicsPipeline::new();
-        // let mut island_manager = IslandManager::new();
-        // let mut broad_phase = BroadPhaseMultiSap::new();
-        // let mut narrow_phase = NarrowPhase::new();
-        // let mut impulse_joint_set = ImpulseJointSet::new();
-        // let mut multibody_joint_set = MultibodyJointSet::new();
-        // let mut ccd_solver = CCDSolver::new();
-        // let mut query_pipeline = QueryPipeline::new();
-        // let physics_hooks = ();
-        // let event_handler = ();
-
-        // let minimum_tick_time = Duration::from_micros(100);
+        // Create other structures necessary for the simulation.
+        let gravity = vector![0.0, -108.823241, 0.0];
+        let mut physics_pipeline = PhysicsPipeline::new();
+        let mut island_manager = IslandManager::new();
+        let mut broad_phase = BroadPhaseMultiSap::new();
+        let mut narrow_phase = NarrowPhase::new();
+        let mut impulse_joint_set = ImpulseJointSet::new();
+        let mut multibody_joint_set = MultibodyJointSet::new();
+        let mut ccd_solver = CCDSolver::new();
+        let mut query_pipeline = QueryPipeline::new();
+        let physics_hooks = ();
+        let event_handler = ();
 
         while poll_continue_func()
         {
-            let now = std::time::Instant::now();
+            // delta time initialization
+            {
+                let now = std::time::Instant::now();
 
-            let delta_duration = now - prev;
-            delta_time = delta_duration.as_secs_f64();
-            prev = now;
+                let delta_duration = now - prev;
+                delta_time = delta_duration.as_secs_f64();
+                prev = now;
 
-            // if let Some(d) = minimum_tick_time.checked_sub(delta_duration)
-            // {
-            //     spin_sleep::sleep(d);
-            // }
+                self.delta_time.store(delta_time as f32, Ordering::Release);
+            }
 
-            self.delta_time.store(delta_time as f32, Ordering::Release);
+            // Cull self-managed entities
+            {
+                self.self_managed_entities
+                    .retain(|_, strong_entity| strong_entity.is_alive());
+            }
 
-            let strong_game = self.this_weak.upgrade().unwrap();
+            // Collect entities that will influence this tick
+            let entities: Vec<Arc<dyn Entity>> = {
+                let mut entities_to_tick = Vec::new();
 
-            self.self_managed_entities
-                .retain(|_, strong_entity| strong_entity.is_alive());
+                self.entities.retain(|uuid, weak_entity| {
+                    if let Some(strong_entity) = weak_entity.upgrade()
+                    {
+                        entities_to_tick.push(strong_entity);
+                        true
+                    }
+                    else
+                    {
+                        if let Some((uuid, maybe_handle)) = self.collideables.remove(&uuid)
+                        {
+                            // This Entity had collideables, we need to free those handles now that
+                            // its owner is gone
 
-            let mut futures = Vec::new();
+                            if let Some(rigid_body_handle) = maybe_handle
+                            {
+                                rigid_body_set
+                                    .remove(
+                                        rigid_body_handle,
+                                        &mut island_manager,
+                                        &mut collider_set,
+                                        &mut impulse_joint_set,
+                                        &mut multibody_joint_set,
+                                        true
+                                    )
+                                    .unwrap();
+                            }
+                            else
+                            {
+                                log::warn!(
+                                    "Tried to free Collideables for Entity {}, but it had no \
+                                     registered collideables, this entity lived less than one \
+                                     tick!",
+                                    uuid
+                                );
+                            }
+                        }
+                        else
+                        {
+                            log::warn!(
+                                "Tried to remove Collideables for Entity {}, but it had no entry \
+                                 in the collideables map!",
+                                uuid
+                            );
+                        }
 
-            self.entities.retain(|_, weak_entity| {
-                if let Some(strong_entity) = weak_entity.upgrade()
+                        false
+                    }
+                });
+
+                entities_to_tick
+            };
+
+            // Physics Tick
+            {
+                for e in entities.iter().cloned()
                 {
-                    let local_game: Arc<Game> = strong_game.clone();
-                    futures.push(tick_pool.run_async(move || {
-                        strong_entity.tick(&local_game, TickTag(()));
-                    }));
+                    if let Some(collideable) = (&*e)
+                        .as_collideable()
+                        .map(|c| unsafe { util::modify_lifetime(c) })
+                    {
+                        if let Some(mut kv) = self.collideables.get_mut(&collideable.get_uuid())
+                        {
+                            if let Some(maybe_previous_collider_date) = kv
+                                .value_mut()
+                                .replace(rigid_body_set.insert(collideable.init_collideable()))
+                            {
+                                rigid_body_set.remove(
+                                    maybe_previous_collider_date,
+                                    &mut island_manager,
+                                    &mut collider_set,
+                                    &mut impulse_joint_set,
+                                    &mut multibody_joint_set,
+                                    true
+                                );
 
-                    true
+                                log::warn!(
+                                    "Previously registered collideable data was found for Entity \
+                                     {:?}",
+                                    collideable as &dyn Entity
+                                );
+                            }
+                        }
+                        else
+                        {
+                            log::warn!(
+                                "Collideable {:?} was not properly prepared for Init! ",
+                                collideable as &dyn Entity
+                            );
+                        }
+                    }
                 }
-                else
-                {
-                    false
-                }
-            });
+                // Handle first frame physics init things
 
-            futures.into_iter().for_each(|f| f.get());
+                // and then do the actual tick
+            }
+
+            // Entity Tick
+            {}
         }
     }
 }

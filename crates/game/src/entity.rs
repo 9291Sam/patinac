@@ -9,12 +9,20 @@ use smallvec::SmallVec;
 
 use crate::game::TickTag;
 
-pub trait Entity: Debug + Send + Sync + EntityCastDepot
+pub trait Entity: Send + Sync + EntityCastDepot
 {
     fn get_name(&self) -> Cow<'_, str>;
     fn get_uuid(&self) -> util::Uuid;
 
     fn tick(&self, game: &super::Game, _: TickTag);
+}
+
+impl Debug for dyn Entity
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
+    {
+        write!(f, "Entity {} | Id: {}", self.get_name(), self.get_uuid())
+    }
 }
 
 // ! If you add a new trait, don't forget to add it to `EntityCastDepot` and
@@ -41,12 +49,9 @@ pub trait Transformable: Positionalable
 }
 pub trait Collideable: Transformable
 {
-    fn init_collider(&self) -> (RigidBody, CollideableSmallVec<Collider>);
+    fn init_collideable(&self) -> RigidBody;
     fn physics_tick(&self, game: &super::Game, _: TickTag);
 }
-pub type CollideableSmallVec<T> = SmallVec<[T; COLLIDEABLE_MAX_COLLIDERS]>;
-const COLLIDEABLE_MAX_COLLIDERS: usize = 4;
-
 // impl<'a> dyn Entity + 'a
 // {
 //     pub fn cast<T: EntityCastTarget<'a> + ?Sized>(&'a self) -> Option<&'a T>
