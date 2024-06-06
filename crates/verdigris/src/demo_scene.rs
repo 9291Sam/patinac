@@ -25,12 +25,14 @@ pub struct DemoScene
     lit_textured_cube: Arc<LitTextured>,
     id:                util::Uuid,
 
-    camera: Mutex<gfx::Camera>
+    camera:         Mutex<gfx::Camera>,
+    camera_updater: util::WindowUpdater<gfx::Camera>
 }
 
 impl DemoScene
 {
-    pub fn new(game: Arc<game::Game>) -> Arc<Self>
+    pub fn new(game: Arc<game::Game>, camera_updater: util::WindowUpdater<gfx::Camera>)
+    -> Arc<Self>
     {
         let dm = ChunkManager::new(game.clone());
         let c_dm = dm.clone();
@@ -54,9 +56,14 @@ impl DemoScene
         })
         .detach();
 
+        let inital_camera =
+            gfx::Camera::new(glm::Vec3::new(-186.0, 154.0, -168.0), 0.218903, 0.748343);
+
+        camera_updater.update(inital_camera.clone());
+
         let this = Arc::new(DemoScene {
-            _dm:               dm.clone(),
-            id:                util::Uuid::new(),
+            _dm: dm.clone(),
+            id: util::Uuid::new(),
             lit_textured_cube: LitTextured::new_cube(
                 game.clone(),
                 gfx::Transform {
@@ -64,11 +71,8 @@ impl DemoScene
                     ..Default::default()
                 }
             ),
-            camera:            Mutex::new(gfx::Camera::new(
-                glm::Vec3::new(-186.0, 154.0, -168.0),
-                0.218903,
-                0.748343
-            ))
+            camera: Mutex::new(inital_camera),
+            camera_updater
         });
 
         game.register(this.clone());
@@ -126,7 +130,7 @@ impl game::Entity for DemoScene
             renderer.get_input_manager()
         );
 
-        renderer.set_camera(camera.clone());
+        self.camera_updater.update(camera.clone());
     }
 }
 

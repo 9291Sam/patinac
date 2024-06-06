@@ -38,17 +38,17 @@ pub struct Renderer
     pub render_cache:             RenderCache,
     pub global_bind_group_layout: Arc<wgpu::BindGroupLayout>,
 
-    // pub global_discovery_layout:  Arc<wgpu::BindGroupLayout>,
     renderables:           util::Registrar<util::Uuid, Weak<dyn Recordable>>,
     screen_sized_textures: util::Registrar<util::Uuid, Weak<super::ScreenSizedTexture>>,
-    resize_pingers:        (util::PingSender, util::PingReceiver),
-    window_size:           AtomicU32U32,
-    delta_time:            AtomicF32,
-    limits:                wgpu::Limits,
-    input_manager:         InputManager,
+
+    resize_pingers: (util::PingSender, util::PingReceiver),
+    window_size:    AtomicU32U32,
+    delta_time:     AtomicF32,
+    limits:         wgpu::Limits,
+    input_manager:  InputManager,
 
     // Rendering
-    camera_window:    util::JointWindow<Camera>,
+    camera_window:    util::Window<Camera>,
     thread_id:        ThreadId,
     critical_section: Mutex<CriticalSection>
 }
@@ -108,7 +108,11 @@ impl Renderer
     /// on
     pub unsafe fn new(
         window_title: impl Into<String>
-    ) -> (Self, util::WindowUpdater<RenderPassSendFunction>)
+    ) -> (
+        Self,
+        util::WindowUpdater<RenderPassSendFunction>,
+        util::WindowUpdater<Camera>
+    )
     {
         let event_loop = EventLoop::new().unwrap();
         let window = Arc::new(
@@ -236,8 +240,11 @@ impl Renderer
             }
         );
 
-        let (renderpass_func_window, tx) =
+        let (renderpass_func_window, renderpass_updater) =
             util::Window::<RenderPassSendFunction>::new(RenderPassSendFunction::new(Vec::new()));
+
+        let (camera_window, camera_window_updater) =
+            util::Window::new(Camera::new(glm::Vec3::repeat(0.0), 0.0, 0.0));
 
         let critical_section = CriticalSection {
             thread_id: std::thread::current().id(),
@@ -302,19 +309,11 @@ impl Renderer
                 render_cache,
                 limits: adapter.limits(),
                 input_manager,
-                camera_window: util::JointWindow::new(Camera::new(
-                    glm::Vec3::repeat(0.0),
-                    0.0,
-                    0.0
-                ))
+                camera_window
             },
-            tx
+            renderpass_updater,
+            camera_window_updater
         )
-    }
-
-    pub fn set_camera(&self, camera: Camera)
-    {
-        self.camera_window.update(camera);
     }
 
     pub fn register(&self, renderable: Arc<dyn Recordable>)
