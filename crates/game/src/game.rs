@@ -12,7 +12,7 @@ use rapier3d::prelude::*;
 use util::AtomicF32;
 
 use crate::renderpasses::RenderPassManager;
-use crate::{Collideable, Entity, SelfManagedEntity};
+use crate::{entity, Collideable, Entity, SelfManagedEntity};
 
 pub struct TickTag(());
 
@@ -117,28 +117,10 @@ impl Game
         let mut prev = std::time::Instant::now();
         let mut delta_time: f64;
 
-        let tick_pool = util::ThreadPool::new(4, "Game Tick");
+        // let tick_pool = util::ThreadPool::new(4, "Game Tick");
 
         let mut rigid_body_set = RigidBodySet::new();
         let mut collider_set = ColliderSet::new();
-
-        // let mut player_controller = KinematicCharacterController::default();
-
-        // // Create the ground.
-        // let collider = ColliderBuilder::cuboid(128.0, 1.0, 128.0).build();
-        // collider_set.insert(collider);
-
-        // // Create the bounding ball.
-        // let rigid_body = RigidBodyBuilder::dynamic()
-        //     .translation(vector![0.0, 100.0, 0.0])
-        //     .build();
-        // let collider = ColliderBuilder::ball(5.0)
-        //     .contact_force_event_threshold(f32::MIN_POSITIVE)
-        //     .restitution(1.0)
-        //     .build();
-        // let ball_body_handle = rigid_body_set.insert(rigid_body);
-        // collider_set.insert_with_parent(collider, ball_body_handle, &mut
-        // rigid_body_set);
 
         // Create other structures necessary for the simulation.
         let gravity = vector![0.0, -108.823241, 0.0];
@@ -233,12 +215,10 @@ impl Game
                 .map(|e| unsafe { util::modify_lifetime(&**e) })
                 .collect();
 
-            let collideables = entities.iter().cloned().filter_map(|e| e.as_collideable());
-
             // Physics Tick
             {
                 // Handle first frame physics init things
-                for collideable in collideables
+                for collideable in entities.iter().cloned().filter_map(|e| e.as_collideable())
                 {
                     if let Some(mut kv) = self.collideables.get_mut(&collideable.get_uuid())
                     {
@@ -268,31 +248,54 @@ impl Game
                             collideable as &dyn Entity
                         );
                     }
+                }
 
-                    // and then do the actual tick
-                    physics_pipeline.step(
-                        &gravity,
-                        &IntegrationParameters {
-                            dt: delta_time as f32,
-                            ..Default::default()
-                        },
-                        &mut island_manager,
-                        &mut broad_phase,
-                        &mut narrow_phase,
-                        &mut rigid_body_set,
-                        &mut collider_set,
-                        &mut impulse_joint_set,
-                        &mut multibody_joint_set,
-                        &mut ccd_solver,
-                        Some(&mut query_pipeline),
-                        &(),
-                        &()
+                // and then do the actual tick
+                physics_pipeline.step(
+                    &gravity,
+                    &IntegrationParameters {
+                        dt: delta_time as f32,
+                        ..Default::default()
+                    },
+                    &mut island_manager,
+                    &mut broad_phase,
+                    &mut narrow_phase,
+                    &mut rigid_body_set,
+                    &mut collider_set,
+                    &mut impulse_joint_set,
+                    &mut multibody_joint_set,
+                    &mut ccd_solver,
+                    Some(&mut query_pipeline),
+                    &physics_hooks,
+                    &event_handler
+                );
+
+                // propagate this new info
+                for collideable in entities.into_iter().filter_map(|e| e.as_collideable())
+                {
+                    collideable.physics_tick(
+                        rigid_body_set
+                            .get_mut(
+                                self.collideables
+                                    .get(&collideable.get_uuid())
+                                    .expect("CollideableHandle Not Contained!")
+                                    .value()
+                                    .unwrap()
+                            )
+                            .unwrap(),
+                        self,
+                        TickTag(())
                     );
                 }
             }
 
             // Entity Tick
-            {}
+            {
+                for entity in strong_entities
+                {
+                    entity.tick(self, TickTag(()));
+                }
+            }
         }
     }
 }
