@@ -4,7 +4,7 @@ use std::hash::Hash;
 use std::num::NonZeroU32;
 use std::sync::{Arc, LazyLock, Mutex};
 
-use wgpu::{ PipelineLayout};
+use wgpu::PipelineLayout;
 
 // TODO: remove labels in release
 
@@ -326,14 +326,15 @@ impl CacheableRenderPipelineDescriptor
                 wgpu::FragmentState {
                     module:      &c.module,
                     entry_point: &c.entry_point,
-                    targets:     &c.targets
-                    // compilation_options: PipelineCompilationOptions {
-                    //     constants:                        c
-                    //         .constants
-                    //         .as_ref()
-                    //         .unwrap_or(&EMPTY_SPECIALIZATION_HASH_MAP),
-                    //     zero_initialize_workgroup_memory: c.zero_initialize_workgroup_memory
-                    // }
+                    targets:     &c.targets /* compilation_options: PipelineCompilationOptions {
+                                             *     constants:                        c
+                                             *         .constants
+                                             *         .as_ref()
+                                             *         .unwrap_or(&
+                                             * EMPTY_SPECIALIZATION_HASH_MAP),
+                                             *     zero_initialize_workgroup_memory:
+                                             * c.zero_initialize_workgroup_memory
+                                             * } */
                 }
             });
 
@@ -343,14 +344,16 @@ impl CacheableRenderPipelineDescriptor
             vertex:        wgpu::VertexState {
                 module:      &self.vertex_module,
                 entry_point: &self.vertex_entry_point,
-                buffers:     &self.vertex_buffer_layouts
-                // compilation_options: PipelineCompilationOptions {
-                //     constants:                        self
-                //         .vertex_specialization
-                //         .as_ref()
-                //         .unwrap_or(&EMPTY_SPECIALIZATION_HASH_MAP),
-                //     zero_initialize_workgroup_memory:
-                // self.zero_initalize_vertex_workgroup_memory }
+                buffers:     &self.vertex_buffer_layouts /* compilation_options:
+                                                          * PipelineCompilationOptions {
+                                                          *     constants:
+                                                          * self
+                                                          *         .vertex_specialization
+                                                          *         .as_ref()
+                                                          *         .unwrap_or(&
+                                                          * EMPTY_SPECIALIZATION_HASH_MAP),
+                                                          *     zero_initialize_workgroup_memory:
+                                                          * self.zero_initalize_vertex_workgroup_memory } */
             },
             primitive:     self.primitive_state,
             depth_stencil: self.depth_stencil_state.clone(),
