@@ -290,11 +290,9 @@ impl Game
             }
 
             // Entity Tick
+            for entity in strong_entities
             {
-                for entity in strong_entities
-                {
-                    entity.tick(self, TickTag(()));
-                }
+                entity.tick(self, TickTag(()));
             }
         }
     }
