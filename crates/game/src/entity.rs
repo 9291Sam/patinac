@@ -49,7 +49,7 @@ pub trait Transformable: Positionalable
 }
 pub trait Collideable: Transformable
 {
-    fn init_collideable(&self) -> RigidBody;
+    fn init_collideable(&self) -> (RigidBody, Vec<Collider>);
     fn physics_tick(&self, rigid_body: &mut RigidBody, game: &super::Game, _: TickTag);
 }
 impl<'a> dyn Entity + 'a

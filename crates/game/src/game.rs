@@ -22,7 +22,7 @@ pub struct Game
     delta_time: AtomicF32,
 
     entities:              DashMap<util::Uuid, Weak<dyn Entity>>,
-    collideables:          DashMap<util::Uuid, Option<RigidBodyHandle>>,
+    collideables:          DashMap<util::Uuid, Option<(RigidBodyHandle, Vec<ColliderHandle>)>>,
     self_managed_entities: DashMap<util::Uuid, Arc<dyn SelfManagedEntity>>,
 
     renderer:            Arc<gfx::Renderer>,
@@ -171,7 +171,7 @@ impl Game
                             // This Entity had collideables, we need to free those handles now that
                             // its owner is gone
 
-                            if let Some(rigid_body_handle) = maybe_handle
+                            if let Some((rigid_body_handle, _collider_handles)) = maybe_handle
                             {
                                 rigid_body_set
                                     .remove(
@@ -222,12 +222,26 @@ impl Game
                 {
                     if let Some(mut kv) = self.collideables.get_mut(&collideable.get_uuid())
                     {
-                        if let Some(maybe_previous_collider_date) = kv
+                        let (rigid_body, colliders) = collideable.init_collideable();
+
+                        let rigid_body_handle = rigid_body_set.insert(rigid_body);
+                        let collider_handles = colliders
+                            .into_iter()
+                            .map(|c| {
+                                collider_set.insert_with_parent(
+                                    c,
+                                    rigid_body_handle,
+                                    &mut rigid_body_set
+                                )
+                            })
+                            .collect();
+
+                        if let Some((maybe_previous_rigid_body, _maybe_previous_colliders)) = kv
                             .value_mut()
-                            .replace(rigid_body_set.insert(collideable.init_collideable()))
+                            .replace((rigid_body_handle, collider_handles))
                         {
                             rigid_body_set.remove(
-                                maybe_previous_collider_date,
+                                maybe_previous_rigid_body,
                                 &mut island_manager,
                                 &mut collider_set,
                                 &mut impulse_joint_set,
@@ -280,7 +294,9 @@ impl Game
                                     .get(&collideable.get_uuid())
                                     .expect("CollideableHandle Not Contained!")
                                     .value()
+                                    .as_ref()
                                     .unwrap()
+                                    .0
                             )
                             .unwrap(),
                         self,

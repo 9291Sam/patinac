@@ -1,7 +1,10 @@
 use rapier3d::dynamics::RigidBodyBuilder;
+use rapier3d::geometry::{Collider, ColliderBuilder};
 use rapier3d::prelude::RigidBody;
 
 struct Player {}
+
+impl Player {}
 
 impl game::Entity for Player
 {
@@ -64,9 +67,12 @@ impl game::Transformable for Player
 
 impl game::Collideable for Player
 {
-    fn init_collideable(&self) -> RigidBody
+    fn init_collideable(&self) -> (RigidBody, Vec<Collider>)
     {
-        todo!()
+        (
+            RigidBodyBuilder::kinematic_position_based().build(),
+            [ColliderBuilder::capsule_y(48.0, 16.0).build()].to_vec()
+        )
     }
 
     fn physics_tick(&self, rigid_body: &mut RigidBody, game: &game::Game, _: game::TickTag)
