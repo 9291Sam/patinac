@@ -1,3 +1,4 @@
+use rapier3d::dynamics::RigidBodyBuilder;
 use rapier3d::prelude::RigidBody;
 
 struct Player {}
@@ -72,4 +73,19 @@ impl game::Collideable for Player
     {
         todo!()
     }
+
+    // fn init_collideable(&self) -> RigidBody
+    // {
+    //     RigidBodyBuilder::kinematic_position_based()
+    // }
+
+    // fn physics_tick(&self, rigid_body: &mut RigidBody, game: &game::Game, _:
+    // game::TickTag) {
+    //     self.camera = rigid_body.position();
+
+    //     modify_camera_based_on_inputs();
+
+    //     rigid_body.set_next_kinematic_translation(translation);
+    //     rigid_body.set_next_kinematic_rotation(rotation);
+    // }
 }
