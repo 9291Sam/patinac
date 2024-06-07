@@ -124,6 +124,18 @@ impl Game
         let physics_hooks = ();
         let event_handler = ();
 
+        // Create the ground.
+        let collider = ColliderBuilder::cuboid(1000.0, 0.1, 1000.0).build();
+        collider_set.insert(collider);
+
+        // Create the bounding ball.
+        let rigid_body = RigidBodyBuilder::dynamic()
+            .translation(vector![0.0, 10.0, 0.0])
+            .build();
+        let collider = ColliderBuilder::ball(0.5).restitution(0.7).build();
+        let ball_body_handle = rigid_body_set.insert(rigid_body);
+        collider_set.insert_with_parent(collider, ball_body_handle, &mut rigid_body_set);
+
         while poll_continue_func()
         {
             // delta time initialization
@@ -154,8 +166,7 @@ impl Game
                     }
                     else
                     {
-                        if let Some((uuid, (rigid_body_handle, _colliders))) =
-                            self.collideables.remove(&uuid)
+                        if let Some((_, (rigid_body_handle, _))) = self.collideables.remove(&uuid)
                         {
                             // This Entity had collideables, we need to free those handles now that
                             // its owner is gone
@@ -232,16 +243,15 @@ impl Game
                 for collideable in entities.into_iter().filter_map(|e| e.as_collideable())
                 {
                     collideable.physics_tick(
-                        rigid_body_set
-                            .get_mut(
-                                self.collideables
-                                    .get(&collideable.get_uuid())
-                                    .expect("CollideableHandle Not Contained!")
-                                    .value()
-                                    .0
-                            )
-                            .unwrap(),
                         self,
+                        self.collideables
+                            .get(&collideable.get_uuid())
+                            .expect("CollideableHandle Not Contained!")
+                            .value()
+                            .0,
+                        &mut rigid_body_set,
+                        &mut collider_set,
+                        &query_pipeline,
                         TickTag(())
                     );
                 }

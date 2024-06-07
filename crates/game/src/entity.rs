@@ -3,8 +3,9 @@ use std::borrow::Cow;
 use std::sync::Arc;
 
 use gfx::glm;
-use rapier3d::dynamics::RigidBody;
-use rapier3d::geometry::Collider;
+use rapier3d::dynamics::{RigidBody, RigidBodyHandle, RigidBodySet};
+use rapier3d::geometry::{Collider, ColliderSet};
+use rapier3d::pipeline::QueryPipeline;
 use smallvec::SmallVec;
 
 use crate::game::TickTag;
@@ -50,7 +51,16 @@ pub trait Transformable: Positionalable
 pub trait Collideable: Transformable
 {
     fn init_collideable(&self) -> (RigidBody, Vec<Collider>);
-    fn physics_tick(&self, rigid_body: &mut RigidBody, game: &super::Game, _: TickTag);
+
+    fn physics_tick(
+        &self,
+        game: &super::Game,
+        this_handle: RigidBodyHandle,
+        _: &mut RigidBodySet,
+        _: &mut ColliderSet,
+        _: &QueryPipeline,
+        _: TickTag
+    );
 }
 impl<'a> dyn Entity + 'a
 {

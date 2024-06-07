@@ -3,15 +3,19 @@ use std::sync::{Arc, Mutex};
 
 use gfx::nal::Isometry3;
 use gfx::{glm, nal};
-use rapier3d::dynamics::RigidBodyBuilder;
-use rapier3d::geometry::{Collider, ColliderBuilder};
+use rapier3d::control::KinematicCharacterController;
+use rapier3d::dynamics::{RigidBodyBuilder, RigidBodyHandle, RigidBodySet};
+use rapier3d::geometry::{Capsule, Collider, ColliderBuilder, ColliderSet};
+use rapier3d::math::Real;
+use rapier3d::pipeline::{QueryFilter, QueryPipeline};
 use rapier3d::prelude::RigidBody;
 
 pub struct Player
 {
     uuid: util::Uuid,
 
-    camera: Mutex<gfx::Camera>
+    camera:            Mutex<gfx::Camera>,
+    player_controller: KinematicCharacterController
 }
 
 impl Player
@@ -19,8 +23,9 @@ impl Player
     pub fn new(game: &game::Game, inital_camera: gfx::Camera) -> Arc<Self>
     {
         let this = Arc::new(Player {
-            uuid:   util::Uuid::new(),
-            camera: Mutex::new(inital_camera)
+            uuid:              util::Uuid::new(),
+            camera:            Mutex::new(inital_camera),
+            player_controller: KinematicCharacterController::default()
         });
 
         game.register(this.clone());
@@ -94,47 +99,61 @@ impl game::Collideable for Player
 {
     fn init_collideable(&self) -> (RigidBody, Vec<Collider>)
     {
+        // We actually don't want this to be managed by the main system, so just put a
+        // fixed immovable without any colldiers at the origin.
         (
-            RigidBodyBuilder::kinematic_position_based().build(),
-            [ColliderBuilder::capsule_y(48.0, 16.0).build()].to_vec()
+            RigidBodyBuilder::fixed()
+                .enabled(false)
+                .sleeping(true)
+                .build(),
+            Vec::new()
         )
     }
 
-    fn physics_tick(&self, rigid_body: &mut RigidBody, game: &game::Game, _: game::TickTag)
+    fn physics_tick(
+        &self,
+        game: &game::Game,
+        this_handle: RigidBodyHandle,
+        rigid_body_set: &mut RigidBodySet,
+        collider_set: &mut ColliderSet,
+        query_pipeline: &QueryPipeline,
+        _: game::TickTag
+    )
     {
-        let mut current_camera = self.camera.lock().unwrap();
+        let mut camera = self.camera.lock().unwrap();
 
-        let next_frame_camera = modify_camera_based_on_inputs(current_camera.clone(), game);
+        let desired_camera = modify_camera_based_on_inputs(camera.clone(), game);
 
-        rigid_body.set_next_kinematic_position(Isometry3 {
-            rotation:    glm::UnitQuaternion::new_unchecked(
-                next_frame_camera.get_transform().rotation.normalize()
-            ),
-            translation: nal::Translation {
-                vector: next_frame_camera.get_position()
-            }
-        });
+        let move_result = self.player_controller.move_shape(
+            game.get_delta_time(),
+            rigid_body_set,
+            collider_set,
+            query_pipeline,
+            &Capsule::new_y(24.0, 16.0),
+            &get_isometry_of_camera(&camera),
+            desired_camera.get_position()
+                + glm::Vec3::new(0.0, -100.0 * game.get_delta_time(), 0.0),
+            QueryFilter::new().exclude_rigid_body(this_handle),
+            |_| {}
+        );
 
-        *current_camera = next_frame_camera;
+        camera.set_position(move_result.translation);
+        camera.set_yaw(desired_camera.get_yaw());
+        camera.set_pitch(desired_camera.get_pitch());
     }
-
-    // fn init_collideable(&self) -> RigidBody
-    // {
-    //     RigidBodyBuilder::kinematic_position_based()
-    // }
-
-    // fn physics_tick(&self, rigid_body: &mut RigidBody, game: &game::Game, _:
-    // game::TickTag) {
-    //     self.camera = rigid_body.position();
-
-    //     modify_camera_based_on_inputs();
-
-    //     rigid_body.set_next_kinematic_translation(translation);
-    //     rigid_body.set_next_kinematic_rotation(rotation);
-    // }
 }
 
-pub fn modify_camera_based_on_inputs(mut camera: gfx::Camera, game: &game::Game) -> gfx::Camera
+fn get_isometry_of_camera(camera: &gfx::Camera) -> Isometry3<Real>
+{
+    Isometry3 {
+        rotation:    glm::UnitQuaternion::new_normalize(camera.get_transform().rotation),
+        translation: nal::Translation {
+            vector: camera.get_position()
+        }
+    }
+}
+
+fn modify_camera_based_on_inputs(mut camera: gfx::Camera, game: &game::Game) -> gfx::Camera
 {
     let renderer = game.get_renderer();
 

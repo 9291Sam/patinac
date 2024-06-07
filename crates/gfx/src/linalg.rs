@@ -87,6 +87,16 @@ impl Camera
         self.transform.translation
     }
 
+    pub fn get_pitch(&self) -> f32
+    {
+        self.pitch
+    }
+
+    pub fn get_yaw(&self) -> f32
+    {
+        self.yaw
+    }
+
     pub fn get_transform(&self) -> Transform
     {
         self.transform.clone()
@@ -95,6 +105,20 @@ impl Camera
     pub fn set_position(&mut self, position: glm::Vec3)
     {
         self.transform.translation = position;
+    }
+
+    pub fn set_pitch(&mut self, new_pitch: f32)
+    {
+        self.pitch = new_pitch;
+
+        self.enforce_invariants();
+    }
+
+    pub fn set_yaw(&mut self, new_yaw: f32)
+    {
+        self.yaw = new_yaw;
+
+        self.enforce_invariants();
     }
 
     pub fn add_position(&mut self, position: glm::Vec3)
