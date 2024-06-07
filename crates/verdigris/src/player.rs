@@ -103,14 +103,14 @@ impl game::Collideable for Player
 {
     fn init_collideable(&self) -> (RigidBody, Vec<Collider>)
     {
-        // We actually don't want this to be managed by the main system, so just put a
-        // fixed immovable without any colldiers at the origin.
         (
-            RigidBodyBuilder::fixed()
-                .enabled(false)
-                .sleeping(true)
+            RigidBodyBuilder::dynamic()
+                .ccd_enabled(true)
+                .additional_solver_iterations(8)
+                .translation(self.camera.lock().unwrap().get_position())
+                .lock_rotations()
                 .build(),
-            Vec::new()
+            vec![ColliderBuilder::capsule_y(32.0, 12.0).build()]
         )
     }
 
@@ -120,47 +120,78 @@ impl game::Collideable for Player
         gravity: glm::Vec3,
         this_handle: RigidBodyHandle,
         rigid_body_set: &mut RigidBodySet,
-        collider_set: &mut ColliderSet,
-        query_pipeline: &QueryPipeline,
+        _: &mut ColliderSet,
+        _: &QueryPipeline,
         _: game::TickTag
     )
     {
-        let mut camera = self.camera.lock().unwrap();
-
-        let desired_camera = modify_camera_based_on_inputs(camera.clone(), game);
-
-        let move_result = self.player_controller.move_shape(
-            game.get_delta_time(),
-            rigid_body_set,
-            collider_set,
-            query_pipeline,
-            &Capsule::new_y(24.0, 16.0),
-            &get_isometry_of_camera(&camera),
-            desired_camera.get_position()
-                + get_gravity_influenced_velocity_given_time_floating(
-                    self.time_floating.load(Ordering::Acquire),
-                    gravity
-                ) * game.get_delta_time(),
-            QueryFilter::new().exclude_rigid_body(this_handle),
-            |_| {}
-        );
-
-        if !move_result.grounded
-        {
-            self.time_floating.store(
-                self.time_floating.load(Ordering::Acquire) + game.get_delta_time(),
-                Ordering::Release
-            )
-        }
-        else
-        {
-            self.time_floating.store(0.0, Ordering::Release)
-        }
-
-        camera.set_position(move_result.translation);
-        camera.set_yaw(desired_camera.get_yaw());
-        camera.set_pitch(desired_camera.get_pitch());
+        self.camera
+            .lock()
+            .unwrap()
+            .set_position(*rigid_body_set.get(this_handle).unwrap().translation())
     }
+
+    // fn init_collideable(&self) -> (RigidBody, Vec<Collider>)
+    // {
+    //     // We actually don't want this to be managed by the main system, so just
+    // put a     // fixed immovable without any colldiers at the origin.
+    //     (
+    //         RigidBodyBuilder::fixed()
+    //             .enabled(false)
+    //             .sleeping(true)
+    //             .build(),
+    //         Vec::new()
+    //     )
+    // }
+
+    // fn physics_tick(
+    //     &self,
+    //     game: &game::Game,
+    //     gravity: glm::Vec3,
+    //     this_handle: RigidBodyHandle,
+    //     rigid_body_set: &mut RigidBodySet,
+    //     collider_set: &mut ColliderSet,
+    //     query_pipeline: &QueryPipeline,
+    //     _: game::TickTag
+    // )
+    // {
+    //     let mut camera = self.camera.lock().unwrap();
+
+    //     let desired_camera = modify_camera_based_on_inputs(camera.clone(), game);
+
+    //     let move_result = self.player_controller.move_shape(
+    //         game.get_delta_time(),
+    //         rigid_body_set,
+    //         collider_set,
+    //         query_pipeline,
+    //         &Capsule::new_y(24.0, 16.0),
+    //         &get_isometry_of_camera(&camera),
+    //         desired_camera.get_position()
+    //             + get_gravity_influenced_velocity_given_time_floating(
+    //               self.time_floating.load(Ordering::Acquire), gravity
+    //             ) * game.get_delta_time(),
+    //         QueryFilter::new().exclude_rigid_body(this_handle),
+    //         |_| {}
+    //     );
+
+    //     rigid_body_set.get(this_handle).unwrap().pred
+
+    //     if !move_result.grounded
+    //     {
+    //         self.time_floating.store(
+    //             self.time_floating.load(Ordering::Acquire) +
+    // game.get_delta_time(),             Ordering::Release
+    //         )
+    //     }
+    //     else
+    //     {
+    //         self.time_floating.store(0.0, Ordering::Release)
+    //     }
+
+    //     camera.set_position(move_result.translation);
+    //     camera.set_yaw(desired_camera.get_yaw());
+    //     camera.set_pitch(desired_camera.get_pitch());
+    // }
 }
 
 fn get_gravity_influenced_velocity_given_time_floating(
