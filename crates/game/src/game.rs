@@ -125,7 +125,7 @@ impl Game
         let event_handler = ();
 
         // Create the ground.
-        let collider = ColliderBuilder::cuboid(1000.0, 0.1, 1000.0).build();
+        let collider = ColliderBuilder::cuboid(1000.0, 1.0, 1000.0).build();
         collider_set.insert(collider);
 
         // Create the bounding ball.
@@ -244,6 +244,7 @@ impl Game
                 {
                     collideable.physics_tick(
                         self,
+                        gravity,
                         self.collideables
                             .get(&collideable.get_uuid())
                             .expect("CollideableHandle Not Contained!")

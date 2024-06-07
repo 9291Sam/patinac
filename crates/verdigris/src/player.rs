@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex};
 
 use gfx::nal::Isometry3;
@@ -9,12 +10,14 @@ use rapier3d::geometry::{Capsule, Collider, ColliderBuilder, ColliderSet};
 use rapier3d::math::Real;
 use rapier3d::pipeline::{QueryFilter, QueryPipeline};
 use rapier3d::prelude::RigidBody;
+use util::AtomicF32;
 
 pub struct Player
 {
     uuid: util::Uuid,
 
     camera:            Mutex<gfx::Camera>,
+    time_floating:     AtomicF32,
     player_controller: KinematicCharacterController
 }
 
@@ -25,6 +28,7 @@ impl Player
         let this = Arc::new(Player {
             uuid:              util::Uuid::new(),
             camera:            Mutex::new(inital_camera),
+            time_floating:     AtomicF32::new(0.0),
             player_controller: KinematicCharacterController::default()
         });
 
@@ -113,6 +117,7 @@ impl game::Collideable for Player
     fn physics_tick(
         &self,
         game: &game::Game,
+        gravity: glm::Vec3,
         this_handle: RigidBodyHandle,
         rigid_body_set: &mut RigidBodySet,
         collider_set: &mut ColliderSet,
@@ -132,10 +137,25 @@ impl game::Collideable for Player
             &Capsule::new_y(24.0, 16.0),
             &get_isometry_of_camera(&camera),
             desired_camera.get_position()
-                + glm::Vec3::new(0.0, -100.0 * game.get_delta_time(), 0.0),
+                + get_gravity_influenced_velocity_given_time_floating(
+                    self.time_floating.load(Ordering::Acquire),
+                    gravity
+                ) * game.get_delta_time(),
             QueryFilter::new().exclude_rigid_body(this_handle),
             |_| {}
         );
+
+        if !move_result.grounded
+        {
+            self.time_floating.store(
+                self.time_floating.load(Ordering::Acquire) + game.get_delta_time(),
+                Ordering::Release
+            )
+        }
+        else
+        {
+            self.time_floating.store(0.0, Ordering::Release)
+        }
 
         camera.set_position(move_result.translation);
         camera.set_yaw(desired_camera.get_yaw());
@@ -143,10 +163,18 @@ impl game::Collideable for Player
     }
 }
 
+fn get_gravity_influenced_velocity_given_time_floating(
+    time_floating: f32,
+    gravity_acceleration: glm::Vec3
+) -> glm::Vec3
+{
+    gravity_acceleration * time_floating
+}
+
 fn get_isometry_of_camera(camera: &gfx::Camera) -> Isometry3<Real>
 {
     Isometry3 {
-        rotation:    glm::UnitQuaternion::new_normalize(camera.get_transform().rotation),
+        rotation:    glm::UnitQuaternion::new_normalize(nal::Quaternion::identity()),
         translation: nal::Translation {
             vector: camera.get_position()
         }

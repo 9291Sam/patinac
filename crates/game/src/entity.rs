@@ -55,6 +55,7 @@ pub trait Collideable: Transformable
     fn physics_tick(
         &self,
         game: &super::Game,
+        gravity: glm::Vec3,
         this_handle: RigidBodyHandle,
         _: &mut RigidBodySet,
         _: &mut ColliderSet,
