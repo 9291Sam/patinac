@@ -281,6 +281,8 @@ impl gfx::Recordable for ChunkManager
                     ))
                     .0;
 
+                    // let chunk_center_vec =
+
                     let is_axis_shared = coordinate
                         .0
                         .iter()

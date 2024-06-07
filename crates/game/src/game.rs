@@ -4,6 +4,7 @@ use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, Weak};
 use std::time::Duration;
 
+use dashmap::mapref::entry::Entry;
 use dashmap::DashMap;
 use gfx::{glm, nal};
 use rapier3d::dynamics::RigidBodyHandle;
@@ -21,7 +22,7 @@ pub struct Game
     delta_time: AtomicF32,
 
     entities:              DashMap<util::Uuid, Weak<dyn Entity>>,
-    collideables:          DashMap<util::Uuid, Option<(RigidBodyHandle, Vec<ColliderHandle>)>>,
+    collideables:          DashMap<util::Uuid, (RigidBodyHandle, Vec<ColliderHandle>)>,
     self_managed_entities: DashMap<util::Uuid, Arc<dyn SelfManagedEntity>>,
 
     renderer:            Arc<gfx::Renderer>,
@@ -96,11 +97,6 @@ impl Game
                 .insert(self_managed.get_uuid(), self_managed);
         }
 
-        if let Some(collideable) = entity.as_collideable()
-        {
-            self.collideables.insert(collideable.get_uuid(), None);
-        }
-
         self.entities
             .insert(entity.get_uuid(), Arc::downgrade(&entity));
     }
@@ -108,7 +104,7 @@ impl Game
     pub fn enter_tick_loop(&self, poll_continue_func: &dyn Fn() -> bool)
     {
         let mut prev = std::time::Instant::now();
-        let mut delta_time: f64;
+        let mut delta_time: f32;
 
         let tick_pool = util::ThreadPool::new(4, "Game Tick");
 
@@ -134,11 +130,10 @@ impl Game
             {
                 let now = std::time::Instant::now();
 
-                let delta_duration = now - prev;
-                delta_time = delta_duration.as_secs_f64();
+                delta_time = (now - prev).as_secs_f32();
                 prev = now;
 
-                self.delta_time.store(delta_time as f32, Ordering::Release);
+                self.delta_time.store(delta_time, Ordering::Release);
             }
 
             // Cull self-managed entities
@@ -159,41 +154,21 @@ impl Game
                     }
                     else
                     {
-                        if let Some((uuid, maybe_handle)) = self.collideables.remove(&uuid)
+                        if let Some((uuid, (rigid_body_handle, _colliders))) =
+                            self.collideables.remove(&uuid)
                         {
                             // This Entity had collideables, we need to free those handles now that
                             // its owner is gone
-
-                            if let Some((rigid_body_handle, _collider_handles)) = maybe_handle
-                            {
-                                rigid_body_set
-                                    .remove(
-                                        rigid_body_handle,
-                                        &mut island_manager,
-                                        &mut collider_set,
-                                        &mut impulse_joint_set,
-                                        &mut multibody_joint_set,
-                                        true
-                                    )
-                                    .unwrap();
-                            }
-                            else
-                            {
-                                log::warn!(
-                                    "Tried to free Collideables for Entity {}, but it had no \
-                                     registered collideables, this entity lived less than one \
-                                     tick!",
-                                    uuid
-                                );
-                            }
-                        }
-                        else
-                        {
-                            log::warn!(
-                                "Tried to remove Collideables for Entity {}, but it had no entry \
-                                 in the collideables map!",
-                                uuid
-                            );
+                            rigid_body_set
+                                .remove(
+                                    rigid_body_handle,
+                                    &mut island_manager,
+                                    &mut collider_set,
+                                    &mut impulse_joint_set,
+                                    &mut multibody_joint_set,
+                                    true
+                                )
+                                .unwrap();
                         }
 
                         false
@@ -213,7 +188,7 @@ impl Game
                 // Handle first frame physics init things
                 for collideable in entities.iter().cloned().filter_map(|e| e.as_collideable())
                 {
-                    if let Some(mut kv) = self.collideables.get_mut(&collideable.get_uuid())
+                    if let Entry::Vacant(e) = self.collideables.entry(collideable.get_uuid())
                     {
                         let (rigid_body, colliders) = collideable.init_collideable();
 
@@ -229,31 +204,7 @@ impl Game
                             })
                             .collect();
 
-                        if let Some((maybe_previous_rigid_body, _maybe_previous_colliders)) = kv
-                            .value_mut()
-                            .replace((rigid_body_handle, collider_handles))
-                        {
-                            rigid_body_set.remove(
-                                maybe_previous_rigid_body,
-                                &mut island_manager,
-                                &mut collider_set,
-                                &mut impulse_joint_set,
-                                &mut multibody_joint_set,
-                                true
-                            );
-
-                            log::warn!(
-                                "Previously registered collideable data was found for Entity {:?}",
-                                collideable as &dyn Entity
-                            );
-                        }
-                    }
-                    else
-                    {
-                        log::warn!(
-                            "Collideable {:?} was not properly prepared for Init! ",
-                            collideable as &dyn Entity
-                        );
+                        e.insert((rigid_body_handle, collider_handles));
                     }
                 }
 
@@ -287,8 +238,6 @@ impl Game
                                     .get(&collideable.get_uuid())
                                     .expect("CollideableHandle Not Contained!")
                                     .value()
-                                    .as_ref()
-                                    .unwrap()
                                     .0
                             )
                             .unwrap(),
