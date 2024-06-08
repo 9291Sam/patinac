@@ -143,10 +143,29 @@ impl game::Collideable for Player
             query_pipeline,
             &Capsule::new_y(24.0, 12.0),
             &camera_isometry,
-            camera_isometry.translation.vector + pos_delta,
+            camera_isometry.translation.vector
+                + pos_delta
+                + get_gravity_influenced_velocity_given_time_floating(
+                    self.time_floating.load(Ordering::Acquire),
+                    gravity
+                ) * game.get_delta_time(),
             QueryFilter::new(),
             |_| {}
         );
+
+        // TODO: set a kinematic poisition based thing given this
+
+        if !move_result.grounded
+        {
+            self.time_floating.store(
+                self.time_floating.load(Ordering::Acquire) + game.get_delta_time(),
+                Ordering::Release
+            );
+        }
+        else
+        {
+            self.time_floating.store(0.0, Ordering::Release);
+        }
 
         camera.add_pitch(pitch);
         camera.add_yaw(yaw);
