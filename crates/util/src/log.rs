@@ -4,10 +4,16 @@ use std::sync::mpsc::{self, SendError, Sender, TryRecvError};
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 
+struct AsyncLoggerMessage
+{
+    message:                     String,
+    should_be_printed_to_stdout: bool
+}
+
 #[derive(Debug)]
 pub struct AsyncLogger
 {
-    thread_sender: Sender<String>,
+    thread_sender: Sender<AsyncLoggerMessage>,
     should_stop:   Arc<AtomicBool>,
     worker_thread: Mutex<Option<JoinHandle<()>>>
 }
@@ -33,9 +39,18 @@ impl AsyncLogger
                     .open("patinac_log.txt")
                     .expect("Failed to create log file!");
 
-                let mut write_fn = |message: String| {
-                    println!("{}", message);
-                    writeln!(log_file, "{}", message).unwrap()
+                let mut write_fn = |message: AsyncLoggerMessage| {
+                    let AsyncLoggerMessage {
+                        message,
+                        should_be_printed_to_stdout
+                    } = message;
+
+                    writeln!(log_file, "{}", message).unwrap();
+
+                    if should_be_printed_to_stdout
+                    {
+                        println!("{}", message);
+                    }
                 };
 
                 loop
@@ -77,12 +92,18 @@ impl AsyncLogger
 
         stolen_worker.join().unwrap();
 
-        assert_eq!(
-            self.thread_sender.send("".into()),
-            Err(SendError("".into()))
+        assert!(
+            self.thread_sender
+                .send(AsyncLoggerMessage {
+                    message:                     String::new(),
+                    should_be_printed_to_stdout: false
+                })
+                .is_err()
         )
     }
 }
+
+const BLOCK_ON_STR: &str = "BLOCK_ON";
 
 impl log::Log for AsyncLogger
 {
@@ -137,27 +158,41 @@ impl log::Log for AsyncLogger
 
         let user_message = format!("{}", record.args());
 
-        const BLOCK_ON_STR: &str = "BLOCK_ON";
+        let message_to_send: AsyncLoggerMessage = if let Some(stripped) =
+            user_message.strip_prefix(BLOCK_ON_STR)
+        {
+            let msg = AsyncLoggerMessage {
+                message:                     format!(
+                    "[{}] {}[{}] {}",
+                    working_time_string,
+                    file_path,
+                    record.level(),
+                    stripped
+                ),
+                should_be_printed_to_stdout: false
+            };
 
-        if let Some(stripped) = user_message.strip_prefix(BLOCK_ON_STR)
-        {
-            println!(
-                "[{}] {}[{}] {}",
-                working_time_string,
-                file_path,
-                record.level(),
-                stripped
-            );
+            println!("{}", msg.message);
+
+            msg
         }
-        else if let Err(unsent_string) = self.thread_sender.send(format!(
-            "[{}] {}[{}] {}",
-            working_time_string,
-            file_path,
-            record.level(),
-            user_message
-        ))
+        else
         {
-            eprintln!("Send After async shutdown! {}", unsent_string.0);
+            AsyncLoggerMessage {
+                message:                     format!(
+                    "[{}] {}[{}] {}",
+                    working_time_string,
+                    file_path,
+                    record.level(),
+                    user_message
+                ),
+                should_be_printed_to_stdout: true
+            }
+        };
+
+        if let Err(unsent_string) = self.thread_sender.send(message_to_send)
+        {
+            eprintln!("Send After async shutdown! {}", unsent_string.0.message);
         }
     }
 

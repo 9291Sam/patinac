@@ -1,8 +1,9 @@
 use std::borrow::Cow;
+use std::ops::Sub;
 use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex, Once};
 
-use gfx::nal::Isometry3;
+use gfx::nal::{ComplexField, Isometry3};
 use gfx::{glm, nal};
 use rapier3d::control::KinematicCharacterController;
 use rapier3d::dynamics::{RigidBodyBuilder, RigidBodyHandle, RigidBodySet};
@@ -17,9 +18,8 @@ pub struct Player
 {
     uuid: util::Uuid,
 
-    camera:            Mutex<gfx::Camera>,
-    time_floating:     AtomicF32,
-    player_controller: KinematicCharacterController
+    camera:        Mutex<gfx::Camera>,
+    time_floating: AtomicF32
 }
 
 impl Player
@@ -27,10 +27,9 @@ impl Player
     pub fn new(game: &game::Game, inital_camera: gfx::Camera) -> Arc<Self>
     {
         let this = Arc::new(Player {
-            uuid:              util::Uuid::new(),
-            camera:            Mutex::new(inital_camera),
-            time_floating:     AtomicF32::new(0.0),
-            player_controller: KinematicCharacterController::default()
+            uuid:          util::Uuid::new(),
+            camera:        Mutex::new(inital_camera),
+            time_floating: AtomicF32::new(0.0)
         });
 
         game.register(this.clone());
@@ -104,9 +103,23 @@ impl game::Collideable for Player
 {
     fn init_collideable(&self) -> (RigidBody, Vec<Collider>)
     {
-        let body = RigidBodyBuilder::fixed().enabled(false).build();
-
-        (body, vec![])
+        (
+            RigidBodyBuilder::dynamic()
+                .ccd_enabled(true)
+                .translation(self.camera.lock().unwrap().get_position())
+                .can_sleep(false)
+                .lock_rotations()
+                .additional_solver_iterations(16)
+                .build(),
+            vec![
+                ColliderBuilder::capsule_y(24.0, 6.0)
+                    .contact_force_event_threshold(0.001)
+                    .friction(0.5)
+                    .friction_combine_rule(rapier3d::dynamics::CoefficientCombineRule::Multiply)
+                    .enabled(true)
+                    .build(),
+            ]
+        )
     }
 
     fn physics_tick(
@@ -120,57 +133,59 @@ impl game::Collideable for Player
         _: game::TickTag
     )
     {
+        // goals
+        // movement
+        // gravity
+        // no clipping
+        // proper jump
         let mut camera = self.camera.lock().unwrap();
+        let this_body = rigid_body_set.get_mut(this_handle).unwrap();
 
-        let (pos_delta, pitch, yaw) = get_position_delta_pitch_yaw(
+        let DesiredMovementResult {
+            desired_translation,
+            delta_pitch,
+            delta_yaw,
+            wants_to_jump
+        } = calculate_desired_movement(
             camera.get_forward_vector(),
             camera.get_right_vector(),
             game
         );
 
-        log::trace!(
-            "BLOCK_ONCamera: {:?} | pos_delta {:?}",
-            camera.get_position(),
-            pos_delta
-        );
+        let this_body = rigid_body_set.get_mut(this_handle).unwrap();
 
-        let camera_isometry = get_isometry_of_camera(&camera);
+        this_body.apply_impulse(desired_translation / game.get_delta_time(), true);
 
-        let move_result = self.player_controller.move_shape(
-            game.get_delta_time(),
-            &rigid_body_set,
-            &collider_set,
-            query_pipeline,
-            &Capsule::new_y(24.0, 12.0),
-            &camera_isometry,
-            camera_isometry.translation.vector
-                + pos_delta
-                + get_gravity_influenced_velocity_given_time_floating(
-                    self.time_floating.load(Ordering::Acquire),
-                    gravity
-                ) * game.get_delta_time(),
-            QueryFilter::new(),
-            |_| {}
-        );
-
-        // TODO: set a kinematic poisition based thing given this
-
-        if !move_result.grounded
+        if wants_to_jump
         {
-            self.time_floating.store(
-                self.time_floating.load(Ordering::Acquire) + game.get_delta_time(),
-                Ordering::Release
-            );
+            this_body.apply_impulse(glm::Vec3::new(0.0, 1000.0, 0.0), true)
+        }
+
+        if this_body
+            .linvel()
+            .normalize()
+            .dot(&gravity.normalize())
+            .abs()
+            > 0.001
+        {
+            self.time_floating
+                .aba_add(game.get_delta_time(), Ordering::AcqRel);
         }
         else
         {
-            self.time_floating.store(0.0, Ordering::Release);
+            self.time_floating.store(0.0, Ordering::Release)
         }
 
-        camera.add_pitch(pitch);
-        camera.add_yaw(yaw);
+        log::trace!(
+            "BLOCK_ONPosition: {:?} | Velocity: {:?} | Time Floating: {}",
+            this_body.translation(),
+            this_body.linvel(),
+            self.time_floating.load(Ordering::Acquire)
+        );
 
-        camera.set_position(move_result.translation);
+        camera.add_pitch(delta_pitch);
+        camera.add_yaw(delta_yaw);
+        camera.set_position(*this_body.translation());
     }
 
     // fn init_collideable(&self) -> (RigidBody, Vec<Collider>)
@@ -254,13 +269,21 @@ fn get_isometry_of_camera(camera: &gfx::Camera) -> Isometry3<Real>
     }
 }
 
-fn get_position_delta_pitch_yaw(
+struct DesiredMovementResult
+{
+    desired_translation: glm::Vec3,
+    delta_pitch:         f32,
+    delta_yaw:           f32,
+    wants_to_jump:       bool
+}
+
+fn calculate_desired_movement(
     forward_vector: glm::Vec3,
     right_vector: glm::Vec3,
     game: &game::Game
-) -> (glm::Vec3, f32, f32)
+) -> DesiredMovementResult
 {
-    let mut result = glm::Vec3::repeat(0.0);
+    let mut net_translation = glm::Vec3::repeat(0.0);
 
     let renderer = game.get_renderer();
 
@@ -285,42 +308,45 @@ fn get_position_delta_pitch_yaw(
     {
         let v = forward_vector * move_scale;
 
-        result += v * game_delta_time;
+        net_translation += v * game_delta_time;
     };
 
     if input_manager.is_key_pressed(gfx::KeyCode::KeyS)
     {
         let v = forward_vector * -move_scale;
 
-        result += v * game_delta_time;
+        net_translation += v * game_delta_time;
     };
 
     if input_manager.is_key_pressed(gfx::KeyCode::KeyD)
     {
         let v = right_vector * move_scale;
 
-        result += v * game_delta_time;
+        net_translation += v * game_delta_time;
     };
 
     if input_manager.is_key_pressed(gfx::KeyCode::KeyA)
     {
         let v = right_vector * -move_scale;
 
-        result += v * game_delta_time;
+        net_translation += v * game_delta_time;
     };
+
+    let mut wants_to_jump = false;
 
     if input_manager.is_key_pressed(gfx::KeyCode::Space)
     {
-        let v = *gfx::Transform::global_up_vector() * move_scale;
+        // let v = *gfx::Transform::global_up_vector() * move_scale;
 
-        result += v * game_delta_time;
+        wants_to_jump = true;
+        // net_translation += v * game_delta_time;
     };
 
     if input_manager.is_key_pressed(gfx::KeyCode::ControlLeft)
     {
         let v = *gfx::Transform::global_up_vector() * -move_scale;
 
-        result += v * game_delta_time;
+        net_translation += v * game_delta_time;
     };
 
     if input_manager.is_key_pressed(gfx::KeyCode::Backslash)
@@ -361,6 +387,10 @@ fn get_position_delta_pitch_yaw(
         yaw = delta_rads.x / renderer_delta_time * rotate_scale * game_delta_time
     }
 
-    // camera
-    (result, pitch, yaw)
+    DesiredMovementResult {
+        desired_translation: net_translation,
+        delta_pitch:         pitch,
+        delta_yaw:           yaw,
+        wants_to_jump:       wants_to_jump
+    }
 }

@@ -137,6 +137,40 @@ impl AtomicF32
     {
         f32::from_bits(self.data.load(ordering))
     }
+
+    pub fn aba_add(&self, val: f32, ordering: Ordering)
+    {
+        match ordering
+        {
+            Ordering::Relaxed =>
+            {
+                panic!("Ordering {ordering:?} is not supported with this operation!")
+            }
+            Ordering::Release =>
+            {
+                panic!("Ordering {ordering:?} is not supported with this operation!")
+            }
+            Ordering::Acquire =>
+            {
+                panic!("Ordering {ordering:?} is not supported with this operation!")
+            }
+            Ordering::AcqRel =>
+            {
+                self.data.store(
+                    f32::to_bits(f32::from_bits(self.data.load(Ordering::Acquire)) + val),
+                    Ordering::Release
+                )
+            }
+            Ordering::SeqCst =>
+            {
+                self.data.store(
+                    f32::to_bits(f32::from_bits(self.data.load(Ordering::SeqCst)) + val),
+                    Ordering::SeqCst
+                )
+            }
+            _ => panic!("Ordering {ordering:?} is not supported with this operation!")
+        }
+    }
 }
 
 #[cfg(test)]
