@@ -103,7 +103,7 @@ impl game::Collideable for Player
 {
     fn init_collideable(&self) -> (RigidBody, Vec<Collider>)
     {
-        let mut body = RigidBodyBuilder::kinematic_velocity_based()
+        let mut body = RigidBodyBuilder::dynamic()
             .ccd_enabled(true)
             .additional_solver_iterations(8)
             .translation(self.camera.lock().unwrap().get_position())
@@ -115,10 +115,6 @@ impl game::Collideable for Player
             vec![
                 ColliderBuilder::capsule_y(32.0, 12.0)
                     .contact_skin(0.1)
-                    .friction(0.0)
-                    .friction_combine_rule(rapier3d::dynamics::CoefficientCombineRule::Min)
-                    .restitution(0.0)
-                    .mass(1.0)
                     .build(),
             ]
         )
@@ -135,25 +131,20 @@ impl game::Collideable for Player
         _: game::TickTag
     )
     {
+        let mut camera = self.camera.lock().unwrap();
         let this_body = rigid_body_set.get_mut(this_handle).unwrap();
 
-        // log::trace!("BLOCK_ONthis_body vel {}", this_body.linvel());
+        let dist_to_move =
+            get_position_delta(camera.get_forward_vector(), camera.get_right_vector(), game);
 
-        static ONCE: Once = Once::new();
+        log::trace!("BLOCK_ON To Move {:?}", dist_to_move);
 
-        this_body.set_linvel(glm::Vec3::repeat(0.0), true);
+        this_body.set_linvel(
+            this_body.linvel() + (dist_to_move / game.get_delta_time()),
+            true
+        );
 
-        ONCE.call_once(|| {
-            this_body.set_linvel(
-                glm::Vec3::new(100.0, 0.0, 0.0) / game.get_delta_time(),
-                true
-            )
-        });
-
-        self.camera
-            .lock()
-            .unwrap()
-            .set_position(*this_body.translation())
+        camera.set_position(*this_body.translation());
     }
 
     // fn init_collideable(&self) -> (RigidBody, Vec<Collider>)
@@ -237,8 +228,14 @@ fn get_isometry_of_camera(camera: &gfx::Camera) -> Isometry3<Real>
     }
 }
 
-fn modify_camera_based_on_inputs(mut camera: gfx::Camera, game: &game::Game) -> gfx::Camera
+fn get_position_delta(
+    forward_vector: glm::Vec3,
+    right_vector: glm::Vec3,
+    game: &game::Game
+) -> glm::Vec3
 {
+    let mut result = glm::Vec3::repeat(0.0);
+
     let renderer = game.get_renderer();
 
     let renderer_framebuffer_size = renderer.get_framebuffer_size();
@@ -260,44 +257,44 @@ fn modify_camera_based_on_inputs(mut camera: gfx::Camera, game: &game::Game) -> 
 
     if input_manager.is_key_pressed(gfx::KeyCode::KeyW)
     {
-        let v = camera.get_forward_vector() * move_scale;
+        let v = forward_vector * move_scale;
 
-        camera.add_position(v * game_delta_time);
+        result += v * game_delta_time;
     };
 
     if input_manager.is_key_pressed(gfx::KeyCode::KeyS)
     {
-        let v = camera.get_forward_vector() * -move_scale;
+        let v = forward_vector * -move_scale;
 
-        camera.add_position(v * game_delta_time);
+        result += v * game_delta_time;
     };
 
     if input_manager.is_key_pressed(gfx::KeyCode::KeyD)
     {
-        let v = camera.get_right_vector() * move_scale;
+        let v = right_vector * move_scale;
 
-        camera.add_position(v * game_delta_time);
+        result += v * game_delta_time;
     };
 
     if input_manager.is_key_pressed(gfx::KeyCode::KeyA)
     {
-        let v = camera.get_right_vector() * -move_scale;
+        let v = right_vector * -move_scale;
 
-        camera.add_position(v * game_delta_time);
+        result += v * game_delta_time;
     };
 
     if input_manager.is_key_pressed(gfx::KeyCode::Space)
     {
         let v = *gfx::Transform::global_up_vector() * move_scale;
 
-        camera.add_position(v * game_delta_time);
+        result += v * game_delta_time;
     };
 
     if input_manager.is_key_pressed(gfx::KeyCode::ControlLeft)
     {
         let v = *gfx::Transform::global_up_vector() * -move_scale;
 
-        camera.add_position(v * game_delta_time);
+        result += v * game_delta_time;
     };
 
     if input_manager.is_key_pressed(gfx::KeyCode::Backslash)
@@ -305,10 +302,10 @@ fn modify_camera_based_on_inputs(mut camera: gfx::Camera, game: &game::Game) -> 
         input_manager.detach_cursor();
     };
 
-    if input_manager.is_key_pressed(gfx::KeyCode::KeyK)
-    {
-        log::info!("Camera: {}", camera)
-    };
+    // if input_manager.is_key_pressed(gfx::KeyCode::KeyK)
+    // {
+    //     log::info!("Camera: {}", camera)
+    // };
 
     let mouse_diff_px: glm::Vec2 = {
         let mouse_cords_diff_px_f32: (f32, f32) = input_manager.get_mouse_delta();
@@ -329,11 +326,12 @@ fn modify_camera_based_on_inputs(mut camera: gfx::Camera, game: &game::Game) -> 
         .component_div(&glm::Vec2::repeat(2.0))
         .component_mul(&renderer_fov);
 
-    if renderer_delta_time != 0.0
-    {
-        camera.add_yaw(delta_rads.x / renderer_delta_time * rotate_scale * game_delta_time);
-        camera.add_pitch(delta_rads.y / renderer_delta_time * rotate_scale * game_delta_time);
-    }
+    // if renderer_delta_time != 0.0
+    // {
+    //     camera.add_yaw(delta_rads.x / renderer_delta_time * rotate_scale *
+    // game_delta_time);     camera.add_pitch(delta_rads.y / renderer_delta_time
+    // * rotate_scale * game_delta_time); }
 
-    camera
+    // camera
+    result
 }
