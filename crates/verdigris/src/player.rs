@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 use std::sync::atomic::Ordering;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, Once};
 
 use gfx::nal::Isometry3;
 use gfx::{glm, nal};
@@ -103,14 +103,24 @@ impl game::Collideable for Player
 {
     fn init_collideable(&self) -> (RigidBody, Vec<Collider>)
     {
+        let mut body = RigidBodyBuilder::kinematic_velocity_based()
+            .ccd_enabled(true)
+            .additional_solver_iterations(8)
+            .translation(self.camera.lock().unwrap().get_position())
+            .lock_rotations()
+            .build();
+
         (
-            RigidBodyBuilder::dynamic()
-                .ccd_enabled(true)
-                .additional_solver_iterations(8)
-                .translation(self.camera.lock().unwrap().get_position())
-                .lock_rotations()
-                .build(),
-            vec![ColliderBuilder::capsule_y(32.0, 12.0).build()]
+            body,
+            vec![
+                ColliderBuilder::capsule_y(32.0, 12.0)
+                    .contact_skin(0.1)
+                    .friction(0.0)
+                    .friction_combine_rule(rapier3d::dynamics::CoefficientCombineRule::Min)
+                    .restitution(0.0)
+                    .mass(1.0)
+                    .build(),
+            ]
         )
     }
 
@@ -125,10 +135,25 @@ impl game::Collideable for Player
         _: game::TickTag
     )
     {
+        let this_body = rigid_body_set.get_mut(this_handle).unwrap();
+
+        // log::trace!("BLOCK_ONthis_body vel {}", this_body.linvel());
+
+        static ONCE: Once = Once::new();
+
+        this_body.set_linvel(glm::Vec3::repeat(0.0), true);
+
+        ONCE.call_once(|| {
+            this_body.set_linvel(
+                glm::Vec3::new(100.0, 0.0, 0.0) / game.get_delta_time(),
+                true
+            )
+        });
+
         self.camera
             .lock()
             .unwrap()
-            .set_position(*rigid_body_set.get(this_handle).unwrap().translation())
+            .set_position(*this_body.translation())
     }
 
     // fn init_collideable(&self) -> (RigidBody, Vec<Collider>)

@@ -145,7 +145,7 @@ impl Game
                 delta_time = (now - prev).as_secs_f32();
                 prev = now;
 
-                self.delta_time.store(delta_time, Ordering::Release);
+                self.delta_time.store(delta_time, Ordering::SeqCst);
             }
 
             // Cull self-managed entities
@@ -219,6 +219,24 @@ impl Game
                     }
                 }
 
+                // propagate this info
+                for collideable in entities.into_iter().filter_map(|e| e.as_collideable())
+                {
+                    collideable.physics_tick(
+                        self,
+                        gravity,
+                        self.collideables
+                            .get(&collideable.get_uuid())
+                            .expect("CollideableHandle Not Contained!")
+                            .value()
+                            .0,
+                        &mut rigid_body_set,
+                        &mut collider_set,
+                        &query_pipeline,
+                        TickTag(())
+                    );
+                }
+
                 // and then do the actual tick
                 physics_pipeline.step(
                     &gravity,
@@ -238,24 +256,6 @@ impl Game
                     &physics_hooks,
                     &event_handler
                 );
-
-                // propagate this new info
-                for collideable in entities.into_iter().filter_map(|e| e.as_collideable())
-                {
-                    collideable.physics_tick(
-                        self,
-                        gravity,
-                        self.collideables
-                            .get(&collideable.get_uuid())
-                            .expect("CollideableHandle Not Contained!")
-                            .value()
-                            .0,
-                        &mut rigid_body_set,
-                        &mut collider_set,
-                        &query_pipeline,
-                        TickTag(())
-                    );
-                }
             }
 
             let mut tick_futures = Vec::new();

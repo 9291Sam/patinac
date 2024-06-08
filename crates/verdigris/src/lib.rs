@@ -1,5 +1,7 @@
 #![feature(stmt_expr_attributes)]
 #![feature(new_uninit)]
+#![allow(soft_unstable)]
+#![feature(test)]
 
 mod demo_scene;
 mod instanced_indirect;
