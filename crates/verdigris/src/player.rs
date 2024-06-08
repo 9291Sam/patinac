@@ -166,7 +166,7 @@ impl game::Collideable for Player
 
         if wants_to_jump && self.time_floating.load(Ordering::Acquire) < 0.01
         {
-            this_body.apply_impulse(glm::Vec3::new(0.0, 6000.0, 0.0), true)
+            this_body.apply_impulse(glm::Vec3::new(0.0, 600.0, 0.0), true)
         }
 
         if this_body.linvel().y.abs() > 0.1
@@ -180,13 +180,13 @@ impl game::Collideable for Player
             self.time_floating.store(0.0, Ordering::Release)
         }
 
-        log::trace!(
-            "BLOCK_ONPosition: {:?} | Integrated Velocity: {:?} {} | Time Floating: {}",
-            this_body.translation(),
-            this_body.linvel(),
-            this_body.linvel().magnitude(),
-            self.time_floating.load(Ordering::Acquire)
-        );
+        // log::trace!(
+        //     "BLOCK_ONPosition: {:?} | Integrated Velocity: {:?} {} | Time Floating:
+        // {}",     this_body.translation(),
+        //     this_body.linvel(),
+        //     this_body.linvel().magnitude(),
+        //     self.time_floating.load(Ordering::Acquire)
+        // );
 
         camera.add_pitch(delta_pitch);
         camera.add_yaw(delta_yaw);
@@ -301,11 +301,11 @@ fn calculate_desired_movement(
     let move_scale = 10.0
         * if input_manager.is_key_pressed(gfx::KeyCode::ShiftLeft)
         {
-            20.0
+            7.0
         }
         else
         {
-            4.0
+            1.0
         };
     let rotate_scale = 10.0;
 

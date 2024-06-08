@@ -125,7 +125,7 @@ impl Game
         let event_handler = ();
 
         // Create the ground.
-        let collider = ColliderBuilder::cuboid(1000.0, 1.0, 1000.0).build();
+        let collider = ColliderBuilder::cuboid(10000.0, 1.0, 10000.0).build();
         collider_set.insert(collider);
 
         // Create the bounding ball.
