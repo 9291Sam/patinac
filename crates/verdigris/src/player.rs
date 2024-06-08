@@ -17,10 +17,9 @@ pub struct Player
 {
     uuid: util::Uuid,
 
-    camera:                  Mutex<gfx::Camera>,
-    time_floating:           AtomicF32,
-    player_controller:       KinematicCharacterController,
-    previous_frame_velocity: Mutex<glm::Vec3>
+    camera:            Mutex<gfx::Camera>,
+    time_floating:     AtomicF32,
+    player_controller: KinematicCharacterController
 }
 
 impl Player
@@ -28,11 +27,10 @@ impl Player
     pub fn new(game: &game::Game, inital_camera: gfx::Camera) -> Arc<Self>
     {
         let this = Arc::new(Player {
-            uuid:                    util::Uuid::new(),
-            camera:                  Mutex::new(inital_camera),
-            time_floating:           AtomicF32::new(0.0),
-            player_controller:       KinematicCharacterController::default(),
-            previous_frame_velocity: Mutex::new(glm::Vec3::repeat(0.0))
+            uuid:              util::Uuid::new(),
+            camera:            Mutex::new(inital_camera),
+            time_floating:     AtomicF32::new(0.0),
+            player_controller: KinematicCharacterController::default()
         });
 
         game.register(this.clone());
@@ -106,21 +104,9 @@ impl game::Collideable for Player
 {
     fn init_collideable(&self) -> (RigidBody, Vec<Collider>)
     {
-        let body = RigidBodyBuilder::dynamic()
-            .ccd_enabled(true)
-            .additional_solver_iterations(8)
-            .translation(self.camera.lock().unwrap().get_position())
-            .lock_rotations()
-            .build();
+        let body = RigidBodyBuilder::fixed().enabled(false).build();
 
-        (
-            body,
-            vec![
-                ColliderBuilder::capsule_y(32.0, 12.0)
-                    .contact_skin(0.1)
-                    .build(),
-            ]
-        )
+        (body, vec![])
     }
 
     fn physics_tick(
@@ -129,42 +115,43 @@ impl game::Collideable for Player
         gravity: glm::Vec3,
         this_handle: RigidBodyHandle,
         rigid_body_set: &mut RigidBodySet,
-        _: &mut ColliderSet,
-        _: &QueryPipeline,
+        collider_set: &mut ColliderSet,
+        query_pipeline: &QueryPipeline,
         _: game::TickTag
     )
     {
         let mut camera = self.camera.lock().unwrap();
-        let this_body = rigid_body_set.get_mut(this_handle).unwrap();
 
-        let (dist_to_move, pitch, yaw) = get_position_delta_pitch_yaw(
+        let (pos_delta, pitch, yaw) = get_position_delta_pitch_yaw(
             camera.get_forward_vector(),
             camera.get_right_vector(),
             game
         );
 
+        log::trace!(
+            "BLOCK_ONCamera: {:?} | pos_delta {:?}",
+            camera.get_position(),
+            pos_delta
+        );
+
+        let camera_isometry = get_isometry_of_camera(&camera);
+
+        let move_result = self.player_controller.move_shape(
+            game.get_delta_time(),
+            &rigid_body_set,
+            &collider_set,
+            query_pipeline,
+            &Capsule::new_y(24.0, 12.0),
+            &camera_isometry,
+            camera_isometry.translation.vector + pos_delta,
+            QueryFilter::new(),
+            |_| {}
+        );
+
         camera.add_pitch(pitch);
         camera.add_yaw(yaw);
 
-        let vel_add = dist_to_move / game.get_delta_time();
-
-        let mut previous_frame_velocity = self.previous_frame_velocity.lock().unwrap();
-
-        this_body.set_linvel(
-            this_body.linvel() + vel_add
-                - (*previous_frame_velocity) * (1.0 - game.get_delta_time()),
-            true
-        );
-
-        log::trace!(
-            "BLOCK_ONisinair {} {}",
-            this_body.linvel().y.abs() > 0.05,
-            this_body.linvel().y
-        );
-
-        *previous_frame_velocity = vel_add;
-
-        camera.set_position(*this_body.translation());
+        camera.set_position(move_result.translation);
     }
 
     // fn init_collideable(&self) -> (RigidBody, Vec<Collider>)
