@@ -10,15 +10,17 @@ use rapier3d::geometry::{Capsule, Collider, ColliderBuilder, ColliderSet};
 use rapier3d::math::Real;
 use rapier3d::pipeline::{QueryFilter, QueryPipeline};
 use rapier3d::prelude::RigidBody;
+use tearor::TearCell;
 use util::AtomicF32;
 
 pub struct Player
 {
     uuid: util::Uuid,
 
-    camera:            Mutex<gfx::Camera>,
-    time_floating:     AtomicF32,
-    player_controller: KinematicCharacterController
+    camera:                  Mutex<gfx::Camera>,
+    time_floating:           AtomicF32,
+    player_controller:       KinematicCharacterController,
+    previous_frame_velocity: Mutex<glm::Vec3>
 }
 
 impl Player
@@ -26,10 +28,11 @@ impl Player
     pub fn new(game: &game::Game, inital_camera: gfx::Camera) -> Arc<Self>
     {
         let this = Arc::new(Player {
-            uuid:              util::Uuid::new(),
-            camera:            Mutex::new(inital_camera),
-            time_floating:     AtomicF32::new(0.0),
-            player_controller: KinematicCharacterController::default()
+            uuid:                    util::Uuid::new(),
+            camera:                  Mutex::new(inital_camera),
+            time_floating:           AtomicF32::new(0.0),
+            player_controller:       KinematicCharacterController::default(),
+            previous_frame_velocity: Mutex::new(glm::Vec3::repeat(0.0))
         });
 
         game.register(this.clone());
@@ -134,15 +137,27 @@ impl game::Collideable for Player
         let mut camera = self.camera.lock().unwrap();
         let this_body = rigid_body_set.get_mut(this_handle).unwrap();
 
-        let dist_to_move =
-            get_position_delta(camera.get_forward_vector(), camera.get_right_vector(), game);
+        let (dist_to_move, pitch, yaw) = get_position_delta_pitch_yaw(
+            camera.get_forward_vector(),
+            camera.get_right_vector(),
+            game
+        );
+
+        camera.add_pitch(pitch);
+        camera.add_yaw(yaw);
 
         log::trace!("BLOCK_ON To Move {:?}", dist_to_move);
 
+        let vel_add = dist_to_move / game.get_delta_time();
+
+        let mut previous_frame_velocity = self.previous_frame_velocity.lock().unwrap();
+
         this_body.set_linvel(
-            this_body.linvel() + (dist_to_move / game.get_delta_time()),
+            this_body.linvel() + vel_add - (*previous_frame_velocity) * 0.999,
             true
         );
+
+        *previous_frame_velocity = vel_add;
 
         camera.set_position(*this_body.translation());
     }
@@ -228,11 +243,11 @@ fn get_isometry_of_camera(camera: &gfx::Camera) -> Isometry3<Real>
     }
 }
 
-fn get_position_delta(
+fn get_position_delta_pitch_yaw(
     forward_vector: glm::Vec3,
     right_vector: glm::Vec3,
     game: &game::Game
-) -> glm::Vec3
+) -> (glm::Vec3, f32, f32)
 {
     let mut result = glm::Vec3::repeat(0.0);
 
@@ -326,12 +341,15 @@ fn get_position_delta(
         .component_div(&glm::Vec2::repeat(2.0))
         .component_mul(&renderer_fov);
 
-    // if renderer_delta_time != 0.0
-    // {
-    //     camera.add_yaw(delta_rads.x / renderer_delta_time * rotate_scale *
-    // game_delta_time);     camera.add_pitch(delta_rads.y / renderer_delta_time
-    // * rotate_scale * game_delta_time); }
+    let mut pitch = 0.0;
+    let mut yaw = 0.0;
+    if renderer_delta_time != 0.0
+    {
+        pitch = delta_rads.y / renderer_delta_time * rotate_scale * game_delta_time;
+
+        yaw = delta_rads.x / renderer_delta_time * rotate_scale * game_delta_time
+    }
 
     // camera
-    result
+    (result, pitch, yaw)
 }

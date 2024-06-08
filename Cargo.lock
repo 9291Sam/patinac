@@ -1618,6 +1618,7 @@ dependencies = [
  "log",
  "oneshot",
  "rand",
+ "tearor",
  "util",
  "verdigris",
  "voxel2",
@@ -2246,6 +2247,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "tearor"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a95c216a2ff18aa2811bfd7d7239a6017ee068d4bf9a9d2cf1345d62b6234bcb"
+dependencies = [
+ "bytemuck",
+]
+
+[[package]]
 name = "termcolor"
 version = "1.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2528,6 +2538,7 @@ dependencies = [
  "rand",
  "rapier3d",
  "spiral",
+ "tearor",
  "tobj",
  "util",
  "voxel2",

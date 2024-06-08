@@ -25,6 +25,7 @@ oneshot = { workspace = true }
 dashmap = { workspace = true }
 rand = { workspace = true }
 itertools = { workspace = true }
+tearor.workspace = true
 
 [workspace.dependencies]
 util = { path = "crates/util" }
@@ -72,6 +73,7 @@ fnv = "1.0.7"
 rapier3d = "0.19.0"
 replace_with = "0.1.7"
 spin_sleep = "1.2.0"
+tearor = "0.1.0"
 
 
 [profile.dev]

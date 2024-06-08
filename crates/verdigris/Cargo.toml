@@ -20,3 +20,4 @@ image = { workspace = true }
 tobj = { workspace = true }
 voxel2 = { workspace = true }
 rapier3d = { workspace = true }
+tearor = { workspace = true }
