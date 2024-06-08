@@ -114,7 +114,7 @@ impl game::Collideable for Player
             vec![
                 ColliderBuilder::capsule_y(24.0, 6.0)
                     .contact_force_event_threshold(0.001)
-                    .friction(0.5)
+                    .friction(1.5)
                     .friction_combine_rule(rapier3d::dynamics::CoefficientCombineRule::Multiply)
                     .enabled(true)
                     .build(),
@@ -138,11 +138,12 @@ impl game::Collideable for Player
         // gravity
         // no clipping
         // proper jump
+        // TODO: do something to disable infinite user provided accelleration
         let mut camera = self.camera.lock().unwrap();
         let this_body = rigid_body_set.get_mut(this_handle).unwrap();
 
         let DesiredMovementResult {
-            desired_translation,
+            mut desired_translation,
             delta_pitch,
             delta_yaw,
             wants_to_jump
@@ -154,19 +155,22 @@ impl game::Collideable for Player
 
         let this_body = rigid_body_set.get_mut(this_handle).unwrap();
 
-        this_body.apply_impulse(desired_translation / game.get_delta_time(), true);
+        desired_translation.y = 0.0;
 
-        if wants_to_jump
+        if self.time_floating.load(Ordering::Acquire) != 0.0
         {
-            this_body.apply_impulse(glm::Vec3::new(0.0, 1000.0, 0.0), true)
+            desired_translation = glm::Vec3::zeros();
         }
 
-        if this_body
-            .linvel()
-            .normalize()
-            .dot(&gravity.normalize())
-            .abs()
-            > 0.001
+        this_body.apply_impulse(desired_translation / game.get_delta_time(), true);
+
+        if wants_to_jump && self.time_floating.load(Ordering::Acquire) < 0.01
+        {
+            this_body.apply_impulse(glm::Vec3::new(0.0, 6000.0, 0.0), true)
+        }
+
+        if this_body.linvel().y.abs() > 0.1
+        // TODO: fix
         {
             self.time_floating
                 .aba_add(game.get_delta_time(), Ordering::AcqRel);
@@ -177,9 +181,10 @@ impl game::Collideable for Player
         }
 
         log::trace!(
-            "BLOCK_ONPosition: {:?} | Velocity: {:?} | Time Floating: {}",
+            "BLOCK_ONPosition: {:?} | Integrated Velocity: {:?} {} | Time Floating: {}",
             this_body.translation(),
             this_body.linvel(),
+            this_body.linvel().magnitude(),
             self.time_floating.load(Ordering::Acquire)
         );
 
@@ -386,6 +391,8 @@ fn calculate_desired_movement(
 
         yaw = delta_rads.x / renderer_delta_time * rotate_scale * game_delta_time
     }
+
+    net_translation.y = 0.0;
 
     DesiredMovementResult {
         desired_translation: net_translation,
