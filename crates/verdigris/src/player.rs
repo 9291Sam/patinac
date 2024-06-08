@@ -106,7 +106,7 @@ impl game::Collideable for Player
 {
     fn init_collideable(&self) -> (RigidBody, Vec<Collider>)
     {
-        let mut body = RigidBodyBuilder::dynamic()
+        let body = RigidBodyBuilder::dynamic()
             .ccd_enabled(true)
             .additional_solver_iterations(8)
             .translation(self.camera.lock().unwrap().get_position())
@@ -146,15 +146,20 @@ impl game::Collideable for Player
         camera.add_pitch(pitch);
         camera.add_yaw(yaw);
 
-        log::trace!("BLOCK_ON To Move {:?}", dist_to_move);
-
         let vel_add = dist_to_move / game.get_delta_time();
 
         let mut previous_frame_velocity = self.previous_frame_velocity.lock().unwrap();
 
         this_body.set_linvel(
-            this_body.linvel() + vel_add - (*previous_frame_velocity) * 0.999,
+            this_body.linvel() + vel_add
+                - (*previous_frame_velocity) * (1.0 - game.get_delta_time()),
             true
+        );
+
+        log::trace!(
+            "BLOCK_ONisinair {} {}",
+            this_body.linvel().y.abs() > 0.05,
+            this_body.linvel().y
         );
 
         *previous_frame_velocity = vel_add;
