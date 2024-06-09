@@ -1,17 +1,11 @@
 use std::borrow::Cow;
-use std::ops::Sub;
 use std::sync::atomic::Ordering;
-use std::sync::{Arc, Mutex, Once};
+use std::sync::{Arc, Mutex};
 
-use gfx::nal::{ComplexField, Isometry3};
-use gfx::{glm, nal};
-use rapier3d::control::KinematicCharacterController;
-use rapier3d::dynamics::{RigidBodyBuilder, RigidBodyHandle, RigidBodySet};
-use rapier3d::geometry::{Capsule, Collider, ColliderBuilder, ColliderSet};
-use rapier3d::math::Real;
-use rapier3d::pipeline::{QueryFilter, QueryPipeline};
+use gfx::glm;
+use rapier3d::dynamics::RigidBodyBuilder;
+use rapier3d::geometry::{Collider, ColliderBuilder};
 use rapier3d::prelude::RigidBody;
-use tearor::TearCell;
 use util::AtomicF32;
 
 pub struct Player
@@ -125,11 +119,8 @@ impl game::Collideable for Player
     fn physics_tick(
         &self,
         game: &game::Game,
-        gravity: glm::Vec3,
-        this_handle: RigidBodyHandle,
-        rigid_body_set: &mut RigidBodySet,
-        collider_set: &mut ColliderSet,
-        query_pipeline: &QueryPipeline,
+        _: glm::Vec3,
+        this_body: &mut RigidBody,
         _: game::TickTag
     )
     {
@@ -140,7 +131,6 @@ impl game::Collideable for Player
         // proper jump
         // TODO: do something to disable infinite user provided accelleration
         let mut camera = self.camera.lock().unwrap();
-        let this_body = rigid_body_set.get_mut(this_handle).unwrap();
 
         let DesiredMovementResult {
             mut desired_translation,
@@ -152,8 +142,6 @@ impl game::Collideable for Player
             camera.get_right_vector(),
             game
         );
-
-        let this_body = rigid_body_set.get_mut(this_handle).unwrap();
 
         desired_translation.y = 0.0;
 
@@ -254,24 +242,6 @@ impl game::Collideable for Player
     //     camera.set_yaw(desired_camera.get_yaw());
     //     camera.set_pitch(desired_camera.get_pitch());
     // }
-}
-
-fn get_gravity_influenced_velocity_given_time_floating(
-    time_floating: f32,
-    gravity_acceleration: glm::Vec3
-) -> glm::Vec3
-{
-    gravity_acceleration * time_floating
-}
-
-fn get_isometry_of_camera(camera: &gfx::Camera) -> Isometry3<Real>
-{
-    Isometry3 {
-        rotation:    glm::UnitQuaternion::new_normalize(nal::Quaternion::identity()),
-        translation: nal::Translation {
-            vector: camera.get_position()
-        }
-    }
 }
 
 struct DesiredMovementResult

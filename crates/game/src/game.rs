@@ -1,19 +1,17 @@
 use std::fmt::Debug;
 use std::panic::{RefUnwindSafe, UnwindSafe};
-use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
-use std::sync::{Arc, Mutex, Weak};
-use std::time::Duration;
+use std::sync::atomic::Ordering;
+use std::sync::{Arc, Weak};
 
 use dashmap::mapref::entry::Entry;
 use dashmap::DashMap;
-use gfx::{glm, nal};
 use rapier3d::dynamics::RigidBodyHandle;
 use rapier3d::geometry::ColliderHandle;
 use rapier3d::prelude::*;
 use util::AtomicF32;
 
 use crate::renderpasses::RenderPassManager;
-use crate::{entity, Collideable, Entity, SelfManagedEntity};
+use crate::{Entity, SelfManagedEntity};
 
 pub struct TickTag(());
 
@@ -112,7 +110,7 @@ impl Game
         let mut collider_set = ColliderSet::new();
 
         // Create other structures necessary for the simulation.
-        let gravity = vector![0.0, -108.823241, 0.0];
+        let gravity = vector![0.0, -128.64542732, 0.0];
         let mut physics_pipeline = PhysicsPipeline::new();
         let mut island_manager = IslandManager::new();
         let mut broad_phase = BroadPhaseMultiSap::new();
@@ -128,13 +126,14 @@ impl Game
         let collider = ColliderBuilder::cuboid(10000.0, 1.0, 10000.0).build();
         collider_set.insert(collider);
 
-        // Create the bounding ball.
-        let rigid_body = RigidBodyBuilder::dynamic()
-            .translation(vector![0.0, 10.0, 0.0])
-            .build();
-        let collider = ColliderBuilder::ball(0.5).restitution(0.7).build();
-        let ball_body_handle = rigid_body_set.insert(rigid_body);
-        collider_set.insert_with_parent(collider, ball_body_handle, &mut rigid_body_set);
+        // // Create the bounding ball.
+        // let rigid_body = RigidBodyBuilder::dynamic()
+        //     .translation(vector![0.0, 10.0, 0.0])
+        //     .build();
+        // let collider = ColliderBuilder::ball(0.5).restitution(0.7).build();
+        // let ball_body_handle = rigid_body_set.insert(rigid_body);
+        // collider_set.insert_with_parent(collider, ball_body_handle, &mut
+        // rigid_body_set);
 
         while poll_continue_func()
         {
@@ -225,14 +224,15 @@ impl Game
                     collideable.physics_tick(
                         self,
                         gravity,
-                        self.collideables
-                            .get(&collideable.get_uuid())
-                            .expect("CollideableHandle Not Contained!")
-                            .value()
-                            .0,
-                        &mut rigid_body_set,
-                        &mut collider_set,
-                        &query_pipeline,
+                        rigid_body_set
+                            .get_mut(
+                                self.collideables
+                                    .get(&collideable.get_uuid())
+                                    .expect("CollideableHandle Not Contained!")
+                                    .value()
+                                    .0
+                            )
+                            .unwrap(),
                         TickTag(())
                     );
                 }

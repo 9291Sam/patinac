@@ -3,10 +3,8 @@ use std::borrow::Cow;
 use std::sync::Arc;
 
 use gfx::glm;
-use rapier3d::dynamics::{RigidBody, RigidBodyHandle, RigidBodySet};
-use rapier3d::geometry::{Collider, ColliderSet};
-use rapier3d::pipeline::QueryPipeline;
-use smallvec::SmallVec;
+use rapier3d::dynamics::RigidBody;
+use rapier3d::geometry::Collider;
 
 use crate::game::TickTag;
 
@@ -56,10 +54,7 @@ pub trait Collideable: Transformable
         &self,
         game: &super::Game,
         gravity: glm::Vec3,
-        this_handle: RigidBodyHandle,
-        _: &mut RigidBodySet,
-        _: &mut ColliderSet,
-        _: &QueryPipeline,
+        this_rigid_body: &mut RigidBody,
         _: TickTag
     );
 }

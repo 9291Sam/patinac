@@ -1,7 +1,5 @@
 use std::collections::hash_map::Entry;
-use std::collections::HashMap;
 use std::hash::Hash;
-use std::hint::unreachable_unchecked;
 use std::marker::PhantomData;
 use std::num::NonZeroU64;
 use std::ops::Range;
@@ -9,10 +7,7 @@ use std::sync::Arc;
 
 use bytemuck::{cast_slice, Pod};
 use fnv::FnvHashMap;
-use gfx::glm::all;
 use gfx::wgpu;
-use nonmax::NonMaxU32;
-use offset_allocator::NodeIndexNonMax;
 pub use offset_allocator::{Allocation as OAllocation, Allocator as OAllocator};
 use util::NoElementContained;
 

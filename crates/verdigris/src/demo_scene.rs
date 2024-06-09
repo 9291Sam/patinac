@@ -1,21 +1,18 @@
 use std::borrow::Cow;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use dot_vox::DotVoxData;
 use gfx::glm::{self};
 use itertools::iproduct;
 use noise::NoiseFn;
-use rand::SeedableRng;
 use voxel2::{ChunkManager, WorldPosition};
 
-use crate::player::Player;
-use crate::recordables::lit_textured::LitTextured;
+use crate::Player;
 
 pub struct DemoScene
 {
-    _dm:               Arc<voxel2::ChunkManager>,
-    lit_textured_cube: Arc<LitTextured>,
-    id:                util::Uuid,
+    _dm: Arc<voxel2::ChunkManager>,
+    id:  util::Uuid,
 
     player:         Arc<Player>,
     camera_updater: util::WindowUpdater<gfx::Camera>
@@ -27,10 +24,7 @@ impl DemoScene
     -> Arc<Self>
     {
         let dm = ChunkManager::new(game.clone());
-        let c_dm = dm.clone();
         let c_dm2 = dm.clone();
-
-        let mut rng = rand::rngs::SmallRng::seed_from_u64(23879234789234);
 
         util::run_async(move || {
             let it = iproduct!(0..64, -64..0, 0..64)
@@ -58,13 +52,6 @@ impl DemoScene
         let this = Arc::new(DemoScene {
             _dm: dm.clone(),
             id: util::Uuid::new(),
-            lit_textured_cube: LitTextured::new_cube(
-                game.clone(),
-                gfx::Transform {
-                    scale: glm::Vec3::new(5.0, 5.0, 5.0),
-                    ..Default::default()
-                }
-            ),
             player,
             camera_updater
         });
@@ -110,7 +97,7 @@ impl game::Entity for DemoScene
         self.id
     }
 
-    fn tick(&self, game: &game::Game, _: game::TickTag)
+    fn tick(&self, _: &game::Game, _: game::TickTag)
     {
         self.camera_updater.update(self.player.get_camera());
     }

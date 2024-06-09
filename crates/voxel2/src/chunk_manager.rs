@@ -1,14 +1,13 @@
 use std::borrow::Cow;
 use std::collections::hash_map::Entry;
-use std::collections::HashSet;
 use std::fmt::Debug;
 use std::ops::Range;
-use std::pin::Pin;
 use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 use bytemuck::{bytes_of, cast_slice, Pod, Zeroable};
 use fnv::{FnvHashMap, FnvHashSet};
+use gfx::glm::normalize;
 use gfx::{glm, wgpu, CacheablePipelineLayoutDescriptor};
 
 use crate::cpu::{self, VoxelFaceDirection};
@@ -17,11 +16,11 @@ use crate::{
     get_world_offset_of_chunk,
     gpu,
     world_position_to_chunk_position,
-    BufferAllocation,
     ChunkCoordinate,
     ChunkLocalPosition,
     SubAllocatedCpuTrackedBuffer,
-    WorldPosition
+    WorldPosition,
+    CHUNK_EDGE_LEN_VOXELS
 };
 
 #[no_mangle]
@@ -251,10 +250,6 @@ impl gfx::Recordable for ChunkManager
         global_bind_group: &Arc<wgpu::BindGroup>
     ) -> gfx::RecordInfo
     {
-        let (camera_chunk_coordinate, _) = world_position_to_chunk_position(WorldPosition(
-            camera.get_position().try_cast().unwrap()
-        ));
-
         let mut indirect_args: Vec<wgpu::util::DrawIndirectArgs> = Vec::new();
         let mut indirect_data: Vec<PackedInstanceData> = Vec::new();
 
@@ -281,6 +276,11 @@ impl gfx::Recordable for ChunkManager
                     ))
                     .0;
 
+                    let camera_world_position = camera.get_position();
+                    let this_chunk_world_center_position =
+                        get_world_offset_of_chunk(*coordinate).0.cast()
+                            + glm::Vec3::repeat(CHUNK_EDGE_LEN_VOXELS as f32 / 2.0);
+
                     // let chunk_center_vec =
 
                     let is_axis_shared = coordinate
@@ -297,11 +297,19 @@ impl gfx::Recordable for ChunkManager
                         continue;
                     }
 
-                    if camera.get_forward_vector().dot(&dir.get_axis().cast()) > 0.5
+                    // if camera.get_forward_vector().dot(&dir.get_axis().cast()) > 0.5
+                    // {
+                    //     continue;
+                    // }
+
+                    let camera_to_chunk_dir =
+                        (this_chunk_world_center_position - camera_world_position).normalize();
+
+                    if camera_to_chunk_dir.dot(&camera.get_forward_vector()) < 0.0
                     {
+                        // the chunk's center is behind the camera, don't render it
                         continue;
                     }
-
                     // TODO: culling based on camera position -> chunk pos dot > 0.0
                     // TODO: culling based on that above value being compared to the camera's normal
 

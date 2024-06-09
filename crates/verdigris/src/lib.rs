@@ -4,9 +4,10 @@
 #![feature(test)]
 
 mod demo_scene;
-mod instanced_indirect;
 mod player;
 mod recordables;
 
 pub use demo_scene::DemoScene;
 pub(crate) use player::Player;
+pub use recordables::flat_textured::FlatTextured;
+pub use recordables::lit_textured::LitTextured;
