@@ -102,15 +102,16 @@ impl game::Collideable for Player
                 .ccd_enabled(true)
                 .translation(self.camera.lock().unwrap().get_position())
                 .can_sleep(false)
+                .dominance_group(127)
                 .lock_rotations()
-                .additional_solver_iterations(16)
                 .build(),
             vec![
-                ColliderBuilder::capsule_y(24.0, 0.5)
-                    .contact_force_event_threshold(0.01)
-                    .friction(0.1)
-                    .restitution(0.1)
-                    .friction_combine_rule(rapier3d::dynamics::CoefficientCombineRule::Multiply)
+                ColliderBuilder::capsule_y(1.6, 0.55)
+                    .contact_skin(0.2)
+                    .friction(0.00)
+                    .restitution(0.2)
+                    .restitution_combine_rule(rapier3d::dynamics::CoefficientCombineRule::Min)
+                    .friction_combine_rule(rapier3d::dynamics::CoefficientCombineRule::Min)
                     .enabled(true)
                     .build(),
             ]
@@ -146,7 +147,16 @@ impl game::Collideable for Player
 
         desired_translation.y = 0.0;
 
-        if self.time_floating.load(Ordering::Acquire) != 0.0
+        // if self.time_floating.load(Ordering::Acquire) != 0.0
+        // {
+        //     desired_translation = glm::Vec3::zeros();
+        // }
+
+        if this_body.linvel().magnitude() > 100.0
+            && desired_translation
+                .normalize()
+                .dot(&this_body.linvel().normalize())
+                > 0.0
         {
             desired_translation = glm::Vec3::zeros();
         }
@@ -155,7 +165,7 @@ impl game::Collideable for Player
 
         if wants_to_jump && self.time_floating.load(Ordering::Acquire) < 0.01
         {
-            this_body.apply_impulse(glm::Vec3::new(0.0, 0.51, 0.0), true)
+            this_body.apply_impulse(glm::Vec3::new(0.0, 0.051, 0.0), true)
         }
 
         if this_body.linvel().y.abs() > 0.1
@@ -174,7 +184,7 @@ impl game::Collideable for Player
             .get_input_manager()
             .is_key_pressed(gfx::KeyCode::KeyR)
         {
-            this_body.set_translation(glm::Vec3::new(0.0, 256.0, 0.0), true)
+            this_body.set_translation(glm::Vec3::new(0.0, 384.0, 0.0), true)
         }
 
         // log::trace!(
@@ -277,7 +287,7 @@ fn calculate_desired_movement(
     let game_delta_time = game.get_delta_time();
     let input_manager = renderer.get_input_manager();
 
-    let move_scale = 10.0
+    let move_scale = 0.003
         * if input_manager.is_key_pressed(gfx::KeyCode::ShiftLeft)
         {
             7.0
