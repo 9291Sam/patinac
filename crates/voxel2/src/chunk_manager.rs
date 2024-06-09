@@ -8,7 +8,12 @@ use std::sync::{Arc, Mutex};
 use bytemuck::{bytes_of, cast_slice, Pod, Zeroable};
 use fnv::{FnvHashMap, FnvHashSet};
 use gfx::glm::normalize;
+use gfx::nal::Isometry3;
 use gfx::{glm, wgpu, CacheablePipelineLayoutDescriptor};
+use itertools::Itertools;
+use rapier3d::dynamics::{RigidBody, RigidBodyBuilder};
+use rapier3d::geometry::{Collider, ColliderBuilder, SharedShape};
+use rapier3d::math::{Isometry, Real};
 
 use crate::cpu::{self, VoxelFaceDirection};
 use crate::suballocated_buffer::SubAllocatedCpuTrackedDenseSet;
@@ -229,6 +234,11 @@ impl ChunkManager
             }
         }
     }
+
+    pub fn build_collision_info(&self) -> Arc<ChunkCollider>
+    {
+        ChunkCollider::new(self.game.clone(), &self.chunks.lock().unwrap())
+    }
 }
 
 impl gfx::Recordable for ChunkManager
@@ -306,6 +316,7 @@ impl gfx::Recordable for ChunkManager
                         (this_chunk_world_center_position - camera_world_position).normalize();
 
                     if camera_to_chunk_dir.dot(&camera.get_forward_vector()) < 0.0
+                        && !is_axis_shared
                     {
                         // the chunk's center is behind the camera, don't render it
                         continue;
@@ -530,4 +541,117 @@ impl Chunk
             }
         })
     }
+}
+
+pub struct ChunkCollider
+{
+    uuid: util::Uuid,
+
+    data: Mutex<Option<(RigidBody, Vec<Collider>)>>
+}
+
+impl ChunkCollider
+{
+    fn new(game: Arc<game::Game>, voxels: &FnvHashMap<ChunkCoordinate, Chunk>) -> Arc<Self>
+    {
+        let voxel_aabb: SharedShape = SharedShape::cuboid(0.5, 0.5, 0.5);
+
+        let it = voxels
+            .iter()
+            .map(|(coord, chunk)| {
+                chunk
+                    .voxel_exists
+                    .iter()
+                    .map((|pos| pos.0.cast() + get_world_offset_of_chunk(*coord).0))
+            })
+            .flatten()
+            .map(|world_voxel_pos| {
+                (
+                    Isometry::<Real>::new(
+                        world_voxel_pos.cast() + glm::Vec3::repeat(0.5),
+                        glm::Vec3::identity()
+                    ),
+                    voxel_aabb.clone()
+                )
+            })
+            .collect_vec();
+
+        let a: (RigidBody, Vec<Collider>) = (
+            RigidBodyBuilder::fixed().build(),
+            vec![ColliderBuilder::compound(it).build()]
+        );
+
+        let this = Arc::new(ChunkCollider {
+            uuid: util::Uuid::new(),
+            data: Mutex::new(Some(a))
+        });
+
+        game.register(this.clone());
+
+        this
+    }
+}
+
+impl game::EntityCastDepot for ChunkCollider
+{
+    fn as_self_managed(self: Arc<Self>) -> Option<Arc<dyn game::SelfManagedEntity>>
+    {
+        None
+    }
+
+    fn as_positionalable(&self) -> Option<&dyn game::Positionalable>
+    {
+        Some(self)
+    }
+
+    fn as_transformable(&self) -> Option<&dyn game::Transformable>
+    {
+        Some(self)
+    }
+
+    fn as_collideable(&self) -> Option<&dyn game::Collideable>
+    {
+        Some(self)
+    }
+}
+
+impl game::Entity for ChunkCollider
+{
+    fn get_name(&self) -> Cow<'_, str>
+    {
+        Cow::Borrowed("Chunk Collider")
+    }
+
+    fn get_uuid(&self) -> util::Uuid
+    {
+        self.uuid
+    }
+
+    fn tick(&self, _: &game::Game, _: game::TickTag) {}
+}
+
+impl game::Positionalable for ChunkCollider
+{
+    fn get_position(&self) -> glm::Vec3
+    {
+        glm::Vec3::zeros()
+    }
+}
+
+impl game::Transformable for ChunkCollider
+{
+    fn get_transform(&self) -> gfx::Transform
+    {
+        gfx::Transform::new()
+    }
+}
+
+impl game::Collideable for ChunkCollider
+{
+    fn init_collideable(&self) -> (RigidBody, Vec<Collider>)
+    {
+        self.data.lock().unwrap().take().unwrap()
+    }
+
+    fn physics_tick(&self, _: &game::Game, _: glm::Vec3, _: &mut RigidBody, _: game::TickTag) {}
 }

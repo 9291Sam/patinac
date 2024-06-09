@@ -106,9 +106,10 @@ impl game::Collideable for Player
                 .additional_solver_iterations(16)
                 .build(),
             vec![
-                ColliderBuilder::capsule_y(24.0, 6.0)
-                    .contact_force_event_threshold(0.001)
-                    .friction(1.5)
+                ColliderBuilder::capsule_y(24.0, 0.5)
+                    .contact_force_event_threshold(0.01)
+                    .friction(0.1)
+                    .restitution(0.1)
                     .friction_combine_rule(rapier3d::dynamics::CoefficientCombineRule::Multiply)
                     .enabled(true)
                     .build(),
@@ -154,7 +155,7 @@ impl game::Collideable for Player
 
         if wants_to_jump && self.time_floating.load(Ordering::Acquire) < 0.01
         {
-            this_body.apply_impulse(glm::Vec3::new(0.0, 600.0, 0.0), true)
+            this_body.apply_impulse(glm::Vec3::new(0.0, 0.51, 0.0), true)
         }
 
         if this_body.linvel().y.abs() > 0.1
@@ -166,6 +167,14 @@ impl game::Collideable for Player
         else
         {
             self.time_floating.store(0.0, Ordering::Release)
+        }
+
+        if game
+            .get_renderer()
+            .get_input_manager()
+            .is_key_pressed(gfx::KeyCode::KeyR)
+        {
+            this_body.set_translation(glm::Vec3::new(0.0, 256.0, 0.0), true)
         }
 
         // log::trace!(

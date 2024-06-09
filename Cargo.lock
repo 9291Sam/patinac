@@ -2565,6 +2565,7 @@ dependencies = [
  "num_enum",
  "offset-allocator",
  "rand",
+ "rapier3d",
  "replace_with",
  "smallvec",
  "util",

@@ -15,7 +15,7 @@ mod cpu;
 mod gpu;
 mod suballocated_buffer;
 
-pub use chunk_manager::ChunkManager;
+pub use chunk_manager::{ChunkCollider, ChunkManager};
 pub(crate) use suballocated_buffer::{BufferAllocation, SubAllocatedCpuTrackedBuffer};
 
 const CHUNK_EDGE_LEN_VOXELS: usize = 256;

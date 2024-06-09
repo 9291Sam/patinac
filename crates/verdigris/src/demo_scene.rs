@@ -5,7 +5,7 @@ use dot_vox::DotVoxData;
 use gfx::glm::{self};
 use itertools::iproduct;
 use noise::NoiseFn;
-use voxel2::{ChunkManager, WorldPosition};
+use voxel2::{ChunkCollider, ChunkManager, WorldPosition};
 
 use crate::Player;
 
@@ -14,9 +14,11 @@ pub struct DemoScene
     _dm: Arc<voxel2::ChunkManager>,
     id:  util::Uuid,
 
-    player:         Arc<Player>,
-    camera_updater: util::WindowUpdater<gfx::Camera>
+    player:          Arc<Player>,
+    camera_updater:  util::WindowUpdater<gfx::Camera>,
+    future_collider: util::Promise<Arc<ChunkCollider>>
 }
+unsafe impl Sync for DemoScene {}
 
 impl DemoScene
 {
@@ -26,7 +28,7 @@ impl DemoScene
         let dm = ChunkManager::new(game.clone());
         let c_dm2 = dm.clone();
 
-        util::run_async(move || {
+        let future_collider = util::run_async(move || {
             let it = iproduct!(0..64, -64..0, 0..64)
                 .map(|(x, y, z)| WorldPosition(glm::I32Vec3::new(x, y, z)));
 
@@ -39,8 +41,10 @@ impl DemoScene
             );
 
             arbitrary_landscape_demo(&c_dm2);
+
+            c_dm2.build_collision_info()
         })
-        .detach();
+        .into();
 
         let player = Player::new(
             &game,
@@ -53,7 +57,8 @@ impl DemoScene
             _dm: dm.clone(),
             id: util::Uuid::new(),
             player,
-            camera_updater
+            camera_updater,
+            future_collider
         });
 
         game.register(this.clone());
@@ -120,7 +125,7 @@ fn arbitrary_landscape_demo(dm: &ChunkManager)
     let it = spiral::ChebyshevIterator::new(0, 0, 768).map(|(x, z)| {
         WorldPosition(glm::I32Vec3::new(
             x,
-            (noise.get([x as f64 / 256.0, z as f64 / 256.0]) * 256.0) as i32,
+            (noise.get([x as f64 / 256.0, z as f64 / 256.0]) * 32.0) as i32,
             z
         ))
     });
