@@ -106,7 +106,8 @@ impl game::Collideable for Player
                 .lock_rotations()
                 .build(),
             vec![
-                ColliderBuilder::capsule_y(1.6, 0.55)
+                ColliderBuilder::capsule_y(24.0, 0.55)
+                    .mass(1.0)
                     .contact_skin(0.2)
                     .friction(0.00)
                     .restitution(0.2)
@@ -163,7 +164,7 @@ impl game::Collideable for Player
 
         this_body.apply_impulse(desired_translation / game.get_delta_time(), true);
 
-        if wants_to_jump && self.time_floating.load(Ordering::Acquire) < 0.01
+        if wants_to_jump && self.time_floating.load(Ordering::Acquire) == 0.0
         {
             this_body.apply_impulse(glm::Vec3::new(0.0, 0.051, 0.0), true)
         }
