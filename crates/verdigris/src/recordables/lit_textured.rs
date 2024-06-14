@@ -264,7 +264,9 @@ impl LitTextured
                     vertex_entry_point: "vs_main".into(),
                     vertex_buffer_layouts: vec![Vertex::desc()],
                     vertex_specialization: None,
-                    zero_initalize_vertex_workgroup_memory: false,
+                    fragment_specialization: None,
+                    zero_initialize_vertex_workgroup_memory: false,
+                    zero_initialize_fragment_workgroup_memory: false,
                     fragment_state: Some(CacheableFragmentState {
                         module:                           shader,
                         entry_point:                      "fs_main".into(),

@@ -307,7 +307,9 @@ pub struct CacheableRenderPipelineDescriptor
     pub vertex_entry_point: Cow<'static, str>,
     pub vertex_buffer_layouts: Vec<wgpu::VertexBufferLayout<'static>>,
     pub vertex_specialization: Option<HashMap<String, f64>>,
-    pub zero_initalize_vertex_workgroup_memory: bool,
+    pub fragment_specialization: Option<HashMap<String, f64>>,
+    pub zero_initialize_vertex_workgroup_memory: bool,
+    pub zero_initialize_fragment_workgroup_memory: bool,
     pub fragment_state: Option<CacheableFragmentState>,
     pub primitive_state: wgpu::PrimitiveState,
     pub depth_stencil_state: Option<wgpu::DepthStencilState>,
@@ -321,12 +323,22 @@ impl CacheableRenderPipelineDescriptor
     {
         let ref_layout = self.layout.as_deref();
 
+        let empty_specialization_hash_map = HashMap::new();
+
         let ref_fragment_state: Option<wgpu::FragmentState> =
             self.fragment_state.as_ref().map(|c| {
                 wgpu::FragmentState {
-                    module:      &c.module,
-                    entry_point: &c.entry_point,
-                    targets:     &c.targets
+                    module:              &c.module,
+                    entry_point:         &c.entry_point,
+                    targets:             &c.targets,
+                    compilation_options: wgpu::PipelineCompilationOptions {
+                        constants:                        self
+                            .fragment_specialization
+                            .as_ref()
+                            .unwrap_or(&empty_specialization_hash_map),
+                        zero_initialize_workgroup_memory: self
+                            .zero_initialize_fragment_workgroup_memory
+                    }
                 }
             });
 
@@ -334,9 +346,16 @@ impl CacheableRenderPipelineDescriptor
             label:         Some(&self.label),
             layout:        ref_layout,
             vertex:        wgpu::VertexState {
-                module:      &self.vertex_module,
-                entry_point: &self.vertex_entry_point,
-                buffers:     &self.vertex_buffer_layouts
+                module:              &self.vertex_module,
+                entry_point:         &self.vertex_entry_point,
+                buffers:             &self.vertex_buffer_layouts,
+                compilation_options: wgpu::PipelineCompilationOptions {
+                    constants:                        self
+                        .vertex_specialization
+                        .as_ref()
+                        .unwrap_or(&empty_specialization_hash_map),
+                    zero_initialize_workgroup_memory: self.zero_initialize_vertex_workgroup_memory
+                }
             },
             primitive:     self.primitive_state,
             depth_stencil: self.depth_stencil_state.clone(),
@@ -403,19 +422,20 @@ impl CacheableComputePipelineDescriptor
         access_func: impl FnOnce(&wgpu::ComputePipelineDescriptor<'_>) -> R
     ) -> R
     {
+        let empty_specialization_hash_map = HashMap::new();
+
         let descriptor = wgpu::ComputePipelineDescriptor {
-            label:       Some(&self.label),
-            layout:      self.layout.as_deref(),
-            module:      &self.module,
-            entry_point: &self.entry_point /* compilation_options: PipelineCompilationOptions {
-                                            *     constants:                        self
-                                            *         .specialization_constants
-                                            *         .as_ref()
-                                            *         .unwrap_or(&
-                                            * EMPTY_SPECIALIZATION_HASH_MAP),
-                                            *     zero_initialize_workgroup_memory:
-                                            * self.zero_initialize_workgroup_memory
-                                            * } */
+            label:               Some(&self.label),
+            layout:              self.layout.as_deref(),
+            module:              &self.module,
+            entry_point:         &self.entry_point,
+            compilation_options: wgpu::PipelineCompilationOptions {
+                constants:                        self
+                    .specialization_constants
+                    .as_ref()
+                    .unwrap_or(&empty_specialization_hash_map),
+                zero_initialize_workgroup_memory: self.zero_initialize_workgroup_memory
+            }
         };
 
         access_func(&descriptor)

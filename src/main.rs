@@ -98,20 +98,3 @@ fn main()
 
     logger.stop_worker();
 }
-
-extern crate test;
-
-#[bench]
-fn mtx(b: &mut test::Bencher)
-{
-    let mutex: Mutex<i32> = Mutex::new(3);
-
-    b.bench(|_| {
-        let lock = std::hint::black_box(mutex.lock().unwrap());
-
-        *std::hint::black_box(lock) += std::hint::black_box(1);
-
-        Ok(())
-    })
-    .unwrap();
-}

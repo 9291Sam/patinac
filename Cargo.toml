@@ -46,7 +46,7 @@ spiral = "0.2.1"
 noise = "0.9.0"
 rand = { version = "0.8.5", features = ["small_rng"] }
 winit = "0.29.0"
-wgpu = { version = "0.19.4" }
+wgpu = { version = "0.20.1" }
 strum = { version = "0.26", features = ["derive"] }
 nalgebra-glm = { version = "0.18.0", features = ["convert-bytemuck"] }
 nalgebra = "0.32.3"
@@ -56,8 +56,8 @@ getrandom = "0.2.12"
 seahash = "4.1.0"
 oneshot = "0.1.6"
 crossbeam = "0.8.4"
-# glyphon = { git = "https://github.com/grovesNL/glyphon.git", rev = "670140e2a1482a1ad3607dead44c40d8261ba582" }
-glyphon = "*"
+glyphon = { git = "https://github.com/grovesNL/glyphon.git", rev = "670140e2a1482a1ad3607dead44c40d8261ba582" }
+# glyphon = "*"
 dashmap = "5.5.3"
 backtrace = "0.3.69"
 sys-locale = "0.3.1"

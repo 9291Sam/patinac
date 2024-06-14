@@ -26,3 +26,9 @@ Goals:
     Colored Voxels
     Editable World
     Shadows + lighting?
+
+
+
+fix colission
+
+lighting!!!

@@ -177,7 +177,9 @@ impl ChunkManager
                     },
                     multiview: None,
                     vertex_specialization: None,
-                    zero_initalize_vertex_workgroup_memory: false
+                    zero_initialize_vertex_workgroup_memory: false,
+                    fragment_specialization: None,
+                    zero_initialize_fragment_workgroup_memory: false
                 }
             ),
             indirect_buffer:                  renderer.create_buffer(&wgpu::BufferDescriptor {
@@ -234,6 +236,13 @@ impl ChunkManager
             }
         }
     }
+
+    // pub fn does_many_voxel_exist(&self, positions: &[WorldPosition]) -> Vec<bool>
+    // {
+    //     let (coordinate, local_pos) = world_position_to_chunk_position(pos);
+
+    //     self.chunks.lock()
+    // }
 
     pub fn build_collision_info(&self) -> Arc<ChunkCollider>
     {

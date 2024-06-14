@@ -200,8 +200,8 @@ impl Renderer
             // #[cfg(not(debug_assertions))]
             // wgpu::PresentMode::FifoRelaxed,
             // #[cfg(not(debug_assertions))]
-            // wgpu::PresentMode::Fifo,
-            wgpu::PresentMode::Immediate
+            wgpu::PresentMode::Fifo
+            // wgpu::PresentMode::Immediate
         ];
 
         let selected_mode = desired_present_modes
