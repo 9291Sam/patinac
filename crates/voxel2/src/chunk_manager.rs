@@ -420,6 +420,7 @@ pub struct PackedInstanceData
 {
     pub chunk_world_offset: glm::Vec3,
     pub normal_id:          u32
+    // TODO: add a scale factor
 }
 
 impl PackedInstanceData

@@ -1,4 +1,3 @@
-
 struct GlobalInfo
 {
     camera_pos: vec4<f32>,
@@ -14,12 +13,12 @@ alias GlobalPositions = array<vec3<f32>, NumberOfModels>;
 @group(0) @binding(1) var<uniform> global_model_view_projection: GlobalMatricies;
 @group(0) @binding(2) var<uniform> global_model: GlobalMatricies;
 
-@group(1) @binding(0) var<storage, read> face_id_buffer: array<u32>;
-// face_data buffer (faceid is the index) which is the vertex index / 6
+@group(1) @binding(0) var<storage, read> face_data_buffer: array<u32>;
+
 var<push_constant> pc_id: u32;
 
 struct VertexInput {
-    @location(0) position: vec3<f32>,
+    @location(0) chunk_position: vec3<f32>,
     @location(1) normal_id: u32
 }
 
@@ -41,43 +40,27 @@ fn vs_main(in: VertexInput, @builtin(vertex_index) vertex_index: u32) -> VertexO
     let point_within_face: u32 = vertex_index % 6;
     let face_number: u32 = vertex_index / 6;
 
-    let face_id: u32 = face_id_buffer[face_number];
-    // let face_data: FaceData = face_data_buffer[face_id];
+    let face_data: u32 = face_data_buffer[face_number];
 
     let eight_bit_mask: u32 = u32(255);
     let three_bit_mask: u32 = u32(7);
     
-    let x_pos: u32 = face_id & eight_bit_mask;
-    let y_pos: u32 = (face_id >> 8) & eight_bit_mask;
-    let z_pos: u32 = (face_id >> 16) & eight_bit_mask;
+    let x_pos: u32 = face_data & eight_bit_mask;
+    let y_pos: u32 = (face_data >> 8) & eight_bit_mask;
+    let z_pos: u32 = (face_data >> 16) & eight_bit_mask;
 
     let face_voxel_pos = vec3<u32>(x_pos, y_pos, z_pos);
     let face_normal_id = in.normal_id;
 
-    // var material = face_data.mat_and_chunk_id & sixteen_bit_mask;
-    // let chunk_id = (face_data.mat_and_chunk_id >> 16) & sixteen_bit_mask;
-    // let chunk_data = chunk_data_buffer[chunk_id];
-    // let chunk_pos = chunk_data.position;
-    let chunk_pos = in.position;
-    // let chunk_scale = chunk_data.scale;
     let chunk_scale = vec3<f32>(1.0);
 
-    // if (face_id == 0 )
-    // {
-    //     material = 0u;
-    // }
-
-    let face_point_local: vec3<f32> = vec3<f32>(FACE_LOOKUP_TABLE[face_normal_id][IDX_TO_VTX_TABLE[point_within_face]]) * chunk_scale.xyz;
-    let face_point_world = vec4<f32>(face_point_local + vec3<f32>(face_voxel_pos) + chunk_pos.xyz, 1.0);
+    let face_point_local: vec3<f32> = vec3<f32>(FACE_LOOKUP_TABLE[face_normal_id][IDX_TO_VTX_TABLE[point_within_face]]) * chunk_scale;
+    let face_point_world = vec4<f32>(face_point_local + vec3<f32>(face_voxel_pos) + in.chunk_position, 1.0);
 
     return VertexOutput(
         global_model_view_projection[pc_id] * face_point_world,
-        face_normal_id, 
-        vec3<f32>(
-            rand(face_id),
-            rand(face_id + 83483724),
-            rand(face_id + 747474995),
-        )
+        face_voxel_pos,
+        face_normal_id
     );
 }
 
@@ -90,29 +73,27 @@ fn rand(s: u32) -> f32
 struct VertexOutput
 {
     @builtin(position) position: vec4<f32>,
-    @location(0) normal: u32,
-    @location(1) color: vec3<f32>,
-    // @location(1) uv: vec2<f32>,
+    @location(0) chunk_local_voxel_position: vec3<u32>,
+    @location(1) face_normal: u32
 }
 
 @fragment
-fn fs_main( m: VertexOutput) -> @location(0) vec4<f32>
+fn fs_main(in: VertexOutput) -> @location(0) vec4<f32>
 {
-    var normal: vec3<f32>;
+    // var normal: vec3<f32>;
 
-    switch (m.normal)
-    {
-        case 0u: {normal = vec3<f32>(0.0, 1.0, 0.0); }
-        case 1u: {normal = vec3<f32>(0.0, -1.0, 0.0); }     
-        case 2u: {normal = vec3<f32>(-1.0, 0.0, 0.0); }       
-        case 3u: {normal = vec3<f32>(1.0, 0.0, 0.0); }       
-        case 4u: {normal = vec3<f32>(0.0, 0.0, -1.0); }      
-        case 5u: {normal = vec3<f32>(0.0, 0.0, 1.0); }
-        case default: {normal = vec3<f32>(0.0); }
-    }
+    // switch (in.face_normal)
+    // {
+    //     case 0u: {normal = vec3<f32>(0.0, 1.0, 0.0); }
+    //     case 1u: {normal = vec3<f32>(0.0, -1.0, 0.0); }     
+    //     case 2u: {normal = vec3<f32>(-1.0, 0.0, 0.0); }       
+    //     case 3u: {normal = vec3<f32>(1.0, 0.0, 0.0); }       
+    //     case 4u: {normal = vec3<f32>(0.0, 0.0, -1.0); }      
+    //     case 5u: {normal = vec3<f32>(0.0, 0.0, 1.0); }
+    //     case default: {normal = vec3<f32>(0.0); }
+    // }
 
-    // return vec4<f32>((normal + vec3<f32>(1.0)) / 2.0, 1.0);
-    return vec4<f32>(normalize(m.color), 1.0);
+    return vec4<f32>(vec3<f32>(in.chunk_local_voxel_position) / 255.0, 1.0);
 }
 
 const ERROR_COLOR: vec4<f32> = vec4<f32>(1.0, 0.0, 1.0, 1.0);

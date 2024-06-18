@@ -109,8 +109,8 @@ impl game::Collideable for Player
                 ColliderBuilder::capsule_y(24.0, 0.55)
                     .mass(1.0)
                     .contact_skin(0.2)
-                    .friction(0.00)
-                    .restitution(0.2)
+                    .friction(0.05)
+                    .restitution(0.02)
                     .restitution_combine_rule(rapier3d::dynamics::CoefficientCombineRule::Min)
                     .friction_combine_rule(rapier3d::dynamics::CoefficientCombineRule::Min)
                     .enabled(true)
@@ -166,7 +166,7 @@ impl game::Collideable for Player
 
         if wants_to_jump && self.time_floating.load(Ordering::Acquire) == 0.0
         {
-            this_body.apply_impulse(glm::Vec3::new(0.0, 0.051, 0.0), true)
+            this_body.apply_impulse(glm::Vec3::new(0.0, 50.0, 0.0), true)
         }
 
         if this_body.linvel().y.abs() > 0.1
