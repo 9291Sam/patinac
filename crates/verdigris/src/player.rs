@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use gfx::glm;
@@ -12,8 +12,10 @@ pub struct Player
 {
     uuid: util::Uuid,
 
-    camera:        Mutex<gfx::Camera>,
-    time_floating: AtomicF32
+    camera:                         Mutex<gfx::Camera>,
+    time_floating:                  AtomicF32,
+    time_at_zero_vertical_velocity: AtomicF32,
+    is_grounded:                    AtomicBool
 }
 
 impl Player
@@ -21,9 +23,11 @@ impl Player
     pub fn new(game: &game::Game, inital_camera: gfx::Camera) -> Arc<Self>
     {
         let this = Arc::new(Player {
-            uuid:          util::Uuid::new(),
-            camera:        Mutex::new(inital_camera),
-            time_floating: AtomicF32::new(0.0)
+            uuid:                           util::Uuid::new(),
+            camera:                         Mutex::new(inital_camera),
+            time_floating:                  AtomicF32::new(0.0),
+            time_at_zero_vertical_velocity: AtomicF32::new(0.0),
+            is_grounded:                    AtomicBool::new(false)
         });
 
         game.register(this.clone());
@@ -109,7 +113,7 @@ impl game::Collideable for Player
                 ColliderBuilder::capsule_y(24.0, 0.55)
                     .mass(1.0)
                     .contact_skin(0.2)
-                    .friction(0.05)
+                    .friction(0.15)
                     .restitution(0.02)
                     .restitution_combine_rule(rapier3d::dynamics::CoefficientCombineRule::Min)
                     .friction_combine_rule(rapier3d::dynamics::CoefficientCombineRule::Min)
@@ -164,20 +168,36 @@ impl game::Collideable for Player
 
         this_body.apply_impulse(desired_translation / game.get_delta_time(), true);
 
-        if wants_to_jump && self.time_floating.load(Ordering::Acquire) == 0.0
+        if wants_to_jump && self.is_grounded.load(Ordering::Acquire)
         {
-            this_body.apply_impulse(glm::Vec3::new(0.0, 50.0, 0.0), true)
+            this_body.apply_impulse(glm::Vec3::new(0.0, 50.0, 0.0), true);
+
+            self.is_grounded.store(false, Ordering::Release);
+            self.time_at_zero_vertical_velocity
+                .store(0.0, Ordering::Release);
         }
 
         if this_body.linvel().y.abs() > 0.1
-        // TODO: fix
         {
             self.time_floating
                 .aba_add(game.get_delta_time(), Ordering::AcqRel);
         }
         else
         {
-            self.time_floating.store(0.0, Ordering::Release)
+            self.time_at_zero_vertical_velocity
+                .aba_add(game.get_delta_time(), Ordering::AcqRel);
+
+            // ok, weve been at 0.0 for a while we're on the ground
+            if self.time_at_zero_vertical_velocity.load(Ordering::Acquire) > 0.05
+            {
+                self.time_floating.store(0.0, Ordering::Release);
+
+                self.is_grounded.store(true, Ordering::Release)
+            }
+            else
+            {
+                // we're in the air, we're still flaoting
+            }
         }
 
         if game

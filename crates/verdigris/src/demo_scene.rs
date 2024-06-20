@@ -48,7 +48,7 @@ impl DemoScene
 
         let player = Player::new(
             &game,
-            gfx::Camera::new(glm::Vec3::new(-186.0, 154.0, -168.0), 0.218903, 0.748343)
+            gfx::Camera::new(glm::Vec3::new(-186.0, 354.0, -168.0), 0.218903, 0.748343)
         );
 
         camera_updater.update(player.get_camera());
