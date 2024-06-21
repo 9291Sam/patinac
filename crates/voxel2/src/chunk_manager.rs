@@ -282,6 +282,14 @@ impl gfx::Recordable for ChunkManager
         let mut total_number_of_faces = 0;
         let mut rendered_faces = 0;
 
+        let chunk_offsets: [glm::I32Vec3; 8] = std::array::from_fn(|idx| {
+            glm::I32Vec3::new(
+                (CHUNK_EDGE_LEN_VOXELS * (idx / 4)) as i32,
+                (CHUNK_EDGE_LEN_VOXELS * ((idx / 2) % 2)) as i32,
+                (CHUNK_EDGE_LEN_VOXELS * (idx % 2)) as i32
+            )
+        });
+
         for (coordinate, chunk) in chunks.iter()
         {
             let draw_ranges = chunk.get_draw_ranges(&mut face_allocator);
@@ -290,66 +298,54 @@ impl gfx::Recordable for ChunkManager
             {
                 if let Some((r, dir)) = range
                 {
-                    let camera_chunk_coordinate = world_position_to_chunk_position(WorldPosition(
-                        camera.get_position().map(|e| e as i32)
-                    ))
-                    .0;
+                    total_number_of_faces += r.end + 1 - r.start;
 
                     let camera_world_position = camera.get_position();
-                    let this_chunk_world_center_position =
-                        get_world_offset_of_chunk(*coordinate).0.cast()
-                            + glm::Vec3::repeat(CHUNK_EDGE_LEN_VOXELS as f32 / 2.0);
-
-                    // let chunk_center_vec =
-
-                    let is_axis_shared = coordinate
-                        .0
-                        .iter()
-                        .cloned()
-                        .zip(camera_chunk_coordinate.0.iter().cloned())
-                        .fold(false, |acc, (l, r)| acc | (l == r));
-
-                    total_number_of_faces += r.end + 1 - r.start;
 
                     if r.is_empty()
                     {
                         continue;
                     }
 
-                    // if camera.get_forward_vector().dot(&dir.get_axis().cast()) > 0.5
-                    // {
-                    //     continue;
-                    // }
-
-                    let camera_to_chunk_dir =
-                        (this_chunk_world_center_position - camera_world_position).normalize();
-
-                    if camera_to_chunk_dir.dot(&camera.get_forward_vector()) < 0.0
-                        && !is_axis_shared
+                    'outer: for offset in chunk_offsets.iter().map(|o| {
+                        (o + get_world_offset_of_chunk(*coordinate).0).cast()
+                            - camera_world_position
+                    })
                     {
-                        // the chunk's center is behind the camera, don't render it
-                        continue;
+                        let is_chunk_visible = {
+                            let is_chunk_in_camera_view =
+                                offset.normalize().dot(&camera.get_forward_vector())
+                                    > (renderer.get_fov().max() / 2.0).cos();
+
+                            let is_camera_in_chunk =
+                                offset.magnitude() < CHUNK_EDGE_LEN_VOXELS as f32;
+
+                            is_chunk_in_camera_view || is_camera_in_chunk
+                        };
+
+                        let is_chunk_direction_visible =
+                            offset.normalize().dot(&dir.get_axis().cast()) < 0.0;
+
+                        if is_chunk_visible && is_chunk_direction_visible
+                        {
+                            indirect_args.push(wgpu::util::DrawIndirectArgs {
+                                vertex_count:   (r.end + 1 - r.start) * 6,
+                                instance_count: 1,
+                                first_vertex:   r.start * 6,
+                                first_instance: idx as u32
+                            });
+
+                            indirect_data.push(PackedInstanceData {
+                                chunk_world_offset: get_world_offset_of_chunk(*coordinate).0.cast(),
+                                normal_id:          dir as u32
+                            });
+
+                            idx += 1;
+
+                            rendered_faces += r.end + 1 - r.start;
+                            break 'outer;
+                        }
                     }
-                    // TODO: culling based on camera position -> chunk pos dot > 0.0
-                    // TODO: culling based on that above value being compared to the camera's normal
-
-                    // TODO: chunk occlussion culling (is it in the frustum?)
-
-                    indirect_args.push(wgpu::util::DrawIndirectArgs {
-                        vertex_count:   (r.end + 1 - r.start) * 6,
-                        instance_count: 1,
-                        first_vertex:   r.start * 6,
-                        first_instance: idx as u32
-                    });
-
-                    indirect_data.push(PackedInstanceData {
-                        chunk_world_offset: get_world_offset_of_chunk(*coordinate).0.cast(),
-                        normal_id:          dir as u32
-                    });
-
-                    idx += 1;
-
-                    rendered_faces += r.end + 1 - r.start;
                 }
             }
         }
@@ -364,7 +360,7 @@ impl gfx::Recordable for ChunkManager
             }
         }
 
-        NUMBER_OF_CHUNKS.store(indirect_args.len(), Ordering::Relaxed);
+        NUMBER_OF_CHUNKS.store(chunks.len(), Ordering::Relaxed);
         NUMBER_OF_VISIBLE_FACES.store(rendered_faces as usize, Ordering::Relaxed);
         NUMBER_OF_TOTAL_FACES.store(total_number_of_faces as usize, Ordering::Relaxed);
 
@@ -419,8 +415,7 @@ impl gfx::Recordable for ChunkManager
 pub struct PackedInstanceData
 {
     pub chunk_world_offset: glm::Vec3,
-    pub normal_id:          u32
-    // TODO: add a scale factor
+    pub normal_id:          u32 // TODO: add a scale factor
 }
 
 impl PackedInstanceData
