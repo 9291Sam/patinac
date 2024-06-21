@@ -11,8 +11,7 @@ use gfx::glm;
 use offset_allocator::Allocation;
 
 mod chunk_manager;
-mod cpu;
-mod gpu;
+mod data;
 mod suballocated_buffer;
 
 pub use chunk_manager::{ChunkCollider, ChunkManager};

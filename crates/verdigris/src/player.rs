@@ -114,7 +114,7 @@ impl game::Collideable for Player
                     .mass(1.0)
                     .contact_skin(0.2)
                     .friction(0.15)
-                    .restitution(0.02)
+                    .restitution(0.2)
                     .restitution_combine_rule(rapier3d::dynamics::CoefficientCombineRule::Min)
                     .friction_combine_rule(rapier3d::dynamics::CoefficientCombineRule::Min)
                     .enabled(true)
@@ -150,8 +150,6 @@ impl game::Collideable for Player
             game
         );
 
-        desired_translation.y = 0.0;
-
         // if self.time_floating.load(Ordering::Acquire) != 0.0
         // {
         //     desired_translation = glm::Vec3::zeros();
@@ -164,6 +162,11 @@ impl game::Collideable for Player
                 > 0.0
         {
             desired_translation = glm::Vec3::zeros();
+        }
+
+        if !self.is_grounded.load(Ordering::Acquire)
+        {
+            desired_translation *= 0.1;
         }
 
         this_body.apply_impulse(desired_translation / game.get_delta_time(), true);

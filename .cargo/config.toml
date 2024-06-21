@@ -1,7 +1,7 @@
 # [build]
 # rustflags = ["-Zsanitizer=address"]
 # target = ["aarch64-apple-darwin"] 
-# target = ["x86_64-pc-windows-msvc"]
+# # target = ["x86_64-pc-windows-msvc"]
 
 # [unstable]
 # build-std = ["core", "std", "alloc", "test", "proc_macro"]

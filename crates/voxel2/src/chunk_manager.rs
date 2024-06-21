@@ -15,11 +15,10 @@ use rapier3d::dynamics::{RigidBody, RigidBodyBuilder};
 use rapier3d::geometry::{Collider, ColliderBuilder, SharedShape};
 use rapier3d::math::{Isometry, Real};
 
-use crate::cpu::{self, VoxelFaceDirection};
+use crate::data::{self, VoxelFace, VoxelFaceDirection};
 use crate::suballocated_buffer::SubAllocatedCpuTrackedDenseSet;
 use crate::{
     get_world_offset_of_chunk,
-    gpu,
     world_position_to_chunk_position,
     ChunkCoordinate,
     ChunkLocalPosition,
@@ -46,7 +45,7 @@ pub struct ChunkManager
     instance_data:      wgpu::Buffer,
     face_id_bind_group: Arc<wgpu::BindGroup>,
 
-    global_face_storage: Mutex<SubAllocatedCpuTrackedBuffer<gpu::VoxelFace>>,
+    global_face_storage: Mutex<SubAllocatedCpuTrackedBuffer<VoxelFace>>,
     chunks:              Mutex<FnvHashMap<ChunkCoordinate, Chunk>>,
 
     number_of_indirect_calls_flushed: AtomicU32
@@ -435,15 +434,15 @@ impl PackedInstanceData
 
 struct DirectionalFaceData
 {
-    dir:             cpu::VoxelFaceDirection,
-    faces_dense_set: SubAllocatedCpuTrackedDenseSet<gpu::VoxelFace>
+    dir:             data::VoxelFaceDirection,
+    faces_dense_set: SubAllocatedCpuTrackedDenseSet<VoxelFace>
 }
 
 impl DirectionalFaceData
 {
     pub fn new(
-        allocator: &mut SubAllocatedCpuTrackedBuffer<gpu::VoxelFace>,
-        dir: cpu::VoxelFaceDirection
+        allocator: &mut SubAllocatedCpuTrackedBuffer<VoxelFace>,
+        dir: data::VoxelFaceDirection
     ) -> DirectionalFaceData
     {
         Self {
@@ -454,8 +453,8 @@ impl DirectionalFaceData
 
     pub fn insert_face(
         &mut self,
-        face: gpu::VoxelFace,
-        allocator: &mut SubAllocatedCpuTrackedBuffer<gpu::VoxelFace>
+        face: VoxelFace,
+        allocator: &mut SubAllocatedCpuTrackedBuffer<VoxelFace>
     )
     {
         self.faces_dense_set.insert(face, allocator);
@@ -463,8 +462,8 @@ impl DirectionalFaceData
 
     pub fn remove_face(
         &mut self,
-        face: gpu::VoxelFace,
-        allocator: &mut SubAllocatedCpuTrackedBuffer<gpu::VoxelFace>
+        face: VoxelFace,
+        allocator: &mut SubAllocatedCpuTrackedBuffer<VoxelFace>
     )
     {
         // TODO: deal with duplicates properly
@@ -480,7 +479,7 @@ struct Chunk
 
 impl Chunk
 {
-    pub fn new(allocator: &mut SubAllocatedCpuTrackedBuffer<gpu::VoxelFace>) -> Chunk
+    pub fn new(allocator: &mut SubAllocatedCpuTrackedBuffer<VoxelFace>) -> Chunk
     {
         Chunk {
             drawable_faces: std::array::from_fn(|i| {
@@ -496,7 +495,7 @@ impl Chunk
     pub fn insert_voxel(
         &mut self,
         local_pos: ChunkLocalPosition,
-        allocator: &mut SubAllocatedCpuTrackedBuffer<gpu::VoxelFace>
+        allocator: &mut SubAllocatedCpuTrackedBuffer<VoxelFace>
     )
     {
         self.voxel_exists.insert(local_pos);
@@ -513,20 +512,14 @@ impl Chunk
                     self.drawable_faces[d as usize]
                         .as_mut()
                         .unwrap()
-                        .insert_face(
-                            gpu::VoxelFace::new(local_pos, glm::U8Vec2::new(1, 1)),
-                            allocator
-                        );
+                        .insert_face(VoxelFace::new(local_pos, glm::U8Vec2::new(1, 1)), allocator);
                 }
                 else
                 {
                     self.drawable_faces[d.opposite() as usize]
                         .as_mut()
                         .unwrap()
-                        .remove_face(
-                            gpu::VoxelFace::new(adj_pos, glm::U8Vec2::new(1, 1)),
-                            allocator
-                        );
+                        .remove_face(VoxelFace::new(adj_pos, glm::U8Vec2::new(1, 1)), allocator);
                 }
             }
         }
@@ -534,7 +527,7 @@ impl Chunk
 
     pub fn get_draw_ranges(
         &self,
-        allocator: &mut SubAllocatedCpuTrackedBuffer<gpu::VoxelFace>
+        allocator: &mut SubAllocatedCpuTrackedBuffer<VoxelFace>
     ) -> [Option<(Range<u32>, VoxelFaceDirection)>; 6]
     {
         std::array::from_fn(|i| {
