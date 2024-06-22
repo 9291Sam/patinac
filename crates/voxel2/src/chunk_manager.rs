@@ -7,8 +7,6 @@ use std::sync::{Arc, Mutex};
 
 use bytemuck::{bytes_of, cast_slice, Pod, Zeroable};
 use fnv::{FnvHashMap, FnvHashSet};
-use gfx::glm::normalize;
-use gfx::nal::Isometry3;
 use gfx::{glm, wgpu, CacheablePipelineLayoutDescriptor};
 use itertools::Itertools;
 use rapier3d::dynamics::{RigidBody, RigidBodyBuilder};
@@ -45,15 +43,11 @@ pub struct ChunkManager
     instance_data:      wgpu::Buffer,
     face_id_bind_group: Arc<wgpu::BindGroup>,
 
-    global_face_storage: Mutex<SubAllocatedCpuTrackedBuffer<VoxelFace>>,
-    chunks:              Mutex<FnvHashMap<ChunkCoordinate, Chunk>>,
+    global_face_data: Mutex<SubAllocatedCpuTrackedBuffer<VoxelFace>>,
+    chunks:           Mutex<FnvHashMap<ChunkCoordinate, Chunk>>,
 
     number_of_indirect_calls_flushed: AtomicU32
 }
-
-unsafe impl Sync for ChunkManager {}
-unsafe impl Send for ChunkManager {}
-
 impl Debug for ChunkManager
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
@@ -131,7 +125,7 @@ impl ChunkManager
 
         let this = Arc::new(ChunkManager {
             chunks:                           Mutex::new(FnvHashMap::default()),
-            global_face_storage:              allocator,
+            global_face_data:                 allocator,
             game:                             game.clone(),
             uuid:                             util::Uuid::new(),
             face_id_bind_group:               face_ids_bind_group,
@@ -217,7 +211,7 @@ impl ChunkManager
 
     fn insert_many_voxel_deadlocking(&self, pos: impl IntoIterator<Item = WorldPosition>)
     {
-        let mut allocator = self.global_face_storage.lock().unwrap();
+        let mut allocator = self.global_face_data.lock().unwrap();
         let mut chunks = self.chunks.lock().unwrap();
 
         for p in pos
@@ -271,7 +265,7 @@ impl gfx::Recordable for ChunkManager
         let mut indirect_args: Vec<wgpu::util::DrawIndirectArgs> = Vec::new();
         let mut indirect_data: Vec<PackedInstanceData> = Vec::new();
 
-        let mut face_allocator = self.global_face_storage.lock().unwrap();
+        let mut face_allocator = self.global_face_data.lock().unwrap();
         let chunks = self.chunks.lock().unwrap();
 
         face_allocator.replicate_to_gpu();
@@ -311,13 +305,12 @@ impl gfx::Recordable for ChunkManager
                             - camera_world_position
                     })
                     {
+                        let is_camera_in_chunk = offset.magnitude() < CHUNK_EDGE_LEN_VOXELS as f32;
+
                         let is_chunk_visible = {
                             let is_chunk_in_camera_view =
                                 offset.normalize().dot(&camera.get_forward_vector())
                                     > (renderer.get_fov().max() / 2.0).cos();
-
-                            let is_camera_in_chunk =
-                                offset.magnitude() < CHUNK_EDGE_LEN_VOXELS as f32;
 
                             is_chunk_in_camera_view || is_camera_in_chunk
                         };
@@ -325,7 +318,7 @@ impl gfx::Recordable for ChunkManager
                         let is_chunk_direction_visible =
                             offset.normalize().dot(&dir.get_axis().cast()) < 0.0;
 
-                        if is_chunk_visible && is_chunk_direction_visible
+                        if is_camera_in_chunk || (is_chunk_visible && is_chunk_direction_visible)
                         {
                             indirect_args.push(wgpu::util::DrawIndirectArgs {
                                 vertex_count:   (r.end + 1 - r.start) * 6,

@@ -125,7 +125,7 @@ fn arbitrary_landscape_demo(dm: &ChunkManager)
     let it = spiral::ChebyshevIterator::new(0, 0, 512).map(|(x, z)| {
         WorldPosition(glm::I32Vec3::new(
             x,
-            (noise.get([x as f64 / 256.0, z as f64 / 256.0]) * 256.0) as i32,
+            (noise.get([x as f64 / 256.0, z as f64 / 256.0]) * 128.0) as i32,
             z
         ))
     });

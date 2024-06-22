@@ -69,6 +69,15 @@ fn rand(s: u32) -> f32
     return fract(sin(f32(s) / 473.489484));
 }
 
+fn randvec3(s: vec3<u32>) -> vec3<f32>
+{
+    return vec3<f32>(
+        rand(s.x),
+        rand(s.y),
+        rand(s.z),
+    );
+}
+
 
 struct VertexOutput
 {
@@ -93,7 +102,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32>
     //     case default: {normal = vec3<f32>(0.0); }
     // }
 
-    return vec4<f32>(vec3<f32>(in.chunk_local_voxel_position) / 255.0, 1.0);
+    return vec4<f32>(vec3<f32>(randvec3(in.chunk_local_voxel_position * 1028)), 1.0);
 }
 
 const ERROR_COLOR: vec4<f32> = vec4<f32>(1.0, 0.0, 1.0, 1.0);
