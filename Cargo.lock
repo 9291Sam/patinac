@@ -1617,6 +1617,7 @@ dependencies = [
  "tearor",
  "util",
  "verdigris",
+ "voxel",
  "voxel2",
 ]
 

@@ -2,6 +2,8 @@
 use std::num::NonZeroUsize;
 use std::sync::{Arc, Mutex};
 
+use voxel::ChunkPool;
+
 fn main()
 {
     #[cfg(debug_assertions)]
@@ -43,6 +45,9 @@ fn main()
 
         let game = game::Game::new(renderer.clone(), renderer_renderpass_updater);
         *held_game.lock().unwrap() = Some(game.clone());
+
+        let c = ChunkPool::new(renderer.clone());
+
         {
             let _verdigris = verdigris::DemoScene::new(game.clone(), camera_updater);
             let _debug_menu = gui::DebugMenu::new(&renderer, game.clone());
