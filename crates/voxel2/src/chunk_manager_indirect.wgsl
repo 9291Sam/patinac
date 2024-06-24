@@ -52,9 +52,7 @@ fn vs_main(in: VertexInput, @builtin(vertex_index) vertex_index: u32) -> VertexO
     let face_voxel_pos = vec3<u32>(x_pos, y_pos, z_pos);
     let face_normal_id = in.normal_id;
 
-    let chunk_scale = vec3<f32>(1.0);
-
-    let face_point_local: vec3<f32> = vec3<f32>(FACE_LOOKUP_TABLE[face_normal_id][IDX_TO_VTX_TABLE[point_within_face]]) * chunk_scale;
+    let face_point_local: vec3<f32> = vec3<f32>(FACE_LOOKUP_TABLE[face_normal_id][IDX_TO_VTX_TABLE[point_within_face]]);
     let face_point_world = vec4<f32>(face_point_local + vec3<f32>(face_voxel_pos) + in.chunk_position, 1.0);
 
     return VertexOutput(

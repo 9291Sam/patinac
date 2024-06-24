@@ -234,6 +234,11 @@ impl<T: Pod> SubAllocatedCpuTrackedBuffer<T>
         NonZeroU64::new(self.cpu_buffer.len() as u64 * std::mem::size_of::<T>() as u64).unwrap()
     }
 
+    pub fn get_memory_used_bytes(&self) -> u64
+    {
+        self.cpu_buffer.len() as u64 - self.allocator.storage_report().total_free_space as u64
+    }
+
     pub fn replicate_to_gpu(&mut self)
     {
         let flush_ranges = combine_into_ranges(

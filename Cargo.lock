@@ -2541,6 +2541,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 
 [[package]]
+name = "voxel"
+version = "0.1.0"
+dependencies = [
+ "bytemuck",
+ "dashmap",
+ "fnv",
+ "game",
+ "gfx",
+ "itertools",
+ "log",
+ "nonmax",
+ "num_enum",
+ "offset-allocator",
+ "rand",
+ "rapier3d",
+ "replace_with",
+ "smallvec",
+ "util",
+]
+
+[[package]]
 name = "voxel2"
 version = "0.1.0"
 dependencies = [

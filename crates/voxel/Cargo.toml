@@ -1,0 +1,21 @@
+[package]
+name = "voxel"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+offset-allocator = { workspace = true }
+util = { workspace = true }
+gfx = { workspace = true }
+itertools = { workspace = true }
+rand = { workspace = true }
+bytemuck = { workspace = true }
+game = { workspace = true }
+log = { workspace = true }
+num_enum = { workspace = true }
+dashmap = { workspace = true }
+smallvec = { workspace = true }
+nonmax = { workspace = true }
+fnv = { workspace = true }
+replace_with = { workspace = true }
+rapier3d = { workspace = true }

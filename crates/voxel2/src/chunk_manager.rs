@@ -342,6 +342,14 @@ impl gfx::Recordable for ChunkManager
             }
         }
 
+        log::trace!(
+            "{} used",
+            util::bytes_as_string(
+                face_allocator.get_memory_used_bytes() as f64,
+                util::SuffixType::Short
+            )
+        );
+
         fn draw_args_as_bytes(args: &[wgpu::util::DrawIndirectArgs]) -> &[u8]
         {
             unsafe {

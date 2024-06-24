@@ -115,8 +115,8 @@ impl game::Collideable for Player
                     .contact_skin(0.2)
                     .friction(0.15)
                     .restitution(0.2)
-                    .restitution_combine_rule(rapier3d::dynamics::CoefficientCombineRule::Min)
-                    .friction_combine_rule(rapier3d::dynamics::CoefficientCombineRule::Min)
+                    .restitution_combine_rule(rapier3d::dynamics::CoefficientCombineRule::Average)
+                    .friction_combine_rule(rapier3d::dynamics::CoefficientCombineRule::Average)
                     .enabled(true)
                     .build(),
             ]
