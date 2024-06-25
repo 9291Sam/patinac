@@ -7,11 +7,10 @@ use gfx::glm;
 
 mod chunk_pool;
 mod data;
-mod material;
 mod suballocated_buffer;
 
 pub use chunk_pool::{Chunk, ChunkPool};
-pub use material::Voxel;
+pub use data::Voxel;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Hash, Zeroable, Pod)]
 #[repr(C)]

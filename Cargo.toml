@@ -28,6 +28,7 @@ dashmap = { workspace = true }
 rand = { workspace = true }
 itertools = { workspace = true }
 tearor.workspace = true
+frustum_query = "0.1.2"
 
 [workspace.dependencies]
 util = { path = "crates/util" }

@@ -493,7 +493,6 @@ impl Renderer
                 .renderables
                 .access()
                 .into_iter()
-                // .inspect(|(id, ptr)| log::trace!("{} @ {:?}", id, ptr.as_ptr() as *const ()))
                 .filter_map(|(id, maybe_recordable)| {
                     match maybe_recordable.upgrade()
                     {
