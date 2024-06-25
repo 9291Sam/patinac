@@ -41,6 +41,18 @@ impl Voxel
     {
         (self as u16).to_ne_bytes()
     }
+
+    pub fn is_air(self) -> bool
+    {
+        if let Voxel::Air = self
+        {
+            true
+        }
+        else
+        {
+            false
+        }
+    }
 }
 
 #[repr(C)]

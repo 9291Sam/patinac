@@ -1,4 +1,6 @@
 use bytemuck::{AnyBitPattern, NoUninit, Pod, Zeroable};
+use gfx::glm;
+use itertools::iproduct;
 
 use crate::{BrickCoordinate, CHUNK_EDGE_LEN_BRICKS};
 
@@ -36,6 +38,14 @@ pub(crate) struct BrickMap
 
 impl BrickMap
 {
+    pub fn new() -> BrickMap
+    {
+        BrickMap {
+            brick_map: [[[MaybeBrickPtr::NULL; CHUNK_EDGE_LEN_BRICKS]; CHUNK_EDGE_LEN_BRICKS];
+                CHUNK_EDGE_LEN_BRICKS]
+        }
+    }
+
     pub fn null_all_ptrs(&mut self)
     {
         self.brick_map
@@ -45,9 +55,18 @@ impl BrickMap
             .for_each(|p| *p = MaybeBrickPtr::NULL);
     }
 
-    pub fn access_mut_all(&mut self, func: impl FnMut(&mut MaybeBrickPtr))
+    pub fn access_mut_all(&mut self, mut func: impl FnMut(BrickCoordinate, &mut MaybeBrickPtr))
     {
-        self.brick_map.iter_mut().flatten().flatten().for_each(func);
+        for (x, y, z) in iproduct!(
+            0..CHUNK_EDGE_LEN_BRICKS as u8,
+            0..CHUNK_EDGE_LEN_BRICKS as u8,
+            0..CHUNK_EDGE_LEN_BRICKS as u8
+        )
+        {
+            let coord = BrickCoordinate(glm::U8Vec3::new(x, y, z));
+
+            func(coord.clone(), self.get_mut(coord))
+        }
     }
 
     #[inline(always)]

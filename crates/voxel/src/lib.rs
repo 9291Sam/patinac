@@ -1,9 +1,14 @@
+#![feature(map_entry_replace)]
+#![feature(new_uninit)]
+#![feature(iter_array_chunks)]
+
 use bytemuck::{Pod, Zeroable};
 use gfx::glm;
 
 mod chunk_pool;
 mod data;
 mod material;
+mod suballocated_buffer;
 
 pub use chunk_pool::{Chunk, ChunkPool};
 pub use material::Voxel;
@@ -85,17 +90,25 @@ impl BrickLocalPosition
 //     WorldPosition(chunk_coordinate.map(|x| x * CHUNK_EDGE_LEN_VOXELS as i32))
 // }
 
-// pub(crate) fn chunk_local_position_to_brick_position(
-//     ChunkLocalPosition(local_chunk_pos): ChunkLocalPosition
-// ) -> (BrickCoordinate, BrickLocalPosition)
-// {
-//     (
-//         BrickCoordinate(local_chunk_pos.map(|x|
-// x.div_euclid(BRICK_EDGE_LEN_VOXELS as u8))),         BrickLocalPosition(
-//             local_chunk_pos
-//                 .map(|x| x.rem_euclid(BRICK_EDGE_LEN_VOXELS as u8))
-//                 .try_cast()
-//                 .unwrap()
-//         )
-//     )
-// }
+pub(crate) fn chunk_local_position_from_brick_positions(
+    coordinate: BrickCoordinate,
+    position: BrickLocalPosition
+) -> ChunkLocalPosition
+{
+    ChunkLocalPosition(position.0 + coordinate.0 * BRICK_EDGE_LEN_VOXELS as u8)
+}
+
+pub(crate) fn chunk_local_position_to_brick_position(
+    ChunkLocalPosition(local_chunk_pos): ChunkLocalPosition
+) -> (BrickCoordinate, BrickLocalPosition)
+{
+    (
+        BrickCoordinate(local_chunk_pos.map(|x| x.div_euclid(BRICK_EDGE_LEN_VOXELS as u8))),
+        BrickLocalPosition(
+            local_chunk_pos
+                .map(|x| x.rem_euclid(BRICK_EDGE_LEN_VOXELS as u8))
+                .try_cast()
+                .unwrap()
+        )
+    )
+}

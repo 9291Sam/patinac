@@ -1,4 +1,6 @@
 use bytemuck::{AnyBitPattern, NoUninit};
+use gfx::glm;
+use itertools::iproduct;
 
 use super::material::Voxel;
 use crate::{BrickLocalPosition, BRICK_EDGE_LEN_VOXELS};
@@ -17,6 +19,20 @@ impl MaterialBrick
     {
         MaterialBrick {
             data: [[[voxel; BRICK_EDGE_LEN_VOXELS]; BRICK_EDGE_LEN_VOXELS]; BRICK_EDGE_LEN_VOXELS]
+        }
+    }
+
+    pub fn access_all(&self, mut func: impl FnMut(BrickLocalPosition, Voxel))
+    {
+        for (x, y, z) in iproduct!(
+            0..BRICK_EDGE_LEN_VOXELS as u8,
+            0..BRICK_EDGE_LEN_VOXELS as u8,
+            0..BRICK_EDGE_LEN_VOXELS as u8
+        )
+        {
+            let coord = BrickLocalPosition(glm::U8Vec3::new(x, y, z));
+
+            func(coord.clone(), self.get_voxel(coord))
         }
     }
 
