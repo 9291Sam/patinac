@@ -2539,6 +2539,7 @@ dependencies = [
  "tearor",
  "tobj",
  "util",
+ "voxel",
  "voxel2",
 ]
 

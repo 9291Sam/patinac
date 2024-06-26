@@ -82,12 +82,14 @@ impl BrickLocalPosition
 //     )
 // }
 
-// pub(crate) fn get_world_offset_of_chunk(
-//     ChunkCoordinate(chunk_coordinate): ChunkCoordinate
-// ) -> WorldPosition
-// {
-//     WorldPosition(chunk_coordinate.map(|x| x * CHUNK_EDGE_LEN_VOXELS as i32))
-// }
+pub(crate) fn get_world_offset_of_chunk(
+    ChunkCoordinate(chunk_coordinate): ChunkCoordinate
+) -> glm::Vec3
+{
+    chunk_coordinate
+        .map(|x| x * CHUNK_EDGE_LEN_VOXELS as i32)
+        .cast()
+}
 
 pub(crate) fn chunk_local_position_from_brick_positions(
     coordinate: BrickCoordinate,

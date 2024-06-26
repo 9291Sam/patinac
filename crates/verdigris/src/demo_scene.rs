@@ -5,18 +5,19 @@ use dot_vox::DotVoxData;
 use gfx::glm::{self};
 use itertools::iproduct;
 use noise::NoiseFn;
+use voxel::{ChunkCoordinate, ChunkLocalPosition, ChunkPool};
 use voxel2::{ChunkCollider, ChunkManager, WorldPosition};
 
 use crate::Player;
 
 pub struct DemoScene
 {
-    _dm: Arc<voxel2::ChunkManager>,
-    id:  util::Uuid,
+    chunk_pool: Arc<voxel::ChunkPool>,
+    id:         util::Uuid,
 
-    player:          Arc<Player>,
-    camera_updater:  util::WindowUpdater<gfx::Camera>,
-    future_collider: util::Promise<Arc<ChunkCollider>>
+    player:         Arc<Player>,
+    camera_updater: util::WindowUpdater<gfx::Camera> /* future_collider:
+                                                      * util::Promise<Arc<ChunkCollider>> */
 }
 unsafe impl Sync for DemoScene {}
 
@@ -25,26 +26,32 @@ impl DemoScene
     pub fn new(game: Arc<game::Game>, camera_updater: util::WindowUpdater<gfx::Camera>)
     -> Arc<Self>
     {
-        let dm = ChunkManager::new(game.clone());
-        let c_dm2 = dm.clone();
+        let chunk_pool = ChunkPool::new(game.clone());
+        let pool2 = chunk_pool.clone();
 
         let future_collider = util::run_async(move || {
-            let it = iproduct!(0..64, -64..0, 0..64)
-                .map(|(x, y, z)| WorldPosition(glm::I32Vec3::new(x, y, z)));
+            let chunk = pool2.allocate_chunk(ChunkCoordinate(glm::I32Vec3::new(0, 0, 0)));
 
-            c_dm2.insert_many_voxel(it);
+            let it = iproduct!(0..64, 0..64, 0..64).map(|(x, y, z)| {
+                (
+                    ChunkLocalPosition(glm::U8Vec3::new(x, y, z)),
+                    voxel::Voxel::Dirt2
+                )
+            });
 
-            load_model_from_file_into(
-                glm::I32Vec3::new(0, 126, 0),
-                &c_dm2,
-                &dot_vox::load_bytes(include_bytes!("../../../models/menger.vox")).unwrap()
-            );
+            pool2.write_many_voxel(&chunk, it);
 
-            arbitrary_landscape_demo(&c_dm2);
+            // load_model_from_file_into(
+            //     glm::I32Vec3::new(0, 126, 0),
+            //     &c_dm2,
+            //     &dot_vox::load_bytes(include_bytes!("../../../models/menger.
+            // vox")). unwrap() );
 
-            c_dm2.build_collision_info()
+            // arbitrary_landscape_demo(&pool2);
+
+            // pool2.build_collision_info()
         })
-        .into();
+        .detach();
 
         let player = Player::new(
             &game,
@@ -54,11 +61,10 @@ impl DemoScene
         camera_updater.update(player.get_camera());
 
         let this = Arc::new(DemoScene {
-            _dm: dm.clone(),
+            chunk_pool: chunk_pool.clone(),
             id: util::Uuid::new(),
             player,
-            camera_updater,
-            future_collider
+            camera_updater
         });
 
         game.register(this.clone());

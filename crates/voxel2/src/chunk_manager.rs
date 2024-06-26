@@ -25,14 +25,14 @@ use crate::{
     CHUNK_EDGE_LEN_VOXELS
 };
 
-#[no_mangle]
-static NUMBER_OF_CHUNKS: AtomicUsize = AtomicUsize::new(0);
+// #[no_mangle]
+// static NUMBER_OF_CHUNKS: AtomicUsize = AtomicUsize::new(0);
 
-#[no_mangle]
-static NUMBER_OF_VISIBLE_FACES: AtomicUsize = AtomicUsize::new(0);
+// #[no_mangle]
+// static NUMBER_OF_VISIBLE_FACES: AtomicUsize = AtomicUsize::new(0);
 
-#[no_mangle]
-static NUMBER_OF_TOTAL_FACES: AtomicUsize = AtomicUsize::new(0);
+// #[no_mangle]
+// static NUMBER_OF_TOTAL_FACES: AtomicUsize = AtomicUsize::new(0);
 
 pub struct ChunkManager
 {
@@ -262,6 +262,8 @@ impl gfx::Recordable for ChunkManager
         global_bind_group: &Arc<wgpu::BindGroup>
     ) -> gfx::RecordInfo
     {
+        unreachable!("dead");
+
         let mut indirect_args: Vec<wgpu::util::DrawIndirectArgs> = Vec::new();
         let mut indirect_data: Vec<PackedInstanceData> = Vec::new();
 
@@ -360,9 +362,10 @@ impl gfx::Recordable for ChunkManager
             }
         }
 
-        NUMBER_OF_CHUNKS.store(chunks.len(), Ordering::Relaxed);
-        NUMBER_OF_VISIBLE_FACES.store(rendered_faces as usize, Ordering::Relaxed);
-        NUMBER_OF_TOTAL_FACES.store(total_number_of_faces as usize, Ordering::Relaxed);
+        // NUMBER_OF_CHUNKS.store(chunks.len(), Ordering::Relaxed);
+        // NUMBER_OF_VISIBLE_FACES.store(rendered_faces as usize, Ordering::Relaxed);
+        // NUMBER_OF_TOTAL_FACES.store(total_number_of_faces as usize,
+        // Ordering::Relaxed);
 
         self.number_of_indirect_calls_flushed
             .store(indirect_args.len() as u32, Ordering::SeqCst);
