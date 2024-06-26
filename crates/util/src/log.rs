@@ -1,6 +1,6 @@
 use std::io::Write;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::{self, SendError, Sender, TryRecvError};
+use std::sync::mpsc::{self, Sender, TryRecvError};
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 
@@ -46,6 +46,8 @@ impl AsyncLogger
                     } = message;
 
                     writeln!(log_file, "{}", message).unwrap();
+
+                    log_file.flush().unwrap();
 
                     if should_be_printed_to_stdout
                     {

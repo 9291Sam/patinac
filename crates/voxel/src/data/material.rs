@@ -55,23 +55,19 @@ impl Voxel
     }
 }
 
-#[repr(C)]
+#[repr(C, align(16))]
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Zeroable)]
 pub struct VoxelMaterial
 {
     diffuse_color:             glm::Vec4,
     subsurface_color:          glm::Vec4,
+    specular_color:            glm::Vec4,
     diffuse_subsurface_weight: f32,
-
-    specular_color: glm::Vec4,
-    specular:       f32,
-    roughness:      f32,
-    metallic:       f32,
-
-    emissive_color_and_power: glm::Vec4,
-    coat_color_and_power:     glm::Vec4,
-
-    special: u32
+    specular:                  f32,
+    roughness:                 f32,
+    metallic:                  f32,
+    emissive_color_and_power:  glm::Vec4,
+    coat_color_and_power:      glm::Vec4
 }
 
 unsafe impl NoUninit for VoxelMaterial {}
@@ -89,8 +85,7 @@ impl Default for VoxelMaterial
             roughness:                 1.0,
             metallic:                  0.0,
             emissive_color_and_power:  glm::Vec4::new(0.0, 0.0, 0.0, 0.0),
-            coat_color_and_power:      glm::Vec4::new(0.0, 0.0, 0.0, 0.0),
-            special:                   0
+            coat_color_and_power:      glm::Vec4::new(0.0, 0.0, 0.0, 0.0)
         }
     }
 }
@@ -151,8 +146,7 @@ fn get_material_from_voxel(v: Voxel) -> VoxelMaterial
                 roughness:                 1.0,
                 metallic:                  0.0,
                 emissive_color_and_power:  glm::Vec4::new(0.0, 0.0, 0.0, 0.0),
-                coat_color_and_power:      glm::Vec4::new(0.0, 0.0, 0.0, 0.0),
-                special:                   0
+                coat_color_and_power:      glm::Vec4::new(0.0, 0.0, 0.0, 0.0)
             }
         }
         Voxel::Dirt0 =>
@@ -166,8 +160,7 @@ fn get_material_from_voxel(v: Voxel) -> VoxelMaterial
                 roughness:                 0.9,
                 metallic:                  0.0,
                 emissive_color_and_power:  glm::Vec4::new(0.0, 0.0, 0.0, 0.0),
-                coat_color_and_power:      glm::Vec4::new(0.0, 0.0, 0.0, 0.0),
-                special:                   0
+                coat_color_and_power:      glm::Vec4::new(0.0, 0.0, 0.0, 0.0)
             }
         }
         Voxel::Dirt1 =>
@@ -181,8 +174,7 @@ fn get_material_from_voxel(v: Voxel) -> VoxelMaterial
                 roughness:                 0.9,
                 metallic:                  0.0,
                 emissive_color_and_power:  glm::Vec4::new(0.0, 0.0, 0.0, 0.0),
-                coat_color_and_power:      glm::Vec4::new(0.0, 0.0, 0.0, 0.0),
-                special:                   0
+                coat_color_and_power:      glm::Vec4::new(0.0, 0.0, 0.0, 0.0)
             }
         }
         Voxel::Dirt2 =>
@@ -196,8 +188,7 @@ fn get_material_from_voxel(v: Voxel) -> VoxelMaterial
                 roughness:                 0.9,
                 metallic:                  0.0,
                 emissive_color_and_power:  glm::Vec4::new(0.0, 0.0, 0.0, 0.0),
-                coat_color_and_power:      glm::Vec4::new(0.0, 0.0, 0.0, 0.0),
-                special:                   0
+                coat_color_and_power:      glm::Vec4::new(0.0, 0.0, 0.0, 0.0)
             }
         }
         Voxel::Dirt3 =>
@@ -211,8 +202,7 @@ fn get_material_from_voxel(v: Voxel) -> VoxelMaterial
                 roughness:                 0.9,
                 metallic:                  0.0,
                 emissive_color_and_power:  glm::Vec4::new(0.0, 0.0, 0.0, 0.0),
-                coat_color_and_power:      glm::Vec4::new(0.0, 0.0, 0.0, 0.0),
-                special:                   0
+                coat_color_and_power:      glm::Vec4::new(0.0, 0.0, 0.0, 0.0)
             }
         }
         Voxel::Dirt4 =>
@@ -226,8 +216,7 @@ fn get_material_from_voxel(v: Voxel) -> VoxelMaterial
                 roughness:                 0.9,
                 metallic:                  0.0,
                 emissive_color_and_power:  glm::Vec4::new(0.0, 0.0, 0.0, 0.0),
-                coat_color_and_power:      glm::Vec4::new(0.0, 0.0, 0.0, 0.0),
-                special:                   0
+                coat_color_and_power:      glm::Vec4::new(0.0, 0.0, 0.0, 0.0)
             }
         }
         Voxel::Dirt5 =>
@@ -241,8 +230,7 @@ fn get_material_from_voxel(v: Voxel) -> VoxelMaterial
                 roughness:                 0.9,
                 metallic:                  0.0,
                 emissive_color_and_power:  glm::Vec4::new(0.0, 0.0, 0.0, 0.0),
-                coat_color_and_power:      glm::Vec4::new(0.0, 0.0, 0.0, 0.0),
-                special:                   0
+                coat_color_and_power:      glm::Vec4::new(0.0, 0.0, 0.0, 0.0)
             }
         }
         Voxel::Dirt6 =>
@@ -256,8 +244,7 @@ fn get_material_from_voxel(v: Voxel) -> VoxelMaterial
                 roughness:                 0.9,
                 metallic:                  0.0,
                 emissive_color_and_power:  glm::Vec4::new(0.0, 0.0, 0.0, 0.0),
-                coat_color_and_power:      glm::Vec4::new(0.0, 0.0, 0.0, 0.0),
-                special:                   0
+                coat_color_and_power:      glm::Vec4::new(0.0, 0.0, 0.0, 0.0)
             }
         }
         Voxel::Dirt7 =>
@@ -271,8 +258,7 @@ fn get_material_from_voxel(v: Voxel) -> VoxelMaterial
                 roughness:                 0.9,
                 metallic:                  0.0,
                 emissive_color_and_power:  glm::Vec4::new(0.0, 0.0, 0.0, 0.0),
-                coat_color_and_power:      glm::Vec4::new(0.0, 0.0, 0.0, 0.0),
-                special:                   0
+                coat_color_and_power:      glm::Vec4::new(0.0, 0.0, 0.0, 0.0)
             }
         }
         Voxel::Stone0 =>
@@ -286,8 +272,7 @@ fn get_material_from_voxel(v: Voxel) -> VoxelMaterial
                 roughness:                 0.8,
                 metallic:                  0.0,
                 emissive_color_and_power:  glm::Vec4::new(0.0, 0.0, 0.0, 0.0),
-                coat_color_and_power:      glm::Vec4::new(0.0, 0.0, 0.0, 0.0),
-                special:                   0
+                coat_color_and_power:      glm::Vec4::new(0.0, 0.0, 0.0, 0.0)
             }
         }
         Voxel::Stone1 =>
@@ -301,8 +286,7 @@ fn get_material_from_voxel(v: Voxel) -> VoxelMaterial
                 roughness:                 0.78,
                 metallic:                  0.0,
                 emissive_color_and_power:  glm::Vec4::new(0.0, 0.0, 0.0, 0.0),
-                coat_color_and_power:      glm::Vec4::new(0.0, 0.0, 0.0, 0.0),
-                special:                   0
+                coat_color_and_power:      glm::Vec4::new(0.0, 0.0, 0.0, 0.0)
             }
         }
         Voxel::Stone14 =>
@@ -316,8 +300,7 @@ fn get_material_from_voxel(v: Voxel) -> VoxelMaterial
                 roughness:                 0.85,
                 metallic:                  0.0,
                 emissive_color_and_power:  glm::Vec4::new(0.0, 0.0, 0.0, 0.0),
-                coat_color_and_power:      glm::Vec4::new(0.0, 0.0, 0.0, 0.0),
-                special:                   0
+                coat_color_and_power:      glm::Vec4::new(0.0, 0.0, 0.0, 0.0)
             }
         }
         Voxel::Wood0 =>
@@ -331,8 +314,7 @@ fn get_material_from_voxel(v: Voxel) -> VoxelMaterial
                 roughness:                 0.6,
                 metallic:                  0.0,
                 emissive_color_and_power:  glm::Vec4::new(0.0, 0.0, 0.0, 0.0),
-                coat_color_and_power:      glm::Vec4::new(0.0, 0.0, 0.0, 0.0),
-                special:                   0
+                coat_color_and_power:      glm::Vec4::new(0.0, 0.0, 0.0, 0.0)
             }
         }
         Voxel::Wood1 =>
@@ -346,8 +328,7 @@ fn get_material_from_voxel(v: Voxel) -> VoxelMaterial
                 roughness:                 0.62,
                 metallic:                  0.0,
                 emissive_color_and_power:  glm::Vec4::new(0.0, 0.0, 0.0, 0.0),
-                coat_color_and_power:      glm::Vec4::new(0.0, 0.0, 0.0, 0.0),
-                special:                   0
+                coat_color_and_power:      glm::Vec4::new(0.0, 0.0, 0.0, 0.0)
             }
         }
         Voxel::Wood2 =>
@@ -361,8 +342,7 @@ fn get_material_from_voxel(v: Voxel) -> VoxelMaterial
                 roughness:                 0.7,
                 metallic:                  0.0,
                 emissive_color_and_power:  glm::Vec4::new(0.0, 0.0, 0.0, 0.0),
-                coat_color_and_power:      glm::Vec4::new(0.0, 0.0, 0.0, 0.0),
-                special:                   0
+                coat_color_and_power:      glm::Vec4::new(0.0, 0.0, 0.0, 0.0)
             }
         }
         Voxel::SilverMeta0 =>
@@ -376,8 +356,7 @@ fn get_material_from_voxel(v: Voxel) -> VoxelMaterial
                 roughness:                 0.1,
                 metallic:                  1.0,
                 emissive_color_and_power:  glm::Vec4::new(0.0, 0.0, 0.0, 0.0),
-                coat_color_and_power:      glm::Vec4::new(0.0, 0.0, 0.0, 0.0),
-                special:                   0
+                coat_color_and_power:      glm::Vec4::new(0.0, 0.0, 0.0, 0.0)
             }
         }
         Voxel::SilverMeta1 =>
@@ -391,8 +370,7 @@ fn get_material_from_voxel(v: Voxel) -> VoxelMaterial
                 roughness:                 0.15,
                 metallic:                  1.0,
                 emissive_color_and_power:  glm::Vec4::new(0.0, 0.0, 0.0, 0.0),
-                coat_color_and_power:      glm::Vec4::new(0.0, 0.0, 0.0, 0.0),
-                special:                   0
+                coat_color_and_power:      glm::Vec4::new(0.0, 0.0, 0.0, 0.0)
             }
         }
         Voxel::GoldMetal0 =>
@@ -406,8 +384,7 @@ fn get_material_from_voxel(v: Voxel) -> VoxelMaterial
                 roughness:                 0.1,
                 metallic:                  1.0,
                 emissive_color_and_power:  glm::Vec4::new(0.0, 0.0, 0.0, 0.0),
-                coat_color_and_power:      glm::Vec4::new(0.0, 0.0, 0.0, 0.0),
-                special:                   0
+                coat_color_and_power:      glm::Vec4::new(0.0, 0.0, 0.0, 0.0)
             }
         }
         Voxel::GoldMetal1 =>
@@ -421,8 +398,7 @@ fn get_material_from_voxel(v: Voxel) -> VoxelMaterial
                 roughness:                 0.12,
                 metallic:                  1.0,
                 emissive_color_and_power:  glm::Vec4::new(0.0, 0.0, 0.0, 0.0),
-                coat_color_and_power:      glm::Vec4::new(0.0, 0.0, 0.0, 0.0),
-                special:                   0
+                coat_color_and_power:      glm::Vec4::new(0.0, 0.0, 0.0, 0.0)
             }
         }
     }

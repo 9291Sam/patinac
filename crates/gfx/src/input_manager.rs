@@ -1,11 +1,9 @@
-use std::error::Error;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 use dashmap::DashMap;
 use util::{AtomicF32, AtomicF32F32};
 use winit::dpi::{PhysicalPosition, PhysicalSize};
-use winit::error::ExternalError;
 use winit::event::{ElementState, Event, KeyEvent, MouseButton, WindowEvent};
 use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::window::Window;
@@ -245,7 +243,6 @@ impl InputManager
             previous_frame_mouse_pos,
             best_guess_mouse_pos,
             is_cursor_attached,
-            window_size,
             ..
         } = &mut *self.critical_section.lock().unwrap();
 
@@ -255,22 +252,6 @@ impl InputManager
         *best_guess_mouse_pos = ZERO_POS;
         self.delta_mouse_pos_px.store((0.0, 0.0), Ordering::Release);
 
-        if let Err(e) = self
-            .window
-            .set_cursor_position(get_center_screen_pos(*window_size))
-        {
-            if let ExternalError::Os(os_err) = e
-            {
-                if let Some(src) = os_err.source()
-                {
-                    log::warn!("Unknown OsError {:?}", src);
-                }
-            }
-            else
-            {
-                log::warn!("Unable to set mouse cursor to the center of the screen! {e:?}")
-            }
-        }
         self.window.set_cursor_visible(true);
     }
 }

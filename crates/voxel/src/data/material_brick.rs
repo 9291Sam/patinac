@@ -22,20 +22,6 @@ impl MaterialBrick
         }
     }
 
-    pub fn access_all(&self, mut func: impl FnMut(BrickLocalPosition, Voxel))
-    {
-        for (x, y, z) in iproduct!(
-            0..BRICK_EDGE_LEN_VOXELS as u8,
-            0..BRICK_EDGE_LEN_VOXELS as u8,
-            0..BRICK_EDGE_LEN_VOXELS as u8
-        )
-        {
-            let coord = BrickLocalPosition(glm::U8Vec3::new(x, y, z));
-
-            func(coord.clone(), self.get_voxel(coord))
-        }
-    }
-
     #[inline(always)]
     pub fn get_voxel(&self, BrickLocalPosition(local_pos): BrickLocalPosition) -> Voxel
     {

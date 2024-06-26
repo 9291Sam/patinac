@@ -10,7 +10,6 @@ members = [
     "crates/game",
     "crates/verdigris",
     "crates/gui",
-    "crates/voxel2",
     "crates/voxel",
 ]
 
@@ -21,7 +20,6 @@ game = { workspace = true }
 verdigris = { workspace = true }
 gui = { workspace = true }
 log = { workspace = true }
-voxel2 = { workspace = true }
 voxel = { workspace = true }
 oneshot = { workspace = true }
 dashmap = { workspace = true }
@@ -36,7 +34,6 @@ gfx = { path = "crates/gfx" }
 game = { path = "crates/game" }
 verdigris = { path = "crates/verdigris" }
 gui = { path = "crates/gui" }
-voxel2 = { path = "crates/voxel2" }
 voxel = { path = "crates/voxel" }
 log = { version = "0.4.20", features = ["std"] }
 bytemuck = { version = "1.14.1", features = ["derive"] }

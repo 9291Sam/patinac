@@ -14,12 +14,17 @@ alias GlobalPositions = array<vec3<f32>, NumberOfModels>;
 @group(0) @binding(2) var<uniform> global_model: GlobalMatricies;
 
 @group(1) @binding(0) var<storage, read> face_data_buffer: array<u32>;
+@group(1) @binding(1) var<storage, read> brick_map: array<BrickMap>;
+@group(1) @binding(2) var<storage, read> material_bricks: array<MateralBrick>;
+// @group(1) @binding(3) var<storage, read> visiblity_bricks: array<u32>;
+@group(1) @binding(4) var<storage, read> material_buffer: array<MaterialData>;
 
 var<push_constant> pc_id: u32;
 
 struct VertexInput {
     @location(0) chunk_position: vec3<f32>,
-    @location(1) normal_id: u32
+    @location(1) normal_id: u32,
+    @location(2) chunk_id: u32,
 }
 
 @vertex
@@ -55,10 +60,17 @@ fn vs_main(in: VertexInput, @builtin(vertex_index) vertex_index: u32) -> VertexO
     let face_point_local: vec3<f32> = vec3<f32>(FACE_LOOKUP_TABLE[face_normal_id][IDX_TO_VTX_TABLE[point_within_face]]);
     let face_point_world = vec4<f32>(face_point_local + vec3<f32>(face_voxel_pos) + in.chunk_position, 1.0);
 
+    let brick_coordinate = face_voxel_pos / 8u;
+    let brick_local_coordinate = face_voxel_pos % 8u;
+
+    let brick_ptr = brick_map[in.chunk_id].map[brick_coordinate.x][brick_coordinate.y][brick_coordinate.z];
+    let voxel = material_bricks_load(brick_ptr, brick_local_coordinate);
+    
     return VertexOutput(
         global_model_view_projection[pc_id] * face_point_world,
         face_voxel_pos,
-        face_normal_id
+        face_normal_id,
+        voxel
     );
 }
 
@@ -81,7 +93,8 @@ struct VertexOutput
 {
     @builtin(position) position: vec4<f32>,
     @location(0) chunk_local_voxel_position: vec3<u32>,
-    @location(1) face_normal: u32
+    @location(1) face_normal: u32,
+    @location(2) material: u32,
 }
 
 @fragment
@@ -100,49 +113,51 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32>
     //     case default: {normal = vec3<f32>(0.0); }
     // }
 
-    return vec4<f32>(vec3<f32>(randvec3(in.chunk_local_voxel_position * 1028)), 1.0);
+    return vec4<f32>(material_buffer[in.material % 19].diffuse_color.xyz, 1.0);
 }
 
 const ERROR_COLOR: vec4<f32> = vec4<f32>(1.0, 0.0, 1.0, 1.0);
 
 struct MaterialData
 {
-    diffuse_color:             vec4<f32>,
-    subsurface_color:          vec4<f32>,
-    diffuse_subsurface_weight: f32,
+    // special: u32,
+    diffuse_color:    vec4<f32>,
+    subsurface_color: vec4<f32>,
+    specular_color:   vec4<f32>,
 
-    specular_color: vec4<f32>,
-    specular:       f32,
-    roughness:      f32,
-    metallic:       f32,
+    diffuse_subsurface_weight: f32,
+    specular:                  f32,
+    roughness:                 f32,
+    metallic:                  f32,
 
     emissive_color_and_power: vec4<f32>,
     coat_color_and_power:     vec4<f32>,
 
-    special: u32
 }
 
-struct FaceData
+struct BrickMap
 {
-    // bottom u16 is material
-    // top u16 is chunk_id
-    mat_and_chunk_id: u32,
-
-    // 9 bits x
-    // 9 bits y
-    // 9 bits z
-    // 3 bits normal
-    // 1 bit visibility
-    // 1 bit unused
-    data: u32,
+    map: array<array<array<u32, 32>, 32>, 32>
 }
 
-struct ChunkData
+struct MateralBrick
 {
-    position: vec4<f32>,
-    scale: vec4<f32>,
+    voxels: array<array<array<u32, 4>, 8>, 8>,
 }
 
+fn material_bricks_load(brick_ptr: u32, pos: vec3<u32>) -> u32
+{
+    let val = material_bricks[brick_ptr].voxels[pos.x][pos.y][pos.z / 2];
+
+    if (pos.z % 2 == 0) // low u16
+    {
+        return val & u32(65535);
+    }
+    else // high u16
+    {
+        return val >> 16;
+    }
+}
 
 const TOP_FACE_POINTS: array<vec3<u32>, 4> = array<vec3<u32>, 4>(
     vec3<u32>(0, 1, 0),

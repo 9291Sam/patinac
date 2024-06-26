@@ -6,6 +6,7 @@
 mod demo_scene;
 mod player;
 mod recordables;
+mod voxel_world;
 
 pub use demo_scene::DemoScene;
 pub(crate) use player::Player;

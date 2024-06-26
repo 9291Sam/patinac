@@ -3,8 +3,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use gfx::glm;
-use rapier3d::dynamics::RigidBodyBuilder;
-use rapier3d::geometry::{Collider, ColliderBuilder};
+use rapier3d::dynamics::{IslandManager, RigidBodyBuilder, RigidBodyHandle, RigidBodySet};
+use rapier3d::geometry::{Collider, ColliderBuilder, ColliderSet};
 use rapier3d::prelude::RigidBody;
 use util::AtomicF32;
 
@@ -127,10 +127,14 @@ impl game::Collideable for Player
         &self,
         game: &game::Game,
         _: glm::Vec3,
-        this_body: &mut RigidBody,
+        this_rigid_body_handle: RigidBodyHandle,
+        _: &mut ColliderSet,
+        rigid_body_set: &mut RigidBodySet,
+        _: &mut IslandManager,
         _: game::TickTag
     )
     {
+        let this_body = rigid_body_set.get_mut(this_rigid_body_handle).unwrap();
         // goals
         // movement
         // gravity
@@ -149,6 +153,8 @@ impl game::Collideable for Player
             camera.get_right_vector(),
             game
         );
+
+        desired_translation *= 100.0;
 
         // if self.time_floating.load(Ordering::Acquire) != 0.0
         // {

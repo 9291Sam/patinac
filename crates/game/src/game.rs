@@ -123,8 +123,8 @@ impl Game
         let event_handler = ();
 
         // Create the ground.
-        let collider = ColliderBuilder::cuboid(10000.0, 1.0, 10000.0).build();
-        collider_set.insert(collider);
+        // let collider = ColliderBuilder::cuboid(10000.0, 1.0, 10000.0).build();
+        // collider_set.insert(collider);
 
         // // Create the bounding ball.
         // let rigid_body = RigidBodyBuilder::dynamic()
@@ -133,7 +133,7 @@ impl Game
         // let collider = ColliderBuilder::ball(0.5).restitution(0.7).build();
         // let ball_body_handle = rigid_body_set.insert(rigid_body);
         // collider_set.insert_with_parent(collider, ball_body_handle, &mut
-        // rigid_body_set);
+        // rigid_body_set); 172 84 -60
 
         while poll_continue_func()
         {
@@ -224,15 +224,14 @@ impl Game
                     collideable.physics_tick(
                         self,
                         gravity,
-                        rigid_body_set
-                            .get_mut(
-                                self.collideables
-                                    .get(&collideable.get_uuid())
-                                    .expect("CollideableHandle Not Contained!")
-                                    .value()
-                                    .0
-                            )
-                            .unwrap(),
+                        self.collideables
+                            .get(&collideable.get_uuid())
+                            .expect("CollideableHandle Not Contained!")
+                            .value()
+                            .0,
+                        &mut collider_set,
+                        &mut rigid_body_set,
+                        &mut island_manager,
                         TickTag(())
                     );
                 }

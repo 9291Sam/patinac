@@ -1,5 +1,3 @@
-use bytemuck::{Pod, Zeroable};
-
 use super::VoxelFace;
 use crate::suballocated_buffer::SubAllocatedCpuTrackedDenseSet;
 use crate::ChunkCoordinate;

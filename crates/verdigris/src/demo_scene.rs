@@ -5,19 +5,18 @@ use dot_vox::DotVoxData;
 use gfx::glm::{self};
 use itertools::iproduct;
 use noise::NoiseFn;
-use voxel::{ChunkCoordinate, ChunkLocalPosition, ChunkPool};
-use voxel2::{ChunkCollider, ChunkManager, WorldPosition};
+use rand::Rng;
 
+use crate::voxel_world::{VoxelWorld, WorldPosition};
 use crate::Player;
 
 pub struct DemoScene
 {
-    chunk_pool: Arc<voxel::ChunkPool>,
-    id:         util::Uuid,
+    world: Arc<crate::voxel_world::VoxelWorld>,
+    id:    util::Uuid,
 
     player:         Arc<Player>,
-    camera_updater: util::WindowUpdater<gfx::Camera> /* future_collider:
-                                                      * util::Promise<Arc<ChunkCollider>> */
+    camera_updater: util::WindowUpdater<gfx::Camera>
 }
 unsafe impl Sync for DemoScene {}
 
@@ -26,42 +25,48 @@ impl DemoScene
     pub fn new(game: Arc<game::Game>, camera_updater: util::WindowUpdater<gfx::Camera>)
     -> Arc<Self>
     {
-        let chunk_pool = ChunkPool::new(game.clone());
-        let pool2 = chunk_pool.clone();
+        let world = VoxelWorld::new(game.clone());
+        let world2 = world.clone();
 
-        let future_collider = util::run_async(move || {
-            let chunk = pool2.allocate_chunk(ChunkCoordinate(glm::I32Vec3::new(0, 0, 0)));
+        util::run_async(move || {
+            let w = world2;
 
             let it = iproduct!(0..64, 0..64, 0..64).map(|(x, y, z)| {
                 (
-                    ChunkLocalPosition(glm::U8Vec3::new(x, y, z)),
-                    voxel::Voxel::Dirt2
+                    WorldPosition(glm::I32Vec3::new(x, y, z)),
+                    rand::thread_rng().gen_range(12..=14).try_into().unwrap()
                 )
             });
 
-            pool2.write_many_voxel(&chunk, it);
+            w.write_many_voxel(it);
 
-            // load_model_from_file_into(
-            //     glm::I32Vec3::new(0, 126, 0),
-            //     &c_dm2,
-            //     &dot_vox::load_bytes(include_bytes!("../../../models/menger.
-            // vox")). unwrap() );
+            w.flush_all_voxel_updates();
 
-            // arbitrary_landscape_demo(&pool2);
+            load_model_from_file_into(
+                glm::I32Vec3::new(0, 126, 0),
+                &w,
+                &dot_vox::load_bytes(include_bytes!("../../../models/menger.vox")).unwrap()
+            );
+
+            w.flush_all_voxel_updates();
+
+            arbitrary_landscape_demo(&w);
 
             // pool2.build_collision_info()
+
+            w.flush_all_voxel_updates();
         })
         .detach();
 
         let player = Player::new(
             &game,
-            gfx::Camera::new(glm::Vec3::new(-186.0, 354.0, -168.0), 0.218903, 0.748343)
+            gfx::Camera::new(glm::Vec3::new(-173.0, 184.0, -58.0), 0.218903, 0.748343)
         );
 
         camera_updater.update(player.get_camera());
 
         let this = Arc::new(DemoScene {
-            chunk_pool: chunk_pool.clone(),
+            world,
             id: util::Uuid::new(),
             player,
             camera_updater
@@ -110,34 +115,41 @@ impl game::Entity for DemoScene
 
     fn tick(&self, _: &game::Game, _: game::TickTag)
     {
-        self.camera_updater.update(self.player.get_camera());
+        let camera = self.player.get_camera();
+
+        self.world
+            .update_with_camera_position(camera.get_position());
+
+        self.camera_updater.update(camera);
     }
 }
 
-fn load_model_from_file_into(world_offset: glm::I32Vec3, dm: &ChunkManager, data: &DotVoxData)
+fn load_model_from_file_into(world_offset: glm::I32Vec3, world: &VoxelWorld, data: &DotVoxData)
 {
-    let it = data.models[0]
-        .voxels
-        .iter()
-        .map(|pos| WorldPosition(glm::U8Vec3::new(pos.x, pos.y, pos.z).cast() + world_offset));
+    let it = data.models[0].voxels.iter().map(|pos| {
+        (
+            WorldPosition(glm::U8Vec3::new(pos.x, pos.y, pos.z).cast() + world_offset),
+            rand::thread_rng().gen_range(15..=18).try_into().unwrap()
+        )
+    });
 
-    dm.insert_many_voxel(it);
+    world.write_many_voxel(it);
 }
 
-fn arbitrary_landscape_demo(dm: &ChunkManager)
+fn arbitrary_landscape_demo(world: &VoxelWorld)
 {
     let noise = noise::OpenSimplex::new(2384247834);
 
     let it = spiral::ChebyshevIterator::new(0, 0, 512).map(|(x, z)| {
-        WorldPosition(glm::I32Vec3::new(
-            x,
-            (noise.get([x as f64 / 256.0, z as f64 / 256.0]) * 128.0) as i32,
-            z
-        ))
+        (
+            WorldPosition(glm::I32Vec3::new(
+                x,
+                (noise.get([x as f64 / 256.0, z as f64 / 256.0]) * 128.0) as i32,
+                z
+            )),
+            rand::thread_rng().gen_range(1..=11).try_into().unwrap()
+        )
     });
 
-    // in a spiral formation stating at the center broding out, sample a height map
-    // and collect a vector of the samplied points and a random color value
-
-    dm.insert_many_voxel(it);
+    world.write_many_voxel(it);
 }

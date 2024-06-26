@@ -12,6 +12,8 @@ extern "C" {
     static NUMBER_OF_CHUNKS: AtomicUsize;
     static NUMBER_OF_TOTAL_RECORDABLES: AtomicUsize;
     static NUMBER_OF_ACTIVE_RECORDABLES: AtomicUsize;
+    static NUMBER_OF_BRICKS_ALLOCATED: AtomicUsize;
+    static VRAM_USED_BYTES: AtomicUsize;
 
 }
 
@@ -188,6 +190,10 @@ impl gfx::Recordable for DebugMenu
 ╠═════════════════════╬═════════════╣
 ║   Faces Allocated   ║ {:<11} ║
 ╠═════════════════════╬═════════════╣
+║  Bricks Allocated   ║ {:<11} ║
+╠═════════════════════╬═════════════╣
+║      VRAM Used      ║ {:<11} ║
+╠═════════════════════╬═════════════╣
 ║ Draw Calls / Record ║ {:<11} ║
 ╠═════════════════════╬═════════════╣
 ║   Chunks Allocated  ║ {:<11} ║
@@ -210,6 +216,14 @@ impl gfx::Recordable for DebugMenu
                         .to_formatted_string(&Locale::en),
                     unsafe { NUMBER_OF_TOTAL_FACES.load(std::sync::atomic::Ordering::Relaxed) }
                         .to_formatted_string(&Locale::en),
+                    unsafe {
+                        NUMBER_OF_BRICKS_ALLOCATED.load(std::sync::atomic::Ordering::Relaxed)
+                    },
+                    util::bytes_as_string(
+                        unsafe { VRAM_USED_BYTES.load(std::sync::atomic::Ordering::Relaxed) }
+                            as f64,
+                        util::SuffixType::Short
+                    ),
                     format!(
                         "{:>5}/{:<5}",
                         unsafe {

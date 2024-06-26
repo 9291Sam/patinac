@@ -4,6 +4,8 @@
 #![feature(map_entry_replace)]
 #![feature(get_many_mut)]
 #![feature(const_float_bits_conv)]
+#![feature(stmt_expr_attributes)]
+
 mod allocator;
 mod r#async;
 mod atomics;

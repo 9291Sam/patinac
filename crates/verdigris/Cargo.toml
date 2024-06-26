@@ -18,7 +18,6 @@ spiral = { workspace = true }
 dot_vox = { workspace = true }
 image = { workspace = true }
 tobj = { workspace = true }
-voxel2 = { workspace = true }
 voxel = { workspace = true }
 rapier3d = { workspace = true }
 tearor = { workspace = true }

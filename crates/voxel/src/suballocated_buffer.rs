@@ -190,6 +190,7 @@ impl<T: Pod> SubAllocatedCpuTrackedBuffer<T>
             .push(global_range.start..=(global_range.end - 1))
     }
 
+    #[allow(unused)]
     pub fn access_ref<K>(
         &self,
         allocation: &BufferAllocation<T>,
@@ -203,6 +204,7 @@ impl<T: Pod> SubAllocatedCpuTrackedBuffer<T>
         func(self.read(allocation, local_range))
     }
 
+    #[allow(unused)]
     pub fn access_mut<K>(
         &mut self,
         allocation: &BufferAllocation<T>,
@@ -229,14 +231,18 @@ impl<T: Pod> SubAllocatedCpuTrackedBuffer<T>
         &self.gpu_buffer
     }
 
+    #[allow(unused)]
     pub fn get_buffer_size_bytes(&self) -> NonZeroU64
     {
         NonZeroU64::new(self.cpu_buffer.len() as u64 * std::mem::size_of::<T>() as u64).unwrap()
     }
 
+    #[allow(unused)]
     pub fn get_memory_used_bytes(&self) -> u64
     {
-        self.cpu_buffer.len() as u64 - self.allocator.storage_report().total_free_space as u64
+        std::mem::size_of::<u32>() as u64
+            * (self.cpu_buffer.len() as u64
+                - self.allocator.storage_report().total_free_space as u64)
     }
 
     pub fn replicate_to_gpu(&mut self)

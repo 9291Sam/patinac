@@ -1,5 +1,4 @@
 use std::any::{Any, TypeId};
-use std::future;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering::*;
 use std::sync::RwLock;
@@ -36,8 +35,15 @@ impl<T: Send> Drop for Future<T>
                     {
                         oneshot::TryRecvError::Empty =>
                         {
-                            // we haven't received a message yet, let's wait for it
+                            // we haven't received a message yet, let's wait for it\
+                            #[cfg(not(debug_assertions))]
                             log::warn!("Tried dropping an unresolved future, attaching!");
+
+                            #[cfg(debug_assertions)]
+                            log::warn!(
+                                "Tried dropping an unresolved future [{}], attaching!",
+                                self.creation_location
+                            );
 
                             let _ = self.get_ref();
                         }

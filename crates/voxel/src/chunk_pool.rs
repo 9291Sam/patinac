@@ -1,13 +1,13 @@
 use std::borrow::Cow;
 use std::fmt::Debug;
-use std::sync::atomic::{AtomicU32, AtomicU64, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 use bytemuck::{bytes_of, cast_slice, Pod, Zeroable};
 use fnv::FnvHashSet;
 use gfx::{glm, wgpu};
 
-use crate::data::{self, BrickMap, ChunkMetaData, MaybeBrickPtr};
+use crate::data::{self, BrickMap, ChunkMetaData, MaterialManager, MaybeBrickPtr};
 use crate::suballocated_buffer::{SubAllocatedCpuTrackedBuffer, SubAllocatedCpuTrackedDenseSet};
 use crate::{
     chunk_local_position_to_brick_position,
@@ -24,6 +24,10 @@ const BRICKS_TO_PREALLOCATE: usize =
     CHUNK_EDGE_LEN_BRICKS * CHUNK_EDGE_LEN_BRICKS * CHUNK_EDGE_LEN_BRICKS * 32;
 const FACES_TO_PREALLOCATE: usize = 1024 * 1024 * 128;
 
+// use the index in the visible_Face_set as a unique id
+// make another buffer that stores this face data, marking
+
+#[derive(PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Chunk
 {
     id: u32
@@ -39,6 +43,7 @@ pub struct ChunkPool
     chunk_data:              wgpu::Buffer, // chunk data smuggled via the instance buffer
     indirect_calls:          wgpu::Buffer, // indirect offsets and lengths
     number_of_indirect_args: AtomicU32,
+    material_manager:        MaterialManager,
 
     critical_section: Mutex<ChunkPoolCriticalSection>
 }
@@ -156,13 +161,24 @@ impl ChunkPool
                                     min_binding_size:   None
                                 },
                                 count:      None
+                            },
+                            wgpu::BindGroupLayoutEntry {
+                                binding:    4,
+                                visibility: wgpu::ShaderStages::all(),
+                                ty:         wgpu::BindingType::Buffer {
+                                    ty:                 wgpu::BufferBindingType::Storage {
+                                        read_only: true
+                                    },
+                                    has_dynamic_offset: false,
+                                    min_binding_size:   None
+                                },
+                                count:      None
                             }
                         ]
                     }
                 });
 
-        let visible_face_set_buffer_len_bytes =
-            critical_section.visible_face_set.get_buffer_size_bytes();
+        let material_manager = MaterialManager::new(&renderer);
 
         let bind_group =
             critical_section
@@ -218,6 +234,17 @@ impl ChunkPool
                                                             size:   None
                                                         }
                                                     )
+                                                },
+                                                wgpu::BindGroupEntry {
+                                                    binding:  4,
+                                                    resource: wgpu::BindingResource::Buffer(
+                                                        wgpu::BufferBinding {
+                                                            buffer: &material_manager
+                                                                .get_material_buffer(),
+                                                            offset: 0,
+                                                            size:   None
+                                                        }
+                                                    )
                                                 }
                                             ]
                                         })
@@ -246,10 +273,6 @@ impl ChunkPool
         let shader = renderer
             .render_cache
             .cache_shader_module(wgpu::include_wgsl!("chunk_pool_renderer.wgsl"));
-
-        let foo = 3;
-
-        let bar = 4;
 
         let this = Arc::new(ChunkPool {
             game: game.clone(),
@@ -311,6 +334,7 @@ impl ChunkPool
                 usage:              wgpu::BufferUsages::INDIRECT | wgpu::BufferUsages::COPY_DST,
                 mapped_at_creation: false
             }),
+            material_manager,
             number_of_indirect_args: AtomicU32::new(0),
             critical_section: Mutex::new(critical_section)
         });
@@ -320,6 +344,8 @@ impl ChunkPool
         this
     }
 
+    // TODO: eventually modify to take a Transform and then construct the rt
+    // structures based on that.
     pub fn allocate_chunk(&self, coordinate: ChunkCoordinate) -> Chunk
     {
         let ChunkPoolCriticalSection {
@@ -513,7 +539,7 @@ impl ChunkPool
                     }
                     else
                     {
-                        let _ = metadata.faces[d as usize]
+                        let _ = metadata.faces[d.opposite() as usize]
                             .remove(data::VoxelFace::new(adj_pos), visible_face_set);
                     }
                 }
@@ -570,12 +596,19 @@ impl ChunkPool
                     chunk_local_position_to_brick_position(chunk_position);
 
                 brick_maps.access_ref(chunk.id as usize, |brick_map: &data::BrickMap| {
-                    visibility_bricks.access_ref(
-                        brick_map.get(brick_coordinate).to_option().unwrap().0 as usize,
-                        |visibility_brick: &data::VisibilityBrick| {
-                            visibility_brick.is_visible(brick_local_coordinate)
-                        }
-                    )
+                    if let Some(ptr) = brick_map.get(brick_coordinate).to_option()
+                    {
+                        visibility_bricks.access_ref(
+                            ptr.0 as usize,
+                            |visibility_brick: &data::VisibilityBrick| {
+                                visibility_brick.is_visible(brick_local_coordinate)
+                            }
+                        )
+                    }
+                    else
+                    {
+                        false
+                    }
                 })
             })
             .collect()
@@ -611,13 +644,13 @@ impl gfx::Recordable for ChunkPool
     {
         let ChunkPoolCriticalSection {
             active_chunk_ids,
-            brick_pointer_allocator,
             brick_maps,
             chunk_metadata,
             material_bricks,
             visibility_bricks,
             visible_face_set,
-            chunk_id_allocator
+            brick_pointer_allocator,
+            ..
         } = &mut *self.critical_section.lock().unwrap();
 
         assert!(!brick_maps.replicate_to_gpu());
@@ -691,7 +724,8 @@ impl gfx::Recordable for ChunkPool
 
                         chunk_indirect_data.push(ChunkIndirectData {
                             position: get_world_offset_of_chunk(metadata.coordinate).cast(),
-                            dir:      dir as u32
+                            dir:      dir as u32,
+                            id:       *chunk_id
                         });
 
                         idx += 1;
@@ -702,14 +736,6 @@ impl gfx::Recordable for ChunkPool
                 }
             }
         }
-
-        log::trace!(
-            "{} used",
-            util::bytes_as_string(
-                visible_face_set.get_memory_used_bytes() as f64,
-                util::SuffixType::Short
-            )
-        );
 
         fn draw_args_as_bytes(args: &[wgpu::util::DrawIndirectArgs]) -> &[u8]
         {
@@ -730,9 +756,20 @@ impl gfx::Recordable for ChunkPool
         #[no_mangle]
         static NUMBER_OF_TOTAL_FACES: AtomicUsize = AtomicUsize::new(0);
 
+        #[no_mangle]
+        static NUMBER_OF_BRICKS_ALLOCATED: AtomicUsize = AtomicUsize::new(0);
+
+        #[no_mangle]
+        static VRAM_USED_BYTES: AtomicUsize = AtomicUsize::new(0);
+
         NUMBER_OF_CHUNKS.store(active_chunk_ids.len(), Ordering::Relaxed);
         NUMBER_OF_VISIBLE_FACES.store(rendered_faces as usize, Ordering::Relaxed);
         NUMBER_OF_TOTAL_FACES.store(total_number_of_faces as usize, Ordering::Relaxed);
+        NUMBER_OF_BRICKS_ALLOCATED.store(brick_pointer_allocator.peek().0, Ordering::Relaxed);
+        VRAM_USED_BYTES.store(
+            visible_face_set.get_memory_used_bytes() as usize,
+            Ordering::Relaxed
+        );
 
         self.number_of_indirect_args
             .store(indirect_args.len() as u32, Ordering::SeqCst);
@@ -786,13 +823,14 @@ impl gfx::Recordable for ChunkPool
 struct ChunkIndirectData
 {
     pub position: glm::Vec3,
-    pub dir:      u32
+    pub dir:      u32,
+    pub id:       u32
 }
 
 impl ChunkIndirectData
 {
-    const ATTRIBS: [wgpu::VertexAttribute; 2] =
-        wgpu::vertex_attr_array![0 => Float32x3, 1 => Uint32];
+    const ATTRIBS: [wgpu::VertexAttribute; 3] =
+        wgpu::vertex_attr_array![0 => Float32x3, 1 => Uint32, 2 => Uint32];
 
     pub fn desc() -> wgpu::VertexBufferLayout<'static>
     {

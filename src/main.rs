@@ -2,8 +2,6 @@
 use std::num::NonZeroUsize;
 use std::sync::{Arc, Mutex};
 
-use voxel::ChunkPool;
-
 fn main()
 {
     #[cfg(debug_assertions)]

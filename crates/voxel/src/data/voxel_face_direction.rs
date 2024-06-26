@@ -35,11 +35,6 @@ impl TryFrom<u8> for VoxelFaceDirection
 
 impl VoxelFaceDirection
 {
-    pub fn to_bits(self) -> u8
-    {
-        self as u8
-    }
-
     pub fn iterate() -> impl Iterator<Item = VoxelFaceDirection>
     {
         [

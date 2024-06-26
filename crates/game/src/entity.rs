@@ -3,8 +3,8 @@ use std::borrow::Cow;
 use std::sync::Arc;
 
 use gfx::glm;
-use rapier3d::dynamics::RigidBody;
-use rapier3d::geometry::Collider;
+use rapier3d::dynamics::{IslandManager, RigidBody, RigidBodyHandle, RigidBodySet};
+use rapier3d::geometry::{Collider, ColliderSet};
 
 use crate::game::TickTag;
 
@@ -54,7 +54,10 @@ pub trait Collideable: Transformable
         &self,
         game: &super::Game,
         gravity: glm::Vec3,
-        this_rigid_body: &mut RigidBody,
+        this_rigid_body_handle: RigidBodyHandle,
+        collider_set: &mut ColliderSet,
+        rigid_body_set: &mut RigidBodySet,
+        islands: &mut IslandManager,
         _: TickTag
     );
 }
