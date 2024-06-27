@@ -64,7 +64,7 @@ fn vs_main(in: VertexInput, @builtin(vertex_index) vertex_index: u32) -> VertexO
     return VertexOutput(
         global_model_view_projection[pc_id] * face_point_world,
         in.chunk_id,
-        face_data & (in.normal_id << 24)
+        face_data
     );
 }
 

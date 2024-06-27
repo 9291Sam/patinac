@@ -45,7 +45,6 @@ fn fs_main(@builtin(position) in: vec4<f32>) -> @location(0) vec4<f32>
     let x_pos: u32 = voxel_data[1] & eight_bit_mask;
     let y_pos: u32 = (voxel_data[1] >> 8) & eight_bit_mask;
     let z_pos: u32 = (voxel_data[1] >> 16) & eight_bit_mask;
-    let normal_id: u32 = (voxel_data[1] >> 24) & u32(7);
 
     let face_voxel_pos = vec3<u32>(x_pos, y_pos, z_pos);
     
@@ -56,6 +55,7 @@ fn fs_main(@builtin(position) in: vec4<f32>) -> @location(0) vec4<f32>
     let voxel = material_bricks_load(brick_ptr, brick_local_coordinate);
 
     return vec4<f32>(material_buffer[voxel].diffuse_color.xyz, 1.0);
+    // return vec4<f32>(vec3<f32>(face_voxel_pos) / 255.0, 1.0);
 }
 
 fn map(x: f32, in_min: f32, in_max: f32, out_min: f32, out_max: f32) -> f32
