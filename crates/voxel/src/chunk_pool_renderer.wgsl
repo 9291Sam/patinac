@@ -60,17 +60,11 @@ fn vs_main(in: VertexInput, @builtin(vertex_index) vertex_index: u32) -> VertexO
     let face_point_local: vec3<f32> = vec3<f32>(FACE_LOOKUP_TABLE[face_normal_id][IDX_TO_VTX_TABLE[point_within_face]]);
     let face_point_world = vec4<f32>(face_point_local + vec3<f32>(face_voxel_pos) + in.chunk_position, 1.0);
 
-    let brick_coordinate = face_voxel_pos / 8u;
-    let brick_local_coordinate = face_voxel_pos % 8u;
-
-    let brick_ptr = brick_map[in.chunk_id].map[brick_coordinate.x][brick_coordinate.y][brick_coordinate.z];
-    let voxel = material_bricks_load(brick_ptr, brick_local_coordinate);
     
     return VertexOutput(
         global_model_view_projection[pc_id] * face_point_world,
-        face_voxel_pos,
-        face_normal_id,
-        voxel
+        in.chunk_id,
+        face_data & (in.normal_id << 24)
     );
 }
 
@@ -92,13 +86,13 @@ fn randvec3(s: vec3<u32>) -> vec3<f32>
 struct VertexOutput
 {
     @builtin(position) position: vec4<f32>,
-    @location(0) chunk_local_voxel_position: vec3<u32>,
-    @location(1) face_normal: u32,
-    @location(2) material: u32,
+    @location(0) chunk_id: u32,
+    // [x_pos, y_pos, z_pos, dir]
+    @location(1) voxel_face_info: u32,
 }
 
 @fragment
-fn fs_main(in: VertexOutput) -> @location(0) vec4<f32>
+fn fs_main(in: VertexOutput) -> @location(0) vec2<u32>
 {
     // var normal: vec3<f32>;
 
@@ -113,7 +107,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32>
     //     case default: {normal = vec3<f32>(0.0); }
     // }
 
-    return vec4<f32>(material_buffer[in.material % 19].diffuse_color.xyz, 1.0);
+    return vec2<u32>(in.chunk_id, in.voxel_face_info);
 }
 
 const ERROR_COLOR: vec4<f32> = vec4<f32>(1.0, 0.0, 1.0, 1.0);

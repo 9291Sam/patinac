@@ -7,6 +7,7 @@ use gfx::glm;
 
 mod chunk_pool;
 mod data;
+mod passes;
 mod suballocated_buffer;
 
 pub use chunk_pool::{Chunk, ChunkPool};

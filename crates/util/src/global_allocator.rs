@@ -28,9 +28,8 @@ unsafe impl std::alloc::GlobalAlloc for GlobalAllocator
         if layout.size() > 256 * 1024 * 1024
         {
             log::warn!(
-                "BLOCK_ONLarge allocation of {}{}",
-                super::bytes_as_string(layout.size() as f64, super::SuffixType::Full),
-                std::backtrace::Backtrace::force_capture()
+                "BLOCK_ONLarge allocation of {}",
+                super::bytes_as_string(layout.size() as f64, super::SuffixType::Full)
             );
 
             // std::process::abort();

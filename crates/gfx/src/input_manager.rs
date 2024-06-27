@@ -34,8 +34,6 @@ struct InputManagerCriticalSection
     is_cursor_attached:       bool
 }
 
-// TODO: display scaling
-
 impl InputManager
 {
     pub fn new(window: Arc<Window>, size: PhysicalSize<u32>) -> InputManager

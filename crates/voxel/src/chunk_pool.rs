@@ -8,10 +8,12 @@ use fnv::FnvHashSet;
 use gfx::{glm, wgpu};
 
 use crate::data::{self, BrickMap, ChunkMetaData, MaterialManager, MaybeBrickPtr};
+use crate::passes::VoxelColorTransferRecordable;
 use crate::suballocated_buffer::{SubAllocatedCpuTrackedBuffer, SubAllocatedCpuTrackedDenseSet};
 use crate::{
     chunk_local_position_to_brick_position,
     get_world_offset_of_chunk,
+    passes,
     ChunkCoordinate,
     ChunkLocalPosition,
     Voxel,
@@ -45,7 +47,9 @@ pub struct ChunkPool
     number_of_indirect_args: AtomicU32,
     material_manager:        MaterialManager,
 
-    critical_section: Mutex<ChunkPoolCriticalSection>
+    critical_section: Mutex<ChunkPoolCriticalSection>,
+
+    color_transfer_pass: Arc<passes::VoxelColorTransferRecordable>
 }
 
 struct ChunkPoolCriticalSection
@@ -125,8 +129,7 @@ impl ChunkPool
                             },
                             wgpu::BindGroupLayoutEntry {
                                 binding:    1,
-                                visibility: wgpu::ShaderStages::VERTEX
-                                    .union(wgpu::ShaderStages::COMPUTE),
+                                visibility: wgpu::ShaderStages::all(),
                                 ty:         wgpu::BindingType::Buffer {
                                     ty:                 wgpu::BufferBindingType::Storage {
                                         read_only: true
@@ -138,8 +141,7 @@ impl ChunkPool
                             },
                             wgpu::BindGroupLayoutEntry {
                                 binding:    2,
-                                visibility: wgpu::ShaderStages::VERTEX
-                                    .union(wgpu::ShaderStages::COMPUTE),
+                                visibility: wgpu::ShaderStages::all(),
                                 ty:         wgpu::BindingType::Buffer {
                                     ty:                 wgpu::BufferBindingType::Storage {
                                         read_only: true
@@ -288,8 +290,8 @@ impl ChunkPool
                         module:                           shader,
                         entry_point:                      "fs_main".into(),
                         targets:                          vec![Some(wgpu::ColorTargetState {
-                            format:     gfx::Renderer::SURFACE_TEXTURE_FORMAT,
-                            blend:      Some(wgpu::BlendState::REPLACE),
+                            format:     wgpu::TextureFormat::Rg32Uint,
+                            blend:      None,
                             write_mask: wgpu::ColorWrites::ALL
                         })],
                         constants:                        None,
@@ -317,7 +319,7 @@ impl ChunkPool
                     zero_initialize_fragment_workgroup_memory: false
                 }
             ),
-            bind_group,
+            bind_group: bind_group.clone(),
             chunk_data: renderer.create_buffer(&wgpu::BufferDescriptor {
                 label:              Some("ChunkPool ChunkIndirectData Buffer"),
                 size:               std::mem::size_of::<wgpu::util::DrawIndirectArgs>() as u64
@@ -336,7 +338,12 @@ impl ChunkPool
             }),
             material_manager,
             number_of_indirect_args: AtomicU32::new(0),
-            critical_section: Mutex::new(critical_section)
+            critical_section: Mutex::new(critical_section),
+            color_transfer_pass: VoxelColorTransferRecordable::new(
+                game.clone(),
+                bind_group_layout.clone(),
+                bind_group.clone()
+            )
         });
 
         renderer.register(this.clone());
@@ -788,7 +795,7 @@ impl gfx::Recordable for ChunkPool
             render_pass: self
                 .game
                 .get_renderpass_manager()
-                .get_renderpass_id(game::PassStage::SimpleColor),
+                .get_renderpass_id(game::PassStage::VoxelDiscovery),
             pipeline:    self.pipeline.clone(),
             bind_groups: [
                 Some(global_bind_group.clone()),
