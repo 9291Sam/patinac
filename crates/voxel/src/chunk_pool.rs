@@ -62,12 +62,13 @@ struct ChunkPoolCriticalSection
     // chunk_id -> brick map
     brick_maps:     gfx::CpuTrackedBuffer<data::BrickMap>,
     // chunk_id -> ChunkMetaData
-    chunk_metadata: Box<[Option<ChunkMetaData>]>,
+    chunk_metadata: Box<[Option<ChunkMetaData>]>, // CPU chunk metadata and gpu chunk metadata
 
     // brick_pointer -> Brick
     material_bricks:   gfx::CpuTrackedBuffer<data::MaterialBrick>,
     visibility_bricks: gfx::CpuTrackedBuffer<data::VisibilityBrick>,
 
+    // face_number -> FaceData
     visible_face_set: SubAllocatedCpuTrackedBuffer<data::VoxelFace>
 }
 
