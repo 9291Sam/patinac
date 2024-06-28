@@ -15,6 +15,7 @@
 @group(1) @binding(2) var<storage, read> material_bricks: array<MateralBrick>;
 // @group(1) @binding(3) var<storage, read> visiblity_bricks: array<u32>;
 @group(1) @binding(4) var<storage, read> material_buffer: array<MaterialData>;
+@group(1) @binding(5) var<storage, read> chunk_metadata; // holds chunkid position
 
 @vertex
 fn vs_main(@builtin(vertex_index) index: u32) -> @builtin(position) vec4<f32>
@@ -45,6 +46,22 @@ fn fs_main(@builtin(position) in: vec4<f32>) -> @location(0) vec4<f32>
     let x_pos: u32 = voxel_data[1] & eight_bit_mask;
     let y_pos: u32 = (voxel_data[1] >> 8) & eight_bit_mask;
     let z_pos: u32 = (voxel_data[1] >> 16) & eight_bit_mask;
+    let normal_id: u32 = (voxel_data[1] >> 27) & u32(7);
+
+
+    var normal: vec3<f32>;
+
+    switch (normal_id)
+    {
+        case 0u: {normal = vec3<f32>(0.0, 1.0, 0.0); }
+        case 1u: {normal = vec3<f32>(0.0, -1.0, 0.0); }     
+        case 2u: {normal = vec3<f32>(-1.0, 0.0, 0.0); }       
+        case 3u: {normal = vec3<f32>(1.0, 0.0, 0.0); }       
+        case 4u: {normal = vec3<f32>(0.0, 0.0, -1.0); }      
+        case 5u: {normal = vec3<f32>(0.0, 0.0, 1.0); }
+        case default: {normal = vec3<f32>(0.0); }
+    }
+
 
     let face_voxel_pos = vec3<u32>(x_pos, y_pos, z_pos);
     
@@ -54,7 +71,31 @@ fn fs_main(@builtin(position) in: vec4<f32>) -> @location(0) vec4<f32>
     let brick_ptr = brick_map[chunk_id].map[brick_coordinate.x][brick_coordinate.y][brick_coordinate.z];
     let voxel = material_bricks_load(brick_ptr, brick_local_coordinate);
 
-    return vec4<f32>(material_buffer[voxel].diffuse_color.xyz, 1.0);
+    let ambient_strength = 0.025;
+    let ambient = ambient_strength * vec3<f32>(1.0);
+
+    let light_color = vec3<f32>(.7, 0.9, 0.5);
+    let light_pos = vec3<f32>(60.0, 60.0, 60.0);
+
+    // diffuse component
+  	let dir_to_light = normalize(light_pos - vec3<f32>(face_voxel_pos));
+    let diff = max(dot(normal, dir_to_light), 1.0);
+    let diffuse = diff * light_color;
+    
+    // specular
+    // float specularStrength = 0.5;
+    // vec3 viewDir = normalize(viewPos - FragPos);
+    // vec3 reflectDir = reflect(-lightDir, norm);  
+    // float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
+    // vec3 specular = specularStrength * spec * lightColor;  
+        
+    let result = (ambient) * material_buffer[voxel].diffuse_color.xyz; // + specular
+    // FragColor = vec4(result, 1.0);
+
+    return vec4<f32>(result, 1.0);
+
+    // return vec4<f32>(material_buffer[voxel].diffuse_color.xyz, 1.0);
+    // return vec4<f32>((normal + 1) / 2, 1.0);
     // return vec4<f32>(vec3<f32>(face_voxel_pos) / 255.0, 1.0);
 }
 

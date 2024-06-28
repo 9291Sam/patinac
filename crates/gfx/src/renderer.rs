@@ -25,11 +25,6 @@ use crate::recordables::{RecordInfo, Recordable, RenderPassId};
 use crate::render_cache::{GenericPass, RenderCache};
 use crate::{Camera, DrawId, GenericPipeline, InputManager};
 
-#[no_mangle]
-static NUMBER_OF_TOTAL_RECORDABLES: AtomicUsize = AtomicUsize::new(0);
-#[no_mangle]
-static NUMBER_OF_ACTIVE_RECORDABLES: AtomicUsize = AtomicUsize::new(0);
-
 #[derive(Debug)]
 pub struct Renderer
 {
@@ -516,8 +511,10 @@ impl Renderer
 
             // log::trace!("after calling all pre_record_update s");
 
-            NUMBER_OF_TOTAL_RECORDABLES
-                .store(strong_renderable_record_info.len(), Ordering::Relaxed);
+            #[no_mangle]
+            static RECORDABLES_ALLOCATED: AtomicUsize = AtomicUsize::new(0);
+
+            RECORDABLES_ALLOCATED.store(strong_renderable_record_info.len(), Ordering::Relaxed);
 
             let mut renderpass_order_map: HashMap<RenderPassId, usize> = HashMap::new();
 
@@ -606,7 +603,10 @@ impl Renderer
                 }
             }
 
-            NUMBER_OF_ACTIVE_RECORDABLES.store(number_of_recorded, Ordering::Relaxed);
+            #[no_mangle]
+            static RECORDABLES_ACTIVE: AtomicUsize = AtomicUsize::new(0);
+
+            RECORDABLES_ACTIVE.store(number_of_recorded, Ordering::Relaxed);
 
             let mut order_of_passes: Vec<(RenderPassId, usize)> = renderpass_order_map
                 .into_iter()

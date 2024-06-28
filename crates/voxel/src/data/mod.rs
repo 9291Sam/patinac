@@ -3,6 +3,7 @@ mod chunk_metadata;
 mod face;
 mod material;
 mod material_brick;
+mod point_light;
 mod visibility_brick;
 mod voxel_face_direction;
 

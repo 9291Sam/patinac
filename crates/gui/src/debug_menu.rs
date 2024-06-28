@@ -1,20 +1,20 @@
 use std::borrow::Cow;
 use std::fmt::Debug;
-use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 use glyphon::{TextAtlas, TextRenderer};
 use num_format::{Locale, ToFormattedString};
 
 extern "C" {
-    static NUMBER_OF_VISIBLE_FACES: AtomicUsize;
-    static NUMBER_OF_TOTAL_FACES: AtomicUsize;
-    static NUMBER_OF_CHUNKS: AtomicUsize;
-    static NUMBER_OF_TOTAL_RECORDABLES: AtomicUsize;
-    static NUMBER_OF_ACTIVE_RECORDABLES: AtomicUsize;
-    static NUMBER_OF_BRICKS_ALLOCATED: AtomicUsize;
     static VRAM_USED_BYTES: AtomicUsize;
-
+    static FACES_VISIBLE: AtomicUsize;
+    static FACES_ALLOCATED: AtomicUsize;
+    static BRICKS_ALLOCATED: AtomicUsize;
+    static CHUNKS_VISIBLE: AtomicUsize;
+    static CHUNKS_ALLOCATED: AtomicUsize;
+    static RECORDABLES_ACTIVE: AtomicUsize;
+    static RECORDABLES_ALLOCATED: AtomicUsize;
 }
 
 pub struct DebugMenu
@@ -186,17 +186,21 @@ impl gfx::Recordable for DebugMenu
 ╠═════════════════════╬═════════════╣
 ║      Ram Usage      ║ {:<11} ║
 ╠═════════════════════╬═════════════╣
+║      VRAM Used      ║ {:<11} ║
+╠═════════════════════╬═════════════╣
 ║    Faces Visible    ║ {:<11} ║
 ╠═════════════════════╬═════════════╣
 ║   Faces Allocated   ║ {:<11} ║
 ╠═════════════════════╬═════════════╣
-║  Bricks Allocated   ║ {:<11} ║
+║   Bricks Allocated  ║ {:<11} ║
 ╠═════════════════════╬═════════════╣
-║      VRAM Used      ║ {:<11} ║
-╠═════════════════════╬═════════════╣
-║ Draw Calls / Record ║ {:<11} ║
+║    Chunks Visible   ║ {:<11} ║
 ╠═════════════════════╬═════════════╣
 ║   Chunks Allocated  ║ {:<11} ║
+╠═════════════════════╬═════════════╣
+║  Recordables Active ║ {:<11} ║
+╠═════════════════════╬═════════════╣
+║  Recordables Alive  ║ {:<11} ║
 ╠═════════════════════╬═════════════╣
 ║ Camera Position (x) ║ {:<11.3} ║
 ╠═════════════════════╬═════════════╣
@@ -212,33 +216,17 @@ impl gfx::Recordable for DebugMenu
                         util::get_bytes_of_active_allocations() as f64,
                         util::SuffixType::Short
                     ),
-                    unsafe { NUMBER_OF_VISIBLE_FACES.load(std::sync::atomic::Ordering::Relaxed) }
-                        .to_formatted_string(&Locale::en),
-                    unsafe { NUMBER_OF_TOTAL_FACES.load(std::sync::atomic::Ordering::Relaxed) }
-                        .to_formatted_string(&Locale::en),
-                    unsafe {
-                        NUMBER_OF_BRICKS_ALLOCATED.load(std::sync::atomic::Ordering::Relaxed)
-                    },
-                    util::bytes_as_string(
-                        unsafe { VRAM_USED_BYTES.load(std::sync::atomic::Ordering::Relaxed) }
-                            as f64,
-                        util::SuffixType::Short
-                    ),
-                    format!(
-                        "{:>5}/{:<5}",
-                        unsafe {
-                            NUMBER_OF_ACTIVE_RECORDABLES.load(std::sync::atomic::Ordering::Relaxed)
-                        },
-                        unsafe {
-                            NUMBER_OF_TOTAL_RECORDABLES.load(std::sync::atomic::Ordering::Relaxed)
-                        }
-                    )
-                    .trim(),
-                    unsafe { NUMBER_OF_CHUNKS.load(std::sync::atomic::Ordering::Relaxed) }
-                        .to_formatted_string(&Locale::en),
+                    unsafe { VRAM_USED_BYTES.load(Ordering::Relaxed) },
+                    unsafe { FACES_VISIBLE.load(Ordering::Relaxed) },
+                    unsafe { FACES_ALLOCATED.load(Ordering::Relaxed) },
+                    unsafe { BRICKS_ALLOCATED.load(Ordering::Relaxed) },
+                    unsafe { CHUNKS_VISIBLE.load(Ordering::Relaxed) },
+                    unsafe { CHUNKS_ALLOCATED.load(Ordering::Relaxed) },
+                    unsafe { RECORDABLES_ACTIVE.load(Ordering::Relaxed) },
+                    unsafe { RECORDABLES_ALLOCATED.load(Ordering::Relaxed) },
                     camera.get_position().x,
                     camera.get_position().y,
-                    camera.get_position().z,
+                    camera.get_position().z
                 ),
                 glyphon::Attrs::new().family(glyphon::Family::Monospace),
                 glyphon::Shaping::Advanced
