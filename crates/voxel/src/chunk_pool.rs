@@ -22,9 +22,10 @@ use crate::{
 };
 
 const MAX_CHUNKS: usize = 256;
-const BRICKS_TO_PREALLOCATE: usize =
-    CHUNK_EDGE_LEN_BRICKS * CHUNK_EDGE_LEN_BRICKS * CHUNK_EDGE_LEN_BRICKS * 32;
-const FACES_TO_PREALLOCATE: usize = 1024 * 1024 * 128;
+const BRICKS_TO_PREALLOCATE: usize = CHUNK_EDGE_LEN_BRICKS * CHUNK_EDGE_LEN_BRICKS * MAX_CHUNKS * 4;
+const FACES_TO_PREALLOCATE: usize = 1024 * 1024 * 16;
+
+// chunks. bricks. faces
 
 // use the index in the visible_Face_set as a unique id
 // make another buffer that stores this face data, marking
@@ -671,6 +672,7 @@ impl gfx::Recordable for ChunkPool
         let mut idx = 0;
         let mut total_number_of_faces = 0;
         let mut rendered_faces = 0;
+        let mut rendered_chunks = 0;
 
         let chunk_offsets: [glm::I32Vec3; 8] = std::array::from_fn(|idx| {
             glm::I32Vec3::new(
@@ -688,6 +690,8 @@ impl gfx::Recordable for ChunkPool
             {
                 continue;
             }
+
+            let faces_before_chunk = rendered_faces;
 
             for dir in data::VoxelFaceDirection::iterate()
             {
@@ -707,7 +711,8 @@ impl gfx::Recordable for ChunkPool
                         - camera_world_position
                 })
                 {
-                    let is_camera_in_chunk = offset.magnitude() < CHUNK_EDGE_LEN_VOXELS as f32;
+                    let is_camera_in_chunk =
+                        offset.magnitude() < CHUNK_EDGE_LEN_VOXELS as f32 / 1.99;
 
                     let is_chunk_visible = {
                         let is_chunk_in_camera_view =
@@ -742,6 +747,11 @@ impl gfx::Recordable for ChunkPool
                     }
                 }
             }
+
+            if rendered_faces > faces_before_chunk
+            {
+                rendered_chunks += 1;
+            }
         }
 
         fn draw_args_as_bytes(args: &[wgpu::util::DrawIndirectArgs]) -> &[u8]
@@ -755,24 +765,28 @@ impl gfx::Recordable for ChunkPool
         }
 
         #[no_mangle]
-        static NUMBER_OF_CHUNKS: AtomicUsize = AtomicUsize::new(0);
-
-        #[no_mangle]
-        static NUMBER_OF_VISIBLE_FACES: AtomicUsize = AtomicUsize::new(0);
-
-        #[no_mangle]
-        static NUMBER_OF_TOTAL_FACES: AtomicUsize = AtomicUsize::new(0);
-
-        #[no_mangle]
-        static NUMBER_OF_BRICKS_ALLOCATED: AtomicUsize = AtomicUsize::new(0);
-
-        #[no_mangle]
         static VRAM_USED_BYTES: AtomicUsize = AtomicUsize::new(0);
+        #[no_mangle]
+        static FACES_VISIBLE: AtomicUsize = AtomicUsize::new(0);
+        #[no_mangle]
+        static FACES_ALLOCATED: AtomicUsize = AtomicUsize::new(0);
+        #[no_mangle]
+        static BRICKS_VISIBLE: AtomicUsize = AtomicUsize::new(0);
+        #[no_mangle]
+        static BRICKS_ALLOCATED: AtomicUsize = AtomicUsize::new(0);
+        #[no_mangle]
+        static CHUNKS_VISIBLE: AtomicUsize = AtomicUsize::new(0);
+        #[no_mangle]
+        static CHUNKS_ALLOCATED: AtomicUsize = AtomicUsize::new(0);
 
-        NUMBER_OF_CHUNKS.store(active_chunk_ids.len(), Ordering::Relaxed);
-        NUMBER_OF_VISIBLE_FACES.store(rendered_faces as usize, Ordering::Relaxed);
-        NUMBER_OF_TOTAL_FACES.store(total_number_of_faces as usize, Ordering::Relaxed);
-        NUMBER_OF_BRICKS_ALLOCATED.store(brick_pointer_allocator.peek().0, Ordering::Relaxed);
+        FACES_VISIBLE.store(rendered_faces as usize, Ordering::Relaxed);
+        FACES_ALLOCATED.store(total_number_of_faces as usize, Ordering::Relaxed);
+
+        BRICKS_ALLOCATED.store(brick_pointer_allocator.peek().0, Ordering::Relaxed);
+
+        CHUNKS_VISIBLE.store(rendered_chunks, Ordering::Relaxed);
+        CHUNKS_ALLOCATED.store(active_chunk_ids.len(), Ordering::Relaxed);
+
         VRAM_USED_BYTES.store(
             visible_face_set.get_memory_used_bytes() as usize,
             Ordering::Relaxed

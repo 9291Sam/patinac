@@ -59,12 +59,11 @@ fn vs_main(in: VertexInput, @builtin(vertex_index) vertex_index: u32) -> VertexO
 
     let face_point_local: vec3<f32> = vec3<f32>(FACE_LOOKUP_TABLE[face_normal_id][IDX_TO_VTX_TABLE[point_within_face]]);
     let face_point_world = vec4<f32>(face_point_local + vec3<f32>(face_voxel_pos) + in.chunk_position, 1.0);
-
     
     return VertexOutput(
         global_model_view_projection[pc_id] * face_point_world,
         in.chunk_id,
-        face_data
+        face_data | (in.normal_id << 27)
     );
 }
 
@@ -94,19 +93,6 @@ struct VertexOutput
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec2<u32>
 {
-    // var normal: vec3<f32>;
-
-    // switch (in.face_normal)
-    // {
-    //     case 0u: {normal = vec3<f32>(0.0, 1.0, 0.0); }
-    //     case 1u: {normal = vec3<f32>(0.0, -1.0, 0.0); }     
-    //     case 2u: {normal = vec3<f32>(-1.0, 0.0, 0.0); }       
-    //     case 3u: {normal = vec3<f32>(1.0, 0.0, 0.0); }       
-    //     case 4u: {normal = vec3<f32>(0.0, 0.0, -1.0); }      
-    //     case 5u: {normal = vec3<f32>(0.0, 0.0, 1.0); }
-    //     case default: {normal = vec3<f32>(0.0); }
-    // }
-
     return vec2<u32>(in.chunk_id, in.voxel_face_info);
 }
 
