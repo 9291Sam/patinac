@@ -1,5 +1,6 @@
 mod brick_map;
-mod chunk_metadata;
+mod chunk_info;
+mod cpu_chunk_data;
 mod face;
 mod material;
 mod material_brick;
@@ -8,7 +9,8 @@ mod visibility_brick;
 mod voxel_face_direction;
 
 pub(crate) use brick_map::{BrickMap, BrickPtr, MaybeBrickPtr};
-pub(crate) use chunk_metadata::ChunkMetaData;
+pub(crate) use chunk_info::GpuChunkData;
+pub(crate) use cpu_chunk_data::CpuChunkData;
 pub(crate) use face::VoxelFace;
 pub(crate) use material::MaterialManager;
 pub use material::Voxel;

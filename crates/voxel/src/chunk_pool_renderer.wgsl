@@ -18,6 +18,7 @@ alias GlobalPositions = array<vec3<f32>, NumberOfModels>;
 @group(1) @binding(2) var<storage, read> material_bricks: array<MateralBrick>;
 // @group(1) @binding(3) var<storage, read> visiblity_bricks: array<u32>;
 @group(1) @binding(4) var<storage, read> material_buffer: array<MaterialData>;
+@group(1) @binding(5) var<storage, read> gpu_chunk_data: array<vec4<f32>>;
 
 var<push_constant> pc_id: u32;
 

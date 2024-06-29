@@ -7,7 +7,7 @@ use bytemuck::{bytes_of, cast_slice, Pod, Zeroable};
 use fnv::FnvHashSet;
 use gfx::{glm, wgpu};
 
-use crate::data::{self, BrickMap, ChunkMetaData, MaterialManager, MaybeBrickPtr};
+use crate::data::{self, BrickMap, MaterialManager, MaybeBrickPtr};
 use crate::passes::VoxelColorTransferRecordable;
 use crate::suballocated_buffer::{SubAllocatedCpuTrackedBuffer, SubAllocatedCpuTrackedDenseSet};
 use crate::{
@@ -62,8 +62,9 @@ struct ChunkPoolCriticalSection
 
     // chunk_id -> brick map
     brick_maps:     gfx::CpuTrackedBuffer<data::BrickMap>,
-    // chunk_id -> ChunkMetaData
-    chunk_metadata: Box<[Option<ChunkMetaData>]>, // CPU chunk metadata and gpu chunk metadata
+    // chunk_id -> data::CpuChunkData
+    cpu_chunk_data: Box<[Option<data::CpuChunkData>]>, // CPU chunk metadata and gpu chunk metadata
+    gpu_chunk_data: gfx::CpuTrackedBuffer<data::GpuChunkData>,
 
     // brick_pointer -> Brick
     material_bricks:   gfx::CpuTrackedBuffer<data::MaterialBrick>,
@@ -89,7 +90,13 @@ impl ChunkPool
                 String::from("ChunkPool BrickMap Buffer"),
                 wgpu::BufferUsages::STORAGE
             ),
-            chunk_metadata:          vec![None; MAX_CHUNKS].into_boxed_slice(),
+            cpu_chunk_data:          vec![None; MAX_CHUNKS].into_boxed_slice(),
+            gpu_chunk_data:          gfx::CpuTrackedBuffer::new(
+                renderer.clone(),
+                MAX_CHUNKS,
+                String::from("ChunkPool GpuChunkData Buffer"),
+                wgpu::BufferUsages::STORAGE
+            ),
             material_bricks:         gfx::CpuTrackedBuffer::new(
                 renderer.clone(),
                 BRICKS_TO_PREALLOCATE,
@@ -177,6 +184,18 @@ impl ChunkPool
                                     min_binding_size:   None
                                 },
                                 count:      None
+                            },
+                            wgpu::BindGroupLayoutEntry {
+                                binding:    5,
+                                visibility: wgpu::ShaderStages::all(),
+                                ty:         wgpu::BindingType::Buffer {
+                                    ty:                 wgpu::BufferBindingType::Storage {
+                                        read_only: true
+                                    },
+                                    has_dynamic_offset: false,
+                                    min_binding_size:   None
+                                },
+                                count:      None
                             }
                         ]
                     }
@@ -192,66 +211,82 @@ impl ChunkPool
                         |material_bricks_buffer: &wgpu::Buffer| {
                             critical_section.visibility_bricks.get_buffer(
                                 |visibility_bricks_buffer: &wgpu::Buffer| {
-                                    Arc::new(
-                                        renderer.create_bind_group(&wgpu::BindGroupDescriptor {
-                                            label:   Some("ChunkPool BindGroup"),
-                                            layout:  &bind_group_layout,
-                                            entries: &[
-                                                wgpu::BindGroupEntry {
-                                                    binding:  0,
-                                                    resource: wgpu::BindingResource::Buffer(
-                                                        wgpu::BufferBinding {
-                                                            buffer: critical_section
-                                                                .visible_face_set
-                                                                .access_buffer(),
-                                                            offset: 0,
-                                                            size:   None
+                                    critical_section.gpu_chunk_data.get_buffer(
+                                        |gpu_chunk_data_buffer: &wgpu::Buffer| {
+                                            Arc::new(
+                                                renderer
+                                                    .create_bind_group(&wgpu::BindGroupDescriptor {
+                                                    label:   Some("ChunkPool BindGroup"),
+                                                    layout:  &bind_group_layout,
+                                                    entries: &[
+                                                        wgpu::BindGroupEntry {
+                                                            binding:  0,
+                                                            resource: wgpu::BindingResource::Buffer(
+                                                                wgpu::BufferBinding {
+                                                                    buffer: critical_section
+                                                                        .visible_face_set
+                                                                        .access_buffer(),
+                                                                    offset: 0,
+                                                                    size:   None
+                                                                }
+                                                            )
+                                                        },
+                                                        wgpu::BindGroupEntry {
+                                                            binding:  1,
+                                                            resource: wgpu::BindingResource::Buffer(
+                                                                wgpu::BufferBinding {
+                                                                    buffer: brick_map_buffer,
+                                                                    offset: 0,
+                                                                    size:   None
+                                                                }
+                                                            )
+                                                        },
+                                                        wgpu::BindGroupEntry {
+                                                            binding:  2,
+                                                            resource: wgpu::BindingResource::Buffer(
+                                                                wgpu::BufferBinding {
+                                                                    buffer: material_bricks_buffer,
+                                                                    offset: 0,
+                                                                    size:   None
+                                                                }
+                                                            )
+                                                        },
+                                                        wgpu::BindGroupEntry {
+                                                            binding:  3,
+                                                            resource: wgpu::BindingResource::Buffer(
+                                                                wgpu::BufferBinding {
+                                                                    buffer:
+                                                                        visibility_bricks_buffer,
+                                                                    offset: 0,
+                                                                    size:   None
+                                                                }
+                                                            )
+                                                        },
+                                                        wgpu::BindGroupEntry {
+                                                            binding:  4,
+                                                            resource: wgpu::BindingResource::Buffer(
+                                                                wgpu::BufferBinding {
+                                                                    buffer: &material_manager
+                                                                        .get_material_buffer(),
+                                                                    offset: 0,
+                                                                    size:   None
+                                                                }
+                                                            )
+                                                        },
+                                                        wgpu::BindGroupEntry {
+                                                            binding:  5,
+                                                            resource: wgpu::BindingResource::Buffer(
+                                                                wgpu::BufferBinding {
+                                                                    buffer: gpu_chunk_data_buffer,
+                                                                    offset: 0,
+                                                                    size:   None
+                                                                }
+                                                            )
                                                         }
-                                                    )
-                                                },
-                                                wgpu::BindGroupEntry {
-                                                    binding:  1,
-                                                    resource: wgpu::BindingResource::Buffer(
-                                                        wgpu::BufferBinding {
-                                                            buffer: brick_map_buffer,
-                                                            offset: 0,
-                                                            size:   None
-                                                        }
-                                                    )
-                                                },
-                                                wgpu::BindGroupEntry {
-                                                    binding:  2,
-                                                    resource: wgpu::BindingResource::Buffer(
-                                                        wgpu::BufferBinding {
-                                                            buffer: material_bricks_buffer,
-                                                            offset: 0,
-                                                            size:   None
-                                                        }
-                                                    )
-                                                },
-                                                wgpu::BindGroupEntry {
-                                                    binding:  3,
-                                                    resource: wgpu::BindingResource::Buffer(
-                                                        wgpu::BufferBinding {
-                                                            buffer: visibility_bricks_buffer,
-                                                            offset: 0,
-                                                            size:   None
-                                                        }
-                                                    )
-                                                },
-                                                wgpu::BindGroupEntry {
-                                                    binding:  4,
-                                                    resource: wgpu::BindingResource::Buffer(
-                                                        wgpu::BufferBinding {
-                                                            buffer: &material_manager
-                                                                .get_material_buffer(),
-                                                            offset: 0,
-                                                            size:   None
-                                                        }
-                                                    )
-                                                }
-                                            ]
-                                        })
+                                                    ]
+                                                })
+                                            )
+                                        }
                                     )
                                 }
                             )
@@ -360,7 +395,8 @@ impl ChunkPool
         let ChunkPoolCriticalSection {
             active_chunk_ids,
             chunk_id_allocator,
-            chunk_metadata,
+            cpu_chunk_data,
+            gpu_chunk_data,
             brick_maps,
             visible_face_set,
             ..
@@ -370,7 +406,7 @@ impl ChunkPool
             .allocate()
             .expect("Failed to allocate a new chunk");
 
-        chunk_metadata[new_chunk_id] = Some(ChunkMetaData {
+        cpu_chunk_data[new_chunk_id] = Some(data::CpuChunkData {
             coordinate,
             is_visible: true,
             faces: std::array::from_fn(|_| {
@@ -382,6 +418,15 @@ impl ChunkPool
                 }
             })
         });
+
+        let o = get_world_offset_of_chunk(coordinate);
+
+        gpu_chunk_data.write(
+            new_chunk_id,
+            data::GpuChunkData {
+                position: glm::Vec4::new(o.x, o.y, o.z, 0.0)
+            }
+        );
 
         brick_maps.write(new_chunk_id, BrickMap::new());
 
@@ -400,7 +445,7 @@ impl ChunkPool
             brick_maps,
             brick_pointer_allocator,
             visible_face_set,
-            chunk_metadata,
+            cpu_chunk_data,
             ..
         } = &mut *self.critical_section.lock().unwrap();
 
@@ -417,7 +462,7 @@ impl ChunkPool
 
         assert!(active_chunk_ids.remove(&chunk.id));
 
-        chunk_metadata[chunk.id as usize]
+        cpu_chunk_data[chunk.id as usize]
             .take()
             .unwrap()
             .faces
@@ -455,7 +500,7 @@ impl ChunkPool
         let ChunkPoolCriticalSection {
             brick_pointer_allocator,
             brick_maps,
-            chunk_metadata,
+            cpu_chunk_data,
             material_bricks,
             visibility_bricks,
             visible_face_set,
@@ -533,7 +578,8 @@ impl ChunkPool
                 })
             };
 
-            let metadata: &mut ChunkMetaData = chunk_metadata[chunk.id as usize].as_mut().unwrap();
+            let cpu_chunk_data: &mut data::CpuChunkData =
+                cpu_chunk_data[chunk.id as usize].as_mut().unwrap();
 
             for d in data::VoxelFaceDirection::iterate()
             {
@@ -543,12 +589,12 @@ impl ChunkPool
                 {
                     if !does_voxel_exist(adj_pos)
                     {
-                        metadata.faces[d as usize]
+                        cpu_chunk_data.faces[d as usize]
                             .insert(data::VoxelFace::new(position), visible_face_set);
                     }
                     else
                     {
-                        let _ = metadata.faces[d.opposite() as usize]
+                        let _ = cpu_chunk_data.faces[d.opposite() as usize]
                             .remove(data::VoxelFace::new(adj_pos), visible_face_set);
                     }
                 }
@@ -654,17 +700,19 @@ impl gfx::Recordable for ChunkPool
         let ChunkPoolCriticalSection {
             active_chunk_ids,
             brick_maps,
-            chunk_metadata,
+            cpu_chunk_data,
             material_bricks,
             visibility_bricks,
             visible_face_set,
             brick_pointer_allocator,
+            gpu_chunk_data,
             ..
         } = &mut *self.critical_section.lock().unwrap();
 
         assert!(!brick_maps.replicate_to_gpu());
         assert!(!material_bricks.replicate_to_gpu());
         assert!(!visibility_bricks.replicate_to_gpu());
+        assert!(!gpu_chunk_data.replicate_to_gpu());
         visible_face_set.replicate_to_gpu();
 
         let mut indirect_args: Vec<wgpu::util::DrawIndirectArgs> = Vec::new();
@@ -685,9 +733,10 @@ impl gfx::Recordable for ChunkPool
 
         for chunk_id in active_chunk_ids.iter()
         {
-            let metadata: &ChunkMetaData = chunk_metadata[*chunk_id as usize].as_ref().unwrap();
+            let this_cpu_chunk_data: &data::CpuChunkData =
+                cpu_chunk_data[*chunk_id as usize].as_ref().unwrap();
 
-            if !metadata.is_visible
+            if !this_cpu_chunk_data.is_visible
             {
                 continue;
             }
@@ -696,7 +745,8 @@ impl gfx::Recordable for ChunkPool
 
             for dir in data::VoxelFaceDirection::iterate()
             {
-                let draw_range = metadata.faces[dir as usize].get_global_range(&visible_face_set);
+                let draw_range =
+                    this_cpu_chunk_data.faces[dir as usize].get_global_range(&visible_face_set);
 
                 if draw_range.is_empty()
                 {
@@ -708,7 +758,7 @@ impl gfx::Recordable for ChunkPool
                 let camera_world_position = camera.get_position();
 
                 'outer: for offset in chunk_offsets.iter().map(|o| {
-                    (o.cast() + get_world_offset_of_chunk(metadata.coordinate)).cast()
+                    (o.cast() + get_world_offset_of_chunk(this_cpu_chunk_data.coordinate)).cast()
                         - camera_world_position
                 })
                 {
@@ -736,7 +786,8 @@ impl gfx::Recordable for ChunkPool
                         });
 
                         chunk_indirect_data.push(ChunkIndirectData {
-                            position: get_world_offset_of_chunk(metadata.coordinate).cast(),
+                            position: get_world_offset_of_chunk(this_cpu_chunk_data.coordinate)
+                                .cast(),
                             dir:      dir as u32,
                             id:       *chunk_id
                         });

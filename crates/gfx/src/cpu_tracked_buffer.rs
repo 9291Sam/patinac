@@ -132,6 +132,7 @@ impl<T: AnyBitPattern + NoUninit + Debug> CpuTrackedBuffer<T>
         self.needs_resize_flush = true;
     }
 
+    // TODO: replace with a get ptr...
     #[inline(always)]
     pub fn get_buffer<R>(&self, buf_access_func: impl FnOnce(&wgpu::Buffer) -> R) -> R
     {

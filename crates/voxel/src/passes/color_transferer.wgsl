@@ -15,7 +15,15 @@
 @group(1) @binding(2) var<storage, read> material_bricks: array<MateralBrick>;
 // @group(1) @binding(3) var<storage, read> visiblity_bricks: array<u32>;
 @group(1) @binding(4) var<storage, read> material_buffer: array<MaterialData>;
-@group(1) @binding(5) var<storage, read> chunk_metadata; // holds chunkid position
+@group(1) @binding(5) var<storage, read> gpu_chunk_data: array<vec4<f32>>;
+
+struct GlobalInfo
+{
+    camera_pos: vec4<f32>,
+    view_projection: mat4x4<f32>
+}
+
+@group(2) @binding(0) var<uniform> global_info: GlobalInfo;
 
 @vertex
 fn vs_main(@builtin(vertex_index) index: u32) -> @builtin(position) vec4<f32>
@@ -64,6 +72,7 @@ fn fs_main(@builtin(position) in: vec4<f32>) -> @location(0) vec4<f32>
 
 
     let face_voxel_pos = vec3<u32>(x_pos, y_pos, z_pos);
+    let global_face_voxel_position = gpu_chunk_data[chunk_id].xyz + vec3<f32>(face_voxel_pos);
     
     let brick_coordinate = face_voxel_pos / 8u;
     let brick_local_coordinate = face_voxel_pos % 8u;
@@ -74,25 +83,30 @@ fn fs_main(@builtin(position) in: vec4<f32>) -> @location(0) vec4<f32>
     let ambient_strength = 0.025;
     let ambient = ambient_strength * vec3<f32>(1.0);
 
-    let light_color = vec3<f32>(.7, 0.9, 0.5);
-    let light_pos = vec3<f32>(60.0, 60.0, 60.0);
+    let light_color = vec4<f32>(.7, 0.9, 0.5, 32.0);
+    let light_pos = vec3<f32>(120.0, 15.0, -40.0);
 
-    // diffuse component
-  	let dir_to_light = normalize(light_pos - vec3<f32>(face_voxel_pos));
-    let diff = max(dot(normal, dir_to_light), 1.0);
-    let diffuse = diff * light_color;
-    
-    // specular
-    // float specularStrength = 0.5;
-    // vec3 viewDir = normalize(viewPos - FragPos);
-    // vec3 reflectDir = reflect(-lightDir, norm);  
-    // float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
-    // vec3 specular = specularStrength * spec * lightColor;  
-        
-    let result = (ambient) * material_buffer[voxel].diffuse_color.xyz; // + specular
+    var light_dir = light_pos - global_face_voxel_position;
+    let distance = length(light_dir);
+    light_dir /= distance;
+
+    // intensity of diffuse
+    let diffuse_intensity = saturate(dot(normal, light_dir));
+    let diffuse = diffuse_intensity * light_color.xyz * material_buffer[voxel].diffuse_color.xyz * light_color.w / pow(distance, 1.55);
+
+    let view_vector = normalize(global_info.camera_pos.xyz - global_face_voxel_position);
+    let h = normalize(light_dir + view_vector);
+    let specular_intensity = saturate(pow(dot(normal, h), material_buffer[voxel].specular));
+
+    let specular = specular_intensity * light_color.xyz * material_buffer[voxel].specular_color.xyz * light_color.w / pow(distance, 1.55);
+
+
+
+    let result = saturate(ambient + diffuse + specular);
     // FragColor = vec4(result, 1.0);
 
     return vec4<f32>(result, 1.0);
+    // return vec4<f32>(global_face_voxel_position / 512.0, 1.0);
 
     // return vec4<f32>(material_buffer[voxel].diffuse_color.xyz, 1.0);
     // return vec4<f32>((normal + 1) / 2, 1.0);

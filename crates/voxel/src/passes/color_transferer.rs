@@ -74,6 +74,7 @@ impl VoxelColorTransferRecordable
                     bind_group_layouts:   vec![
                         discovery_image_layout.clone(),
                         voxel_lighting_bind_group_layout,
+                        renderer.global_bind_group_layout.clone(),
                     ],
                     push_constant_ranges: vec![]
                 });
@@ -153,7 +154,7 @@ impl gfx::Recordable for VoxelColorTransferRecordable
         &self,
         renderer: &gfx::Renderer,
         _: &gfx::Camera,
-        _: &Arc<wgpu::BindGroup>
+        global_bind_group: &Arc<wgpu::BindGroup>
     ) -> gfx::RecordInfo
     {
         if self.resize_pinger.recv_all()
@@ -185,7 +186,7 @@ impl gfx::Recordable for VoxelColorTransferRecordable
             bind_groups: [
                 Some(self.discovery_bind_group.get()),
                 Some(self.voxel_lighting_bind_group.clone()),
-                None,
+                Some(global_bind_group.clone()),
                 None
             ],
             transform:   None
