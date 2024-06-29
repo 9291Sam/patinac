@@ -81,9 +81,9 @@ fn fs_main(@builtin(position) in: vec4<f32>) -> @location(0) vec4<f32>
     let voxel = material_bricks_load(brick_ptr, brick_local_coordinate);
 
     let ambient_strength = 0.025;
-    let ambient = ambient_strength * vec3<f32>(1.0);
-
-    let light_color = vec4<f32>(.7, 0.9, 0.5, 32.0);
+    let ambient_color = vec3<f32>(1.0);
+    
+    let light_color = vec4<f32>(1.0, 1.0, 1.0, 32.0);
     let light_pos = vec3<f32>(120.0, 15.0, -40.0);
 
     var light_dir = light_pos - global_face_voxel_position;
@@ -91,15 +91,17 @@ fn fs_main(@builtin(position) in: vec4<f32>) -> @location(0) vec4<f32>
     light_dir /= distance;
 
     // intensity of diffuse
-    let diffuse_intensity = saturate(dot(normal, light_dir));
-    let diffuse = diffuse_intensity * light_color.xyz * material_buffer[voxel].diffuse_color.xyz * light_color.w / pow(distance, 1.55);
-
     let view_vector = normalize(global_info.camera_pos.xyz - global_face_voxel_position);
-    let h = normalize(light_dir + view_vector);
-    let specular_intensity = saturate(pow(dot(normal, h), material_buffer[voxel].specular));
+    let r = 2 * dot(light_dir, normal) * normal - light_dir;
 
-    let specular = specular_intensity * light_color.xyz * material_buffer[voxel].specular_color.xyz * light_color.w / pow(distance, 1.55);
+    let constant_factor = 0.0;
+    let linear_factor = 0.75;
+    let quadratic_factor = 0.03;
+    let attenuation = 1.0 / (constant_factor + linear_factor * distance + quadratic_factor * distance * distance);
 
+    let ambient = ambient_strength * ambient_color;
+    let diffuse = saturate(dot(normal, light_dir)) * light_color.xyz * material_buffer[voxel].diffuse_color.xyz * light_color.w * attenuation;
+    let specular = pow(saturate(dot(r, view_vector)), material_buffer[voxel].specular) * light_color.xyz * material_buffer[voxel].diffuse_color.xyz * light_color.w * attenuation;
 
 
     let result = saturate(ambient + diffuse + specular);
