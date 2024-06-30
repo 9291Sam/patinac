@@ -77,7 +77,8 @@ impl FlatTextured
             game,
             transform,
             Self::PENTAGON_VERTICES,
-            Self::PENTAGON_INDICES
+            Self::PENTAGON_INDICES,
+            include_bytes!("res/flat_textured/happy-tree.png")
         )
     }
 
@@ -85,7 +86,8 @@ impl FlatTextured
         game: Arc<game::Game>,
         transform: gfx::Transform,
         vertices: &[Vertex],
-        indices: &[u16]
+        indices: &[u16],
+        texture: &[u8]
     ) -> Arc<Self>
     {
         let renderer = game.get_renderer().clone();
@@ -102,8 +104,7 @@ impl FlatTextured
             usage:    wgpu::BufferUsages::INDEX
         });
 
-        let diffuse_bytes = include_bytes!("res/flat_textured/happy-tree.png");
-        let diffuse_image = image::load_from_memory(diffuse_bytes).unwrap();
+        let diffuse_image = image::load_from_memory(texture).unwrap();
         let diffuse_rgba = diffuse_image.to_rgba8();
         let dimensions = diffuse_image.dimensions();
 

@@ -216,7 +216,10 @@ impl gfx::Recordable for DebugMenu
                         util::get_bytes_of_active_allocations() as f64,
                         util::SuffixType::Short
                     ),
-                    unsafe { VRAM_USED_BYTES.load(Ordering::Relaxed) },
+                    util::bytes_as_string(
+                        unsafe { VRAM_USED_BYTES.load(Ordering::Relaxed) } as f64,
+                        util::SuffixType::Short
+                    ),
                     unsafe { FACES_VISIBLE.load(Ordering::Relaxed) },
                     unsafe { FACES_ALLOCATED.load(Ordering::Relaxed) },
                     unsafe { BRICKS_ALLOCATED.load(Ordering::Relaxed) },

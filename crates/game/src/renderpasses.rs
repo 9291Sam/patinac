@@ -9,8 +9,11 @@ use strum::{EnumIter, IntoEnumIterator};
 pub enum PassStage
 {
     VoxelDiscovery,
+    // write all voxels into storage buffer
     VoxelVisibilityDetection,
+    // calculate their colors based on shadow rays
     VoxelColorCalculation,
+    // transfer colors back
     VoxelColorTransfer,
     SimpleColor,
     MenuRender,
@@ -146,9 +149,9 @@ impl RenderPassManager
                             resolve_target: None,
                             ops:            wgpu::Operations {
                                 load:  wgpu::LoadOp::Clear(wgpu::Color {
-                                    r: 0.1,
-                                    g: 0.2,
-                                    b: 0.3,
+                                    r: 0.0,
+                                    g: 0.0,
+                                    b: 0.0,
                                     a: 1.0
                                 }),
                                 store: wgpu::StoreOp::Store

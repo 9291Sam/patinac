@@ -7,8 +7,9 @@ use itertools::iproduct;
 use noise::NoiseFn;
 use rand::Rng;
 
+use crate::recordables::skybox::Skybox;
 use crate::voxel_world::{VoxelWorld, WorldPosition};
-use crate::Player;
+use crate::{recordables, Player};
 
 pub struct DemoScene
 {
@@ -16,7 +17,8 @@ pub struct DemoScene
     id:    util::Uuid,
 
     player:         Arc<Player>,
-    camera_updater: util::WindowUpdater<gfx::Camera>
+    camera_updater: util::WindowUpdater<gfx::Camera>,
+    skybox:         Arc<Skybox>
 }
 unsafe impl Sync for DemoScene {}
 
@@ -69,7 +71,8 @@ impl DemoScene
             world,
             id: util::Uuid::new(),
             player,
-            camera_updater
+            camera_updater,
+            skybox: Skybox::new_skybox(game.clone(), gfx::Transform::default())
         });
 
         game.register(this.clone());

@@ -80,7 +80,7 @@ fn fs_main(@builtin(position) in: vec4<f32>) -> @location(0) vec4<f32>
     let brick_ptr = brick_map[chunk_id].map[brick_coordinate.x][brick_coordinate.y][brick_coordinate.z];
     let voxel = material_bricks_load(brick_ptr, brick_local_coordinate);
 
-    let ambient_strength = 0.025;
+    let ambient_strength = 0.0;
     let ambient_color = vec3<f32>(1.0);
     
     let light_color = vec4<f32>(1.0, 1.0, 1.0, 32.0);
@@ -101,7 +101,7 @@ fn fs_main(@builtin(position) in: vec4<f32>) -> @location(0) vec4<f32>
 
     let ambient = ambient_strength * ambient_color;
     let diffuse = saturate(dot(normal, light_dir)) * light_color.xyz * material_buffer[voxel].diffuse_color.xyz * light_color.w * attenuation;
-    let specular = pow(saturate(dot(r, view_vector)), material_buffer[voxel].specular) * light_color.xyz * material_buffer[voxel].diffuse_color.xyz * light_color.w * attenuation;
+    let specular = pow(saturate(dot(r, view_vector)), material_buffer[voxel].specular) * light_color.xyz * material_buffer[voxel].specular_color.xyz * light_color.w * attenuation;
 
 
     let result = saturate(ambient + diffuse + specular);

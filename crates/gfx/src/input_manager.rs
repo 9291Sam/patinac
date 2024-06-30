@@ -250,7 +250,7 @@ impl InputManager
         *best_guess_mouse_pos = ZERO_POS;
         self.delta_mouse_pos_px.store((0.0, 0.0), Ordering::Release);
 
-        self.window.set_cursor_visible(true);
+        // self.window.set_cursor_visible(true);
     }
 }
 

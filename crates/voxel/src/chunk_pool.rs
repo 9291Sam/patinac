@@ -763,7 +763,7 @@ impl gfx::Recordable for ChunkPool
                 })
                 {
                     let is_camera_in_chunk =
-                        offset.magnitude() < CHUNK_EDGE_LEN_VOXELS as f32 / 1.99;
+                        offset.magnitude() < CHUNK_EDGE_LEN_VOXELS as f32 / 1.5;
 
                     let is_chunk_visible = {
                         let is_chunk_in_camera_view =
