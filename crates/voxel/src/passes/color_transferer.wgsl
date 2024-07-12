@@ -1,29 +1,17 @@
 
-// Texture<FromFragmentShader>
 @group(0) @binding(0) var voxel_discovery_image: texture_2d<u32>;
-// [number_of_image_workgroups, 1, 1];
-// @group(0) @binding(1) var<storage, read_write> indirect_color_calc_buffer: array<atomic<u32>, 3>;
-// // [FaceIdInfo, ...]
-// @group(0) @binding(2) var<storage, read_write> face_id_buffer: array<FaceInfo>;
-// // number_of_voxels_in_buffer
-// @group(0) @binding(3) var<storage, read_write> number_of_unique_voxels: atomic<u32>;
-// // [FaceId, ...]
-// @group(0) @binding(4) var<storage, read_write> unique_voxel_buffer: array<atomic<u32>>;
 
-@group(1) @binding(0) var<storage, read> face_data_buffer: array<u32>;
+@group(1) @binding(0) var<storage, read> face_data_buffer: array<VoxelFaceData>; 
 @group(1) @binding(1) var<storage, read> brick_map: array<BrickMap>;
-@group(1) @binding(2) var<storage, read> material_bricks: array<MateralBrick>;
-// @group(1) @binding(3) var<storage, read> visiblity_bricks: array<u32>;
+@group(1) @binding(2) var<storage, read> material_bricks: array<MateralBrick>; 
+@group(1) @binding(3) var<storage, read> visiblity_bricks: array<VisibilityBrick>;
 @group(1) @binding(4) var<storage, read> material_buffer: array<MaterialData>;
 @group(1) @binding(5) var<storage, read> gpu_chunk_data: array<vec4<f32>>;
-@group(1) @binding(6) var<storage, read> face_color_info: array<VisibleFaceInfo>;
-
-
-struct GlobalInfo
-{
-    camera_pos: vec4<f32>,
-    view_projection: mat4x4<f32>
-}
+@group(1) @binding(6) var<storage, read_write> is_face_number_visible_bits: array<atomic<u32>>;
+@group(1) @binding(7) var<storage, read_write> face_numbers_to_face_ids: array<atomic<u32>>;
+@group(1) @binding(8) var<storage, read_write> next_face_id: atomic<u32>;
+@group(1) @binding(9) var<storage, read_write> renderered_face_info: array<RenderedFaceInfo>;
+@group(1) @binding(10) var<storage, read_write> color_raytracer_dispatches: array<atomic<u32>, 3>;
 
 @group(2) @binding(0) var<uniform> global_info: GlobalInfo;
 
@@ -49,16 +37,12 @@ fn fs_main(@builtin(position) in: vec4<f32>) -> @location(0) vec4<f32>
         discard;
     }
     
-    let eight_bit_mask: u32 = u32(255);
+    let chunk_id = voxel_data.x & u32(65535);
+    let normal_id = (voxel_data.x >> 27) & u32(7);
 
-    let chunk_id = voxel_data.x;
-
-    let x_pos: u32 = voxel_data[1] & eight_bit_mask;
-    let y_pos: u32 = (voxel_data[1] >> 8) & eight_bit_mask;
-    let z_pos: u32 = (voxel_data[1] >> 16) & eight_bit_mask;
-    let normal_id: u32 = (voxel_data[1] >> 27) & u32(7);
-
-
+    let face_number = voxel_data.y;
+    let face_voxel_pos = voxel_face_data_load(face_number);
+    
     var normal: vec3<f32>;
 
     switch (normal_id)
@@ -72,17 +56,15 @@ fn fs_main(@builtin(position) in: vec4<f32>) -> @location(0) vec4<f32>
         case default: {normal = vec3<f32>(0.0); }
     }
 
-
-    let face_voxel_pos = vec3<u32>(x_pos, y_pos, z_pos);
     let global_face_voxel_position = gpu_chunk_data[chunk_id].xyz + vec3<f32>(face_voxel_pos);
     
     let brick_coordinate = face_voxel_pos / 8u;
     let brick_local_coordinate = face_voxel_pos % 8u;
 
-    let brick_ptr = brick_map[chunk_id].map[brick_coordinate.x][brick_coordinate.y][brick_coordinate.z];
+    let brick_ptr = brick_map_load(chunk_id, brick_coordinate);
     let voxel = material_bricks_load(brick_ptr, brick_local_coordinate);
 
-    let ambient_strength = 0.0;
+    let ambient_strength = 0.005;
     let ambient_color = vec3<f32>(1.0);
     
     let light_color = vec4<f32>(1.0, 1.0, 1.0, 32.0);
@@ -105,16 +87,9 @@ fn fs_main(@builtin(position) in: vec4<f32>) -> @location(0) vec4<f32>
     let diffuse = saturate(dot(normal, light_dir)) * light_color.xyz * material_buffer[voxel].diffuse_color.xyz * light_color.w * attenuation;
     let specular = pow(saturate(dot(r, view_vector)), material_buffer[voxel].specular) * light_color.xyz * material_buffer[voxel].specular_color.xyz * light_color.w * attenuation;
 
-
     let result = saturate(ambient + diffuse + specular);
-    // FragColor = vec4(result, 1.0);
 
     return vec4<f32>(result, 1.0);
-    // return vec4<f32>(global_face_voxel_position / 512.0, 1.0);
-
-    // return vec4<f32>(material_buffer[voxel].diffuse_color.xyz, 1.0);
-    // return vec4<f32>((normal + 1) / 2, 1.0);
-    // return vec4<f32>(vec3<f32>(face_voxel_pos) / 255.0, 1.0);
 }
 
 fn map(x: f32, in_min: f32, in_max: f32, out_min: f32, out_max: f32) -> f32
@@ -152,6 +127,13 @@ fn rand(i: u32) -> u32
     return (index * (index * index * 15731 + 789221) + 1376312589);
 }
 
+
+struct GlobalInfo
+{
+    camera_pos: vec4<f32>,
+    view_projection: mat4x4<f32>
+}
+
 struct MaterialData
 {
     // special: u32,
@@ -166,6 +148,25 @@ struct MaterialData
 
     emissive_color_and_power: vec4<f32>,
     coat_color_and_power:     vec4<f32>,
+}
+
+struct VoxelFaceData
+{
+    data: u32
+}
+
+// (face_number) -> chunk_local_position
+fn voxel_face_data_load(face_number: u32) -> vec3<u32>
+{
+    let eight_bit_mask: u32 = u32(255);
+
+    let voxel_data = face_data_buffer[face_number].data;
+
+    let x_pos: u32 = voxel_data & eight_bit_mask;
+    let y_pos: u32 = (voxel_data >> 8) & eight_bit_mask;
+    let z_pos: u32 = (voxel_data >> 16) & eight_bit_mask;
+
+    return vec3<u32>(x_pos, y_pos, z_pos);
 
 }
 
@@ -174,12 +175,18 @@ struct BrickMap
     map: array<array<array<u32, 32>, 32>, 32>
 }
 
+// (chunk_id, brick_coordinate) -> maybe_brick_ptr
+fn brick_map_load(chunk_id: u32, pos: vec3<u32>) -> u32
+{
+    return brick_map[chunk_id].map[pos.x][pos.y][pos.z];
+}
+
 struct MateralBrick
 {
     voxels: array<array<array<u32, 4>, 8>, 8>,
 }
 
-
+// (brick_ptr, brick_local_pos) -> material_id
 fn material_bricks_load(brick_ptr: u32, pos: vec3<u32>) -> u32
 {
     let val = material_bricks[brick_ptr].voxels[pos.x][pos.y][pos.z / 2];
@@ -194,15 +201,29 @@ fn material_bricks_load(brick_ptr: u32, pos: vec3<u32>) -> u32
     }
 }
 
-||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||
-||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||
-||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||
-||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||
-||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||
-||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||
-||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||
-||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||
-||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||
-||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||
-||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||
-||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||||pop||
+struct VisibilityBrick
+{
+    data: array<u32, 16>
+}
+
+// (brick_ptr, brick_local_position) -> is_voxel_occupied
+fn visiblity_brick_load(brick_ptr: u32, pos: vec3<u32>) -> bool
+{
+    //// !NOTE: the order is like this so that the cache lines are aligned
+    //// ! vertically
+    // i.e the bottom half is one cache line and the top is another
+    let linear_index = pos.x + pos.z * 8 + pos.y * 8 * 8;
+
+    // 32 is the number of bits in a u32
+    let index = linear_index / 32;
+    let bit = linear_index % 32;
+
+    return (visiblity_bricks[brick_ptr].data[index] & (1u << bit)) != 0;
+}
+
+struct RenderedFaceInfo
+{
+    chunk_id: u32,
+    dir: u32,
+    packed_color: u32, // pack4x8unorm
+}

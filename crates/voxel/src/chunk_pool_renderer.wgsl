@@ -63,8 +63,8 @@ fn vs_main(in: VertexInput, @builtin(vertex_index) vertex_index: u32) -> VertexO
     
     return VertexOutput(
         global_model_view_projection[pc_id] * face_point_world,
-        in.chunk_id,
-        face_data | (in.normal_id << 27)
+        in.chunk_id | (in.normal_id << 27),
+        face_number 
     );
 }
 
@@ -86,15 +86,14 @@ fn randvec3(s: vec3<u32>) -> vec3<f32>
 struct VertexOutput
 {
     @builtin(position) position: vec4<f32>,
-    @location(0) chunk_id: u32,
-    // [x_pos, y_pos, z_pos, dir]
-    @location(1) voxel_face_info: u32,
+    @location(0) chunk_and_dir: u32,
+    @location(1) face_number: u32,
 }
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec2<u32>
 {
-    return vec2<u32>(in.chunk_id, in.voxel_face_info);
+    return vec2<u32>(in.chunk_and_dir, in.face_number);
 }
 
 const ERROR_COLOR: vec4<f32> = vec4<f32>(1.0, 0.0, 1.0, 1.0);

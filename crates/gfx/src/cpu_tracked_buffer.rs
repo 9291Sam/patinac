@@ -134,9 +134,9 @@ impl<T: AnyBitPattern + NoUninit + Debug> CpuTrackedBuffer<T>
 
     // TODO: replace with a get ptr...
     #[inline(always)]
-    pub fn get_buffer<R>(&self, buf_access_func: impl FnOnce(&wgpu::Buffer) -> R) -> R
+    pub fn get_buffer(&self) -> &wgpu::Buffer
     {
-        buf_access_func(&self.gpu_data)
+        &self.gpu_data
     }
 
     #[inline(always)]

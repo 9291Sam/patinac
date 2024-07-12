@@ -109,8 +109,8 @@ impl Renderer
         let window = Arc::new(
             WindowBuilder::new()
                 .with_inner_size(PhysicalSize {
-                    width:  1920,
-                    height: 1080
+                    width:  160,
+                    height: 120
                 })
                 .with_title(window_title)
                 .with_position(winit::dpi::PhysicalPosition {

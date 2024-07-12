@@ -5,6 +5,7 @@ use std::sync::{Arc, Mutex};
 
 use bytemuck::{bytes_of, cast_slice, Pod, Zeroable};
 use fnv::FnvHashSet;
+use gfx::wgpu::util::DeviceExt;
 use gfx::{glm, wgpu};
 
 use crate::data::{self, BrickMap, MaterialManager, MaybeBrickPtr};
@@ -24,6 +25,7 @@ use crate::{
 const MAX_CHUNKS: usize = 256;
 const BRICKS_TO_PREALLOCATE: usize = CHUNK_EDGE_LEN_BRICKS * CHUNK_EDGE_LEN_BRICKS * MAX_CHUNKS * 4;
 const FACES_TO_PREALLOCATE: usize = 1024 * 1024 * 16;
+const FACE_IDS_TO_PREALLOCATE: usize = 1024 * 1024;
 
 // chunks. bricks. faces
 
@@ -38,19 +40,18 @@ pub struct Chunk
 
 pub struct ChunkPool
 {
-    game:       Arc<game::Game>,
-    uuid:       util::Uuid,
-    pipeline:   Arc<gfx::GenericPipeline>,
-    bind_group: Arc<wgpu::BindGroup>,
+    game: Arc<game::Game>,
+    uuid: util::Uuid,
+    pipeline: Arc<gfx::GenericPipeline>,
+    face_and_brick_info_bind_group_layout: Arc<wgpu::BindGroupLayout>,
+    face_and_brick_info_bind_group: Arc<wgpu::BindGroup>,
 
     chunk_data:              wgpu::Buffer, // chunk data smuggled via the instance buffer
     indirect_calls:          wgpu::Buffer, // indirect offsets and lengths
     number_of_indirect_args: AtomicU32,
     material_manager:        MaterialManager,
 
-    critical_section: Mutex<ChunkPoolCriticalSection>,
-
-    color_transfer_pass: Arc<passes::VoxelColorTransferRecordable>
+    critical_section: Mutex<ChunkPoolCriticalSection>
 }
 
 struct ChunkPoolCriticalSection
@@ -71,7 +72,25 @@ struct ChunkPoolCriticalSection
     visibility_bricks: gfx::CpuTrackedBuffer<data::VisibilityBrick>,
 
     // face_number -> FaceData
-    visible_face_set: SubAllocatedCpuTrackedBuffer<data::VoxelFace>
+    visible_face_set:         SubAllocatedCpuTrackedBuffer<data::VoxelFace>,
+    // face_number -> face_id
+    face_numbers_to_face_ids: wgpu::Buffer, // <data::FaceId>,
+
+    // face_id
+    face_id_counter:    wgpu::Buffer, // <u32>
+    rendered_face_info: wgpu::Buffer, // <data::RenderedFaceInfo>
+
+    is_face_visible_buffer: wgpu::Buffer, // <bool bits>
+    indirect_rt_dispatch:   wgpu::Buffer, // <[X, 1, 1]>
+
+    // renderpasses
+    voxel_discovery_bind_group_layout: Arc<wgpu::BindGroupLayout>,
+    voxel_discovery_bind_group:        Arc<wgpu::BindGroup>,
+
+    resize_pinger: util::PingReceiver,
+
+    color_detector_pass: Arc<passes::ColorDetectorRecordable>,
+    color_transfer_pass: Arc<passes::VoxelColorTransferRecordable>
 }
 
 impl ChunkPool
@@ -80,44 +99,34 @@ impl ChunkPool
     {
         let renderer = game.get_renderer();
 
-        let critical_section = ChunkPoolCriticalSection {
-            active_chunk_ids:        FnvHashSet::default(),
-            chunk_id_allocator:      util::FreelistAllocator::new(MAX_CHUNKS),
-            brick_pointer_allocator: util::FreelistAllocator::new(BRICKS_TO_PREALLOCATE),
-            brick_maps:              gfx::CpuTrackedBuffer::new(
-                renderer.clone(),
-                MAX_CHUNKS,
-                String::from("ChunkPool BrickMap Buffer"),
-                wgpu::BufferUsages::STORAGE
-            ),
-            cpu_chunk_data:          vec![None; MAX_CHUNKS].into_boxed_slice(),
-            gpu_chunk_data:          gfx::CpuTrackedBuffer::new(
-                renderer.clone(),
-                MAX_CHUNKS,
-                String::from("ChunkPool GpuChunkData Buffer"),
-                wgpu::BufferUsages::STORAGE
-            ),
-            material_bricks:         gfx::CpuTrackedBuffer::new(
-                renderer.clone(),
-                BRICKS_TO_PREALLOCATE,
-                String::from("ChunkPool MaterialBrick Buffer"),
-                wgpu::BufferUsages::STORAGE
-            ),
-            visibility_bricks:       gfx::CpuTrackedBuffer::new(
-                renderer.clone(),
-                BRICKS_TO_PREALLOCATE,
-                String::from("ChunkPool VisibilityBrick Buffer"),
-                wgpu::BufferUsages::STORAGE
-            ),
-            visible_face_set:        SubAllocatedCpuTrackedBuffer::new(
-                renderer.clone(),
-                FACES_TO_PREALLOCATE as u32,
-                "ChunkPool VisibleFaceSet Buffer",
-                wgpu::BufferUsages::STORAGE
-            )
-        };
+        let voxel_discovery_image_layout =
+            renderer
+                .render_cache
+                .cache_bind_group_layout(wgpu::BindGroupLayoutDescriptor {
+                    label:   Some(
+                        "VoxelColorTransferRecordable VoxelDiscoveryImage BindGroupLayout"
+                    ),
+                    entries: const {
+                        &[wgpu::BindGroupLayoutEntry {
+                            binding:    0,
+                            visibility: wgpu::ShaderStages::FRAGMENT
+                                .union(wgpu::ShaderStages::COMPUTE),
+                            ty:         wgpu::BindingType::Texture {
+                                sample_type:    wgpu::TextureSampleType::Uint,
+                                view_dimension: wgpu::TextureViewDimension::D2,
+                                multisampled:   false
+                            },
+                            count:      None
+                        }]
+                    }
+                });
 
-        let bind_group_layout =
+        let voxel_discovery_bind_group = create_voxel_discovery_bind_group_from_layout(
+            &game,
+            voxel_discovery_image_layout.clone()
+        );
+
+        let face_and_brick_info_bind_group_layout =
             renderer
                 .render_cache
                 .cache_bind_group_layout(wgpu::BindGroupLayoutDescriptor {
@@ -126,7 +135,7 @@ impl ChunkPool
                         [
                             wgpu::BindGroupLayoutEntry {
                                 binding:    0,
-                                visibility: wgpu::ShaderStages::VERTEX,
+                                visibility: wgpu::ShaderStages::all(),
                                 ty:         wgpu::BindingType::Buffer {
                                     ty:                 wgpu::BufferBindingType::Storage {
                                         read_only: true
@@ -162,8 +171,7 @@ impl ChunkPool
                             },
                             wgpu::BindGroupLayoutEntry {
                                 binding:    3,
-                                visibility: wgpu::ShaderStages::VERTEX
-                                    .union(wgpu::ShaderStages::COMPUTE),
+                                visibility: wgpu::ShaderStages::all(),
                                 ty:         wgpu::BindingType::Buffer {
                                     ty:                 wgpu::BufferBindingType::Storage {
                                         read_only: true
@@ -196,103 +204,287 @@ impl ChunkPool
                                     min_binding_size:   None
                                 },
                                 count:      None
+                            },
+                            wgpu::BindGroupLayoutEntry {
+                                binding:    6,
+                                visibility: wgpu::ShaderStages::FRAGMENT
+                                    .union(wgpu::ShaderStages::COMPUTE),
+                                ty:         wgpu::BindingType::Buffer {
+                                    ty:                 wgpu::BufferBindingType::Storage {
+                                        read_only: false
+                                    },
+                                    has_dynamic_offset: false,
+                                    min_binding_size:   None
+                                },
+                                count:      None
+                            },
+                            wgpu::BindGroupLayoutEntry {
+                                binding:    7,
+                                visibility: wgpu::ShaderStages::FRAGMENT
+                                    .union(wgpu::ShaderStages::COMPUTE),
+                                ty:         wgpu::BindingType::Buffer {
+                                    ty:                 wgpu::BufferBindingType::Storage {
+                                        read_only: false
+                                    },
+                                    has_dynamic_offset: false,
+                                    min_binding_size:   None
+                                },
+                                count:      None
+                            },
+                            wgpu::BindGroupLayoutEntry {
+                                binding:    8,
+                                visibility: wgpu::ShaderStages::FRAGMENT
+                                    .union(wgpu::ShaderStages::COMPUTE),
+                                ty:         wgpu::BindingType::Buffer {
+                                    ty:                 wgpu::BufferBindingType::Storage {
+                                        read_only: false
+                                    },
+                                    has_dynamic_offset: false,
+                                    min_binding_size:   None
+                                },
+                                count:      None
+                            },
+                            wgpu::BindGroupLayoutEntry {
+                                binding:    9,
+                                visibility: wgpu::ShaderStages::FRAGMENT
+                                    .union(wgpu::ShaderStages::COMPUTE),
+                                ty:         wgpu::BindingType::Buffer {
+                                    ty:                 wgpu::BufferBindingType::Storage {
+                                        read_only: false
+                                    },
+                                    has_dynamic_offset: false,
+                                    min_binding_size:   None
+                                },
+                                count:      None
+                            },
+                            wgpu::BindGroupLayoutEntry {
+                                binding:    10,
+                                visibility: wgpu::ShaderStages::COMPUTE,
+                                ty:         wgpu::BindingType::Buffer {
+                                    ty:                 wgpu::BufferBindingType::Storage {
+                                        read_only: false
+                                    },
+                                    has_dynamic_offset: false,
+                                    min_binding_size:   None
+                                },
+                                count:      None
                             }
                         ]
                     }
                 });
 
+        let visible_face_set_buffer = SubAllocatedCpuTrackedBuffer::new(
+            renderer.clone(),
+            FACES_TO_PREALLOCATE as u32,
+            "ChunkPool VisibleFaceSet Buffer",
+            wgpu::BufferUsages::STORAGE
+        );
+
+        let brick_map_buffer = gfx::CpuTrackedBuffer::new(
+            renderer.clone(),
+            MAX_CHUNKS,
+            String::from("ChunkPool BrickMap Buffer"),
+            wgpu::BufferUsages::STORAGE
+        );
+
+        let material_bricks_buffer = gfx::CpuTrackedBuffer::new(
+            renderer.clone(),
+            BRICKS_TO_PREALLOCATE,
+            String::from("ChunkPool MaterialBrick Buffer"),
+            wgpu::BufferUsages::STORAGE
+        );
+        let visibility_bricks_buffer = gfx::CpuTrackedBuffer::new(
+            renderer.clone(),
+            BRICKS_TO_PREALLOCATE,
+            String::from("ChunkPool VisibilityBrick Buffer"),
+            wgpu::BufferUsages::STORAGE
+        );
+
         let material_manager = MaterialManager::new(&renderer);
 
-        let bind_group =
-            critical_section
-                .brick_maps
-                .get_buffer(|brick_map_buffer: &wgpu::Buffer| {
-                    critical_section.material_bricks.get_buffer(
-                        |material_bricks_buffer: &wgpu::Buffer| {
-                            critical_section.visibility_bricks.get_buffer(
-                                |visibility_bricks_buffer: &wgpu::Buffer| {
-                                    critical_section.gpu_chunk_data.get_buffer(
-                                        |gpu_chunk_data_buffer: &wgpu::Buffer| {
-                                            Arc::new(
-                                                renderer
-                                                    .create_bind_group(&wgpu::BindGroupDescriptor {
-                                                    label:   Some("ChunkPool BindGroup"),
-                                                    layout:  &bind_group_layout,
-                                                    entries: &[
-                                                        wgpu::BindGroupEntry {
-                                                            binding:  0,
-                                                            resource: wgpu::BindingResource::Buffer(
-                                                                wgpu::BufferBinding {
-                                                                    buffer: critical_section
-                                                                        .visible_face_set
-                                                                        .access_buffer(),
-                                                                    offset: 0,
-                                                                    size:   None
-                                                                }
-                                                            )
-                                                        },
-                                                        wgpu::BindGroupEntry {
-                                                            binding:  1,
-                                                            resource: wgpu::BindingResource::Buffer(
-                                                                wgpu::BufferBinding {
-                                                                    buffer: brick_map_buffer,
-                                                                    offset: 0,
-                                                                    size:   None
-                                                                }
-                                                            )
-                                                        },
-                                                        wgpu::BindGroupEntry {
-                                                            binding:  2,
-                                                            resource: wgpu::BindingResource::Buffer(
-                                                                wgpu::BufferBinding {
-                                                                    buffer: material_bricks_buffer,
-                                                                    offset: 0,
-                                                                    size:   None
-                                                                }
-                                                            )
-                                                        },
-                                                        wgpu::BindGroupEntry {
-                                                            binding:  3,
-                                                            resource: wgpu::BindingResource::Buffer(
-                                                                wgpu::BufferBinding {
-                                                                    buffer:
-                                                                        visibility_bricks_buffer,
-                                                                    offset: 0,
-                                                                    size:   None
-                                                                }
-                                                            )
-                                                        },
-                                                        wgpu::BindGroupEntry {
-                                                            binding:  4,
-                                                            resource: wgpu::BindingResource::Buffer(
-                                                                wgpu::BufferBinding {
-                                                                    buffer: &material_manager
-                                                                        .get_material_buffer(),
-                                                                    offset: 0,
-                                                                    size:   None
-                                                                }
-                                                            )
-                                                        },
-                                                        wgpu::BindGroupEntry {
-                                                            binding:  5,
-                                                            resource: wgpu::BindingResource::Buffer(
-                                                                wgpu::BufferBinding {
-                                                                    buffer: gpu_chunk_data_buffer,
-                                                                    offset: 0,
-                                                                    size:   None
-                                                                }
-                                                            )
-                                                        }
-                                                    ]
-                                                })
-                                            )
-                                        }
-                                    )
-                                }
-                            )
-                        }
-                    )
-                });
+        let gpu_chunk_data_buffer = gfx::CpuTrackedBuffer::new(
+            renderer.clone(),
+            MAX_CHUNKS,
+            String::from("ChunkPool GpuChunkData Buffer"),
+            wgpu::BufferUsages::STORAGE
+        );
+
+        let is_face_number_visible_bits_buffer = renderer.create_buffer(&wgpu::BufferDescriptor {
+            label:              Some("ChunkPool IsFaceVisible BitBuffer"),
+            size:               (FACE_IDS_TO_PREALLOCATE as u64).div_ceil(u32::BITS as u64),
+            usage:              wgpu::BufferUsages::STORAGE,
+            mapped_at_creation: false
+        });
+
+        let face_numbers_to_face_ids_buffer = renderer.create_buffer(&wgpu::BufferDescriptor {
+            label:              Some("ChunkPool VisibleFaceIds Buffer"),
+            size:               FACE_IDS_TO_PREALLOCATE as u64
+                * std::mem::size_of::<data::FaceId>() as u64,
+            usage:              wgpu::BufferUsages::STORAGE,
+            mapped_at_creation: false
+        });
+
+        let face_id_counter_buffer = renderer.create_buffer(&wgpu::BufferDescriptor {
+            label:              Some("ChunkPool FaceIdCounter Buffer"),
+            size:               std::mem::size_of::<u32>() as u64,
+            usage:              wgpu::BufferUsages::STORAGE,
+            mapped_at_creation: false
+        });
+
+        let rendered_face_info_buffer = renderer.create_buffer(&wgpu::BufferDescriptor {
+            label:              Some("ChunkPool RenderedFaceInfo Buffer"),
+            size:               FACE_IDS_TO_PREALLOCATE as u64
+                * std::mem::size_of::<data::RenderedFaceInfo>() as u64,
+            usage:              wgpu::BufferUsages::STORAGE,
+            mapped_at_creation: false
+        });
+
+        let color_raytrace_dispatches_indirect_buffer =
+            renderer.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label:    Some("ChunkPool ColorRayTracerDispatchesIndirect Buffer"),
+                contents: bytes_of(&[0, 1, 1]),
+                usage:    wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::INDIRECT
+            });
+
+        let face_and_brick_info_bind_group = {
+            Arc::new(renderer.create_bind_group(&wgpu::BindGroupDescriptor {
+                label:   Some("ChunkPool BindGroup"),
+                layout:  &face_and_brick_info_bind_group_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding:  0,
+                        resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                            buffer: visible_face_set_buffer.access_buffer(),
+                            offset: 0,
+                            size:   None
+                        })
+                    },
+                    wgpu::BindGroupEntry {
+                        binding:  1,
+                        resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                            buffer: brick_map_buffer.get_buffer(),
+                            offset: 0,
+                            size:   None
+                        })
+                    },
+                    wgpu::BindGroupEntry {
+                        binding:  2,
+                        resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                            buffer: material_bricks_buffer.get_buffer(),
+                            offset: 0,
+                            size:   None
+                        })
+                    },
+                    wgpu::BindGroupEntry {
+                        binding:  3,
+                        resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                            buffer: visibility_bricks_buffer.get_buffer(),
+                            offset: 0,
+                            size:   None
+                        })
+                    },
+                    wgpu::BindGroupEntry {
+                        binding:  4,
+                        resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                            buffer: &material_manager.get_material_buffer(),
+                            offset: 0,
+                            size:   None
+                        })
+                    },
+                    wgpu::BindGroupEntry {
+                        binding:  5,
+                        resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                            buffer: gpu_chunk_data_buffer.get_buffer(),
+                            offset: 0,
+                            size:   None
+                        })
+                    },
+                    wgpu::BindGroupEntry {
+                        binding:  6,
+                        resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                            buffer: &is_face_number_visible_bits_buffer,
+                            offset: 0,
+                            size:   None
+                        })
+                    },
+                    wgpu::BindGroupEntry {
+                        binding:  7,
+                        resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                            buffer: &face_numbers_to_face_ids_buffer,
+                            offset: 0,
+                            size:   None
+                        })
+                    },
+                    wgpu::BindGroupEntry {
+                        binding:  8,
+                        resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                            buffer: &face_id_counter_buffer,
+                            offset: 0,
+                            size:   None
+                        })
+                    },
+                    wgpu::BindGroupEntry {
+                        binding:  9,
+                        resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                            buffer: &rendered_face_info_buffer,
+                            offset: 0,
+                            size:   None
+                        })
+                    },
+                    wgpu::BindGroupEntry {
+                        binding:  10,
+                        resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                            buffer: &color_raytrace_dispatches_indirect_buffer,
+                            offset: 0,
+                            size:   None
+                        })
+                    }
+                ]
+            }))
+        };
+
+        let critical_section = ChunkPoolCriticalSection {
+            active_chunk_ids:                  FnvHashSet::default(),
+            chunk_id_allocator:                util::FreelistAllocator::new(MAX_CHUNKS),
+            brick_pointer_allocator:           util::FreelistAllocator::new(BRICKS_TO_PREALLOCATE),
+            brick_maps:                        brick_map_buffer,
+            cpu_chunk_data:                    vec![None; MAX_CHUNKS].into_boxed_slice(),
+            gpu_chunk_data:                    gpu_chunk_data_buffer,
+            material_bricks:                   material_bricks_buffer,
+            visibility_bricks:                 visibility_bricks_buffer,
+            visible_face_set:                  visible_face_set_buffer,
+            face_numbers_to_face_ids:          face_numbers_to_face_ids_buffer,
+            face_id_counter:                   face_id_counter_buffer,
+            rendered_face_info:                rendered_face_info_buffer,
+            is_face_visible_buffer:            is_face_number_visible_bits_buffer,
+            indirect_rt_dispatch:              color_raytrace_dispatches_indirect_buffer,
+            voxel_discovery_bind_group_layout: voxel_discovery_image_layout.clone(),
+            voxel_discovery_bind_group:        voxel_discovery_bind_group.clone(),
+            resize_pinger:                     renderer.get_resize_pinger(),
+            color_detector_pass:               passes::ColorDetectorRecordable::new(
+                game.clone(),
+                voxel_discovery_image_layout.clone(),
+                voxel_discovery_bind_group.clone(),
+                face_and_brick_info_bind_group_layout.clone(),
+                face_and_brick_info_bind_group.clone()
+            ),
+            color_transfer_pass:               passes::VoxelColorTransferRecordable::new(
+                game.clone(),
+                voxel_discovery_image_layout.clone(),
+                voxel_discovery_bind_group.clone(),
+                face_and_brick_info_bind_group_layout.clone(),
+                face_and_brick_info_bind_group.clone()
+            )
+        };
+
+        // voxel_discovery_bind_group_layout: voxel_discovery_image_layout.clone(),
+        // voxel_discovery_bind_group:        voxel_discovery_bind_group.clone(),
+        // let cpu_chunk_data = v;
+        // let critical_section = ChunkPoolCriticalSection {
+        //     active_chunk_ids:        FnvHashSet::default(),
+        //     resize_pinger:           renderer.get_resize_pinger(),
+        //
+        // };
 
         let pipeline_layout =
             renderer
@@ -301,7 +493,7 @@ impl ChunkPool
                     label:                Cow::Borrowed("ChunkPool PipelineLayout"),
                     bind_group_layouts:   vec![
                         renderer.global_bind_group_layout.clone(),
-                        bind_group_layout.clone(),
+                        face_and_brick_info_bind_group_layout.clone(),
                     ],
                     push_constant_ranges: vec![wgpu::PushConstantRange {
                         stages: wgpu::ShaderStages::VERTEX,
@@ -356,7 +548,8 @@ impl ChunkPool
                     zero_initialize_fragment_workgroup_memory: false
                 }
             ),
-            bind_group: bind_group.clone(),
+            face_and_brick_info_bind_group_layout: face_and_brick_info_bind_group_layout.clone(),
+            face_and_brick_info_bind_group: face_and_brick_info_bind_group.clone(),
             chunk_data: renderer.create_buffer(&wgpu::BufferDescriptor {
                 label:              Some("ChunkPool ChunkIndirectData Buffer"),
                 size:               std::mem::size_of::<wgpu::util::DrawIndirectArgs>() as u64
@@ -375,12 +568,7 @@ impl ChunkPool
             }),
             material_manager,
             number_of_indirect_args: AtomicU32::new(0),
-            critical_section: Mutex::new(critical_section),
-            color_transfer_pass: VoxelColorTransferRecordable::new(
-                game.clone(),
-                bind_group_layout.clone(),
-                bind_group.clone()
-            )
+            critical_section: Mutex::new(critical_section)
         });
 
         renderer.register(this.clone());
@@ -706,8 +894,39 @@ impl gfx::Recordable for ChunkPool
             visible_face_set,
             brick_pointer_allocator,
             gpu_chunk_data,
+            resize_pinger,
+            voxel_discovery_bind_group,
+            voxel_discovery_bind_group_layout,
+            color_detector_pass,
+            color_transfer_pass,
             ..
         } = &mut *self.critical_section.lock().unwrap();
+
+        // We might need to update our passes.
+        if resize_pinger.recv_all()
+        {
+            let new_discovery_bind_group = create_voxel_discovery_bind_group_from_layout(
+                &self.game,
+                voxel_discovery_bind_group_layout.clone()
+            );
+
+            *voxel_discovery_bind_group = new_discovery_bind_group;
+
+            *color_detector_pass = passes::ColorDetectorRecordable::new(
+                self.game.clone(),
+                voxel_discovery_bind_group_layout.clone(),
+                voxel_discovery_bind_group.clone(),
+                self.face_and_brick_info_bind_group_layout.clone(),
+                self.face_and_brick_info_bind_group.clone()
+            );
+            *color_transfer_pass = passes::VoxelColorTransferRecordable::new(
+                self.game.clone(),
+                voxel_discovery_bind_group_layout.clone(),
+                voxel_discovery_bind_group.clone(),
+                self.face_and_brick_info_bind_group_layout.clone(),
+                self.face_and_brick_info_bind_group.clone()
+            );
+        }
 
         assert!(!brick_maps.replicate_to_gpu());
         assert!(!material_bricks.replicate_to_gpu());
@@ -865,7 +1084,7 @@ impl gfx::Recordable for ChunkPool
             pipeline:    self.pipeline.clone(),
             bind_groups: [
                 Some(global_bind_group.clone()),
-                Some(self.bind_group.clone()),
+                Some(self.face_and_brick_info_bind_group.clone()),
                 None,
                 None
             ],
@@ -913,4 +1132,27 @@ impl ChunkIndirectData
             attributes:   &Self::ATTRIBS
         }
     }
+}
+
+fn create_voxel_discovery_bind_group_from_layout(
+    game: &game::Game,
+    discovery_image_layout: Arc<wgpu::BindGroupLayout>
+) -> Arc<wgpu::BindGroup>
+{
+    Arc::new(
+        game.get_renderer()
+            .create_bind_group(&wgpu::BindGroupDescriptor {
+                label:   Some("VoxelColorTransferRecordable VoxelDiscoveryImage BindGroup"),
+                layout:  &discovery_image_layout,
+                entries: &[wgpu::BindGroupEntry {
+                    binding:  0,
+                    resource: wgpu::BindingResource::TextureView(
+                        &game
+                            .get_renderpass_manager()
+                            .get_voxel_discovery_texture()
+                            .get_view()
+                    )
+                }]
+            })
+    )
 }

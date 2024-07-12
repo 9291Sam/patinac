@@ -12,59 +12,30 @@ use gfx::{
 #[derive(Debug)]
 pub struct VoxelColorTransferRecordable
 {
-    game:                      Arc<game::Game>,
-    uuid:                      util::Uuid,
-    pipeline:                  Arc<GenericPipeline>,
-    voxel_lighting_bind_group: Arc<wgpu::BindGroup>,
+    game:     Arc<game::Game>,
+    uuid:     util::Uuid,
+    pipeline: Arc<GenericPipeline>,
 
-    discovery_image_layout: Arc<wgpu::BindGroupLayout>,
-    discovery_bind_group:   util::JointWindow<Arc<wgpu::BindGroup>>,
-    resize_pinger:          util::PingReceiver
+    voxel_discovery_bind_group:     Arc<wgpu::BindGroup>,
+    face_and_brick_info_bind_group: Arc<wgpu::BindGroup>
 }
 
 impl VoxelColorTransferRecordable
 {
     pub fn new(
         game: Arc<game::Game>,
-        voxel_lighting_bind_group_layout: Arc<wgpu::BindGroupLayout>,
-        voxel_lighting_bind_group: Arc<wgpu::BindGroup>
+        voxel_discovery_bind_group_layout: Arc<wgpu::BindGroupLayout>,
+        voxel_discovery_bind_group: Arc<wgpu::BindGroup>,
+        face_and_brick_info_bind_group_layout: Arc<wgpu::BindGroupLayout>,
+        face_and_brick_info_bind_group: Arc<wgpu::BindGroup>
     ) -> Arc<Self>
     {
         let arc_renderer = game.get_renderer().clone();
         let renderer: &gfx::Renderer = &arc_renderer;
 
-        let discovery_image_layout =
-            renderer
-                .render_cache
-                .cache_bind_group_layout(wgpu::BindGroupLayoutDescriptor {
-                    label:   Some(
-                        "VoxelColorTransferRecordable VoxelDiscoveryImage BindGroupLayout"
-                    ),
-                    entries: &[wgpu::BindGroupLayoutEntry {
-                        binding:    0,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty:         wgpu::BindingType::Texture {
-                            sample_type:    wgpu::TextureSampleType::Uint,
-                            view_dimension: wgpu::TextureViewDimension::D2,
-                            multisampled:   false
-                        },
-                        count:      None
-                    }]
-                });
-
-        let discovery_bind_group = renderer.create_bind_group(&wgpu::BindGroupDescriptor {
-            label:   Some("VoxelColorTransferRecordable VoxelDiscoveryImage BindGroup"),
-            layout:  &discovery_image_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding:  0,
-                resource: wgpu::BindingResource::TextureView(
-                    &game
-                        .get_renderpass_manager()
-                        .get_voxel_discovery_texture()
-                        .get_view()
-                )
-            }]
-        });
+        let shader = renderer
+            .render_cache
+            .cache_shader_module(wgpu::include_wgsl!("color_transferer.wgsl"));
 
         let pipeline_layout =
             renderer
@@ -72,16 +43,12 @@ impl VoxelColorTransferRecordable
                 .cache_pipeline_layout(gfx::CacheablePipelineLayoutDescriptor {
                     label:                Cow::Borrowed("Voxel Color Transfer Pipeline Layout"),
                     bind_group_layouts:   vec![
-                        discovery_image_layout.clone(),
-                        voxel_lighting_bind_group_layout,
+                        voxel_discovery_bind_group_layout,
+                        face_and_brick_info_bind_group_layout,
                         renderer.global_bind_group_layout.clone(),
                     ],
                     push_constant_ranges: vec![]
                 });
-
-        let shader = renderer
-            .render_cache
-            .cache_shader_module(wgpu::include_wgsl!("color_transferer.wgsl"));
 
         let this = Arc::new(VoxelColorTransferRecordable {
             game: game.clone(),
@@ -126,10 +93,8 @@ impl VoxelColorTransferRecordable
                     multiview: None
                 }
             ),
-            voxel_lighting_bind_group,
-            discovery_bind_group: util::JointWindow::new(Arc::new(discovery_bind_group)),
-            discovery_image_layout,
-            resize_pinger: game.get_renderer().get_resize_pinger()
+            voxel_discovery_bind_group,
+            face_and_brick_info_bind_group
         });
 
         renderer.register(this.clone());
@@ -152,31 +117,11 @@ impl gfx::Recordable for VoxelColorTransferRecordable
 
     fn pre_record_update(
         &self,
-        renderer: &gfx::Renderer,
+        _: &gfx::Renderer,
         _: &gfx::Camera,
         global_bind_group: &Arc<wgpu::BindGroup>
     ) -> gfx::RecordInfo
     {
-        if self.resize_pinger.recv_all()
-        {
-            self.discovery_bind_group.update(Arc::new(
-                renderer.create_bind_group(&wgpu::BindGroupDescriptor {
-                    label:   Some("VoxelColorTransferRecordable VoxelDiscoveryImage BindGroup"),
-                    layout:  &self.discovery_image_layout,
-                    entries: &[wgpu::BindGroupEntry {
-                        binding:  0,
-                        resource: wgpu::BindingResource::TextureView(
-                            &self
-                                .game
-                                .get_renderpass_manager()
-                                .get_voxel_discovery_texture()
-                                .get_view()
-                        )
-                    }]
-                })
-            ));
-        }
-
         gfx::RecordInfo::Record {
             render_pass: self
                 .game
@@ -184,8 +129,8 @@ impl gfx::Recordable for VoxelColorTransferRecordable
                 .get_renderpass_id(game::PassStage::VoxelColorTransfer),
             pipeline:    self.pipeline.clone(),
             bind_groups: [
-                Some(self.discovery_bind_group.get()),
-                Some(self.voxel_lighting_bind_group.clone()),
+                Some(self.voxel_discovery_bind_group.clone()),
+                Some(self.face_and_brick_info_bind_group.clone()),
                 Some(global_bind_group.clone()),
                 None
             ],

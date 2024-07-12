@@ -1,22 +1,35 @@
+@group(0) @binding(0) var<storage, read> face_data_buffer: array<VoxelFaceData>; 
+@group(0) @binding(1) var<storage, read> brick_map: array<BrickMap>;
+@group(0) @binding(2) var<storage, read> material_bricks: array<MateralBrick>; 
+@group(0) @binding(3) var<storage, read> visiblity_bricks: array<VisibilityBrick>;
+@group(0) @binding(4) var<storage, read> material_buffer: array<MaterialData>;
+@group(0) @binding(5) var<storage, read> gpu_chunk_data: array<vec4<f32>>;
+@group(0) @binding(6) var<storage, read_write> is_face_number_visible_bits: array<atomic<u32>>;
+@group(0) @binding(7) var<storage, read_write> face_numbers_to_face_ids: array<atomic<u32>>;
+@group(0) @binding(8) var<storage, read_write> next_face_id: atomic<u32>;
+@group(0) @binding(9) var<storage, read_write> renderered_face_info: array<RenderedFaceInfo>;
+@group(0) @binding(10) var<storage, read_write> color_raytracer_dispatches: array<atomic<u32>, 3>;
 
-@group(0) @binding(0) var voxel_discovery_image: texture_2d<u32>;
-
-@group(1) @binding(0) var<storage, read> face_data_buffer: array<VoxelFaceData>; 
-@group(1) @binding(1) var<storage, read> brick_map: array<BrickMap>;
-@group(1) @binding(2) var<storage, read> material_bricks: array<MateralBrick>; 
-@group(1) @binding(3) var<storage, read> visiblity_bricks: array<VisibilityBrick>;
-@group(1) @binding(4) var<storage, read> material_buffer: array<MaterialData>;
-@group(1) @binding(5) var<storage, read> gpu_chunk_data: array<vec4<f32>>;
-@group(1) @binding(6) var<storage, read_write> is_face_number_visible_bits: array<atomic<u32>>;
-@group(1) @binding(7) var<storage, read_write> face_numbers_to_face_ids: array<atomic<u32>>;
-@group(1) @binding(8) var<storage, read_write> next_face_id: atomic<u32>;
-@group(1) @binding(9) var<storage, read_write> renderered_face_info: array<RenderedFaceInfo>;
-@group(1) @binding(10) var<storage, read_write> color_raytracer_dispatches: array<atomic<u32>, 3>;
-
-@compute @workgroup_size(32, 32)
+@compute @workgroup_size(1024)
 fn cs_main(
     @builtin(global_invocation_id) global_invocation_id: vec3<u32>,
 ){
+
+  let workgroup_index =  
+     workgroup_id.x +
+     workgroup_id.y * num_workgroups.x +
+     workgroup_id.z * num_workgroups.x * num_workgroups.y;
+ 
+  // global_invocation_index is like local_invocation_index
+  // except linear across all invocations across all dispatched
+  // workgroups. It is not a builtin so we compute it ourselves.
+ 
+  let global_invocation_index =
+     workgroup_index * ${numThreadsPerWorkgroup} +
+     local_invocation_index;
+ 
+ 
+    let global_invocation_index = 
     let output_image_dimensions = textureDimensions(voxel_discovery_image).xy;
     let this_px: vec2<u32> = textureLoad(voxel_discovery_image, global_invocation_id.xy, 0).xy;
 

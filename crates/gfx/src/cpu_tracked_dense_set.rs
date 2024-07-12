@@ -51,7 +51,7 @@ impl<T: AnyBitPattern + NoUninit + Hash + Eq + Debug> CpuTrackedDenseSet<T>
 
     pub fn get_buffer<R>(&self, buf_access_func: impl FnOnce(&wgpu::Buffer) -> R) -> R
     {
-        self.gpu_buffer.get_buffer(buf_access_func)
+        buf_access_func(self.gpu_buffer.get_buffer())
     }
 
     #[must_use]
