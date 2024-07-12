@@ -9,85 +9,35 @@
 @group(0) @binding(8) var<storage, read_write> next_face_id: atomic<u32>;
 @group(0) @binding(9) var<storage, read_write> renderered_face_info: array<RenderedFaceInfo>;
 
-@group(1) @binding(0) var<uniform> global_info: GlobalInfo;
+@group(1) @binding(0) var<storage, read_write> color_raytracer_dispatches: array<atomic<u32>, 3>;
 
-struct GlobalInfo
-{
-    camera_pos: vec4<f32>,
-    view_projection: mat4x4<f32>
-}
 
 @compute @workgroup_size(1024)
 fn cs_main(
     @builtin(global_invocation_id) global_invocation_id: vec3<u32>,
 ){ 
     let global_invocation_index = global_invocation_id.x;
-    
-    if (global_invocation_index < next_face_id)
+
+    let idx = global_invocation_index / 32;
+    let bit = global_invocation_index % 32;
+
+    if (bit == 0)
     {
-        let chunk_id = renderered_face_info[global_invocation_index].chunk_id;
-        let combined_dir_and_pos = renderered_face_info[global_invocation_index].combined_dir_and_pos;
+        is_face_number_visible_bits[idx] = 0u;
+    }
 
-        let eight_bit_mask: u32 = u32(255);
-
-        let x_pos: u32 = combined_dir_and_pos & eight_bit_mask;
-        let y_pos: u32 = (combined_dir_and_pos >> 8) & eight_bit_mask;
-        let z_pos: u32 = (combined_dir_and_pos >> 16) & eight_bit_mask;
-        let dir:   u32 = (combined_dir_and_pos >> 24) & u32(7);
-
-        let face_voxel_pos = vec3<u32>(x_pos, y_pos, z_pos);
-
-        var normal: vec3<f32>;
-
-        switch (dir)
-        {
-            case 0u: {normal = vec3<f32>(0.0, 1.0, 0.0); }
-            case 1u: {normal = vec3<f32>(0.0, -1.0, 0.0); }     
-            case 2u: {normal = vec3<f32>(-1.0, 0.0, 0.0); }       
-            case 3u: {normal = vec3<f32>(1.0, 0.0, 0.0); }       
-            case 4u: {normal = vec3<f32>(0.0, 0.0, -1.0); }      
-            case 5u: {normal = vec3<f32>(0.0, 0.0, 1.0); }
-            case default: {normal = vec3<f32>(0.0); }
-        }
-
-        let global_face_voxel_position = gpu_chunk_data[chunk_id].xyz + vec3<f32>(face_voxel_pos);
-        
-        let brick_coordinate = face_voxel_pos / 8u;
-        let brick_local_coordinate = face_voxel_pos % 8u;
-
-        let brick_ptr = brick_map_load(chunk_id, brick_coordinate);
-        let voxel = material_bricks_load(brick_ptr, brick_local_coordinate);
-
-        let ambient_strength = 0.005;
-        let ambient_color = vec3<f32>(1.0);
-        
-        let light_color = vec4<f32>(1.0, 1.0, 1.0, 32.0);
-        let light_pos = vec3<f32>(120.0, 15.0, -40.0);
-
-        var light_dir = light_pos - global_face_voxel_position;
-        let distance = length(light_dir);
-        light_dir /= distance;
-
-        // intensity of diffuse
-        let view_vector = normalize(global_info.camera_pos.xyz - global_face_voxel_position);
-        let r = 2 * dot(light_dir, normal) * normal - light_dir;
-
-        let constant_factor = 0.0;
-        let linear_factor = 0.75;
-        let quadratic_factor = 0.03;
-        let attenuation = 1.0 / (constant_factor + linear_factor * distance + quadratic_factor * distance * distance);
-
-        let ambient = ambient_strength * ambient_color;
-        let diffuse = saturate(dot(normal, light_dir)) * light_color.xyz * material_buffer[voxel].diffuse_color.xyz * light_color.w * attenuation;
-        let specular = pow(saturate(dot(r, view_vector)), material_buffer[voxel].specular) * light_color.xyz * material_buffer[voxel].specular_color.xyz * light_color.w * attenuation;
-
-        let result: vec3<f32> = saturate(ambient + diffuse + specular);
-
-        // TODO: do a 10bit alpha ignoring packing?
-        renderered_face_info[global_invocation_index].packed_color = pack4x8unorm(vec4<f32>(material_buffer[voxel].diffuse_color.xyz, 1.0));
+    if (global_invocation_index == 0)
+    {
+        color_raytracer_dispatches[0] = 0u;
     }
 }
 
+
+struct GlobalInfo
+{
+    camera_pos: vec4<f32>,
+    view_projection: mat4x4<f32>
+}
 
 struct MaterialData
 {
@@ -179,6 +129,6 @@ fn visiblity_brick_load(brick_ptr: u32, pos: vec3<u32>) -> bool
 struct RenderedFaceInfo
 {
     chunk_id: u32,
-    combined_dir_and_pos: u32,
+    pos_and_dir: u32,
     packed_color: u32, // pack4x8unorm
 }

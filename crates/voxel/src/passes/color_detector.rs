@@ -11,7 +11,8 @@ pub struct ColorDetectorRecordable
     pipeline: Arc<gfx::GenericPipeline>,
 
     voxel_discovery_bind_group:     Arc<wgpu::BindGroup>,
-    face_and_brick_info_bind_group: Arc<wgpu::BindGroup>
+    face_and_brick_info_bind_group: Arc<wgpu::BindGroup>,
+    raytrace_indirect_bind_group:   Arc<wgpu::BindGroup>
 }
 
 impl ColorDetectorRecordable
@@ -21,7 +22,9 @@ impl ColorDetectorRecordable
         voxel_discovery_bind_group_layout: Arc<wgpu::BindGroupLayout>,
         voxel_discovery_bind_group: Arc<wgpu::BindGroup>,
         face_and_brick_info_bind_group_layout: Arc<wgpu::BindGroupLayout>,
-        face_and_brick_info_bind_group: Arc<wgpu::BindGroup>
+        face_and_brick_info_bind_group: Arc<wgpu::BindGroup>,
+        raytrace_indirect_bind_group_layout: Arc<wgpu::BindGroupLayout>,
+        raytrace_indirect_bind_group: Arc<wgpu::BindGroup>
     ) -> Arc<Self>
     {
         let this = Arc::new(ColorDetectorRecordable {
@@ -43,6 +46,7 @@ impl ColorDetectorRecordable
                                 bind_group_layouts:   vec![
                                     voxel_discovery_bind_group_layout,
                                     face_and_brick_info_bind_group_layout,
+                                    raytrace_indirect_bind_group_layout,
                                 ],
                                 push_constant_ranges: vec![]
                             }
@@ -57,7 +61,8 @@ impl ColorDetectorRecordable
                     zero_initialize_workgroup_memory: false
                 }),
             face_and_brick_info_bind_group: face_and_brick_info_bind_group,
-            voxel_discovery_bind_group:     voxel_discovery_bind_group
+            voxel_discovery_bind_group:     voxel_discovery_bind_group,
+            raytrace_indirect_bind_group:   raytrace_indirect_bind_group
         });
 
         game.get_renderer().register(this.clone());
@@ -102,7 +107,7 @@ impl gfx::Recordable for ColorDetectorRecordable
             bind_groups: [
                 Some(self.voxel_discovery_bind_group.clone()),
                 Some(self.face_and_brick_info_bind_group.clone()),
-                None,
+                Some(self.raytrace_indirect_bind_group.clone()),
                 None
             ],
             transform:   None

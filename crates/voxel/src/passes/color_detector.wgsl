@@ -11,7 +11,8 @@
 @group(1) @binding(7) var<storage, read_write> face_numbers_to_face_ids: array<atomic<u32>>;
 @group(1) @binding(8) var<storage, read_write> next_face_id: atomic<u32>;
 @group(1) @binding(9) var<storage, read_write> renderered_face_info: array<RenderedFaceInfo>;
-@group(1) @binding(10) var<storage, read_write> color_raytracer_dispatches: array<atomic<u32>, 3>;
+
+@group(2) @binding(0) var<storage, read_write> color_raytracer_dispatches: array<atomic<u32>, 3>;
 
 @compute @workgroup_size(32, 32)
 fn cs_main(
@@ -22,7 +23,6 @@ fn cs_main(
 
     if any(global_invocation_id.xy < output_image_dimensions) && all(this_px != vec2<u32>(0))
     {
-        
         let chunk_id = this_px.x & u32(65535);
         let normal_id = (this_px.x >> 27) & u32(7);
 
@@ -42,7 +42,8 @@ fn cs_main(
             let this_face_id = atomicAdd(&next_face_id, 1u);
 
             face_numbers_to_face_ids[face_number] = this_face_id;
-            renderered_face_info[this_face_id] = RenderedFaceInfo(chunk_id, normal_id, pack4x8unorm(vec4<f32>(0.0)));
+            let combined_dir_and_pos = face_voxel_pos.x | (face_voxel_pos.y << 8) | (face_voxel_pos.z << 16) | (normal_id << 24);
+            renderered_face_info[this_face_id] = RenderedFaceInfo(chunk_id, combined_dir_and_pos, pack4x8unorm(vec4<f32>(0.0)));
             
             if (this_face_id % 1024 == 0)
             {
@@ -143,6 +144,6 @@ fn visiblity_brick_load(brick_ptr: u32, pos: vec3<u32>) -> bool
 struct RenderedFaceInfo
 {
     chunk_id: u32,
-    dir: u32,
+    combined_dir_and_pos: u32,
     packed_color: u32, // pack4x8unorm
 }

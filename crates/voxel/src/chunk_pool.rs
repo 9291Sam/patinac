@@ -22,6 +22,7 @@ use crate::{
     CHUNK_EDGE_LEN_VOXELS
 };
 
+////! some of these are hardcoded into shaders
 const MAX_CHUNKS: usize = 256;
 const BRICKS_TO_PREALLOCATE: usize = CHUNK_EDGE_LEN_BRICKS * CHUNK_EDGE_LEN_BRICKS * MAX_CHUNKS * 4;
 const FACES_TO_PREALLOCATE: usize = 1024 * 1024 * 16;
@@ -80,17 +81,22 @@ struct ChunkPoolCriticalSection
     face_id_counter:    wgpu::Buffer, // <u32>
     rendered_face_info: wgpu::Buffer, // <data::RenderedFaceInfo>
 
-    is_face_visible_buffer: wgpu::Buffer, // <bool bits>
-    indirect_rt_dispatch:   wgpu::Buffer, // <[X, 1, 1]>
+    is_face_visible_buffer: wgpu::Buffer,      // <bool bits>
+    indirect_rt_dispatch:   Arc<wgpu::Buffer>, // <[X, 1, 1]>
 
     // renderpasses
     voxel_discovery_bind_group_layout: Arc<wgpu::BindGroupLayout>,
     voxel_discovery_bind_group:        Arc<wgpu::BindGroup>,
 
+    raytrace_indirect_bind_group_layout: Arc<wgpu::BindGroupLayout>,
+    raytrace_indirect_bind_group:        Arc<wgpu::BindGroup>,
+
     resize_pinger: util::PingReceiver,
 
     color_detector_pass: Arc<passes::ColorDetectorRecordable>,
-    color_transfer_pass: Arc<passes::VoxelColorTransferRecordable>
+    color_raytrace_pass: Arc<passes::ColorRaytracerRecordable>,
+    color_transfer_pass: Arc<passes::VoxelColorTransferRecordable>,
+    color_reset_pass:    Arc<passes::ComputeResetRecordable>
 }
 
 impl ChunkPool
@@ -130,7 +136,7 @@ impl ChunkPool
             renderer
                 .render_cache
                 .cache_bind_group_layout(wgpu::BindGroupLayoutDescriptor {
-                    label:   Some("ChunkPool BindGroupLayout"),
+                    label:   Some("ChunkPool FaceAndBrickInfo BindGroupLayout"),
                     entries: &const {
                         [
                             wgpu::BindGroupLayoutEntry {
@@ -256,20 +262,29 @@ impl ChunkPool
                                     min_binding_size:   None
                                 },
                                 count:      None
-                            },
-                            wgpu::BindGroupLayoutEntry {
-                                binding:    10,
-                                visibility: wgpu::ShaderStages::COMPUTE,
-                                ty:         wgpu::BindingType::Buffer {
-                                    ty:                 wgpu::BufferBindingType::Storage {
-                                        read_only: false
-                                    },
-                                    has_dynamic_offset: false,
-                                    min_binding_size:   None
-                                },
-                                count:      None
                             }
                         ]
+                    }
+                });
+
+        let raytrace_indirect_bind_group_layout =
+            renderer
+                .render_cache
+                .cache_bind_group_layout(wgpu::BindGroupLayoutDescriptor {
+                    label:   Some("ChunkPool RaytraceIndirect BindGroupLayout"),
+                    entries: &const {
+                        [wgpu::BindGroupLayoutEntry {
+                            binding:    0,
+                            visibility: wgpu::ShaderStages::COMPUTE,
+                            ty:         wgpu::BindingType::Buffer {
+                                ty:                 wgpu::BufferBindingType::Storage {
+                                    read_only: false
+                                },
+                                has_dynamic_offset: false,
+                                min_binding_size:   None
+                            },
+                            count:      None
+                        }]
                     }
                 });
 
@@ -338,13 +353,6 @@ impl ChunkPool
             usage:              wgpu::BufferUsages::STORAGE,
             mapped_at_creation: false
         });
-
-        let color_raytrace_dispatches_indirect_buffer =
-            renderer.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label:    Some("ChunkPool ColorRayTracerDispatchesIndirect Buffer"),
-                contents: bytes_of(&[0, 1, 1]),
-                usage:    wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::INDIRECT
-            });
 
         let face_and_brick_info_bind_group = {
             Arc::new(renderer.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -430,50 +438,84 @@ impl ChunkPool
                             offset: 0,
                             size:   None
                         })
-                    },
-                    wgpu::BindGroupEntry {
-                        binding:  10,
-                        resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                            buffer: &color_raytrace_dispatches_indirect_buffer,
-                            offset: 0,
-                            size:   None
-                        })
                     }
                 ]
             }))
         };
 
+        let color_raytrace_dispatches_indirect_buffer = Arc::new(renderer.create_buffer_init(
+            &wgpu::util::BufferInitDescriptor {
+                label:    Some("ChunkPool ColorRayTracerDispatchesIndirect Buffer"),
+                contents: bytes_of(&[0, 1, 1]),
+                usage:    wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::INDIRECT
+            }
+        ));
+
+        let raytrace_indirect_bind_group = {
+            Arc::new(renderer.create_bind_group(&wgpu::BindGroupDescriptor {
+                label:   Some("ChunkPool BindGroup"),
+                layout:  &raytrace_indirect_bind_group_layout,
+                entries: &[wgpu::BindGroupEntry {
+                    binding:  0,
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                        buffer: &color_raytrace_dispatches_indirect_buffer,
+                        offset: 0,
+                        size:   None
+                    })
+                }]
+            }))
+        };
+
         let critical_section = ChunkPoolCriticalSection {
-            active_chunk_ids:                  FnvHashSet::default(),
-            chunk_id_allocator:                util::FreelistAllocator::new(MAX_CHUNKS),
-            brick_pointer_allocator:           util::FreelistAllocator::new(BRICKS_TO_PREALLOCATE),
-            brick_maps:                        brick_map_buffer,
-            cpu_chunk_data:                    vec![None; MAX_CHUNKS].into_boxed_slice(),
-            gpu_chunk_data:                    gpu_chunk_data_buffer,
-            material_bricks:                   material_bricks_buffer,
-            visibility_bricks:                 visibility_bricks_buffer,
-            visible_face_set:                  visible_face_set_buffer,
-            face_numbers_to_face_ids:          face_numbers_to_face_ids_buffer,
-            face_id_counter:                   face_id_counter_buffer,
-            rendered_face_info:                rendered_face_info_buffer,
-            is_face_visible_buffer:            is_face_number_visible_bits_buffer,
-            indirect_rt_dispatch:              color_raytrace_dispatches_indirect_buffer,
-            voxel_discovery_bind_group_layout: voxel_discovery_image_layout.clone(),
-            voxel_discovery_bind_group:        voxel_discovery_bind_group.clone(),
-            resize_pinger:                     renderer.get_resize_pinger(),
-            color_detector_pass:               passes::ColorDetectorRecordable::new(
+            active_chunk_ids:                    FnvHashSet::default(),
+            chunk_id_allocator:                  util::FreelistAllocator::new(MAX_CHUNKS),
+            brick_pointer_allocator:             util::FreelistAllocator::new(
+                BRICKS_TO_PREALLOCATE
+            ),
+            brick_maps:                          brick_map_buffer,
+            cpu_chunk_data:                      vec![None; MAX_CHUNKS].into_boxed_slice(),
+            gpu_chunk_data:                      gpu_chunk_data_buffer,
+            material_bricks:                     material_bricks_buffer,
+            visibility_bricks:                   visibility_bricks_buffer,
+            visible_face_set:                    visible_face_set_buffer,
+            face_numbers_to_face_ids:            face_numbers_to_face_ids_buffer,
+            face_id_counter:                     face_id_counter_buffer,
+            rendered_face_info:                  rendered_face_info_buffer,
+            is_face_visible_buffer:              is_face_number_visible_bits_buffer,
+            indirect_rt_dispatch:                color_raytrace_dispatches_indirect_buffer.clone(),
+            voxel_discovery_bind_group_layout:   voxel_discovery_image_layout.clone(),
+            voxel_discovery_bind_group:          voxel_discovery_bind_group.clone(),
+            raytrace_indirect_bind_group_layout: raytrace_indirect_bind_group_layout.clone(),
+            raytrace_indirect_bind_group:        raytrace_indirect_bind_group.clone(),
+            resize_pinger:                       renderer.get_resize_pinger(),
+            color_detector_pass:                 passes::ColorDetectorRecordable::new(
+                game.clone(),
+                voxel_discovery_image_layout.clone(),
+                voxel_discovery_bind_group.clone(),
+                face_and_brick_info_bind_group_layout.clone(),
+                face_and_brick_info_bind_group.clone(),
+                raytrace_indirect_bind_group_layout.clone(),
+                raytrace_indirect_bind_group.clone()
+            ),
+            color_raytrace_pass:                 passes::ColorRaytracerRecordable::new(
+                game.clone(),
+                face_and_brick_info_bind_group_layout.clone(),
+                face_and_brick_info_bind_group.clone(),
+                color_raytrace_dispatches_indirect_buffer
+            ),
+            color_transfer_pass:                 passes::VoxelColorTransferRecordable::new(
                 game.clone(),
                 voxel_discovery_image_layout.clone(),
                 voxel_discovery_bind_group.clone(),
                 face_and_brick_info_bind_group_layout.clone(),
                 face_and_brick_info_bind_group.clone()
             ),
-            color_transfer_pass:               passes::VoxelColorTransferRecordable::new(
+            color_reset_pass:                    passes::ComputeResetRecordable::new(
                 game.clone(),
-                voxel_discovery_image_layout.clone(),
-                voxel_discovery_bind_group.clone(),
                 face_and_brick_info_bind_group_layout.clone(),
-                face_and_brick_info_bind_group.clone()
+                face_and_brick_info_bind_group.clone(),
+                raytrace_indirect_bind_group_layout.clone(),
+                raytrace_indirect_bind_group.clone()
             )
         };
 
@@ -897,8 +939,13 @@ impl gfx::Recordable for ChunkPool
             resize_pinger,
             voxel_discovery_bind_group,
             voxel_discovery_bind_group_layout,
+            raytrace_indirect_bind_group_layout,
+            raytrace_indirect_bind_group,
             color_detector_pass,
             color_transfer_pass,
+            color_raytrace_pass,
+            indirect_rt_dispatch,
+            color_reset_pass,
             ..
         } = &mut *self.critical_section.lock().unwrap();
 
@@ -917,14 +964,32 @@ impl gfx::Recordable for ChunkPool
                 voxel_discovery_bind_group_layout.clone(),
                 voxel_discovery_bind_group.clone(),
                 self.face_and_brick_info_bind_group_layout.clone(),
-                self.face_and_brick_info_bind_group.clone()
+                self.face_and_brick_info_bind_group.clone(),
+                raytrace_indirect_bind_group_layout.clone(),
+                raytrace_indirect_bind_group.clone()
             );
+
+            *color_raytrace_pass = passes::ColorRaytracerRecordable::new(
+                self.game.clone(),
+                self.face_and_brick_info_bind_group_layout.clone(),
+                self.face_and_brick_info_bind_group.clone(),
+                indirect_rt_dispatch.clone()
+            );
+
             *color_transfer_pass = passes::VoxelColorTransferRecordable::new(
                 self.game.clone(),
                 voxel_discovery_bind_group_layout.clone(),
                 voxel_discovery_bind_group.clone(),
                 self.face_and_brick_info_bind_group_layout.clone(),
                 self.face_and_brick_info_bind_group.clone()
+            );
+
+            *color_reset_pass = passes::ComputeResetRecordable::new(
+                self.game.clone(),
+                self.face_and_brick_info_bind_group_layout.clone(),
+                self.face_and_brick_info_bind_group.clone(),
+                raytrace_indirect_bind_group_layout.clone(),
+                raytrace_indirect_bind_group.clone()
             );
         }
 

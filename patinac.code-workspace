@@ -15,7 +15,8 @@
 			"Collideable",
 			"fontdb",
 			"framebuffer",
-			"glyphon"
+			"glyphon",
+			"raytrace"
 		]
 	}
 }

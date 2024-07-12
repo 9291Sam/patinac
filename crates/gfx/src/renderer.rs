@@ -109,8 +109,8 @@ impl Renderer
         let window = Arc::new(
             WindowBuilder::new()
                 .with_inner_size(PhysicalSize {
-                    width:  160,
-                    height: 120
+                    width:  1920,
+                    height: 1080
                 })
                 .with_title(window_title)
                 .with_position(winit::dpi::PhysicalPosition {
@@ -252,7 +252,7 @@ impl Renderer
                 entries: &[
                     wgpu::BindGroupLayoutEntry {
                         binding:    0,
-                        visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+                        visibility: wgpu::ShaderStages::all(),
                         ty:         wgpu::BindingType::Buffer {
                             ty:                 wgpu::BufferBindingType::Uniform,
                             has_dynamic_offset: false,
@@ -262,7 +262,7 @@ impl Renderer
                     },
                     wgpu::BindGroupLayoutEntry {
                         binding:    1,
-                        visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+                        visibility: wgpu::ShaderStages::all(),
                         ty:         wgpu::BindingType::Buffer {
                             ty:                 wgpu::BufferBindingType::Uniform,
                             has_dynamic_offset: false,
@@ -272,7 +272,7 @@ impl Renderer
                     },
                     wgpu::BindGroupLayoutEntry {
                         binding:    2,
-                        visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+                        visibility: wgpu::ShaderStages::all(),
                         ty:         wgpu::BindingType::Buffer {
                             ty:                 wgpu::BufferBindingType::Uniform,
                             has_dynamic_offset: false,

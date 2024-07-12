@@ -11,7 +11,6 @@
 @group(1) @binding(7) var<storage, read_write> face_numbers_to_face_ids: array<atomic<u32>>;
 @group(1) @binding(8) var<storage, read_write> next_face_id: atomic<u32>;
 @group(1) @binding(9) var<storage, read_write> renderered_face_info: array<RenderedFaceInfo>;
-@group(1) @binding(10) var<storage, read_write> color_raytracer_dispatches: array<atomic<u32>, 3>;
 
 @group(2) @binding(0) var<uniform> global_info: GlobalInfo;
 
@@ -32,64 +31,16 @@ fn fs_main(@builtin(position) in: vec4<f32>) -> @location(0) vec4<f32>
 {
     let voxel_data: vec2<u32> = textureLoad(voxel_discovery_image, vec2<u32>(u32(in.x), u32(in.y)), 0).xy;
 
-    if (all(voxel_data == vec2<u32>(0)))
+    if (all(voxel_data == vec2<u32>(0))) // TODO: better null sentienl
     {
         discard;
     }
     
-    let chunk_id = voxel_data.x & u32(65535);
-    let normal_id = (voxel_data.x >> 27) & u32(7);
-
     let face_number = voxel_data.y;
-    let face_voxel_pos = voxel_face_data_load(face_number);
-    
-    var normal: vec3<f32>;
+    let face_id = face_numbers_to_face_ids[face_number];
+    let color = unpack4x8unorm(renderered_face_info[face_id].packed_color);
 
-    switch (normal_id)
-    {
-        case 0u: {normal = vec3<f32>(0.0, 1.0, 0.0); }
-        case 1u: {normal = vec3<f32>(0.0, -1.0, 0.0); }     
-        case 2u: {normal = vec3<f32>(-1.0, 0.0, 0.0); }       
-        case 3u: {normal = vec3<f32>(1.0, 0.0, 0.0); }       
-        case 4u: {normal = vec3<f32>(0.0, 0.0, -1.0); }      
-        case 5u: {normal = vec3<f32>(0.0, 0.0, 1.0); }
-        case default: {normal = vec3<f32>(0.0); }
-    }
-
-    let global_face_voxel_position = gpu_chunk_data[chunk_id].xyz + vec3<f32>(face_voxel_pos);
-    
-    let brick_coordinate = face_voxel_pos / 8u;
-    let brick_local_coordinate = face_voxel_pos % 8u;
-
-    let brick_ptr = brick_map_load(chunk_id, brick_coordinate);
-    let voxel = material_bricks_load(brick_ptr, brick_local_coordinate);
-
-    let ambient_strength = 0.005;
-    let ambient_color = vec3<f32>(1.0);
-    
-    let light_color = vec4<f32>(1.0, 1.0, 1.0, 32.0);
-    let light_pos = vec3<f32>(120.0, 15.0, -40.0);
-
-    var light_dir = light_pos - global_face_voxel_position;
-    let distance = length(light_dir);
-    light_dir /= distance;
-
-    // intensity of diffuse
-    let view_vector = normalize(global_info.camera_pos.xyz - global_face_voxel_position);
-    let r = 2 * dot(light_dir, normal) * normal - light_dir;
-
-    let constant_factor = 0.0;
-    let linear_factor = 0.75;
-    let quadratic_factor = 0.03;
-    let attenuation = 1.0 / (constant_factor + linear_factor * distance + quadratic_factor * distance * distance);
-
-    let ambient = ambient_strength * ambient_color;
-    let diffuse = saturate(dot(normal, light_dir)) * light_color.xyz * material_buffer[voxel].diffuse_color.xyz * light_color.w * attenuation;
-    let specular = pow(saturate(dot(r, view_vector)), material_buffer[voxel].specular) * light_color.xyz * material_buffer[voxel].specular_color.xyz * light_color.w * attenuation;
-
-    let result = saturate(ambient + diffuse + specular);
-
-    return vec4<f32>(result, 1.0);
+    return color;
 }
 
 fn map(x: f32, in_min: f32, in_max: f32, out_min: f32, out_max: f32) -> f32
@@ -224,6 +175,6 @@ fn visiblity_brick_load(brick_ptr: u32, pos: vec3<u32>) -> bool
 struct RenderedFaceInfo
 {
     chunk_id: u32,
-    dir: u32,
+    pos_and_dir: u32,
     packed_color: u32, // pack4x8unorm
 }
