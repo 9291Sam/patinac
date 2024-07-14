@@ -97,7 +97,7 @@ impl gfx::Recordable for ComputeResetRecordable
             render_pass: self
                 .game
                 .get_renderpass_manager()
-                .get_renderpass_id(game::PassStage::VoxelVisibilityDetection),
+                .get_renderpass_id(game::PassStage::CleanupCompute),
             pipeline:    self.pipeline.clone(),
             bind_groups: [
                 Some(self.face_and_brick_info_bind_group.clone()),

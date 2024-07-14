@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 
 use bytemuck::{bytes_of, cast_slice, Pod, Zeroable};
 use fnv::FnvHashSet;
-use gfx::wgpu::util::DeviceExt;
+use gfx::wgpu::util::{DeviceExt, DownloadBuffer};
 use gfx::{glm, wgpu};
 
 use crate::data::{self, BrickMap, MaterialManager, MaybeBrickPtr};
@@ -95,8 +95,8 @@ struct ChunkPoolCriticalSection
 
     color_detector_pass: Arc<passes::ColorDetectorRecordable>,
     color_raytrace_pass: Arc<passes::ColorRaytracerRecordable>,
-    color_transfer_pass: Arc<passes::VoxelColorTransferRecordable>,
-    color_reset_pass:    Arc<passes::ComputeResetRecordable>
+    color_transfer_pass: Arc<passes::VoxelColorTransferRecordable>
+    // color_reset_pass:    Arc<passes::ComputeResetRecordable>
 }
 
 impl ChunkPool
@@ -342,7 +342,7 @@ impl ChunkPool
         let face_id_counter_buffer = renderer.create_buffer(&wgpu::BufferDescriptor {
             label:              Some("ChunkPool FaceIdCounter Buffer"),
             size:               std::mem::size_of::<u32>() as u64,
-            usage:              wgpu::BufferUsages::STORAGE,
+            usage:              wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_SRC,
             mapped_at_creation: false
         });
 
@@ -510,13 +510,13 @@ impl ChunkPool
                 face_and_brick_info_bind_group_layout.clone(),
                 face_and_brick_info_bind_group.clone()
             ),
-            color_reset_pass:                    passes::ComputeResetRecordable::new(
-                game.clone(),
-                face_and_brick_info_bind_group_layout.clone(),
-                face_and_brick_info_bind_group.clone(),
-                raytrace_indirect_bind_group_layout.clone(),
-                raytrace_indirect_bind_group.clone()
-            )
+            // color_reset_pass:                    passes::ComputeResetRecordable::new(
+            //     game.clone(),
+            //     face_and_brick_info_bind_group_layout.clone(),
+            //     face_and_brick_info_bind_group.clone(),
+            //     raytrace_indirect_bind_group_layout.clone(),
+            //     raytrace_indirect_bind_group.clone()
+            // )
         };
 
         // voxel_discovery_bind_group_layout: voxel_discovery_image_layout.clone(),
@@ -945,10 +945,21 @@ impl gfx::Recordable for ChunkPool
             color_transfer_pass,
             color_raytrace_pass,
             indirect_rt_dispatch,
-            color_reset_pass,
+            face_id_counter,
+            // color_reset_pass,
             ..
         } = &mut *self.critical_section.lock().unwrap();
 
+        DownloadBuffer::read_buffer(&renderer.device, &renderer.queue, &face_id_counter.slice(..), |res| {
+
+            if let Ok(r) = res
+            {   
+                let data: &[u32] = cast_slice(&r[..]);
+                
+                log::trace!("Faces visible: {}", data[0]);
+            }
+        });
+        
         // We might need to update our passes.
         if resize_pinger.recv_all()
         {
@@ -984,14 +995,16 @@ impl gfx::Recordable for ChunkPool
                 self.face_and_brick_info_bind_group.clone()
             );
 
-            *color_reset_pass = passes::ComputeResetRecordable::new(
-                self.game.clone(),
-                self.face_and_brick_info_bind_group_layout.clone(),
-                self.face_and_brick_info_bind_group.clone(),
-                raytrace_indirect_bind_group_layout.clone(),
-                raytrace_indirect_bind_group.clone()
-            );
+            // *color_reset_pass = passes::ComputeResetRecordable::new(
+            //     self.game.clone(),
+            //     self.face_and_brick_info_bind_group_layout.clone(),
+            //     self.face_and_brick_info_bind_group.clone(),
+            //     raytrace_indirect_bind_group_layout.clone(),
+            //     raytrace_indirect_bind_group.clone()
+            // );
         }
+
+        
 
         assert!(!brick_maps.replicate_to_gpu());
         assert!(!material_bricks.replicate_to_gpu());

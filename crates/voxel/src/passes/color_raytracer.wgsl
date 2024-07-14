@@ -1,15 +1,15 @@
-@group(0) @binding(0) var<storage, read> face_data_buffer: array<VoxelFaceData>; 
-@group(0) @binding(1) var<storage, read> brick_map: array<BrickMap>;
-@group(0) @binding(2) var<storage, read> material_bricks: array<MateralBrick>; 
-@group(0) @binding(3) var<storage, read> visiblity_bricks: array<VisibilityBrick>;
-@group(0) @binding(4) var<storage, read> material_buffer: array<MaterialData>;
-@group(0) @binding(5) var<storage, read> gpu_chunk_data: array<vec4<f32>>;
-@group(0) @binding(6) var<storage, read_write> is_face_number_visible_bits: array<atomic<u32>>;
-@group(0) @binding(7) var<storage, read_write> face_numbers_to_face_ids: array<atomic<u32>>;
-@group(0) @binding(8) var<storage, read_write> next_face_id: atomic<u32>;
-@group(0) @binding(9) var<storage, read_write> renderered_face_info: array<RenderedFaceInfo>;
+@group(1) @binding(0) var<storage, read> face_data_buffer: array<VoxelFaceData>; 
+@group(1) @binding(1) var<storage, read> brick_map: array<BrickMap>;
+@group(1) @binding(2) var<storage, read> material_bricks: array<MateralBrick>; 
+@group(1) @binding(3) var<storage, read> visiblity_bricks: array<VisibilityBrick>;
+@group(1) @binding(4) var<storage, read> material_buffer: array<MaterialData>;
+@group(1) @binding(5) var<storage, read> gpu_chunk_data: array<vec4<f32>>;
+@group(1) @binding(6) var<storage, read_write> is_face_number_visible_bits: array<atomic<u32>>;
+@group(1) @binding(7) var<storage, read_write> face_numbers_to_face_ids: array<atomic<u32>>;
+@group(1) @binding(8) var<storage, read_write> next_face_id: atomic<u32>;
+@group(1) @binding(9) var<storage, read_write> renderered_face_info: array<RenderedFaceInfo>;
 
-@group(1) @binding(0) var<uniform> global_info: GlobalInfo;
+@group(0) @binding(0) var<uniform> global_info: GlobalInfo;
 
 struct GlobalInfo
 {
@@ -84,7 +84,7 @@ fn cs_main(
         let result: vec3<f32> = saturate(ambient + diffuse + specular);
 
         // TODO: do a 10bit alpha ignoring packing?
-        renderered_face_info[global_invocation_index].packed_color = pack4x8unorm(vec4<f32>(material_buffer[voxel].diffuse_color.xyz, 1.0));
+        renderered_face_info[global_invocation_index].color = vec4<f32>(material_buffer[voxel].diffuse_color.xyz, 1.0);
     }
 }
 
@@ -180,5 +180,5 @@ struct RenderedFaceInfo
 {
     chunk_id: u32,
     combined_dir_and_pos: u32,
-    packed_color: u32, // pack4x8unorm
+    color: vec4<f32>
 }

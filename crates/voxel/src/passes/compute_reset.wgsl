@@ -16,20 +16,6 @@
 fn cs_main(
     @builtin(global_invocation_id) global_invocation_id: vec3<u32>,
 ){ 
-    let global_invocation_index = global_invocation_id.x;
-
-    let idx = global_invocation_index / 32;
-    let bit = global_invocation_index % 32;
-
-    if (bit == 0)
-    {
-        is_face_number_visible_bits[idx] = 0u;
-    }
-
-    if (global_invocation_index == 0)
-    {
-        color_raytracer_dispatches[0] = 0u;
-    }
 }
 
 

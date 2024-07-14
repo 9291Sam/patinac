@@ -38,7 +38,7 @@ fn fs_main(@builtin(position) in: vec4<f32>) -> @location(0) vec4<f32>
     
     let face_number = voxel_data.y;
     let face_id = face_numbers_to_face_ids[face_number];
-    let color = unpack4x8unorm(renderered_face_info[face_id].packed_color);
+    let color = renderered_face_info[face_id].color;
 
     return color;
 }
@@ -175,6 +175,6 @@ fn visiblity_brick_load(brick_ptr: u32, pos: vec3<u32>) -> bool
 struct RenderedFaceInfo
 {
     chunk_id: u32,
-    pos_and_dir: u32,
-    packed_color: u32, // pack4x8unorm
+    combined_dir_and_pos: u32,
+    color: vec4<f32>
 }

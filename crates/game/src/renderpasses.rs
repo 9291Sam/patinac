@@ -11,6 +11,7 @@ pub enum PassStage
     VoxelDiscovery,
     // write all voxels into storage buffer
     VoxelVisibilityDetection,
+    VoxelComputeBarrierColor,
     // calculate their colors based on shadow rays
     VoxelColorCalculation,
     // transfer colors back
@@ -129,14 +130,38 @@ impl RenderPassManager
                 PassStage::VoxelVisibilityDetection =>
                 {
                     GenericPass::Compute(encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-                        label:            Some("Post Voxel Discovery Compute"),
+                        label:            Some("Voxel Visibility Detection Compute"),
                         timestamp_writes: None
+                    }))
+                }
+                PassStage::VoxelComputeBarrierColor =>
+                {
+                    GenericPass::Render(encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                        label:                    Some("Compute Barrier Pass"),
+                        color_attachments:        &[Some(wgpu::RenderPassColorAttachment {
+                            view:           &voxel_discovery_view,
+                            resolve_target: None,
+                            ops:            wgpu::Operations {
+                                load:  wgpu::LoadOp::Load,
+                                store: wgpu::StoreOp::Store
+                            }
+                        })],
+                        depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                            view:        &depth_buffer_view,
+                            depth_ops:   Some(wgpu::Operations {
+                                load:  wgpu::LoadOp::Load,
+                                store: wgpu::StoreOp::Store
+                            }),
+                            stencil_ops: None
+                        }),
+                        occlusion_query_set:      None,
+                        timestamp_writes:         None
                     }))
                 }
                 PassStage::VoxelColorCalculation =>
                 {
                     GenericPass::Compute(encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-                        label:            Some("Post Voxel Discovery Compute"),
+                        label:            Some("Voxel Color Calculation Compute"),
                         timestamp_writes: None
                     }))
                 }

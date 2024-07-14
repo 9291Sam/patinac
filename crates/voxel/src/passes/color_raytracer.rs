@@ -38,8 +38,8 @@ impl ColorRaytracerRecordable
                                     "ColorRaytracerRecordable Pipeline Layout"
                                 ),
                                 bind_group_layouts:   vec![
-                                    face_and_brick_info_bind_group_layout,
                                     game.get_renderer().global_bind_group_layout.clone(),
+                                    face_and_brick_info_bind_group_layout,
                                 ],
                                 push_constant_ranges: vec![]
                             }
@@ -95,11 +95,11 @@ impl gfx::Recordable for ColorRaytracerRecordable
             render_pass: self
                 .game
                 .get_renderpass_manager()
-                .get_renderpass_id(game::PassStage::VoxelVisibilityDetection),
+                .get_renderpass_id(game::PassStage::VoxelColorCalculation),
             pipeline:    self.pipeline.clone(),
             bind_groups: [
-                Some(self.face_and_brick_info_bind_group.clone()),
                 Some(global_bind_group.clone()),
+                Some(self.face_and_brick_info_bind_group.clone()),
                 None,
                 None
             ],

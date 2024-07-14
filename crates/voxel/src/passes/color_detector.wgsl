@@ -16,12 +16,41 @@
 
 @compute @workgroup_size(32, 32)
 fn cs_main(
+    @builtin(workgroup_id) workgroup_id : vec3<u32>,
+    @builtin(local_invocation_id) local_invocation_id : vec3<u32>,
+    @builtin(local_invocation_index) local_invocation_index: u32,
     @builtin(global_invocation_id) global_invocation_id: vec3<u32>,
+    @builtin(num_workgroups) num_workgroups: vec3<u32>
 ){
+
+    let workgroup_index: u32 =  
+        workgroup_id.x +
+        workgroup_id.y * num_workgroups.x +
+        workgroup_id.z * num_workgroups.x * num_workgroups.y;
+
+    let global_invocation_index: u32 = workgroup_index * (32 * 32) + local_invocation_index;
+
+    // reset routines
+    if global_invocation_index == 0
+    {
+        next_face_id = 0u;
+        color_raytracer_dispatches[0] = 0u;
+    }
+
+    let max_is_face_number_visible_bits = 1048576u;
+    let max_writes: u32 = max_is_face_number_visible_bits / 32u;
+
+    if (global_invocation_index < max_writes)
+    {
+        is_face_number_visible_bits[global_invocation_index] = 0u;
+    }
+
+    storageBarrier();
+
     let output_image_dimensions = textureDimensions(voxel_discovery_image).xy;
     let this_px: vec2<u32> = textureLoad(voxel_discovery_image, global_invocation_id.xy, 0).xy;
 
-    if any(global_invocation_id.xy < output_image_dimensions) && all(this_px != vec2<u32>(0))
+    if all(global_invocation_id.xy < output_image_dimensions) && all(this_px != vec2<u32>(0u))
     {
         let chunk_id = this_px.x & u32(65535);
         let normal_id = (this_px.x >> 27) & u32(7);
@@ -33,8 +62,7 @@ fn cs_main(
         let face_number_bit = face_number % 32;
 
         let mask = (1u << face_number_bit);
-
-        let mask_res = atomicOr(&is_face_number_visible_bits[face_number], 1u);
+        let mask_res = atomicOr(&is_face_number_visible_bits[face_number_index], mask);
         let is_first_write = (mask_res & mask) == 0u;
 
         if (is_first_write)
@@ -43,7 +71,7 @@ fn cs_main(
 
             face_numbers_to_face_ids[face_number] = this_face_id;
             let combined_dir_and_pos = face_voxel_pos.x | (face_voxel_pos.y << 8) | (face_voxel_pos.z << 16) | (normal_id << 24);
-            renderered_face_info[this_face_id] = RenderedFaceInfo(chunk_id, combined_dir_and_pos, pack4x8unorm(vec4<f32>(0.0)));
+            renderered_face_info[this_face_id] = RenderedFaceInfo(chunk_id, combined_dir_and_pos, vec4<f32>(0.0));
             
             if (this_face_id % 1024 == 0)
             {
@@ -145,5 +173,5 @@ struct RenderedFaceInfo
 {
     chunk_id: u32,
     combined_dir_and_pos: u32,
-    packed_color: u32, // pack4x8unorm
+    color: vec4<f32>
 }
