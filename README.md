@@ -1,6 +1,7 @@
-# Patinac: An experimental voxel renderer
+# Patinac: An experimental voxel renderer (abandoned)
 
-## Demonstration Video
+## Final Demonstration Video
 
-https://github.com/9291Sam/patinac/assets/25729215/594d9473-b8aa-4e8a-96df-68762fd9419a
+https://github.com/user-attachments/assets/fef9ec5b-d8bb-40db-94f5-374131303dce
 
+This project was abandoned due to an internal bug in wgpu (no automatic insertion of specific memory barriers)
