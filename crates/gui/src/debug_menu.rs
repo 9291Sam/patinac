@@ -3,6 +3,7 @@ use std::fmt::Debug;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
+use gfx::wgpu;
 use glyphon::{TextAtlas, TextRenderer};
 use num_format::{Locale, ToFormattedString};
 
@@ -145,6 +146,7 @@ impl gfx::Recordable for DebugMenu
 
     fn pre_record_update(
         &self,
+        _: &mut wgpu::CommandEncoder,
         renderer: &gfx::Renderer,
         camera: &gfx::Camera,
         _: &std::sync::Arc<gfx::wgpu::BindGroup>

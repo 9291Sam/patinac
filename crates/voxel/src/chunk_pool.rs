@@ -26,7 +26,6 @@ use crate::{
 const MAX_CHUNKS: usize = 256;
 const BRICKS_TO_PREALLOCATE: usize = CHUNK_EDGE_LEN_BRICKS * CHUNK_EDGE_LEN_BRICKS * MAX_CHUNKS * 4;
 const FACES_TO_PREALLOCATE: usize = 1024 * 1024 * 16;
-const FACE_IDS_TO_PREALLOCATE: usize = 1024 * 1024;
 
 // chunks. bricks. faces
 
@@ -96,7 +95,6 @@ struct ChunkPoolCriticalSection
     color_detector_pass: Arc<passes::ColorDetectorRecordable>,
     color_raytrace_pass: Arc<passes::ColorRaytracerRecordable>,
     color_transfer_pass: Arc<passes::VoxelColorTransferRecordable>
-    // color_reset_pass:    Arc<passes::ComputeResetRecordable>
 }
 
 impl ChunkPool
@@ -326,31 +324,31 @@ impl ChunkPool
 
         let is_face_number_visible_bits_buffer = renderer.create_buffer(&wgpu::BufferDescriptor {
             label:              Some("ChunkPool IsFaceVisible BitBuffer"),
-            size:               (FACE_IDS_TO_PREALLOCATE as u64).div_ceil(u32::BITS as u64),
-            usage:              wgpu::BufferUsages::STORAGE,
+            size:               (FACES_TO_PREALLOCATE as u64).div_ceil(u32::BITS as u64),
+            usage:              wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false
         });
 
         let face_numbers_to_face_ids_buffer = renderer.create_buffer(&wgpu::BufferDescriptor {
             label:              Some("ChunkPool VisibleFaceIds Buffer"),
-            size:               FACE_IDS_TO_PREALLOCATE as u64
+            size:               FACES_TO_PREALLOCATE as u64
                 * std::mem::size_of::<data::FaceId>() as u64,
-            usage:              wgpu::BufferUsages::STORAGE,
+            usage:              wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false
         });
 
         let face_id_counter_buffer = renderer.create_buffer(&wgpu::BufferDescriptor {
             label:              Some("ChunkPool FaceIdCounter Buffer"),
             size:               std::mem::size_of::<u32>() as u64,
-            usage:              wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_SRC,
+            usage:              wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false
         });
 
         let rendered_face_info_buffer = renderer.create_buffer(&wgpu::BufferDescriptor {
             label:              Some("ChunkPool RenderedFaceInfo Buffer"),
-            size:               FACE_IDS_TO_PREALLOCATE as u64
+            size:               FACES_TO_PREALLOCATE as u64
                 * std::mem::size_of::<data::RenderedFaceInfo>() as u64,
-            usage:              wgpu::BufferUsages::STORAGE,
+            usage:              wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false
         });
 
@@ -509,14 +507,7 @@ impl ChunkPool
                 voxel_discovery_bind_group.clone(),
                 face_and_brick_info_bind_group_layout.clone(),
                 face_and_brick_info_bind_group.clone()
-            ),
-            // color_reset_pass:                    passes::ComputeResetRecordable::new(
-            //     game.clone(),
-            //     face_and_brick_info_bind_group_layout.clone(),
-            //     face_and_brick_info_bind_group.clone(),
-            //     raytrace_indirect_bind_group_layout.clone(),
-            //     raytrace_indirect_bind_group.clone()
-            // )
+            ) // )
         };
 
         // voxel_discovery_bind_group_layout: voxel_discovery_image_layout.clone(),
@@ -922,6 +913,7 @@ impl gfx::Recordable for ChunkPool
 
     fn pre_record_update(
         &self,
+        encoder: &mut wgpu::CommandEncoder,
         renderer: &gfx::Renderer,
         camera: &gfx::Camera,
         global_bind_group: &std::sync::Arc<gfx::wgpu::BindGroup>
@@ -943,23 +935,20 @@ impl gfx::Recordable for ChunkPool
             raytrace_indirect_bind_group,
             color_detector_pass,
             color_transfer_pass,
-            color_raytrace_pass,
             indirect_rt_dispatch,
             face_id_counter,
-            // color_reset_pass,
-            ..
+            chunk_id_allocator,
+            face_numbers_to_face_ids,
+            rendered_face_info,
+            is_face_visible_buffer,
+            color_raytrace_pass
         } = &mut *self.critical_section.lock().unwrap();
 
-        DownloadBuffer::read_buffer(&renderer.device, &renderer.queue, &face_id_counter.slice(..), |res| {
+        encoder.clear_buffer(&face_numbers_to_face_ids, 0, None);
+        encoder.clear_buffer(&face_id_counter, 0, None);
+        encoder.clear_buffer(&rendered_face_info, 0, None);
+        encoder.clear_buffer(&is_face_visible_buffer, 0, None);
 
-            if let Ok(r) = res
-            {   
-                let data: &[u32] = cast_slice(&r[..]);
-                
-                log::trace!("Faces visible: {}", data[0]);
-            }
-        });
-        
         // We might need to update our passes.
         if resize_pinger.recv_all()
         {
@@ -994,17 +983,7 @@ impl gfx::Recordable for ChunkPool
                 self.face_and_brick_info_bind_group_layout.clone(),
                 self.face_and_brick_info_bind_group.clone()
             );
-
-            // *color_reset_pass = passes::ComputeResetRecordable::new(
-            //     self.game.clone(),
-            //     self.face_and_brick_info_bind_group_layout.clone(),
-            //     self.face_and_brick_info_bind_group.clone(),
-            //     raytrace_indirect_bind_group_layout.clone(),
-            //     raytrace_indirect_bind_group.clone()
-            // );
         }
-
-        
 
         assert!(!brick_maps.replicate_to_gpu());
         assert!(!material_bricks.replicate_to_gpu());

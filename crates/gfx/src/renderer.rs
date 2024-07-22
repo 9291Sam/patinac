@@ -121,9 +121,10 @@ impl Renderer
         );
 
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-            backends: wgpu::Backends::all(),
-            flags: wgpu::InstanceFlags::from_build_config().with_env(),
-            ..Default::default()
+            backends:             wgpu::Backends::all(),
+            flags:                wgpu::InstanceFlags::from_build_config(),
+            dx12_shader_compiler: Default::default(),
+            gles_minor_version:   Default::default()
         });
 
         // SAFETY: The window must outlive the surface, this is guarantee by Renderer's
@@ -171,8 +172,7 @@ impl Renderer
                     required_features: wgpu::Features::PUSH_CONSTANTS
                         | wgpu::Features::POLYGON_MODE_LINE
                         | wgpu::Features::MULTI_DRAW_INDIRECT
-                        | wgpu::Features::INDIRECT_FIRST_INSTANCE
-                        | wgpu::Features::MAPPABLE_PRIMARY_BUFFERS,
+                        | wgpu::Features::INDIRECT_FIRST_INSTANCE,
                     required_limits:   adapter.limits()
                 },
                 None
@@ -482,6 +482,14 @@ impl Renderer
                 maybe_new_id
             };
 
+            let render_encoder_name = format!("Patinac Main Command Encoder");
+
+            let mut encoder = self
+                .device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some(&render_encoder_name)
+                });
+
             // log::trace!("before calling all pre_record_update s");
             let camera = self.camera_window.get();
 
@@ -495,9 +503,12 @@ impl Renderer
                         Some(strong) =>
                         {
                             Some((
-                                strong
-                                    .clone()
-                                    .pre_record_update(self, &camera, &global_bind_group),
+                                strong.clone().pre_record_update(
+                                    &mut encoder,
+                                    self,
+                                    &camera,
+                                    &global_bind_group
+                                ),
                                 strong
                             ))
                         }
@@ -727,14 +738,6 @@ impl Renderer
                         .copy_from_slice(slice);
                 }
             }
-
-            let render_encoder_name = format!("Patinac Main Command Encoder");
-
-            let mut encoder = self
-                .device
-                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                    label: Some(&render_encoder_name)
-                });
 
             let mut active_pipeline: Option<&GenericPipeline> = None;
             let mut active_bind_groups: [Option<wgpu::Id<wgpu::BindGroup>>; 4] = [None; 4];

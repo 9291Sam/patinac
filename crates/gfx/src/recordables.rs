@@ -46,6 +46,7 @@ pub trait Recordable: Debug + Send + Sync
     /// Called for all registered Recordable s
     fn pre_record_update(
         &self,
+        encoder: &mut wgpu::CommandEncoder,
         renderer: &Renderer,
         camera: &Camera,
         global_bind_group: &Arc<wgpu::BindGroup>

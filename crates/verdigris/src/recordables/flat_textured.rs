@@ -273,6 +273,7 @@ impl gfx::Recordable for FlatTextured
 
     fn pre_record_update(
         &self,
+        _: &mut wgpu::CommandEncoder,
         renderer: &gfx::Renderer,
         _: &gfx::Camera,
         global_bind_group: &Arc<wgpu::BindGroup>

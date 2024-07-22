@@ -93,6 +93,7 @@ impl gfx::Recordable for ColorDetectorRecordable
 
     fn pre_record_update(
         &self,
+        _: &mut wgpu::CommandEncoder,
         _: &gfx::Renderer,
         _: &gfx::Camera,
         _: &std::sync::Arc<gfx::wgpu::BindGroup>

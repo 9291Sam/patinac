@@ -454,6 +454,7 @@ impl gfx::Recordable for Skybox
 
     fn pre_record_update(
         &self,
+        _: &mut wgpu::CommandEncoder,
         renderer: &gfx::Renderer,
         camera: &gfx::Camera,
         global_bind_group: &Arc<wgpu::BindGroup>

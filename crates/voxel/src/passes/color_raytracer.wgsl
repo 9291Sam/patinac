@@ -84,7 +84,7 @@ fn cs_main(
         let result: vec3<f32> = saturate(ambient + diffuse + specular);
 
         // TODO: do a 10bit alpha ignoring packing?
-        renderered_face_info[global_invocation_index].color = vec4<f32>(material_buffer[voxel].diffuse_color.xyz, 1.0);
+        renderered_face_info[global_invocation_index].color = vec4<f32>(result, 1.0);
     }
 }
 

@@ -117,6 +117,7 @@ impl gfx::Recordable for VoxelColorTransferRecordable
 
     fn pre_record_update(
         &self,
+        _: &mut wgpu::CommandEncoder,
         _: &gfx::Renderer,
         _: &gfx::Camera,
         global_bind_group: &Arc<wgpu::BindGroup>
