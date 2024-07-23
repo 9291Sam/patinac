@@ -55,7 +55,10 @@ impl ColorDetectorRecordable
                     module:                           game
                         .get_renderer()
                         .render_cache
-                        .cache_shader_module(wgpu::include_wgsl!("color_detector.wgsl")),
+                        .cache_shader_module(gfx::include_many_wgsl!(
+                            "color_detector.wgsl",
+                            "../common.wgsl"
+                        )),
                     entry_point:                      Cow::Borrowed("cs_main"),
                     specialization_constants:         None,
                     zero_initialize_workgroup_memory: false

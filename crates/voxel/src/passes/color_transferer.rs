@@ -35,7 +35,10 @@ impl VoxelColorTransferRecordable
 
         let shader = renderer
             .render_cache
-            .cache_shader_module(wgpu::include_wgsl!("color_transferer.wgsl"));
+            .cache_shader_module(gfx::include_many_wgsl!(
+                "color_transferer.wgsl",
+                "../common.wgsl"
+            ));
 
         let pipeline_layout =
             renderer

@@ -50,7 +50,7 @@ impl ColorRaytracerRecordable
                         .render_cache
                         .cache_shader_module(gfx::include_many_wgsl!(
                             "color_raytracer.wgsl",
-                            "foo.txt"
+                            "../common.wgsl"
                         )),
                     entry_point:                      Cow::Borrowed("cs_main"),
                     specialization_constants:         None,
