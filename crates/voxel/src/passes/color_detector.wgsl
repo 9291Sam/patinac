@@ -14,7 +14,7 @@
 
 @group(2) @binding(0) var<storage, read_write> color_raytracer_dispatches: array<atomic<u32>, 3>;
 
-@compute @workgroup_size(32, 32)
+@compute @workgroup_size(8, 8)
 fn cs_main(
     @builtin(global_invocation_id) global_invocation_id: vec3<u32>,
 ){
@@ -44,7 +44,7 @@ fn cs_main(
             let combined_dir_and_pos = face_voxel_pos.x | (face_voxel_pos.y << 8) | (face_voxel_pos.z << 16) | (normal_id << 24);
             renderered_face_info[this_face_id] = RenderedFaceInfo(chunk_id, combined_dir_and_pos, vec4<f32>(0.0));
             
-            if (this_face_id % 1024 == 0)
+            if (this_face_id % 64 == 0)
             {
                 atomicAdd(&color_raytracer_dispatches[0], 1u);
             }

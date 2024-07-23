@@ -17,7 +17,7 @@ struct GlobalInfo
     view_projection: mat4x4<f32>
 }
 
-@compute @workgroup_size(1024)
+@compute @workgroup_size(64)
 fn cs_main(
     @builtin(global_invocation_id) global_invocation_id: vec3<u32>,
 ){ 

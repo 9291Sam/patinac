@@ -5,11 +5,10 @@ use std::sync::{Arc, Mutex};
 
 use bytemuck::{bytes_of, cast_slice, Pod, Zeroable};
 use fnv::FnvHashSet;
-use gfx::wgpu::util::{DeviceExt, DownloadBuffer};
+use gfx::wgpu::util::DeviceExt;
 use gfx::{glm, wgpu};
 
 use crate::data::{self, BrickMap, MaterialManager, MaybeBrickPtr};
-use crate::passes::VoxelColorTransferRecordable;
 use crate::suballocated_buffer::{SubAllocatedCpuTrackedBuffer, SubAllocatedCpuTrackedDenseSet};
 use crate::{
     chunk_local_position_to_brick_position,
@@ -49,6 +48,7 @@ pub struct ChunkPool
     chunk_data:              wgpu::Buffer, // chunk data smuggled via the instance buffer
     indirect_calls:          wgpu::Buffer, // indirect offsets and lengths
     number_of_indirect_args: AtomicU32,
+    #[allow(dead_code)]
     material_manager:        MaterialManager,
 
     critical_section: Mutex<ChunkPoolCriticalSection>
@@ -74,10 +74,12 @@ struct ChunkPoolCriticalSection
     // face_number -> FaceData
     visible_face_set:         SubAllocatedCpuTrackedBuffer<data::VoxelFace>,
     // face_number -> face_id
+    #[allow(dead_code)]
     face_numbers_to_face_ids: wgpu::Buffer, // <data::FaceId>,
 
     // face_id
     face_id_counter:    wgpu::Buffer, // <u32>
+    #[allow(dead_code)]
     rendered_face_info: wgpu::Buffer, // <data::RenderedFaceInfo>
 
     is_face_visible_buffer: wgpu::Buffer,      // <bool bits>
@@ -939,11 +941,9 @@ impl gfx::Recordable for ChunkPool
             color_transfer_pass,
             indirect_rt_dispatch,
             face_id_counter,
-            chunk_id_allocator,
-            face_numbers_to_face_ids,
-            rendered_face_info,
             is_face_visible_buffer,
-            color_raytrace_pass
+            color_raytrace_pass,
+            ..
         } = &mut *self.critical_section.lock().unwrap();
 
         // encoder.clear_buffer(&face_numbers_to_face_ids, 0, None);

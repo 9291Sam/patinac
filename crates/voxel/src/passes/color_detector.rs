@@ -124,8 +124,8 @@ impl gfx::Recordable for ColorDetectorRecordable
         };
 
         let size = self.game.get_renderer().get_framebuffer_size();
-        let dispatch_size_x = size.x.div_ceil(32);
-        let dispatch_size_y = size.y.div_ceil(32);
+        let dispatch_size_x = size.x.div_ceil(8);
+        let dispatch_size_y = size.y.div_ceil(8);
 
         pass.dispatch_workgroups(dispatch_size_x, dispatch_size_y, 1);
     }
