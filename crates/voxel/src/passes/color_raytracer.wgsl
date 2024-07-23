@@ -6,7 +6,7 @@
 @group(1) @binding(5) var<storage, read> gpu_chunk_data: array<vec4<f32>>;
 @group(1) @binding(6) var<storage, read_write> is_face_number_visible_bits: array<atomic<u32>>;
 @group(1) @binding(7) var<storage, read_write> face_numbers_to_face_ids: array<atomic<u32>>;
-@group(1) @binding(8) var<storage, read_write> next_face_id: atomic<u32>;
+@group(1) @binding(8) var<storage, read_write> next_face_id: u32;
 @group(1) @binding(9) var<storage, read_write> renderered_face_info: array<RenderedFaceInfo>;
 
 @group(0) @binding(0) var<uniform> global_info: GlobalInfo;
@@ -58,33 +58,38 @@ fn cs_main(
         let brick_ptr = brick_map_load(chunk_id, brick_coordinate);
         let voxel = material_bricks_load(brick_ptr, brick_local_coordinate);
 
+        var positions = array(
+            vec4<f32>(120.0, 15.0, -40.0, 0.0),
+            vec4<f32>(80.0, 25.0, -140.0, 0.0),
+            vec4<f32>(190.0, 45.0, -10.0, 0.0),
+            vec4<f32>(-20.0, 18.0, 30.0, 0.0),
+        );
+
+        var res = vec4<f32>(0.0);
+
+        for (var i: i32 = 0; i < 4; i++)
+        {
+            res += vec4<f32>(calculate_single_face_color(
+                global_face_voxel_position,
+                normal,
+                voxel,
+                PointLight(
+                    positions[i],
+                    vec4<f32>(1.0, 1.0, 1.0, 32.0),
+                )
+            ), 1.0);
+        }
+
+        
         let ambient_strength = 0.005;
         let ambient_color = vec3<f32>(1.0);
-        
-        let light_color = vec4<f32>(1.0, 1.0, 1.0, 32.0);
-        let light_pos = vec3<f32>(120.0, 15.0, -40.0);
-
-        var light_dir = light_pos - global_face_voxel_position;
-        let distance = length(light_dir);
-        light_dir /= distance;
-
-        // intensity of diffuse
-        let view_vector = normalize(global_info.camera_pos.xyz - global_face_voxel_position);
-        let r = 2 * dot(light_dir, normal) * normal - light_dir;
-
-        let constant_factor = 0.0;
-        let linear_factor = 0.75;
-        let quadratic_factor = 0.03;
-        let attenuation = 1.0 / (constant_factor + linear_factor * distance + quadratic_factor * distance * distance);
 
         let ambient = ambient_strength * ambient_color;
-        let diffuse = saturate(dot(normal, light_dir)) * light_color.xyz * material_buffer[voxel].diffuse_color.xyz * light_color.w * attenuation;
-        let specular = pow(saturate(dot(r, view_vector)), material_buffer[voxel].specular) * light_color.xyz * material_buffer[voxel].specular_color.xyz * light_color.w * attenuation;
 
-        let result: vec3<f32> = saturate(ambient + diffuse + specular);
+        res += vec4<f32>(ambient, 1.0);
 
         // TODO: do a 10bit alpha ignoring packing?
-        renderered_face_info[global_invocation_index].color = vec4<f32>(result, 1.0);
+        renderered_face_info[global_invocation_index].color = saturate(res);
     }
 }
 
@@ -181,4 +186,41 @@ struct RenderedFaceInfo
     chunk_id: u32,
     combined_dir_and_pos: u32,
     color: vec4<f32>
+}
+
+struct PointLight
+{
+    position: vec4<f32>,
+    color_and_power: vec4<f32>,
+}
+
+fn calculate_single_face_color(
+    pos: vec3<f32>,
+    normal: vec3<f32>,
+    material_id: u32,
+    light: PointLight
+) -> vec3<f32>
+{    
+    let color_and_power = light.color_and_power;
+    let light_pos = light.position.xyz; 
+
+    var light_dir = light_pos - pos;
+    let distance = length(light_dir);
+    light_dir /= distance;
+
+    // intensity of diffuse
+    let view_vector = normalize(global_info.camera_pos.xyz - pos);
+    let r = 2 * dot(light_dir, normal) * normal - light_dir;
+
+    let constant_factor = 0.0;
+    let linear_factor = 0.75;
+    let quadratic_factor = 0.03;
+    let attenuation = 1.0 / (constant_factor + linear_factor * distance + quadratic_factor * distance * distance);
+ 
+    let diffuse = saturate(dot(normal, light_dir)) * color_and_power.xyz * material_buffer[material_id].diffuse_color.xyz * color_and_power.w * attenuation;
+    let specular = pow(saturate(dot(r, view_vector)), material_buffer[material_id].specular) * color_and_power.xyz * material_buffer[material_id].specular_color.xyz * color_and_power.w * attenuation;
+
+    let result: vec3<f32> = saturate(diffuse + specular);
+
+    return result;
 }

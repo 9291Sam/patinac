@@ -445,7 +445,9 @@ impl ChunkPool
             &wgpu::util::BufferInitDescriptor {
                 label:    Some("ChunkPool ColorRayTracerDispatchesIndirect Buffer"),
                 contents: bytes_of(&[0, 1, 1]),
-                usage:    wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::INDIRECT
+                usage:    wgpu::BufferUsages::STORAGE
+                    | wgpu::BufferUsages::INDIRECT
+                    | wgpu::BufferUsages::COPY_DST
             }
         ));
 
@@ -944,10 +946,11 @@ impl gfx::Recordable for ChunkPool
             color_raytrace_pass
         } = &mut *self.critical_section.lock().unwrap();
 
-        encoder.clear_buffer(&face_numbers_to_face_ids, 0, None);
+        // encoder.clear_buffer(&face_numbers_to_face_ids, 0, None);
         encoder.clear_buffer(&face_id_counter, 0, None);
-        encoder.clear_buffer(&rendered_face_info, 0, None);
+        // encoder.clear_buffer(&rendered_face_info, 0, None);
         encoder.clear_buffer(&is_face_visible_buffer, 0, None);
+        encoder.clear_buffer(&indirect_rt_dispatch, 0, Some(4));
 
         // We might need to update our passes.
         if resize_pinger.recv_all()

@@ -35,7 +35,7 @@ impl DemoScene
 
             let it = iproduct!(0..64, 0..64, 0..64).map(|(x, y, z)| {
                 (
-                    WorldPosition(glm::I32Vec3::new(x, y, z)),
+                    WorldPosition(glm::I32Vec3::new(x + 1, y + 1, z + 1)),
                     rand::thread_rng().gen_range(12..=14).try_into().unwrap()
                 )
             });
