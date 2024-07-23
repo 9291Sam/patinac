@@ -5,7 +5,6 @@ use std::sync::{Arc, Mutex};
 
 use gfx::wgpu;
 use glyphon::{TextAtlas, TextRenderer};
-use num_format::{Locale, ToFormattedString};
 
 extern "C" {
     static VRAM_USED_BYTES: AtomicUsize;

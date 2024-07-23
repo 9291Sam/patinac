@@ -9,7 +9,7 @@ use rand::Rng;
 
 use crate::recordables::skybox::Skybox;
 use crate::voxel_world::{VoxelWorld, WorldPosition};
-use crate::{recordables, Player};
+use crate::{ Player};
 
 pub struct DemoScene
 {
@@ -141,13 +141,15 @@ fn load_model_from_file_into(world_offset: glm::I32Vec3, world: &VoxelWorld, dat
 
 fn arbitrary_landscape_demo(world: &VoxelWorld)
 {
-    let noise = noise::OpenSimplex::new(2384247834);
+    let noise = noise::OpenSimplex::new(2384247834); // 
 
     let it = spiral::ChebyshevIterator::new(0, 0, 512).map(|(x, z)| {
         (
             WorldPosition(glm::I32Vec3::new(
                 x,
-                (noise.get([x as f64 / 256.0, z as f64 / 256.0]) * 128.0) as i32,
+                (noise.get([x as f64 / 256.0, z as f64 / 256.0]) * 128.0
+                    + -32.0 * f64::exp(-(x as f64 * x as f64 + z as f64 * z as f64) / 4096.0))
+                    as i32,
                 z
             )),
             rand::thread_rng().gen_range(1..=11).try_into().unwrap()

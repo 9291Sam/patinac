@@ -40,6 +40,18 @@ use std::ops::RangeInclusive;
 pub use cpu_tracked_dense_set::CpuTrackedDenseSet;
 pub use nalgebra as nal;
 
+#[macro_export]
+macro_rules! include_many_wgsl {
+    ($first:expr, $($rest:expr),*) => {
+        {
+            wgpu::ShaderModuleDescriptor {
+                label: Some(concat!($first)),
+                source: wgpu::ShaderSource::Wgsl(concat!(include_str!($first), "\n", $(include_str!($rest), "\n",)*).into()),
+            }
+        }
+    };
+}
+
 pub(crate) fn combine_into_ranges(
     mut points: Vec<u64>,
     max_distance: u64,
