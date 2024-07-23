@@ -8,6 +8,8 @@
 @group(1) @binding(7) var<storage, read_write> face_numbers_to_face_ids: array<atomic<u32>>;
 @group(1) @binding(8) var<storage, read_write> next_face_id: u32;
 @group(1) @binding(9) var<storage, read_write> renderered_face_info: array<RenderedFaceInfo>;
+@group(1) @binding(10) var<storage, read> point_lights: array<PointLight>;
+@group(1) @binding(11) var<storage, read> point_light_number: u32;
 
 @group(0) @binding(0) var<uniform> global_info: GlobalInfo;
 
@@ -58,25 +60,28 @@ fn cs_main(
         let brick_ptr = brick_map_load(chunk_id, brick_coordinate);
         let voxel = material_bricks_load(brick_ptr, brick_local_coordinate);
 
-        var positions = array(
-            vec4<f32>(120.0, 15.0, -40.0, 0.0),
-            vec4<f32>(80.0, 25.0, -140.0, 0.0),
-            vec4<f32>(190.0, 45.0, -10.0, 0.0),
-            vec4<f32>(-20.0, 18.0, 30.0, 0.0),
-        );
+        // var positions = array(
+        //     vec4<f32>(120.0, 15.0, -40.0, 0.0),
+        //     vec4<f32>(80.0, 25.0, -140.0, 0.0),
+        //     vec4<f32>(190.0, 45.0, -10.0, 0.0),
+        //     vec4<f32>(-20.0, 18.0, 30.0, 0.0),
+        // );
+
+        // PointLight(
+        //     positions[i],
+        //     vec4<f32>(1.0, 1.0, 1.0, 32.0),
+        // )
 
         var res = vec4<f32>(0.0);
 
-        for (var i: i32 = 0; i < 4; i++)
+        for (var i: u32 = 0; i < point_light_number; i++)
         {
             res += vec4<f32>(calculate_single_face_color(
                 global_face_voxel_position,
                 normal,
                 voxel,
-                PointLight(
-                    positions[i],
-                    vec4<f32>(1.0, 1.0, 1.0, 32.0),
-                )
+                point_lights[i],
+                
             ), 1.0);
         }
 

@@ -7,6 +7,7 @@ use bytemuck::{bytes_of, cast_slice, Pod, Zeroable};
 use fnv::FnvHashSet;
 use gfx::wgpu::util::DeviceExt;
 use gfx::{glm, wgpu};
+use rand::Rng;
 
 use crate::data::{self, BrickMap, MaterialManager, MaybeBrickPtr};
 use crate::suballocated_buffer::{SubAllocatedCpuTrackedBuffer, SubAllocatedCpuTrackedDenseSet};
@@ -16,6 +17,7 @@ use crate::{
     passes,
     ChunkCoordinate,
     ChunkLocalPosition,
+    PointLight,
     Voxel,
     CHUNK_EDGE_LEN_BRICKS,
     CHUNK_EDGE_LEN_VOXELS
@@ -84,6 +86,9 @@ struct ChunkPoolCriticalSection
 
     is_face_visible_buffer: wgpu::Buffer,      // <bool bits>
     indirect_rt_dispatch:   Arc<wgpu::Buffer>, // <[X, 1, 1]>
+
+    point_lights_buffer:        wgpu::Buffer,
+    point_lights_number_buffer: wgpu::Buffer,
 
     // renderpasses
     voxel_discovery_bind_group_layout: Arc<wgpu::BindGroupLayout>,
@@ -262,6 +267,30 @@ impl ChunkPool
                                     min_binding_size:   None
                                 },
                                 count:      None
+                            },
+                            wgpu::BindGroupLayoutEntry {
+                                binding:    10,
+                                visibility: wgpu::ShaderStages::COMPUTE,
+                                ty:         wgpu::BindingType::Buffer {
+                                    ty:                 wgpu::BufferBindingType::Storage {
+                                        read_only: true
+                                    },
+                                    has_dynamic_offset: false,
+                                    min_binding_size:   None
+                                },
+                                count:      None
+                            },
+                            wgpu::BindGroupLayoutEntry {
+                                binding:    11,
+                                visibility: wgpu::ShaderStages::COMPUTE,
+                                ty:         wgpu::BindingType::Buffer {
+                                    ty:                 wgpu::BufferBindingType::Storage {
+                                        read_only: true
+                                    },
+                                    has_dynamic_offset: false,
+                                    min_binding_size:   None
+                                },
+                                count:      None
                             }
                         ]
                     }
@@ -354,6 +383,20 @@ impl ChunkPool
             mapped_at_creation: false
         });
 
+        let point_lights_buffer = renderer.create_buffer(&wgpu::BufferDescriptor {
+            label:              Some("ChunkPool PointLights Buffer"),
+            size:               4096 * std::mem::size_of::<data::PointLight>() as u64,
+            usage:              wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false
+        });
+
+        let point_lights_number_buffer = renderer.create_buffer(&wgpu::BufferDescriptor {
+            label:              Some("ChunkPool PointLightsNumber Buffer"),
+            size:               std::mem::size_of::<u32>() as u64,
+            usage:              wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false
+        });
+
         let face_and_brick_info_bind_group = {
             Arc::new(renderer.create_bind_group(&wgpu::BindGroupDescriptor {
                 label:   Some("ChunkPool BindGroup"),
@@ -438,6 +481,22 @@ impl ChunkPool
                             offset: 0,
                             size:   None
                         })
+                    },
+                    wgpu::BindGroupEntry {
+                        binding:  10,
+                        resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                            buffer: &point_lights_buffer,
+                            offset: 0,
+                            size:   None
+                        })
+                    },
+                    wgpu::BindGroupEntry {
+                        binding:  11,
+                        resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                            buffer: &point_lights_number_buffer,
+                            offset: 0,
+                            size:   None
+                        })
                     }
                 ]
             }))
@@ -469,28 +528,28 @@ impl ChunkPool
         };
 
         let critical_section = ChunkPoolCriticalSection {
-            active_chunk_ids:                    FnvHashSet::default(),
-            chunk_id_allocator:                  util::FreelistAllocator::new(MAX_CHUNKS),
-            brick_pointer_allocator:             util::FreelistAllocator::new(
-                BRICKS_TO_PREALLOCATE
-            ),
-            brick_maps:                          brick_map_buffer,
-            cpu_chunk_data:                      vec![None; MAX_CHUNKS].into_boxed_slice(),
-            gpu_chunk_data:                      gpu_chunk_data_buffer,
-            material_bricks:                     material_bricks_buffer,
-            visibility_bricks:                   visibility_bricks_buffer,
-            visible_face_set:                    visible_face_set_buffer,
-            face_numbers_to_face_ids:            face_numbers_to_face_ids_buffer,
-            face_id_counter:                     face_id_counter_buffer,
-            rendered_face_info:                  rendered_face_info_buffer,
-            is_face_visible_buffer:              is_face_number_visible_bits_buffer,
-            indirect_rt_dispatch:                color_raytrace_dispatches_indirect_buffer.clone(),
-            voxel_discovery_bind_group_layout:   voxel_discovery_image_layout.clone(),
-            voxel_discovery_bind_group:          voxel_discovery_bind_group.clone(),
+            active_chunk_ids: FnvHashSet::default(),
+            chunk_id_allocator: util::FreelistAllocator::new(MAX_CHUNKS),
+            brick_pointer_allocator: util::FreelistAllocator::new(BRICKS_TO_PREALLOCATE),
+            brick_maps: brick_map_buffer,
+            cpu_chunk_data: vec![None; MAX_CHUNKS].into_boxed_slice(),
+            gpu_chunk_data: gpu_chunk_data_buffer,
+            material_bricks: material_bricks_buffer,
+            visibility_bricks: visibility_bricks_buffer,
+            visible_face_set: visible_face_set_buffer,
+            face_numbers_to_face_ids: face_numbers_to_face_ids_buffer,
+            face_id_counter: face_id_counter_buffer,
+            rendered_face_info: rendered_face_info_buffer,
+            is_face_visible_buffer: is_face_number_visible_bits_buffer,
+            indirect_rt_dispatch: color_raytrace_dispatches_indirect_buffer.clone(),
+            point_lights_buffer,
+            point_lights_number_buffer,
+            voxel_discovery_bind_group_layout: voxel_discovery_image_layout.clone(),
+            voxel_discovery_bind_group: voxel_discovery_bind_group.clone(),
             raytrace_indirect_bind_group_layout: raytrace_indirect_bind_group_layout.clone(),
-            raytrace_indirect_bind_group:        raytrace_indirect_bind_group.clone(),
-            resize_pinger:                       renderer.get_resize_pinger(),
-            color_detector_pass:                 passes::ColorDetectorRecordable::new(
+            raytrace_indirect_bind_group: raytrace_indirect_bind_group.clone(),
+            resize_pinger: renderer.get_resize_pinger(),
+            color_detector_pass: passes::ColorDetectorRecordable::new(
                 game.clone(),
                 voxel_discovery_image_layout.clone(),
                 voxel_discovery_bind_group.clone(),
@@ -499,13 +558,13 @@ impl ChunkPool
                 raytrace_indirect_bind_group_layout.clone(),
                 raytrace_indirect_bind_group.clone()
             ),
-            color_raytrace_pass:                 passes::ColorRaytracerRecordable::new(
+            color_raytrace_pass: passes::ColorRaytracerRecordable::new(
                 game.clone(),
                 face_and_brick_info_bind_group_layout.clone(),
                 face_and_brick_info_bind_group.clone(),
                 color_raytrace_dispatches_indirect_buffer
             ),
-            color_transfer_pass:                 passes::VoxelColorTransferRecordable::new(
+            color_transfer_pass: passes::VoxelColorTransferRecordable::new(
                 game.clone(),
                 voxel_discovery_image_layout.clone(),
                 voxel_discovery_bind_group.clone(),
@@ -693,6 +752,26 @@ impl ChunkPool
             .faces
             .into_iter()
             .for_each(|data| visible_face_set.deallocate(unsafe { data.into_inner() }))
+    }
+
+    pub fn write_lights(&self, lights: &[data::PointLight])
+    {
+        let ChunkPoolCriticalSection {
+            point_lights_buffer,
+            point_lights_number_buffer,
+            ..
+        } = &*self.critical_section.lock().unwrap();
+
+        self.game
+            .get_renderer()
+            .queue
+            .write_buffer(&point_lights_buffer, 0, cast_slice(lights));
+
+        self.game.get_renderer().queue.write_buffer(
+            &point_lights_number_buffer,
+            0,
+            cast_slice(&[lights.len() as u32])
+        );
     }
 
     pub fn write_many_voxel(
@@ -923,6 +1002,43 @@ impl gfx::Recordable for ChunkPool
         global_bind_group: &std::sync::Arc<gfx::wgpu::BindGroup>
     ) -> gfx::RecordInfo
     {
+        static TIME_ALIVE: util::AtomicF32 = util::AtomicF32::new(0.0);
+        static LIGHTS: Mutex<[PointLight; 512]> = Mutex::new(
+            [PointLight {
+                position:        glm::Vec4::new(0.0, 0.0, 0.0, 0.0),
+                color_and_power: glm::Vec4::new(0.0, 0.0, 0.0, 0.0)
+            }; 512]
+        );
+
+        let lights: &mut [PointLight; 512] = &mut *LIGHTS.lock().unwrap();
+
+        if TIME_ALIVE.load(Ordering::Acquire) < 0.1
+        {
+            for l in lights.iter_mut()
+            {
+                l.color_and_power = glm::Vec4::new(
+                    rand::thread_rng().gen_range(0.0..1.0),
+                    rand::thread_rng().gen_range(0.0..1.0),
+                    rand::thread_rng().gen_range(0.0..1.0),
+                    rand::thread_rng().gen_range(0.0..7.0)
+                );
+            }
+        }
+
+        TIME_ALIVE.aba_add(renderer.get_delta_time(), Ordering::SeqCst);
+
+        for l in lights.iter_mut()
+        {
+            l.position += glm::Vec4::new(
+                renderer.get_delta_time() * rand::thread_rng().gen_range(-100.0..100.0),
+                renderer.get_delta_time() * rand::thread_rng().gen_range(-100.0..100.0),
+                renderer.get_delta_time() * rand::thread_rng().gen_range(-100.0..100.0),
+                0.0
+            );
+        }
+
+        self.write_lights(&*lights);
+
         let ChunkPoolCriticalSection {
             active_chunk_ids,
             brick_maps,

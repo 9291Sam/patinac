@@ -118,6 +118,11 @@ impl VoxelWorld
             .unwrap()
             .current_player_position = position;
     }
+
+    pub fn write_lights(&self, lights: &[voxel::PointLight])
+    {
+        self.pool.write_lights(lights);
+    }
 }
 
 impl game::EntityCastDepot for VoxelWorld

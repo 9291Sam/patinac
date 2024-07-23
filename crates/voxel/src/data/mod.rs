@@ -18,6 +18,7 @@ pub(crate) use face_id::FaceId;
 pub(crate) use material::MaterialManager;
 pub use material::Voxel;
 pub(crate) use material_brick::MaterialBrick;
+pub use point_light::PointLight;
 pub(crate) use rendered_face_info::RenderedFaceInfo;
 pub(crate) use visibility_brick::VisibilityBrick;
 pub(crate) use voxel_face_direction::VoxelFaceDirection;

@@ -11,7 +11,7 @@ mod passes;
 mod suballocated_buffer;
 
 pub use chunk_pool::{Chunk, ChunkPool};
-pub use data::Voxel;
+pub use data::{PointLight, Voxel};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Hash, Zeroable, Pod)]
 #[repr(C)]
