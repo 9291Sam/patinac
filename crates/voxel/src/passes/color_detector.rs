@@ -59,7 +59,7 @@ impl ColorDetectorRecordable
                         )),
                     entry_point:                      Cow::Borrowed("cs_main"),
                     specialization_constants:         None,
-                    zero_initialize_workgroup_memory: false
+                    zero_initialize_workgroup_memory: true
                 }
             ),
             face_and_brick_info_bind_group,
@@ -126,8 +126,8 @@ impl gfx::Recordable for ColorDetectorRecordable
         };
 
         let size = self.game.get_renderer().get_framebuffer_size();
-        let dispatch_size_x = size.x.div_ceil(8);
-        let dispatch_size_y = size.y.div_ceil(8);
+        let dispatch_size_x = size.x.div_ceil(256);
+        let dispatch_size_y = size.y.div_ceil(1);
 
         pass.dispatch_workgroups(dispatch_size_x, dispatch_size_y, 1);
     }

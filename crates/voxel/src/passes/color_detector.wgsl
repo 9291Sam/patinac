@@ -14,21 +14,67 @@
 
 @group(2) @binding(0) var<storage, read_write> color_raytracer_dispatches: array<atomic<u32>, 3>;
 
-@compute @workgroup_size(8, 8)
+struct WorkgroupFaceData
+{
+    face_number: u32,
+    other_packed_data: u32,
+}
+
+var<workgroup> workgroup_face_numbers: array<WorkgroupFaceData, 256>;
+var<workgroup> workgroup_number_of_face_numbers: atomic<u32>;
+
+@compute @workgroup_size(256)
 fn cs_main(
     @builtin(global_invocation_id) global_invocation_id: vec3<u32>,
+    @builtin(subgroup_invocation_id) subgroup_invocation_id: u32,
 ){
     let output_image_dimensions = textureDimensions(voxel_discovery_image).xy;
     let this_px: vec2<u32> = textureLoad(voxel_discovery_image, global_invocation_id.xy, 0).xy;
 
+    let null_face_number = u32(4294967295);
+
+    var maybe_face_number = null_face_number;
+
     if all(global_invocation_id.xy < output_image_dimensions)
     {
-        let chunk_id = this_px.x & u32(65535);
-        let normal_id = (this_px.x >> 27) & u32(7);
+        maybe_face_number = this_px.y;       
+    }   
 
-        let face_number = this_px.y;
+    loop
+    {
+        let min_face_number = subgroupMin(maybe_face_number);
+
+        if (min_face_number == null_face_number)
+        {
+            break;
+        }
+
+        if (min_face_number == maybe_face_number)
+        {
+            if (tempSubgroupElect(subgroup_invocation_id))
+            {
+                let idx = atomicAdd(&workgroup_number_of_face_numbers, 1u);
+
+                workgroup_face_numbers[idx] = WorkgroupFaceData(maybe_face_number, this_px.x);
+            }
+
+            maybe_face_number = null_face_number;
+        }
+    }
+
+    workgroupBarrier();
+
+    let number_of_mostly_unique_face_numbers = atomicLoad(&workgroup_number_of_face_numbers);
+
+    for (var i = u32(0); i < number_of_mostly_unique_face_numbers; i++)
+    {
+        let face_number = workgroup_face_numbers[i].face_number;
+        let pxx_data = workgroup_face_numbers[i].other_packed_data;
+
+        let chunk_id = pxx_data & u32(65535);
+        let normal_id = (pxx_data >> 27) & u32(7);
+
         let face_voxel_pos = voxel_face_data_load(face_number);
-
         let face_number_index = face_number / 32;
         let face_number_bit = face_number % 32;
 
@@ -48,6 +94,25 @@ fn cs_main(
             {
                 atomicAdd(&color_raytracer_dispatches[0], 1u);
             }
-        }
+        }   
     }
+}
+
+fn tempSubgroupElect(subgroup_invocation_id: u32) -> bool
+{
+    // let mask: vec4u = subgroupBallot(true);
+
+    // for (var i = u32(0); i < 4; i++)
+    // {
+    //     let maybe_bit = i32(firstTrailingBit(mask[i]));
+
+    //     if (maybe_bit != -1)
+    //     {
+    //         return i32(subgroup_invocation_id) == maybe_bit + i32(i) * 32;
+    //     }
+    // }
+
+    // return false;
+
+    return subgroupBroadcastFirst(subgroup_invocation_id) == subgroup_invocation_id;
 }

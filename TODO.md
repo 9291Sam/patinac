@@ -9,7 +9,6 @@ Tasks:
     
 
 Perf Ideas:
-    subgroup operations (deduplication shader)
     early estimatory lighting calculations in the vertex shader (compute bound already)
 https://discord.com/channels/331718482485837825/851121440425639956/1257849131393749165
 
