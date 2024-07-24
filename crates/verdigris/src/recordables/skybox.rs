@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 
 use bytemuck::{bytes_of, Pod, Zeroable};
 use gfx::{glm, wgpu};
-use image::{GenericImageView, ImageBuffer, Rgba};
+use image::Rgba;
 use wgpu::util::DeviceExt;
 
 #[repr(C)]
@@ -295,7 +295,7 @@ impl Skybox
                     },
                     aspect:    wgpu::TextureAspect::All
                 },
-                &img,
+                img,
                 wgpu::ImageDataLayout {
                     offset:         0,
                     bytes_per_row:  Some(

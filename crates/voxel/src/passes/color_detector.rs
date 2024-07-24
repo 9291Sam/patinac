@@ -28,12 +28,10 @@ impl ColorDetectorRecordable
     ) -> Arc<Self>
     {
         let this = Arc::new(ColorDetectorRecordable {
-            game:                           game.clone(),
-            uuid:                           util::Uuid::new(),
-            pipeline:                       game
-                .get_renderer()
-                .render_cache
-                .cache_compute_pipeline(CacheableComputePipelineDescriptor {
+            game: game.clone(),
+            uuid: util::Uuid::new(),
+            pipeline: game.get_renderer().render_cache.cache_compute_pipeline(
+                CacheableComputePipelineDescriptor {
                     label:                            Cow::Borrowed(
                         "ColorDetectorRecordable Pipeline"
                     ),
@@ -62,10 +60,11 @@ impl ColorDetectorRecordable
                     entry_point:                      Cow::Borrowed("cs_main"),
                     specialization_constants:         None,
                     zero_initialize_workgroup_memory: false
-                }),
-            face_and_brick_info_bind_group: face_and_brick_info_bind_group,
-            voxel_discovery_bind_group:     voxel_discovery_bind_group,
-            raytrace_indirect_bind_group:   raytrace_indirect_bind_group
+                }
+            ),
+            face_and_brick_info_bind_group,
+            voxel_discovery_bind_group,
+            raytrace_indirect_bind_group
         });
 
         game.get_renderer().register(this.clone());

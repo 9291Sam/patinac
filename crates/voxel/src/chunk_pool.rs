@@ -344,7 +344,7 @@ impl ChunkPool
             wgpu::BufferUsages::STORAGE
         );
 
-        let material_manager = MaterialManager::new(&renderer);
+        let material_manager = MaterialManager::new(renderer);
 
         let gpu_chunk_data_buffer = gfx::CpuTrackedBuffer::new(
             renderer.clone(),
@@ -765,10 +765,10 @@ impl ChunkPool
         self.game
             .get_renderer()
             .queue
-            .write_buffer(&point_lights_buffer, 0, cast_slice(lights));
+            .write_buffer(point_lights_buffer, 0, cast_slice(lights));
 
         self.game.get_renderer().queue.write_buffer(
-            &point_lights_number_buffer,
+            point_lights_number_buffer,
             0,
             cast_slice(&[lights.len() as u32])
         );
@@ -1010,7 +1010,7 @@ impl gfx::Recordable for ChunkPool
             }; 512]
         );
 
-        let lights: &mut [PointLight; 512] = &mut *LIGHTS.lock().unwrap();
+        let lights: &mut [PointLight; 512] = &mut LIGHTS.lock().unwrap();
 
         if TIME_ALIVE.load(Ordering::Acquire) < 0.1
         {
@@ -1063,10 +1063,10 @@ impl gfx::Recordable for ChunkPool
         } = &mut *self.critical_section.lock().unwrap();
 
         // encoder.clear_buffer(&face_numbers_to_face_ids, 0, None);
-        encoder.clear_buffer(&face_id_counter, 0, None);
+        encoder.clear_buffer(face_id_counter, 0, None);
         // encoder.clear_buffer(&rendered_face_info, 0, None);
-        encoder.clear_buffer(&is_face_visible_buffer, 0, None);
-        encoder.clear_buffer(&indirect_rt_dispatch, 0, Some(4));
+        encoder.clear_buffer(is_face_visible_buffer, 0, None);
+        encoder.clear_buffer(indirect_rt_dispatch, 0, Some(4));
 
         // We might need to update our passes.
         if resize_pinger.recv_all()
@@ -1141,7 +1141,7 @@ impl gfx::Recordable for ChunkPool
             for dir in data::VoxelFaceDirection::iterate()
             {
                 let draw_range =
-                    this_cpu_chunk_data.faces[dir as usize].get_global_range(&visible_face_set);
+                    this_cpu_chunk_data.faces[dir as usize].get_global_range(visible_face_set);
 
                 if draw_range.is_empty()
                 {
@@ -1204,10 +1204,7 @@ impl gfx::Recordable for ChunkPool
         fn draw_args_as_bytes(args: &[wgpu::util::DrawIndirectArgs]) -> &[u8]
         {
             unsafe {
-                std::slice::from_raw_parts(
-                    args.as_ptr() as *const u8,
-                    args.len() * std::mem::size_of::<wgpu::util::DrawIndirectArgs>()
-                )
+                std::slice::from_raw_parts(args.as_ptr() as *const u8, std::mem::size_of_val(args))
             }
         }
 

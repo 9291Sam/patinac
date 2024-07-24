@@ -110,7 +110,7 @@ impl Game
         let mut collider_set = ColliderSet::new();
 
         // Create other structures necessary for the simulation.
-        let gravity = vector![0.0, -128.64542732, 0.0];
+        let gravity = vector![0.0, -128.64542, 0.0];
         let mut physics_pipeline = PhysicsPipeline::new();
         let mut island_manager = IslandManager::new();
         let mut broad_phase = BroadPhaseMultiSap::new();
@@ -165,7 +165,7 @@ impl Game
                     }
                     else
                     {
-                        if let Some((_, (rigid_body_handle, _))) = self.collideables.remove(&uuid)
+                        if let Some((_, (rigid_body_handle, _))) = self.collideables.remove(uuid)
                         {
                             // This Entity had collideables, we need to free those handles now that
                             // its owner is gone
@@ -240,7 +240,7 @@ impl Game
                 physics_pipeline.step(
                     &gravity,
                     &IntegrationParameters {
-                        dt: delta_time as f32,
+                        dt: delta_time,
                         ..Default::default()
                     },
                     &mut island_manager,

@@ -24,10 +24,10 @@ impl<T: Send> Drop for Future<T>
         if !self.resolved.load(SeqCst)
         {
             // The previous call does noy synchronize with this, the future may now be
-            // fufilled
+            // fulfilled
             match self.receiver.try_recv()
             {
-                // Ok, the future was fufilled in the literal microseconds since we last checked
+                // Ok, the future was fulfilled in the literal microseconds since we last checked
                 Ok(_t) => (),
                 Err(e) =>
                 {
@@ -248,7 +248,7 @@ impl ThreadPool
         let caller = std::panic::Location::caller();
 
         #[cfg(debug_assertions)]
-        let future = Future::new(receiver, caller.clone());
+        let future = Future::new(receiver, *caller);
 
         #[cfg(not(debug_assertions))]
         let future = Future::new(receiver);

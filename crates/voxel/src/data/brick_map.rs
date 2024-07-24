@@ -46,6 +46,7 @@ impl BrickMap
         }
     }
 
+    #[allow(unused)]
     pub fn null_all_ptrs(&mut self)
     {
         self.brick_map
@@ -65,7 +66,7 @@ impl BrickMap
         {
             let coord = BrickCoordinate(glm::U8Vec3::new(x, y, z));
 
-            func(coord.clone(), self.get_mut(coord))
+            func(coord, self.get_mut(coord))
         }
     }
 

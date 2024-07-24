@@ -46,7 +46,9 @@ macro_rules! include_many_wgsl {
         {
             wgpu::ShaderModuleDescriptor {
                 label: Some(concat!($first)),
-                source: wgpu::ShaderSource::Wgsl(concat!(include_str!($first), "\n", $(include_str!($rest), "\n",)*).into()),
+                source: wgpu::ShaderSource::Wgsl(
+                    concat!(include_str!($first), "\n", $(include_str!($rest), "\n",)*).into()
+                ),
             }
         }
     };

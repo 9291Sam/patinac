@@ -12,20 +12,11 @@ Post Graphics MVP Tasks:
     more culling occlussion
     Make a Spell
 
-Misc (high):
-    remove the one frame input lag
-
-Misc (low):
-    Jemalloc
-    Fix exports in crates
-
-
-
 Goals:
-    Physics
-    Colored Voxels
     Editable World
-    Shadows + lighting?
+    Shadows
+    Greedy Meshing
+
 
 
 
@@ -37,4 +28,3 @@ https://discord.com/channels/331718482485837825/851121440425639956/1257849131393
 
 
 lighting customfalloffs
-imports

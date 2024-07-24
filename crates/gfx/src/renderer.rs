@@ -482,12 +482,10 @@ impl Renderer
                 maybe_new_id
             };
 
-            let render_encoder_name = format!("Patinac Main Command Encoder");
-
             let mut encoder = self
                 .device
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                    label: Some(&render_encoder_name)
+                    label: Some("Patinac Main Command Encoder")
                 });
 
             // log::trace!("before calling all pre_record_update s");

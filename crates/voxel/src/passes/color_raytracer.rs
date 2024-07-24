@@ -57,7 +57,7 @@ impl ColorRaytracerRecordable
                     zero_initialize_workgroup_memory: false
                 }
             ),
-            face_and_brick_info_bind_group: face_and_brick_info_bind_group,
+            face_and_brick_info_bind_group,
             indirect_buffer
         });
 

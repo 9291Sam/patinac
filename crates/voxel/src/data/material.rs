@@ -44,14 +44,7 @@ impl Voxel
 
     pub fn is_air(self) -> bool
     {
-        if let Voxel::Air = self
-        {
-            true
-        }
-        else
-        {
-            false
-        }
+        matches!(self, Voxel::Air)
     }
 }
 

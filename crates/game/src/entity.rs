@@ -50,6 +50,7 @@ pub trait Collideable: Transformable
 {
     fn init_collideable(&self) -> (RigidBody, Vec<Collider>);
 
+    #[allow(clippy::too_many_arguments)]
     fn physics_tick(
         &self,
         game: &super::Game,

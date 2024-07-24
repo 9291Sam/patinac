@@ -221,7 +221,7 @@ impl game::Collideable for VoxelWorld
             (player_position.z - 3)..(player_position.z + 3),
         )
         .map(|(x, y, z)| WorldPosition(glm::I32Vec3::new(x, y, z)))
-        .map(|p| world_position_to_chunk_position(p))
+        .map(world_position_to_chunk_position)
         .for_each(|(coordinate, local_pos)| {
             match chunk_coordinate_view_positions_map.entry(coordinate)
             {
@@ -261,7 +261,7 @@ impl game::Collideable for VoxelWorld
 
         for near_player in filled_positions_near_player.iter()
         {
-            if !current_colliders.contains_key(&near_player)
+            if !current_colliders.contains_key(near_player)
             {
                 colliders_to_add.insert(*near_player);
             }
@@ -269,7 +269,7 @@ impl game::Collideable for VoxelWorld
 
         for (current_collider_position, handle) in current_colliders.iter()
         {
-            if !filled_positions_near_player.contains(&current_collider_position)
+            if !filled_positions_near_player.contains(current_collider_position)
             {
                 colliders_to_cull.insert((*current_collider_position, *handle));
             }

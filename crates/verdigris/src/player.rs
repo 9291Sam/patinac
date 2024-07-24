@@ -205,7 +205,7 @@ impl game::Collideable for Player
             }
             else
             {
-                // we're in the air, we're still flaoting
+                // we're in the air, we're still floating
             }
         }
 
@@ -217,80 +217,10 @@ impl game::Collideable for Player
             this_body.set_translation(glm::Vec3::new(0.0, 384.0, 0.0), true)
         }
 
-        // log::trace!(
-        //     "BLOCK_ONPosition: {:?} | Integrated Velocity: {:?} {} | Time Floating:
-        // {}",     this_body.translation(),
-        //     this_body.linvel(),
-        //     this_body.linvel().magnitude(),
-        //     self.time_floating.load(Ordering::Acquire)
-        // );
-
         camera.add_pitch(delta_pitch);
         camera.add_yaw(delta_yaw);
         camera.set_position(*this_body.translation());
     }
-
-    // fn init_collideable(&self) -> (RigidBody, Vec<Collider>)
-    // {
-    //     // We actually don't want this to be managed by the main system, so just
-    // put a     // fixed immovable without any colldiers at the origin.
-    //     (
-    //         RigidBodyBuilder::fixed()
-    //             .enabled(false)
-    //             .sleeping(true)
-    //             .build(),
-    //         Vec::new()
-    //     )
-    // }
-
-    // fn physics_tick(
-    //     &self,
-    //     game: &game::Game,
-    //     gravity: glm::Vec3,
-    //     this_handle: RigidBodyHandle,
-    //     rigid_body_set: &mut RigidBodySet,
-    //     collider_set: &mut ColliderSet,
-    //     query_pipeline: &QueryPipeline,
-    //     _: game::TickTag
-    // )
-    // {
-    //     let mut camera = self.camera.lock().unwrap();
-
-    //     let desired_camera = modify_camera_based_on_inputs(camera.clone(), game);
-
-    //     let move_result = self.player_controller.move_shape(
-    //         game.get_delta_time(),
-    //         rigid_body_set,
-    //         collider_set,
-    //         query_pipeline,
-    //         &Capsule::new_y(24.0, 16.0),
-    //         &get_isometry_of_camera(&camera),
-    //         desired_camera.get_position()
-    //             + get_gravity_influenced_velocity_given_time_floating(
-    //               self.time_floating.load(Ordering::Acquire), gravity
-    //             ) * game.get_delta_time(),
-    //         QueryFilter::new().exclude_rigid_body(this_handle),
-    //         |_| {}
-    //     );
-
-    //     rigid_body_set.get(this_handle).unwrap().pred
-
-    //     if !move_result.grounded
-    //     {
-    //         self.time_floating.store(
-    //             self.time_floating.load(Ordering::Acquire) +
-    // game.get_delta_time(),             Ordering::Release
-    //         )
-    //     }
-    //     else
-    //     {
-    //         self.time_floating.store(0.0, Ordering::Release)
-    //     }
-
-    //     camera.set_position(move_result.translation);
-    //     camera.set_yaw(desired_camera.get_yaw());
-    //     camera.set_pitch(desired_camera.get_pitch());
-    // }
 }
 
 struct DesiredMovementResult
@@ -415,8 +345,8 @@ fn calculate_desired_movement(
 
     DesiredMovementResult {
         desired_translation: net_translation,
-        delta_pitch:         pitch,
-        delta_yaw:           yaw,
-        wants_to_jump:       wants_to_jump
+        delta_pitch: pitch,
+        delta_yaw: yaw,
+        wants_to_jump
     }
 }

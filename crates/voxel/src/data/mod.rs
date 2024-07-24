@@ -10,7 +10,7 @@ mod rendered_face_info;
 mod visibility_brick;
 mod voxel_face_direction;
 
-pub(crate) use brick_map::{BrickMap, BrickPtr, MaybeBrickPtr};
+pub(crate) use brick_map::{BrickMap, MaybeBrickPtr};
 pub(crate) use chunk_info::GpuChunkData;
 pub(crate) use cpu_chunk_data::CpuChunkData;
 pub(crate) use face::VoxelFace;

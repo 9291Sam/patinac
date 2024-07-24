@@ -117,7 +117,7 @@ impl<T: Pod> SubAllocatedCpuTrackedBuffer<T>
                 length:                        new_length,
                 phantom:                       PhantomData,
                 #[cfg(debug_assertions)]
-                uuid:                          self.uuid.clone()
+                uuid:                          self.uuid
             }
         }
         else
@@ -247,11 +247,8 @@ impl<T: Pod> SubAllocatedCpuTrackedBuffer<T>
 
     pub fn replicate_to_gpu(&mut self)
     {
-        let flush_ranges = combine_into_ranges(
-            std::mem::replace(&mut self.flush_ranges, Vec::new()),
-            2u32.pow(14),
-            32
-        );
+        let flush_ranges =
+            combine_into_ranges(std::mem::take(&mut self.flush_ranges), 2u32.pow(14), 32);
 
         for range in flush_ranges
         {
@@ -338,14 +335,14 @@ impl<T: Pod + Eq + Hash> SubAllocatedCpuTrackedDenseSet<T>
     /// Returns the previous element (if contained)
     pub fn insert(&mut self, t: T, allocator: &mut SubAllocatedCpuTrackedBuffer<T>) -> Option<T>
     {
-        match self.element_to_idx_map.entry(t.clone())
+        match self.element_to_idx_map.entry(t)
         {
             Entry::Occupied(occupied_entry) =>
             {
                 let idx: u32 = *occupied_entry.get();
                 let old_t: T = occupied_entry.replace_key();
 
-                allocator.write(&self.data, idx..(idx + 1), &[t.clone()]);
+                allocator.write(&self.data, idx..(idx + 1), &[t]);
 
                 Some(old_t)
             }
@@ -362,11 +359,7 @@ impl<T: Pod + Eq + Hash> SubAllocatedCpuTrackedDenseSet<T>
 
                 self.number_of_stored_elements += 1;
 
-                allocator.write(
-                    &self.data,
-                    new_element_idx..(new_element_idx + 1),
-                    &[t.clone()]
-                );
+                allocator.write(&self.data, new_element_idx..(new_element_idx + 1), &[t]);
 
                 vacant_entry.insert(new_element_idx);
 
@@ -381,7 +374,7 @@ impl<T: Pod + Eq + Hash> SubAllocatedCpuTrackedDenseSet<T>
         allocator: &mut SubAllocatedCpuTrackedBuffer<T>
     ) -> Result<(), NoElementContained>
     {
-        match self.element_to_idx_map.entry(t.clone())
+        match self.element_to_idx_map.entry(t)
         {
             Entry::Occupied(occupied_entry) =>
             {
@@ -391,11 +384,10 @@ impl<T: Pod + Eq + Hash> SubAllocatedCpuTrackedDenseSet<T>
 
                 if rem_idx != last_idx
                 {
-                    let last_val = allocator
+                    let last_val = *allocator
                         .read(&self.data, last_idx..(last_idx + 1))
-                        .get(0)
-                        .unwrap()
-                        .clone();
+                        .first()
+                        .unwrap();
 
                     // swap last element to the front
                     allocator.write(&self.data, rem_idx..(rem_idx + 1), &[last_val]);

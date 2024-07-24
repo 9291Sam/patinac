@@ -9,7 +9,7 @@ use rand::Rng;
 
 use crate::recordables::skybox::Skybox;
 use crate::voxel_world::{VoxelWorld, WorldPosition};
-use crate::{ Player};
+use crate::Player;
 
 pub struct DemoScene
 {
@@ -18,7 +18,7 @@ pub struct DemoScene
 
     player:         Arc<Player>,
     camera_updater: util::WindowUpdater<gfx::Camera>,
-    skybox:         Arc<Skybox>
+    _skybox:        Arc<Skybox>
 }
 unsafe impl Sync for DemoScene {}
 
@@ -72,7 +72,7 @@ impl DemoScene
             id: util::Uuid::new(),
             player,
             camera_updater,
-            skybox: Skybox::new_skybox(game.clone(), gfx::Transform::default())
+            _skybox: Skybox::new_skybox(game.clone(), gfx::Transform::default())
         });
 
         game.register(this.clone());
@@ -141,7 +141,7 @@ fn load_model_from_file_into(world_offset: glm::I32Vec3, world: &VoxelWorld, dat
 
 fn arbitrary_landscape_demo(world: &VoxelWorld)
 {
-    let noise = noise::OpenSimplex::new(2384247834); // 
+    let noise = noise::OpenSimplex::new(2384247834);
 
     let it = spiral::ChebyshevIterator::new(0, 0, 512).map(|(x, z)| {
         (

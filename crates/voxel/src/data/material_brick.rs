@@ -1,6 +1,4 @@
 use bytemuck::{AnyBitPattern, NoUninit};
-use gfx::glm;
-use itertools::iproduct;
 
 use super::material::Voxel;
 use crate::{BrickLocalPosition, BRICK_EDGE_LEN_VOXELS};

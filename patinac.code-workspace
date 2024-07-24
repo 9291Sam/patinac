@@ -16,7 +16,10 @@
 			"fontdb",
 			"framebuffer",
 			"glyphon",
-			"raytrace"
+			"oneshot",
+			"raytrace",
+			"renderable",
+			"renderables"
 		]
 	}
 }
