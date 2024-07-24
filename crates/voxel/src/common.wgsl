@@ -102,6 +102,7 @@ struct PointLight
 {
     position: vec4<f32>,
     color_and_power: vec4<f32>,
+    falloffs: vec4<f32>
 }
 
 fn calculate_single_face_color(
@@ -123,10 +124,11 @@ fn calculate_single_face_color(
     let view_vector = normalize(camera_pos - pos);
     let r = 2 * dot(light_dir, normal) * normal - light_dir;
 
-    let constant_factor = 0.0;
-    let linear_factor = 0.75;
-    let quadratic_factor = 0.03;
-    let attenuation = 1.0 / (constant_factor + linear_factor * distance + quadratic_factor * distance * distance);
+    let attenuation = 1.0 / (
+        light.falloffs.x +
+        light.falloffs.y * distance +
+        light.falloffs.z * distance * distance +
+        light.falloffs.w * distance * distance * distance);
  
     let diffuse = saturate(dot(normal, light_dir)) * color_and_power.xyz * material_buffer[material_id].diffuse_color.xyz * color_and_power.w * attenuation;
     let specular = pow(saturate(dot(r, view_vector)), material_buffer[material_id].specular) * color_and_power.xyz * material_buffer[material_id].specular_color.xyz * color_and_power.w * attenuation;

@@ -11,8 +11,8 @@ pub struct VoxelWorld
 {
     uuid: util::Uuid,
 
-    pool:             Arc<voxel::ChunkPool>,
-    critical_section: Mutex<CriticalSection>
+    critical_section: Mutex<CriticalSection>,
+    pool:             Arc<voxel::ChunkPool>
 }
 
 struct CriticalSection

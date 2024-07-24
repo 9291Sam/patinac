@@ -1,7 +1,8 @@
 use std::borrow::Cow;
 use std::fmt::Debug;
+use std::hash::Hash;
 use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, Weak};
 
 use bytemuck::{bytes_of, cast_slice, Pod, Zeroable};
 use fnv::FnvHashSet;
@@ -33,10 +34,65 @@ const FACES_TO_PREALLOCATE: usize = 1024 * 1024 * 16;
 // use the index in the visible_Face_set as a unique id
 // make another buffer that stores this face data, marking
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Chunk
 {
-    id: u32
+    id:   u32,
+    pool: Weak<ChunkPool>
+}
+
+impl Drop for Chunk
+{
+    fn drop(&mut self)
+    {
+        match self.pool.upgrade()
+        {
+            Some(pool) =>
+            {
+                pool.deallocate_chunk(Chunk {
+                    id:   self.id,
+                    pool: Arc::downgrade(&pool)
+                })
+            }
+            None =>
+            {
+                log::warn!("Drop of Chunk after ChunkPool")
+            }
+        }
+    }
+}
+
+impl Eq for Chunk {}
+
+impl PartialEq for Chunk
+{
+    fn eq(&self, other: &Self) -> bool
+    {
+        self.id == other.id
+    }
+}
+
+impl Ord for Chunk
+{
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering
+    {
+        self.id.cmp(&other.id)
+    }
+}
+
+impl PartialOrd for Chunk
+{
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering>
+    {
+        self.id.partial_cmp(&other.id)
+    }
+}
+
+impl Hash for Chunk
+{
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H)
+    {
+        self.id.hash(state);
+    }
 }
 
 pub struct ChunkPool
@@ -674,7 +730,7 @@ impl ChunkPool
 
     // TODO: eventually modify to take a Transform and then construct the rt
     // structures based on that.
-    pub fn allocate_chunk(&self, coordinate: ChunkCoordinate) -> Chunk
+    pub fn allocate_chunk(self: &Arc<Self>, coordinate: ChunkCoordinate) -> Chunk
     {
         let ChunkPoolCriticalSection {
             active_chunk_ids,
@@ -717,7 +773,8 @@ impl ChunkPool
         assert!(active_chunk_ids.insert(new_chunk_id as u32));
 
         Chunk {
-            id: new_chunk_id as u32
+            id:   new_chunk_id as u32,
+            pool: Arc::downgrade(self)
         }
     }
 
@@ -751,7 +808,9 @@ impl ChunkPool
             .unwrap()
             .faces
             .into_iter()
-            .for_each(|data| visible_face_set.deallocate(unsafe { data.into_inner() }))
+            .for_each(|data| visible_face_set.deallocate(unsafe { data.into_inner() }));
+
+        std::mem::forget(chunk)
     }
 
     pub fn write_lights(&self, lights: &[data::PointLight])
@@ -1006,7 +1065,8 @@ impl gfx::Recordable for ChunkPool
         static LIGHTS: Mutex<[PointLight; 512]> = Mutex::new(
             [PointLight {
                 position:        glm::Vec4::new(0.0, 0.0, 0.0, 0.0),
-                color_and_power: glm::Vec4::new(0.0, 0.0, 0.0, 0.0)
+                color_and_power: glm::Vec4::new(0.0, 0.0, 0.0, 0.0),
+                falloffs:        glm::Vec4::new(0.0, 0.0, 0.03, 0.0)
             }; 512]
         );
 
@@ -1022,6 +1082,8 @@ impl gfx::Recordable for ChunkPool
                     rand::thread_rng().gen_range(0.0..1.0),
                     rand::thread_rng().gen_range(0.0..7.0)
                 );
+
+                l.falloffs.y = rand::thread_rng().gen_range(0.1..5.0);
             }
         }
 
@@ -1030,9 +1092,9 @@ impl gfx::Recordable for ChunkPool
         for l in lights.iter_mut()
         {
             l.position += glm::Vec4::new(
-                renderer.get_delta_time() * rand::thread_rng().gen_range(-100.0..100.0),
-                renderer.get_delta_time() * rand::thread_rng().gen_range(-100.0..100.0),
-                renderer.get_delta_time() * rand::thread_rng().gen_range(-100.0..100.0),
+                renderer.get_delta_time() * rand::thread_rng().gen_range(-512.0..512.0),
+                renderer.get_delta_time() * rand::thread_rng().gen_range(-16.0..16.0),
+                renderer.get_delta_time() * rand::thread_rng().gen_range(-512.0..512.0),
                 0.0
             );
         }

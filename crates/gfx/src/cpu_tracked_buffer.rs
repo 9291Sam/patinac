@@ -150,7 +150,7 @@ impl<T: AnyBitPattern + NoUninit + Debug> CpuTrackedBuffer<T>
         {
             self.gpu_data = self.renderer.create_buffer(&wgpu::BufferDescriptor {
                 label:              Some(&self.name),
-                size:               self.cpu_data.len() as u64 * std::mem::size_of::<T>() as u64,
+                size:               std::mem::size_of_val(&self.cpu_data) as u64,
                 usage:              self.usage | wgpu::BufferUsages::COPY_DST,
                 mapped_at_creation: false
             });
