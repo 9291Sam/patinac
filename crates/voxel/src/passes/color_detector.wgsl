@@ -20,22 +20,34 @@ struct WorkgroupFaceData
     other_packed_data: u32,
 }
 
-var<workgroup> workgroup_face_numbers: array<WorkgroupFaceData, 256>;
+var<workgroup> workgroup_face_numbers: array<WorkgroupFaceData, 64>;
 var<workgroup> workgroup_number_of_face_numbers: atomic<u32>;
 
-@compute @workgroup_size(256)
+@compute @workgroup_size(64)
 fn cs_main(
     @builtin(global_invocation_id) global_invocation_id: vec3<u32>,
     @builtin(subgroup_invocation_id) subgroup_invocation_id: u32,
 ){
     let output_image_dimensions = textureDimensions(voxel_discovery_image).xy;
-    let this_px: vec2<u32> = textureLoad(voxel_discovery_image, global_invocation_id.xy, 0).xy;
+
+    let global_invocation_index = global_invocation_id.x;
+
+    let global_workgroup_index = global_invocation_index / 64;
+    let local_workgroup_index = global_invocation_index % 64;
+
+    let global_workgroup_id = vec2u(
+        global_workgroup_index % (output_image_dimensions.x / 8),
+        global_workgroup_index / (output_image_dimensions.x / 8));
+
+    let sample_idx: vec2<u32> = global_workgroup_id * 8 + vec2u(local_workgroup_index % 8, local_workgroup_index / 8);
+
+    let this_px: vec2<u32> = textureLoad(voxel_discovery_image, sample_idx, 0).xy;
 
     let null_face_number = u32(4294967295);
 
     var maybe_face_number = null_face_number;
 
-    if all(global_invocation_id.xy < output_image_dimensions)
+    if all(sample_idx < output_image_dimensions)
     {
         maybe_face_number = this_px.y;       
     }   
@@ -100,19 +112,5 @@ fn cs_main(
 
 fn tempSubgroupElect(subgroup_invocation_id: u32) -> bool
 {
-    // let mask: vec4u = subgroupBallot(true);
-
-    // for (var i = u32(0); i < 4; i++)
-    // {
-    //     let maybe_bit = i32(firstTrailingBit(mask[i]));
-
-    //     if (maybe_bit != -1)
-    //     {
-    //         return i32(subgroup_invocation_id) == maybe_bit + i32(i) * 32;
-    //     }
-    // }
-
-    // return false;
-
     return subgroupBroadcastFirst(subgroup_invocation_id) == subgroup_invocation_id;
 }
