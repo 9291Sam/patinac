@@ -1,5 +1,4 @@
 #![feature(test)]
-use std::alloc::Layout;
 use std::num::NonZeroUsize;
 use std::sync::{Arc, Mutex};
 
@@ -34,27 +33,6 @@ fn main()
 
     let held_renderer: Mutex<Option<Arc<gfx::Renderer>>> = Mutex::new(None);
     let held_game: Mutex<Option<Arc<game::Game>>> = Mutex::new(None);
-
-    for global_invocation_index in 0..256
-    {
-        let xdim = 192;
-
-        let global_workgroup_index = global_invocation_index / 64;
-        let local_workgroup_index = global_invocation_index % 64;
-
-        let global_workgroup_id_x = global_workgroup_index % (xdim / 8);
-        let global_workgroup_id_y = global_workgroup_index / (xdim / 8);
-
-        let sample_idx_x = global_workgroup_id_x * 8 + (local_workgroup_index % 8);
-        let sample_idx_y = global_workgroup_id_y * 8 + (local_workgroup_index / 8);
-
-        log::trace!(
-            "Idx: {} | X: {} | y: {}",
-            global_invocation_index,
-            sample_idx_x,
-            sample_idx_y
-        );
-    }
 
     util::handle_crashes(|new_thread_func, should_loops_continue, terminate_loops| {
         let (renderer, renderer_renderpass_updater, camera_updater) =
