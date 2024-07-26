@@ -1063,17 +1063,17 @@ impl gfx::Recordable for ChunkPool
     ) -> gfx::RecordInfo
     {
         static TIME_ALIVE: util::AtomicF32 = util::AtomicF32::new(0.0);
-        static LIGHTS: Mutex<[PointLight; 512]> = Mutex::new(
+        static LIGHTS: Mutex<[PointLight; 4096]> = Mutex::new(
             [PointLight {
                 position:        glm::Vec4::new(0.0, 0.0, 0.0, 0.0),
                 color_and_power: glm::Vec4::new(0.0, 0.0, 0.0, 0.0),
-                falloffs:        glm::Vec4::new(0.0, 0.0, 0.03, 0.0)
-            }; 512]
+                falloffs:        glm::Vec4::new(0.0, 0.0, 0.02, 0.01)
+            }; 4096]
         );
 
-        let lights: &mut [PointLight; 512] = &mut LIGHTS.lock().unwrap();
+        let lights: &mut [PointLight; 4096] = &mut LIGHTS.lock().unwrap();
 
-        if TIME_ALIVE.load(Ordering::Acquire) < 0.1
+        if TIME_ALIVE.load(Ordering::Acquire) < 0.0001
         {
             for l in lights.iter_mut()
             {
@@ -1081,10 +1081,10 @@ impl gfx::Recordable for ChunkPool
                     rand::thread_rng().gen_range(0.0..1.0),
                     rand::thread_rng().gen_range(0.0..1.0),
                     rand::thread_rng().gen_range(0.0..1.0),
-                    rand::thread_rng().gen_range(0.0..7.0)
+                    rand::thread_rng().gen_range(7.0..27.0)
                 );
 
-                l.falloffs.y = rand::thread_rng().gen_range(0.1..5.0);
+                l.falloffs.y = 0.01; // rand::thread_rng().gen_range(.0..5.0);
             }
         }
 
