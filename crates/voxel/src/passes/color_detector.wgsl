@@ -102,45 +102,41 @@ fn cs_main(
 
     for (var i = u32(0); i < number_of_mostly_unique_face_numbers; i++)
     {
-        let face_number = workgroup_face_numbers[i].face_number;
-
-        if (face_number == null_face_number)
-        {
-            continue;
-        }
-
-        let pxx_data = workgroup_face_numbers[i].other_packed_data;
-
-        let chunk_id = pxx_data & u32(65535);
-        let normal_id = (pxx_data >> 27) & u32(7);
-
-        let face_voxel_pos = voxel_face_data_load(face_number);
-        // let face_number_index = face_number / 32;
-        // let face_number_bit = face_number % 32;
-
-        // let mask = (1u << face_number_bit);
-        // let prev = atomicOr(&is_face_number_visible_bool[face_number_index], mask);
-        // let is_first_write = (prev & mask) == 0u; // this load is the slow bit
-
-        let is_first_write = atomicExchange(&is_face_number_visible_bool[face_number], 1u) == 0u;
-
-        if (is_first_write)
-        {
-            let this_face_id = atomicAdd(&next_face_id, 1u);
-
-            face_numbers_to_face_ids[face_number] = this_face_id;
-            let combined_dir_and_pos = face_voxel_pos.x | (face_voxel_pos.y << 8) | (face_voxel_pos.z << 16) | (normal_id << 24);
-            renderered_face_info[this_face_id] = RenderedFaceInfo(chunk_id, combined_dir_and_pos, vec4<f32>(0.0));
-            
-            if (this_face_id % 64 == 0)
-            {
-                atomicAdd(&color_raytracer_dispatches[0], 1u);
-            }
-        }   
+       try_global_dedup_of_face_number_unchecked(workgroup_face_numbers[i].face_number, workgroup_face_numbers[i].other_packed_data);
     }
 }
 
 fn tempSubgroupElect(subgroup_invocation_id: u32) -> bool
 {
     return subgroupBroadcastFirst(subgroup_invocation_id) == subgroup_invocation_id;
+}
+
+fn try_global_dedup_of_face_number_unchecked(face_number: u32, pxx_data: u32)
+{
+    let chunk_id = pxx_data & u32(65535);
+    let normal_id = (pxx_data >> 27) & u32(7);
+
+    let face_voxel_pos = voxel_face_data_load(face_number);
+    // let face_number_index = face_number / 32;
+    // let face_number_bit = face_number % 32;
+
+    // let mask = (1u << face_number_bit);
+    // let prev = atomicOr(&is_face_number_visible_bool[face_number_index], mask);
+    // let is_first_write = (prev & mask) == 0u; // this load is the slow bit
+
+    let is_first_write = atomicExchange(&is_face_number_visible_bool[face_number], 1u) == 0u;
+
+    if (is_first_write)
+    {
+        let this_face_id = atomicAdd(&next_face_id, 1u);
+
+        face_numbers_to_face_ids[face_number] = this_face_id;
+        let combined_dir_and_pos = face_voxel_pos.x | (face_voxel_pos.y << 8) | (face_voxel_pos.z << 16) | (normal_id << 24);
+        renderered_face_info[this_face_id] = RenderedFaceInfo(chunk_id, combined_dir_and_pos, vec4<f32>(0.0));
+        
+        if (this_face_id % 64 == 0)
+        {
+            atomicAdd(&color_raytracer_dispatches[0], 1u);
+        }
+    }   
 }
