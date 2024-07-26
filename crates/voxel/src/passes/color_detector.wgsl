@@ -83,24 +83,21 @@ fn cs_main(
         // we now have a workgrpup buffer with each subgroup's min value.
         // use another subgroup op to find the minimum
 
-        if (subgroup_index_within_workgroup == 0)
+        // we only want the first subgroup here
+        let each_thread_subgroup_min = workgroup_subgroup_min_data[subgroup_invocation_id];
+        
+        let workgroup_min = subgroupMin(each_thread_subgroup_min.face_number);
+
+        if (each_thread_subgroup_min.face_number == workgroup_min) // at least one thread
         {
-            // we only want the first subgroup here
-            let each_thread_subgroup_min = workgroup_subgroup_min_data[subgroup_invocation_id];
-            
-            let workgroup_min = subgroupMin(each_thread_subgroup_min.face_number);
-
-            if (each_thread_subgroup_min.face_number == workgroup_min) // at least one thread
+            if (subgroup_index_within_workgroup == 0 && tempSubgroupElect(subgroup_invocation_id)) // pick the lowest
             {
-                if (tempSubgroupElect(subgroup_invocation_id)) // pick the lowest
-                {
-                    workgroup_working_min = each_thread_subgroup_min;
-                    
-                    try_global_dedup_of_face_number_unchecked(workgroup_working_min);
-                }
-            }            
-        }
-
+                workgroup_working_min = each_thread_subgroup_min;
+                
+                try_global_dedup_of_face_number_unchecked(each_thread_subgroup_min);
+            }
+        }            
+        
         workgroupBarrier();
         
         if (workgroup_working_min.face_number == null_face_number)
