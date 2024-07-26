@@ -22,40 +22,19 @@ struct WorkgroupFaceData
 
 // var<workgroup> workgroup_subgroup_min_data: array<WorkgroupFaceData, 32>;
 
-@compute @workgroup_size(1024)
+@compute @workgroup_size(32, 32)
 fn cs_main(
-    @builtin(global_invocation_id) global_invocation_id: vec3<u32>,
-    @builtin(subgroup_size) subgroup_size: u32,
-    @builtin(subgroup_invocation_id) subgroup_invocation_id: u32,
+    @builtin(global_invocation_id) global_invocation_id: vec3<u32>
 ){
     let output_image_dimensions = textureDimensions(voxel_discovery_image).xy;
 
-    let global_invocation_index = global_invocation_id.x;
-
-    let global_workgroup_index = global_invocation_index / 1024;
-    let local_workgroup_index = global_invocation_index % 1024;
-
-    let global_workgroup_id = vec2u(
-        global_workgroup_index % (output_image_dimensions.x / 32),
-        global_workgroup_index / (output_image_dimensions.x / 32));
-
-    let sample_idx: vec2<u32> = global_workgroup_id * 32 + vec2u(local_workgroup_index % 32, local_workgroup_index / 32);
-    
-    let null_face_number = u32(4294967295);
-    var thread_face_data = WorkgroupFaceData(null_face_number, null_face_number);
-
-    if all(sample_idx < output_image_dimensions)
+    if all(global_invocation_id.xy < output_image_dimensions)
     {
-        let thread_face_data_raw: vec2<u32> = textureLoad(voxel_discovery_image, sample_idx, 0).xy;
-        thread_face_data = WorkgroupFaceData(thread_face_data_raw.y, thread_face_data_raw.x);
+        let thread_face_data_raw: vec2<u32> = textureLoad(voxel_discovery_image, global_invocation_id.xy, 0).xy;
+        
+        try_global_dedup_of_face_number_unchecked(WorkgroupFaceData(thread_face_data_raw.y, thread_face_data_raw.x));
     }
 
-    try_global_dedup_of_face_number_unchecked(thread_face_data);
-}
-
-fn tempSubgroupElect(subgroup_invocation_id: u32) -> bool
-{
-    return subgroupBroadcastFirst(subgroup_invocation_id) == subgroup_invocation_id;
 }
 
 fn try_global_dedup_of_face_number_unchecked(face_data: WorkgroupFaceData)
@@ -67,14 +46,12 @@ fn try_global_dedup_of_face_number_unchecked(face_data: WorkgroupFaceData)
     let normal_id = (pxx_data >> 27) & u32(7);
 
     let face_voxel_pos = voxel_face_data_load(face_number);
-    // let face_number_index = face_number / 32;
-    // let face_number_bit = face_number % 32;
+    let face_number_index = face_number / 32;
+    let face_number_bit = face_number % 32;
 
-    // let mask = (1u << face_number_bit);
-    // let prev = atomicOr(&is_face_number_visible_bool[face_number_index], mask);
-    // let is_first_write = (prev & mask) == 0u; // this load is the slow bit
-
-    let is_first_write = atomicExchange(&is_face_number_visible_bool[face_number], 1u) == 0u;
+    let mask = (1u << face_number_bit);
+    let prev = atomicOr(&is_face_number_visible_bool[face_number_index], mask);
+    let is_first_write = (prev & mask) == 0u;
 
     if (is_first_write)
     {

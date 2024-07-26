@@ -409,14 +409,13 @@ impl ChunkPool
             wgpu::BufferUsages::STORAGE
         );
 
-        let is_face_number_visible_bits_buffer =
-            renderer.create_buffer(&wgpu::BufferDescriptor {
-                label:              Some("ChunkPool IsFaceVisible BitBuffer"),
-                size:               (FACES_TO_PREALLOCATE as u64)
-                    * std::mem::size_of::<u32>() as u64, // .div_ceil(u32::BITS as u64),
-                usage:              wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
-                mapped_at_creation: false
-            });
+        let is_face_number_visible_bits_buffer = renderer.create_buffer(&wgpu::BufferDescriptor {
+            label:              Some("ChunkPool IsFaceVisible BitBuffer"),
+            size:               (FACES_TO_PREALLOCATE as u64 * u8::BITS as u64)
+                .div_ceil(u32::BITS as u64),
+            usage:              wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false
+        });
 
         let face_numbers_to_face_ids_buffer = renderer.create_buffer(&wgpu::BufferDescriptor {
             label:              Some("ChunkPool VisibleFaceIds Buffer"),
