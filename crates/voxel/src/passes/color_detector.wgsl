@@ -20,10 +20,10 @@ struct WorkgroupFaceData
     other_packed_data: u32,
 }
 
-var<workgroup> workgroup_face_numbers: array<WorkgroupFaceData, 64>;
-var<workgroup> workgroup_number_of_face_numbers: atomic<u32>;
+var<workgroup> workgroup_subgroup_min_data: array<WorkgroupFaceData, 32>;
+var<workgroup> workgroup_working_min: WorkgroupFaceData;
 
-@compute @workgroup_size(64)
+@compute @workgroup_size(1024)
 fn cs_main(
     @builtin(global_invocation_id) global_invocation_id: vec3<u32>,
     @builtin(subgroup_size) subgroup_size: u32,
@@ -33,76 +33,92 @@ fn cs_main(
 
     let global_invocation_index = global_invocation_id.x;
 
-    let global_workgroup_index = global_invocation_index / 64; // should be 64!
-    let local_workgroup_index = global_invocation_index % 64;
+    let global_workgroup_index = global_invocation_index / 1024; // should be 64!
+    let local_workgroup_index = global_invocation_index % 1024;
+
+    let subgroup_index_within_workgroup = local_workgroup_index / 32;
 
     let global_workgroup_id = vec2u(
-        global_workgroup_index % (output_image_dimensions.x / 8),
-        global_workgroup_index / (output_image_dimensions.x / 8));
+        global_workgroup_index % (output_image_dimensions.x / 32),
+        global_workgroup_index / (output_image_dimensions.x / 32));
 
-    let sample_idx: vec2<u32> = global_workgroup_id * 8 + vec2u(local_workgroup_index % 8, local_workgroup_index / 8);
-
-    let this_px: vec2<u32> = textureLoad(voxel_discovery_image, sample_idx, 0).xy;
-
+    let sample_idx: vec2<u32> = global_workgroup_id * 32 + vec2u(local_workgroup_index % 32, local_workgroup_index / 32);
+    
     let null_face_number = u32(4294967295);
-
-    var maybe_face_number = null_face_number;
+    var thread_face_data = WorkgroupFaceData(null_face_number, null_face_number);
 
     if all(sample_idx < output_image_dimensions)
     {
-        maybe_face_number = this_px.y;       
-    }   
+        let thread_face_data_raw: vec2<u32> = textureLoad(voxel_discovery_image, sample_idx, 0).xy;
+        thread_face_data = WorkgroupFaceData(thread_face_data_raw.y, thread_face_data_raw.x);
+    }
+    workgroupBarrier();
 
-    // subgroup deduplication
-    loop
+    // Each thread in our workgroup has a `thread_face_data` that's either null
+    // or contains data that we want
+
+    // The pseudocode looks as follows:
+    // We have a 32x32 workgroup grid that's somehow divided into subgroup
+    // arrays by the driver
+    // Take the min of each subgroup, and then take the min of each of those mins
+    // this gives us the minimum face_number in the entire workgroup in a few 
+    // subgroup ops.
+    // Write this global min to the global storage buffer, and then null all
+    // threads that have this value
+
+    for (var i = 0; i < 1024; i++)
     {
-        let min_face_number = subgroupMin(maybe_face_number);
+        let subgroup_min = subgroupMin(thread_face_data.face_number);
 
-        if (min_face_number == null_face_number)
+        if (thread_face_data.face_number == subgroup_min) // at least one thread
         {
+            if (tempSubgroupElect(subgroup_invocation_id)) // pick the lowest
+            {
+                workgroup_subgroup_min_data[subgroup_index_within_workgroup] = thread_face_data;
+            }
+        }
+
+        workgroupBarrier();
+
+        // we now have a workgrpup buffer with each subgroup's min value.
+        // use another subgroup op to find the minimum
+
+        if (subgroup_index_within_workgroup == 0)
+        {
+            // we only want the first subgroup here
+            let each_thread_subgroup_min = workgroup_subgroup_min_data[subgroup_invocation_id];
+            
+            let workgroup_min = subgroupMin(each_thread_subgroup_min.face_number);
+
+            if (each_thread_subgroup_min.face_number == workgroup_min) // at least one thread
+            {
+                if (tempSubgroupElect(subgroup_invocation_id)) // pick the lowest
+                {
+                    workgroup_working_min = each_thread_subgroup_min;
+                    
+                    try_global_dedup_of_face_number_unchecked(workgroup_working_min);
+                }
+            }            
+        }
+
+        workgroupBarrier();
+        
+        if (workgroup_working_min.face_number == null_face_number)
+        {
+            // the min of all threads was null there are no more threads
             break;
         }
 
-        if (min_face_number == maybe_face_number)
+        // now that we've done a global flush of the minimum value we may need to cleanup this
+        // thread's data if it was flushed
+        
+        // Ok, great! this thread's data was flushed away so we can make
+        // ourselves null now
+        if (workgroup_working_min.face_number == thread_face_data.face_number)
         {
-            if (tempSubgroupElect(subgroup_invocation_id))
-            {
-                let idx = atomicAdd(&workgroup_number_of_face_numbers, 1u);
-
-                workgroup_face_numbers[idx] = WorkgroupFaceData(maybe_face_number, this_px.x);
-            }
-
-            maybe_face_number = null_face_number;
+            thread_face_data.face_number = null_face_number;
         }
-    }
 
-    workgroupBarrier();
-
-    // // workgroup deduplication
-    // let starting_workgroup_idx = local_workgroup_index;
-    // let this_deduplication_value = workgroup_face_numbers[starting_workgroup_idx].face_number;
-
-    // if (this_deduplication_value != null_face_number)
-    // {
-    //     for (var scan_num: u32 = u32(1); scan_num < 64; scan_num++)
-    //     {
-    //         let scan_idx = (scan_num + starting_workgroup_idx) % 64;
-
-    //         if (workgroup_face_numbers[scan_idx].face_number == this_deduplication_value)
-    //         {
-    //             workgroup_face_numbers[scan_idx].face_number = null_face_number;
-    //         }
-    //     }
-    // }   
-
-    workgroupBarrier();
-
-    // global deduplication
-    let number_of_mostly_unique_face_numbers = atomicLoad(&workgroup_number_of_face_numbers);
-
-    for (var i = u32(0); i < number_of_mostly_unique_face_numbers; i++)
-    {
-       try_global_dedup_of_face_number_unchecked(workgroup_face_numbers[i].face_number, workgroup_face_numbers[i].other_packed_data);
     }
 }
 
@@ -111,8 +127,11 @@ fn tempSubgroupElect(subgroup_invocation_id: u32) -> bool
     return subgroupBroadcastFirst(subgroup_invocation_id) == subgroup_invocation_id;
 }
 
-fn try_global_dedup_of_face_number_unchecked(face_number: u32, pxx_data: u32)
+fn try_global_dedup_of_face_number_unchecked(face_data: WorkgroupFaceData)
 {
+    let face_number = face_data.face_number;
+    let pxx_data = face_data.other_packed_data;
+
     let chunk_id = pxx_data & u32(65535);
     let normal_id = (pxx_data >> 27) & u32(7);
 
