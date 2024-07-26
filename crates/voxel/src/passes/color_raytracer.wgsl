@@ -77,7 +77,9 @@ fn cs_main(
         res += vec4<f32>(ambient, 1.0);
 
         // TODO: do a 10bit alpha ignoring packing?
+        
         renderered_face_info[global_invocation_index].color = saturate(res);
+    
     }
 }
 

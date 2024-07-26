@@ -20,8 +20,7 @@ struct WorkgroupFaceData
     other_packed_data: u32,
 }
 
-var<workgroup> workgroup_subgroup_min_data: array<WorkgroupFaceData, 32>;
-var<workgroup> workgroup_working_min: WorkgroupFaceData;
+// var<workgroup> workgroup_subgroup_min_data: array<WorkgroupFaceData, 32>;
 
 @compute @workgroup_size(1024)
 fn cs_main(
@@ -52,71 +51,8 @@ fn cs_main(
         let thread_face_data_raw: vec2<u32> = textureLoad(voxel_discovery_image, sample_idx, 0).xy;
         thread_face_data = WorkgroupFaceData(thread_face_data_raw.y, thread_face_data_raw.x);
     }
-    workgroupBarrier();
 
-    // Each thread in our workgroup has a `thread_face_data` that's either null
-    // or contains data that we want
-
-    // The pseudocode looks as follows:
-    // We have a 32x32 workgroup grid that's somehow divided into subgroup
-    // arrays by the driver
-    // Take the min of each subgroup, and then take the min of each of those mins
-    // this gives us the minimum face_number in the entire workgroup in a few 
-    // subgroup ops.
-    // Write this global min to the global storage buffer, and then null all
-    // threads that have this value
-
-    for (var i = 0; i < 1024; i++)
-    {
-        let subgroup_min = subgroupMin(thread_face_data.face_number);
-
-        if (thread_face_data.face_number == subgroup_min) // at least one thread
-        {
-            if (tempSubgroupElect(subgroup_invocation_id)) // pick the lowest
-            {
-                workgroup_subgroup_min_data[subgroup_index_within_workgroup] = thread_face_data;
-            }
-        }
-
-        workgroupBarrier();
-
-        // we now have a workgrpup buffer with each subgroup's min value.
-        // use another subgroup op to find the minimum
-
-        // we only want the first subgroup here
-        let each_thread_subgroup_min = workgroup_subgroup_min_data[subgroup_invocation_id];
-        
-        let workgroup_min = subgroupMin(each_thread_subgroup_min.face_number);
-
-        if (each_thread_subgroup_min.face_number == workgroup_min) // at least one thread
-        {
-            if (subgroup_index_within_workgroup == 0 && tempSubgroupElect(subgroup_invocation_id)) // pick the lowest
-            {
-                workgroup_working_min = each_thread_subgroup_min;
-                
-                try_global_dedup_of_face_number_unchecked(each_thread_subgroup_min);
-            }
-        }            
-        
-        workgroupBarrier();
-        
-        if (workgroup_working_min.face_number == null_face_number)
-        {
-            // the min of all threads was null there are no more threads
-            break;
-        }
-
-        // now that we've done a global flush of the minimum value we may need to cleanup this
-        // thread's data if it was flushed
-        
-        // Ok, great! this thread's data was flushed away so we can make
-        // ourselves null now
-        if (workgroup_working_min.face_number == thread_face_data.face_number)
-        {
-            thread_face_data.face_number = null_face_number;
-        }
-
-    }
+    try_global_dedup_of_face_number_unchecked(thread_face_data);
 }
 
 fn tempSubgroupElect(subgroup_invocation_id: u32) -> bool
