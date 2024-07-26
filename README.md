@@ -1,5 +1,6 @@
 # Patinac: An experimental voxel renderer
 
-## Demonstration Video
+## Demonstration Video (encoded with H265, may not render on mobile)
 
-https://github.com/user-attachments/assets/fef9ec5b-d8bb-40db-94f5-374131303dce
+https://github.com/user-attachments/assets/fdd30f6d-44dc-4920-af96-5f1fc0883706
+
