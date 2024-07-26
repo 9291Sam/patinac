@@ -32,10 +32,8 @@ fn cs_main(
 
     let global_invocation_index = global_invocation_id.x;
 
-    let global_workgroup_index = global_invocation_index / 1024; // should be 64!
+    let global_workgroup_index = global_invocation_index / 1024;
     let local_workgroup_index = global_invocation_index % 1024;
-
-    let subgroup_index_within_workgroup = local_workgroup_index / 32;
 
     let global_workgroup_id = vec2u(
         global_workgroup_index % (output_image_dimensions.x / 32),
@@ -86,7 +84,7 @@ fn try_global_dedup_of_face_number_unchecked(face_data: WorkgroupFaceData)
         let combined_dir_and_pos = face_voxel_pos.x | (face_voxel_pos.y << 8) | (face_voxel_pos.z << 16) | (normal_id << 24);
         renderered_face_info[this_face_id] = RenderedFaceInfo(chunk_id, combined_dir_and_pos, vec4<f32>(0.0));
         
-        if (this_face_id % 64 == 0)
+        if (this_face_id % 256 == 0)
         {
             atomicAdd(&color_raytracer_dispatches[0], 1u);
         }

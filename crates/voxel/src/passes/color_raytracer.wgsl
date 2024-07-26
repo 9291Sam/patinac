@@ -14,7 +14,7 @@
 @group(0) @binding(0) var<uniform> global_info: GlobalInfo;
 
 
-@compute @workgroup_size(64)
+@compute @workgroup_size(256)
 fn cs_main(
     @builtin(global_invocation_id) global_invocation_id: vec3<u32>,
 ){ 
