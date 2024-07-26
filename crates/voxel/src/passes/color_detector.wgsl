@@ -26,13 +26,14 @@ var<workgroup> workgroup_number_of_face_numbers: atomic<u32>;
 @compute @workgroup_size(64)
 fn cs_main(
     @builtin(global_invocation_id) global_invocation_id: vec3<u32>,
+    @builtin(subgroup_size) subgroup_size: u32,
     @builtin(subgroup_invocation_id) subgroup_invocation_id: u32,
 ){
     let output_image_dimensions = textureDimensions(voxel_discovery_image).xy;
 
     let global_invocation_index = global_invocation_id.x;
 
-    let global_workgroup_index = global_invocation_index / 64;
+    let global_workgroup_index = global_invocation_index / 64; // should be 64!
     let local_workgroup_index = global_invocation_index % 64;
 
     let global_workgroup_id = vec2u(
@@ -52,6 +53,7 @@ fn cs_main(
         maybe_face_number = this_px.y;       
     }   
 
+    // subgroup deduplication
     loop
     {
         let min_face_number = subgroupMin(maybe_face_number);
@@ -76,23 +78,51 @@ fn cs_main(
 
     workgroupBarrier();
 
+    // // workgroup deduplication
+    // let starting_workgroup_idx = local_workgroup_index;
+    // let this_deduplication_value = workgroup_face_numbers[starting_workgroup_idx].face_number;
+
+    // if (this_deduplication_value != null_face_number)
+    // {
+    //     for (var scan_num: u32 = u32(1); scan_num < 64; scan_num++)
+    //     {
+    //         let scan_idx = (scan_num + starting_workgroup_idx) % 64;
+
+    //         if (workgroup_face_numbers[scan_idx].face_number == this_deduplication_value)
+    //         {
+    //             workgroup_face_numbers[scan_idx].face_number = null_face_number;
+    //         }
+    //     }
+    // }   
+
+    workgroupBarrier();
+
+    // global deduplication
     let number_of_mostly_unique_face_numbers = atomicLoad(&workgroup_number_of_face_numbers);
 
     for (var i = u32(0); i < number_of_mostly_unique_face_numbers; i++)
     {
         let face_number = workgroup_face_numbers[i].face_number;
+
+        if (face_number == null_face_number)
+        {
+            continue;
+        }
+
         let pxx_data = workgroup_face_numbers[i].other_packed_data;
 
         let chunk_id = pxx_data & u32(65535);
         let normal_id = (pxx_data >> 27) & u32(7);
 
         let face_voxel_pos = voxel_face_data_load(face_number);
-        let face_number_index = face_number / 32;
-        let face_number_bit = face_number % 32;
+        // let face_number_index = face_number / 32;
+        // let face_number_bit = face_number % 32;
 
-        let mask = (1u << face_number_bit);
-        let prev = atomicOr(&is_face_number_visible_bool[face_number_index], mask);
-        let is_first_write = (prev & mask) == 0u;
+        // let mask = (1u << face_number_bit);
+        // let prev = atomicOr(&is_face_number_visible_bool[face_number_index], mask);
+        // let is_first_write = (prev & mask) == 0u; // this load is the slow bit
+
+        let is_first_write = atomicExchange(&is_face_number_visible_bool[face_number], 1u) == 0u;
 
         if (is_first_write)
         {
