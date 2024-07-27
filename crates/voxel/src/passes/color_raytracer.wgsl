@@ -76,7 +76,7 @@ fn cs_main(
         let real_specular_color = exp_strength_falloff(sum_specular_strength) * material_buffer[voxel].specular_color.xyz;
         let real_ambient_color = 0.005 * vec3<f32>(1.0);
 
-        let real_max_color = real_ambient_color + real_diffuse_color + real_specular_color; 
+        let real_max_color = saturate(real_ambient_color + real_diffuse_color + real_specular_color); 
         // max(
         //     real_ambient_color,
         //     max(

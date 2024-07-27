@@ -1,11 +1,15 @@
 use std::borrow::Cow;
-use std::sync::Arc;
+use std::fmt::Debug;
+use std::ops::Mul;
+use std::sync::atomic::Ordering;
+use std::sync::{Arc, Mutex};
 
 use dot_vox::DotVoxData;
 use gfx::glm::{self};
 use itertools::iproduct;
 use noise::NoiseFn;
 use rand::Rng;
+use voxel::PointLight;
 
 use crate::recordables::skybox::Skybox;
 use crate::voxel_world::{VoxelWorld, WorldPosition};
@@ -21,6 +25,14 @@ pub struct DemoScene
     _skybox:        Arc<Skybox>
 }
 unsafe impl Sync for DemoScene {}
+
+impl Debug for DemoScene
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
+    {
+        write!(f, "DemoScene")
+    }
+}
 
 impl DemoScene
 {
@@ -42,7 +54,7 @@ impl DemoScene
 
             let it = iproduct!(-32..32, -32..32).map(|(x, z)| {
                 (
-                    WorldPosition(glm::I32Vec3::new(x, 32, z)),
+                    WorldPosition(glm::I32Vec3::new(x, 50, z)),
                     rand::thread_rng().gen_range(15..=18).try_into().unwrap()
                 )
             });
@@ -74,7 +86,7 @@ impl DemoScene
             gfx::Camera::new(glm::Vec3::new(-173.0, 184.0, -58.0), 0.218903, 0.748343)
         );
 
-        camera_updater.update(player.get_camera());
+        camera_updater.update(player.get_player_vision_camera());
 
         let this = Arc::new(DemoScene {
             world,
@@ -85,6 +97,7 @@ impl DemoScene
         });
 
         game.register(this.clone());
+        game.get_renderer().register(this.clone());
 
         this
     }
@@ -127,12 +140,75 @@ impl game::Entity for DemoScene
 
     fn tick(&self, _: &game::Game, _: game::TickTag)
     {
-        let camera = self.player.get_camera();
-
         self.world
-            .update_with_camera_position(camera.get_position());
+            .update_with_camera_position(self.player.get_collider_position());
 
-        self.camera_updater.update(camera);
+        self.camera_updater
+            .update(self.player.get_player_vision_camera());
+    }
+}
+
+impl gfx::Recordable for DemoScene
+{
+    fn get_name(&self) -> Cow<'_, str>
+    {
+        Cow::Borrowed("Demo Scene")
+    }
+
+    fn get_uuid(&self) -> util::Uuid
+    {
+        self.id
+    }
+
+    fn pre_record_update(
+        &self,
+        encoder: &mut gfx::wgpu::CommandEncoder,
+        renderer: &gfx::Renderer,
+        camera: &gfx::Camera,
+        global_bind_group: &Arc<gfx::wgpu::BindGroup>
+    ) -> gfx::RecordInfo
+    {
+        static TIME_ALIVE: util::AtomicF32 = util::AtomicF32::new(0.0);
+        const MAX_LIGHTS: usize = 256;
+        const RADIUS: usize = 256;
+
+        static LIGHTS: Mutex<[PointLight; MAX_LIGHTS]> = Mutex::new(
+            [PointLight {
+                position:        glm::Vec4::new(0.0, 0.0, 0.0, 0.0),
+                color_and_power: glm::Vec4::new(0.0, 0.0, 0.0, 0.0),
+                falloffs:        glm::Vec4::new(0.0, 0.0, 1.0, 0.00)
+            }; MAX_LIGHTS]
+        );
+
+        let lights: &mut [PointLight; MAX_LIGHTS] = &mut LIGHTS.lock().unwrap();
+
+        let time_alive = TIME_ALIVE.load(Ordering::Acquire);
+
+        for (idx, l) in lights.iter_mut().enumerate()
+        {
+            let percent_around = (idx as f32) / (MAX_LIGHTS as f32);
+            let angle = percent_around * std::f32::consts::PI * 2.0;
+
+            l.color_and_power = glm::Vec4::new(1.0, 1.0, 1.0, idx as f32 * idx as f32);
+
+            l.position = glm::Vec4::new(
+                angle.sin() * ((8.0 * angle + time_alive).cos().mul(120.0) + RADIUS as f32),
+                13.0,
+                angle.cos() * ((8.0 * angle + time_alive).cos().mul(120.0) + RADIUS as f32),
+                0.0
+            );
+        }
+
+        TIME_ALIVE.aba_add(renderer.get_delta_time(), Ordering::SeqCst);
+
+        self.world.write_lights(lights);
+
+        gfx::RecordInfo::NoRecord
+    }
+
+    fn record<'s>(&'s self, _: &mut gfx::GenericPass<'s>, _: Option<gfx::DrawId>)
+    {
+        unreachable!()
     }
 }
 
@@ -170,7 +246,7 @@ fn arbitrary_landscape_demo(world: &VoxelWorld)
 
 fn flat_demo(world: &VoxelWorld)
 {
-    let it = spiral::ChebyshevIterator::new(0, 0, 1024).map(|(x, z)| {
+    let it = spiral::ChebyshevIterator::new(0, 0, 444).map(|(x, z)| {
         (
             WorldPosition(glm::I32Vec3::new(x, 0, z)),
             rand::thread_rng().gen_range(15..=18).try_into().unwrap()

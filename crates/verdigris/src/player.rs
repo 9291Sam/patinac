@@ -8,6 +8,10 @@ use rapier3d::geometry::{Collider, ColliderBuilder, ColliderSet};
 use rapier3d::prelude::RigidBody;
 use util::AtomicF32;
 
+const PLAYER_HEIGHT: f32 = 48.0;
+const PLAYER_CAMERA_HEIGHT: f32 = 40.0;
+
+#[derive(Debug)]
 pub struct Player
 {
     uuid: util::Uuid,
@@ -35,9 +39,22 @@ impl Player
         this
     }
 
-    pub fn get_camera(&self) -> gfx::Camera
+    pub fn get_player_vision_camera(&self) -> gfx::Camera
     {
-        self.camera.lock().unwrap().clone()
+        let mut c = self.camera.lock().unwrap().clone();
+
+        c.add_position(glm::Vec3::new(
+            0.0,
+            PLAYER_CAMERA_HEIGHT - (PLAYER_HEIGHT / 2.0),
+            0.0
+        ));
+
+        c
+    }
+
+    pub fn get_collider_position(&self) -> glm::Vec3
+    {
+        self.camera.lock().unwrap().get_position()
     }
 }
 
@@ -110,7 +127,7 @@ impl game::Collideable for Player
                 .lock_rotations()
                 .build(),
             vec![
-                ColliderBuilder::capsule_y(24.0, 0.55)
+                ColliderBuilder::capsule_y(PLAYER_HEIGHT / 2.0, 0.55)
                     .mass(1.0)
                     .contact_skin(0.2)
                     .friction(0.15)

@@ -2,7 +2,7 @@ use core::f32;
 use std::borrow::Cow;
 use std::fmt::Debug;
 use std::hash::Hash;
-use std::ops::{Add, Mul};
+use std::ops::Mul;
 use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, Weak};
 
@@ -10,7 +10,6 @@ use bytemuck::{bytes_of, cast_slice, Pod, Zeroable};
 use fnv::FnvHashSet;
 use gfx::wgpu::util::DeviceExt;
 use gfx::{glm, wgpu};
-use rand::Rng;
 
 use crate::data::{self, BrickMap, MaterialManager, MaybeBrickPtr};
 use crate::suballocated_buffer::{SubAllocatedCpuTrackedBuffer, SubAllocatedCpuTrackedDenseSet};
@@ -1064,44 +1063,6 @@ impl gfx::Recordable for ChunkPool
         global_bind_group: &std::sync::Arc<gfx::wgpu::BindGroup>
     ) -> gfx::RecordInfo
     {
-        static TIME_ALIVE: util::AtomicF32 = util::AtomicF32::new(0.0);
-        const MAX_LIGHTS: usize = 256;
-        const RADIUS: usize = 256;
-
-        static LIGHTS: Mutex<[PointLight; MAX_LIGHTS]> = Mutex::new(
-            [PointLight {
-                position:        glm::Vec4::new(0.0, 0.0, 0.0, 0.0),
-                color_and_power: glm::Vec4::new(0.0, 0.0, 0.0, 0.0),
-                falloffs:        glm::Vec4::new(0.0, 0.0, 0.02, 0.01)
-            }; MAX_LIGHTS]
-        );
-
-        let lights: &mut [PointLight; MAX_LIGHTS] = &mut LIGHTS.lock().unwrap();
-
-        if TIME_ALIVE.load(Ordering::Acquire) < 0.0001
-        {
-            for (idx, l) in lights.iter_mut().enumerate()
-            {
-                let percent_around = (idx as f32) / (MAX_LIGHTS as f32);
-                let angle = percent_around * f32::consts::PI * 2.0;
-
-                l.color_and_power = glm::Vec4::new(1.0, 1.0, 1.0, idx as f32);
-
-                l.falloffs.y = 10.0; // rand::thread_rng().gen_range(.0..5.0);
-
-                l.position = glm::Vec4::new(
-                    angle.sin() * ((8.0 * angle).cos().mul(120.0) + RADIUS as f32),
-                    13.0,
-                    angle.cos() * ((8.0 * angle).cos().mul(120.0) + RADIUS as f32),
-                    0.0
-                );
-            }
-        }
-
-        TIME_ALIVE.aba_add(renderer.get_delta_time(), Ordering::SeqCst);
-
-        self.write_lights(&*lights);
-
         let ChunkPoolCriticalSection {
             active_chunk_ids,
             brick_maps,
