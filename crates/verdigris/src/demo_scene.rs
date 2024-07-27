@@ -33,10 +33,17 @@ impl DemoScene
         util::run_async(move || {
             let w = world2;
 
-            let it = iproduct!(0..64, 0..64, 0..64).map(|(x, y, z)| {
+            // let it = iproduct!(0..64, 0..64, 0..64).map(|(x, y, z)| {
+            //     (
+            //         WorldPosition(glm::I32Vec3::new(x + 1, y + 1, z + 1)),
+            //         rand::thread_rng().gen_range(12..=14).try_into().unwrap()
+            //     )
+            // });
+
+            let it = iproduct!(-32..32, -32..32).map(|(x, z)| {
                 (
-                    WorldPosition(glm::I32Vec3::new(x + 1, y + 1, z + 1)),
-                    rand::thread_rng().gen_range(12..=14).try_into().unwrap()
+                    WorldPosition(glm::I32Vec3::new(x, 32, z)),
+                    rand::thread_rng().gen_range(15..=18).try_into().unwrap()
                 )
             });
 
@@ -44,15 +51,17 @@ impl DemoScene
 
             w.flush_all_voxel_updates();
 
-            load_model_from_file_into(
-                glm::I32Vec3::new(0, 126, 0),
-                &w,
-                &dot_vox::load_bytes(include_bytes!("../../../models/menger.vox")).unwrap()
-            );
+            // load_model_from_file_into(
+            //     glm::I32Vec3::new(0, 126, 0),
+            //     &w,
+            //     &dot_vox::load_bytes(include_bytes!("../../../models/menger.vox")).
+            // unwrap() );
 
             w.flush_all_voxel_updates();
 
-            arbitrary_landscape_demo(&w);
+            // arbitrary_landscape_demo(&w);
+
+            flat_demo(&w);
 
             // pool2.build_collision_info()
 
@@ -153,6 +162,18 @@ fn arbitrary_landscape_demo(world: &VoxelWorld)
                 z
             )),
             rand::thread_rng().gen_range(1..=11).try_into().unwrap()
+        )
+    });
+
+    world.write_many_voxel(it);
+}
+
+fn flat_demo(world: &VoxelWorld)
+{
+    let it = spiral::ChebyshevIterator::new(0, 0, 1024).map(|(x, z)| {
+        (
+            WorldPosition(glm::I32Vec3::new(x, 0, z)),
+            voxel::Voxel::SilverMeta0
         )
     });
 

@@ -410,6 +410,8 @@ impl Renderer
             ]
         }));
 
+        window.set_fullscreen(Some(winit::window::Fullscreen::Borderless(None)));
+
         // Because of a bug in winit, the first resize command that comes in is borked
         // on Windows https://github.com/rust-windowing/winit/issues/2094
         // we want to skip the first resize event

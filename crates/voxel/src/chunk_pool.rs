@@ -1,3 +1,4 @@
+use core::f32;
 use std::borrow::Cow;
 use std::fmt::Debug;
 use std::hash::Hash;
@@ -1063,42 +1064,40 @@ impl gfx::Recordable for ChunkPool
     ) -> gfx::RecordInfo
     {
         static TIME_ALIVE: util::AtomicF32 = util::AtomicF32::new(0.0);
-        static LIGHTS: Mutex<[PointLight; 4096]> = Mutex::new(
+        const MAX_LIGHTS: usize = 256;
+        const RADIUS: usize = 512;
+
+        static LIGHTS: Mutex<[PointLight; MAX_LIGHTS]> = Mutex::new(
             [PointLight {
                 position:        glm::Vec4::new(0.0, 0.0, 0.0, 0.0),
                 color_and_power: glm::Vec4::new(0.0, 0.0, 0.0, 0.0),
                 falloffs:        glm::Vec4::new(0.0, 0.0, 0.02, 0.01)
-            }; 4096]
+            }; MAX_LIGHTS]
         );
 
-        let lights: &mut [PointLight; 4096] = &mut LIGHTS.lock().unwrap();
+        let lights: &mut [PointLight; MAX_LIGHTS] = &mut LIGHTS.lock().unwrap();
 
         if TIME_ALIVE.load(Ordering::Acquire) < 0.0001
         {
-            for l in lights.iter_mut()
+            for (idx, l) in lights.iter_mut().enumerate()
             {
-                l.color_and_power = glm::Vec4::new(
-                    rand::thread_rng().gen_range(0.0..1.0),
-                    rand::thread_rng().gen_range(0.0..1.0),
-                    rand::thread_rng().gen_range(0.0..1.0),
-                    rand::thread_rng().gen_range(7.0..27.0)
-                );
+                let percent_around = (idx as f32) / (MAX_LIGHTS as f32);
+                let angle = percent_around * f32::consts::PI * 2.0;
 
-                l.falloffs.y = 0.01; // rand::thread_rng().gen_range(.0..5.0);
+                l.color_and_power = glm::Vec4::new(1.0, 1.0, 1.0, idx as f32);
+
+                l.falloffs.y = 1.0; // rand::thread_rng().gen_range(.0..5.0);
+
+                l.position = glm::Vec4::new(
+                    angle.sin() * RADIUS as f32,
+                    3.0,
+                    angle.cos() * RADIUS as f32,
+                    0.0
+                );
             }
         }
 
         TIME_ALIVE.aba_add(renderer.get_delta_time(), Ordering::SeqCst);
-
-        for l in lights.iter_mut()
-        {
-            l.position += glm::Vec4::new(
-                renderer.get_delta_time() * rand::thread_rng().gen_range(-512.0..512.0),
-                renderer.get_delta_time() * rand::thread_rng().gen_range(-128.0..128.0),
-                renderer.get_delta_time() * rand::thread_rng().gen_range(-512.0..512.0),
-                0.0
-            );
-        }
 
         self.write_lights(&*lights);
 
