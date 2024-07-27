@@ -148,7 +148,8 @@ impl gfx::Recordable for DebugMenu
         _: &mut wgpu::CommandEncoder,
         renderer: &gfx::Renderer,
         camera: &gfx::Camera,
-        _: &std::sync::Arc<gfx::wgpu::BindGroup>
+        _: &std::sync::Arc<gfx::wgpu::BindGroup>,
+        _: &wgpu::SurfaceTexture
     ) -> gfx::RecordInfo
     {
         let DebugMenuCriticalSection {

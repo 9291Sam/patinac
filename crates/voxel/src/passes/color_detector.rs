@@ -98,7 +98,8 @@ impl gfx::Recordable for ColorDetectorRecordable
         _: &mut wgpu::CommandEncoder,
         _: &gfx::Renderer,
         _: &gfx::Camera,
-        _: &std::sync::Arc<gfx::wgpu::BindGroup>
+        _: &std::sync::Arc<gfx::wgpu::BindGroup>,
+        _: &wgpu::SurfaceTexture
     ) -> gfx::RecordInfo
     {
         gfx::RecordInfo::Record {

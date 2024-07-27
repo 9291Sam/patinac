@@ -49,7 +49,8 @@ pub trait Recordable: Debug + Send + Sync
         encoder: &mut wgpu::CommandEncoder,
         renderer: &Renderer,
         camera: &Camera,
-        global_bind_group: &Arc<wgpu::BindGroup>
+        global_bind_group: &Arc<wgpu::BindGroup>,
+        screen_texture: &wgpu::SurfaceTexture
     ) -> RecordInfo;
 
     fn record<'s>(&'s self, render_pass: &mut GenericPass<'s>, maybe_id: Option<DrawId>);

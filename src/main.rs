@@ -49,6 +49,7 @@ fn main()
         {
             let _verdigris = verdigris::DemoScene::new(game.clone(), camera_updater);
             let _debug_menu = gui::DebugMenu::new(&renderer, game.clone());
+            // let _crosshair = gui::Crosshair::new(game.clone());
 
             let game_tick = game.clone();
             let game_continue = should_loops_continue.clone();

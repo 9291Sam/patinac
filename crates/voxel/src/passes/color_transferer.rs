@@ -123,7 +123,8 @@ impl gfx::Recordable for VoxelColorTransferRecordable
         _: &mut wgpu::CommandEncoder,
         _: &gfx::Renderer,
         _: &gfx::Camera,
-        global_bind_group: &Arc<wgpu::BindGroup>
+        global_bind_group: &Arc<wgpu::BindGroup>,
+        _: &wgpu::SurfaceTexture
     ) -> gfx::RecordInfo
     {
         gfx::RecordInfo::Record {

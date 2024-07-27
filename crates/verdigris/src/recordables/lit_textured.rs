@@ -330,7 +330,8 @@ impl gfx::Recordable for LitTextured
         _: &mut wgpu::CommandEncoder,
         _: &gfx::Renderer,
         _: &gfx::Camera,
-        global_bind_group: &Arc<wgpu::BindGroup>
+        global_bind_group: &Arc<wgpu::BindGroup>,
+        _: &gfx::wgpu::SurfaceTexture
     ) -> gfx::RecordInfo
     {
         gfx::RecordInfo::Record {

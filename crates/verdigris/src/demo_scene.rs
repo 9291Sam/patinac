@@ -165,7 +165,8 @@ impl gfx::Recordable for DemoScene
         encoder: &mut gfx::wgpu::CommandEncoder,
         renderer: &gfx::Renderer,
         camera: &gfx::Camera,
-        global_bind_group: &Arc<gfx::wgpu::BindGroup>
+        global_bind_group: &Arc<gfx::wgpu::BindGroup>,
+        _: &gfx::wgpu::SurfaceTexture
     ) -> gfx::RecordInfo
     {
         static TIME_ALIVE: util::AtomicF32 = util::AtomicF32::new(0.0);

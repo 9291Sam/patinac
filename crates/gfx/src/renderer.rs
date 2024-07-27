@@ -173,7 +173,8 @@ impl Renderer
                         | wgpu::Features::POLYGON_MODE_LINE
                         | wgpu::Features::MULTI_DRAW_INDIRECT
                         | wgpu::Features::INDIRECT_FIRST_INSTANCE
-                        | wgpu::Features::SUBGROUP,
+                        | wgpu::Features::SUBGROUP
+                        | wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES,
                     required_limits:   adapter.limits()
                 },
                 None
@@ -508,7 +509,8 @@ impl Renderer
                                     &mut encoder,
                                     self,
                                     &camera,
-                                    &global_bind_group
+                                    &global_bind_group,
+                                    &screen_texture
                                 ),
                                 strong
                             ))

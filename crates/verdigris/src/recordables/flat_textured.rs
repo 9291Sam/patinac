@@ -276,7 +276,8 @@ impl gfx::Recordable for FlatTextured
         _: &mut wgpu::CommandEncoder,
         renderer: &gfx::Renderer,
         _: &gfx::Camera,
-        global_bind_group: &Arc<wgpu::BindGroup>
+        global_bind_group: &Arc<wgpu::BindGroup>,
+        _: &gfx::wgpu::SurfaceTexture
     ) -> gfx::RecordInfo
     {
         let time_alive = {

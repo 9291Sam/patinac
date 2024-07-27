@@ -457,7 +457,8 @@ impl gfx::Recordable for Skybox
         _: &mut wgpu::CommandEncoder,
         renderer: &gfx::Renderer,
         camera: &gfx::Camera,
-        global_bind_group: &Arc<wgpu::BindGroup>
+        global_bind_group: &Arc<wgpu::BindGroup>,
+        _: &gfx::wgpu::SurfaceTexture
     ) -> gfx::RecordInfo
     {
         let time_alive = {

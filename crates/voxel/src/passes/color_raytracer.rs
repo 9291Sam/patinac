@@ -92,7 +92,8 @@ impl gfx::Recordable for ColorRaytracerRecordable
         _: &mut wgpu::CommandEncoder,
         _: &gfx::Renderer,
         _: &gfx::Camera,
-        global_bind_group: &std::sync::Arc<gfx::wgpu::BindGroup>
+        global_bind_group: &std::sync::Arc<gfx::wgpu::BindGroup>,
+        _: &wgpu::SurfaceTexture
     ) -> gfx::RecordInfo
     {
         gfx::RecordInfo::Record {
