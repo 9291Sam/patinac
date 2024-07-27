@@ -2,6 +2,7 @@ use core::f32;
 use std::borrow::Cow;
 use std::fmt::Debug;
 use std::hash::Hash;
+use std::ops::{Add, Mul};
 use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, Weak};
 
@@ -1065,7 +1066,7 @@ impl gfx::Recordable for ChunkPool
     {
         static TIME_ALIVE: util::AtomicF32 = util::AtomicF32::new(0.0);
         const MAX_LIGHTS: usize = 256;
-        const RADIUS: usize = 512;
+        const RADIUS: usize = 256;
 
         static LIGHTS: Mutex<[PointLight; MAX_LIGHTS]> = Mutex::new(
             [PointLight {
@@ -1086,12 +1087,12 @@ impl gfx::Recordable for ChunkPool
 
                 l.color_and_power = glm::Vec4::new(1.0, 1.0, 1.0, idx as f32);
 
-                l.falloffs.y = 1.0; // rand::thread_rng().gen_range(.0..5.0);
+                l.falloffs.y = 10.0; // rand::thread_rng().gen_range(.0..5.0);
 
                 l.position = glm::Vec4::new(
-                    angle.sin() * RADIUS as f32,
-                    3.0,
-                    angle.cos() * RADIUS as f32,
+                    angle.sin() * ((8.0 * angle).cos().mul(120.0) + RADIUS as f32),
+                    13.0,
+                    angle.cos() * ((8.0 * angle).cos().mul(120.0) + RADIUS as f32),
                     0.0
                 );
             }

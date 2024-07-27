@@ -105,6 +105,39 @@ struct PointLight
     falloffs: vec4<f32>
 }
 
+struct CalculatedLightPower
+{
+    diffuse_strength: vec3<f32>,
+    specular_strength: vec3<f32>,
+}
+
+fn calculate_light_power(
+    camera_position: vec3<f32>,
+    voxel_position: vec3<f32>,
+    voxel_normal: vec3<f32>,
+    light: PointLight,
+    specular_power: f32,
+) -> CalculatedLightPower
+{
+    var to_light_vector = light.position.xyz - voxel_position;
+    let to_light_distance = length(to_light_vector);
+    to_light_vector /= to_light_distance;
+
+    let view_vector = normalize(camera_position - voxel_position);
+    let reflect_vector = 2.0 * dot(to_light_vector, voxel_normal) * voxel_normal - to_light_vector;
+
+    let attenuation = 1.0 / (
+        light.falloffs.x +
+        light.falloffs.y * to_light_distance +
+        light.falloffs.z * to_light_distance * to_light_distance +
+        light.falloffs.w * to_light_distance * to_light_distance * to_light_distance);
+
+    let diffuse_strength: vec3<f32> = dot(voxel_normal, to_light_vector) * light.color_and_power.xyz * light.color_and_power.w * attenuation;
+    let specular_strength: vec3<f32> = pow(saturate(dot(reflect_vector, view_vector)), specular_power) * light.color_and_power.xyz * light.color_and_power.w * attenuation;
+
+    return CalculatedLightPower(diffuse_strength, specular_strength);
+}
+
 fn calculate_single_face_color(
     camera_pos: vec3<f32>,
     pos: vec3<f32>,

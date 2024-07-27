@@ -55,32 +55,42 @@ fn cs_main(
         let brick_ptr = brick_map_load(chunk_id, brick_coordinate);
         let voxel = material_bricks_load(brick_ptr, brick_local_coordinate);
 
-        var res = vec4<f32>(0.0);
+        var sum_diffuse_strength = vec3<f32>(0.0);
+        var sum_specular_strength = vec3<f32>(0.0);
 
         for (var i: u32 = 0; i < point_light_number; i++)
         {
-            res += vec4<f32>(calculate_single_face_color(
-                global_info.camera_pos.xyz,
+            let res = calculate_light_power(
+                global_info.camera_pos.xyz, 
                 global_face_voxel_position,
                 normal,
-                voxel,
                 point_lights[i],
-            ), 1.0);
+                material_buffer[voxel].specular
+            );
+            
+            sum_diffuse_strength += res.diffuse_strength;
+            sum_specular_strength += res.specular_strength;
         }
 
+        let real_diffuse_color = exp_strength_falloff(sum_diffuse_strength) * material_buffer[voxel].diffuse_color.xyz;
+        let real_specular_color = exp_strength_falloff(sum_specular_strength) * material_buffer[voxel].specular_color.xyz;
+        let real_ambient_color = 0.005 * vec3<f32>(1.0);
+
+        let real_max_color = real_ambient_color + real_diffuse_color + real_specular_color; 
+        // max(
+        //     real_ambient_color,
+        //     max(
+        //         real_diffuse_color,
+        //         real_specular_color
+        //     )
+        // );
         
-        let ambient_strength = 0.005;
-        let ambient_color = vec3<f32>(1.0);
-
-        let ambient = ambient_strength * ambient_color;
-
-        res += vec4<f32>(ambient, 1.0);
-
-        // TODO: do a 10bit alpha ignoring packing?
-        
-        renderered_face_info[global_invocation_index].color = saturate(res);
+        renderered_face_info[global_invocation_index].color = vec4<f32>(real_max_color, 1.0);
     
     }
 }
 
-
+fn exp_strength_falloff(strength: vec3<f32>) -> vec3<f32>
+{
+    return 1.0 - exp2(-0.25 * strength);
+}

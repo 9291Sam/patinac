@@ -173,7 +173,7 @@ fn flat_demo(world: &VoxelWorld)
     let it = spiral::ChebyshevIterator::new(0, 0, 1024).map(|(x, z)| {
         (
             WorldPosition(glm::I32Vec3::new(x, 0, z)),
-            voxel::Voxel::SilverMeta0
+            rand::thread_rng().gen_range(15..=18).try_into().unwrap()
         )
     });
 
