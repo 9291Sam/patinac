@@ -20,8 +20,6 @@ struct WorkgroupFaceData
     other_packed_data: u32,
 }
 
-// var<workgroup> workgroup_subgroup_min_data: array<WorkgroupFaceData, 32>;
-
 @compute @workgroup_size(32, 32)
 fn cs_main(
     @builtin(global_invocation_id) global_invocation_id: vec3<u32>

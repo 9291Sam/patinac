@@ -52,14 +52,14 @@ impl DemoScene
             //     )
             // });
 
-            let it = iproduct!(-32..32, -32..32).map(|(x, z)| {
-                (
-                    WorldPosition(glm::I32Vec3::new(x, 50, z)),
-                    rand::thread_rng().gen_range(15..=18).try_into().unwrap()
-                )
-            });
+            // let it = iproduct!(-32..32, -32..32).map(|(x, z)| {
+            //     (
+            //         WorldPosition(glm::I32Vec3::new(x, 50, z)),
+            //         rand::thread_rng().gen_range(15..=18).try_into().unwrap()
+            //     )
+            // });
 
-            w.write_many_voxel(it);
+            // w.write_many_voxel(it);
 
             w.flush_all_voxel_updates();
 
@@ -71,7 +71,7 @@ impl DemoScene
 
             w.flush_all_voxel_updates();
 
-            // arbitrary_landscape_demo(&w);
+            arbitrary_landscape_demo(&w);
 
             flat_demo(&w);
 
@@ -194,7 +194,7 @@ impl gfx::Recordable for DemoScene
 
             l.position = glm::Vec4::new(
                 angle.sin() * ((8.0 * angle + time_alive).cos().mul(120.0) + RADIUS as f32),
-                13.0,
+                48.0,
                 angle.cos() * ((8.0 * angle + time_alive).cos().mul(120.0) + RADIUS as f32),
                 0.0
             );
@@ -229,7 +229,7 @@ fn arbitrary_landscape_demo(world: &VoxelWorld)
 {
     let noise = noise::OpenSimplex::new(2384247834);
 
-    let it = spiral::ChebyshevIterator::new(0, 0, 512).map(|(x, z)| {
+    let it = spiral::ChebyshevIterator::new(0, 0, 1400).map(|(x, z)| {
         (
             WorldPosition(glm::I32Vec3::new(
                 x,

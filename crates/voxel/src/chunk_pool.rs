@@ -26,9 +26,9 @@ use crate::{
 };
 
 ////! some of these are hardcoded into shaders
-const MAX_CHUNKS: usize = 256;
-const BRICKS_TO_PREALLOCATE: usize = CHUNK_EDGE_LEN_BRICKS * CHUNK_EDGE_LEN_BRICKS * MAX_CHUNKS * 4;
-const FACES_TO_PREALLOCATE: usize = 1024 * 1024 * 16;
+const MAX_CHUNKS: usize = 512;
+const BRICKS_TO_PREALLOCATE: usize = CHUNK_EDGE_LEN_BRICKS * CHUNK_EDGE_LEN_BRICKS * MAX_CHUNKS * 2;
+const FACES_TO_PREALLOCATE: usize = 1024 * 1024 * 64;
 
 // chunks. bricks. faces
 
